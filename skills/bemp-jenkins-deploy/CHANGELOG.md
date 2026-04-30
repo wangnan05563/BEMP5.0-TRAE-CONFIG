@@ -1,0 +1,81 @@
+# 变更日志
+
+所有重要变更均记录在此文件中。
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
+
+---
+
+## [5.0.0] - 2026-04-26
+
+### 变更
+
+- **配置内联化**: 所有配置直接定义在Jenkinsfile的environment块中，不再从外部YAML文件加载
+- **bemp-deploy.yml**: 改为纯参考文档，不参与运行时加载
+- **参数名统一**:
+  - `SKIP_TOMCAT` → `SKIP_BEMP_SERVED`（与实际脚本对齐）
+  - `SKIP_CHECKOUT` → `SKIP_CODE_PULL`（与实际脚本对齐）
+- **阶段编号修正**: 后端流水线从"10个阶段"修正为实际"8个阶段"（1-6, 8-10，阶段7已移除）
+- **bemp-served启动方式**: 统一为 `start /b java` + 显式设置JAVA_HOME（与实际脚本对齐）
+- **备份方式**: 后端使用zip压缩备份（与实际脚本对齐），前端使用zip压缩备份
+- **配置文件引用**: 移除不存在的env-config.yml和pipeline-config.yml引用
+
+### 修正
+
+- SKILL.md: 阶段编号、参数名、配置文件引用与实际脚本对齐
+- config/pipeline-parameters.yml: 参数名与Jenkinsfile对齐
+- config/bemp-deploy.yml: 补充CONFIG_REPLACE等缺失配置项
+- config/README.md: 配置文件引用与实际目录对齐
+- docs/index.md: 目录结构与实际对齐
+- docs/getting-started/quick-start.md: 阶段编号、参数名对齐
+- docs/user-guide/usage.md: 配置方式改为environment块直接编辑
+- docs/references/service-startup-templates.md: bemp-served启动方式与实际脚本对齐
+- docs/references/error-handling-rollback.md: 备份方式与实际脚本对齐
+- docs/references/jenkins-pipeline-syntax.md: 参数名与实际脚本对齐
+- docs/references/jenkins-mcp-guide.md: 参数名与实际脚本对齐
+- docs/troubleshooting/faq.md: 参数名与实际脚本对齐
+- docs/troubleshooting/known-issues.md: 新增v5.0.0修复记录
+- docs/troubleshooting/index.md: 阶段名称与实际脚本对齐
+- scripts/cleanup-backups.ps1: 支持目录备份和文件备份两种模式
+
+---
+
+## [4.0.0] - 2026-04-26
+
+### 变更
+
+- 目录结构重组：config/、assets/、scripts/、docs/ 四级结构
+- 文档整合：FAQ精简分类
+- 配置文件合并为bemp-deploy.yml
+
+---
+
+## [3.0.0] - 2026-04-25
+
+### 变更
+
+- 前端参数提取为parameters块
+- 配置校验增强
+
+---
+
+## [2.0.0] - 2026-04-24
+
+### 变更
+
+- 配置外部化为YAML文件
+- MD5校验优化（使用正则提取）
+
+---
+
+## [1.0.0] - 2026-04-23
+
+### 新增
+
+- 初始版本
+- 后端8阶段Pipeline脚本
+- 前端6阶段Pipeline脚本
+- SonarQube代码质量门禁
+- 服务自动启动（Redis/Zookeeper/bemp-served）
+- Windows UTF-8编码支持
+- Jenkins MCP接口集成

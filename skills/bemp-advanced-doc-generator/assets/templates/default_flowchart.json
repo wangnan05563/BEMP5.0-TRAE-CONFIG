@@ -1,0 +1,103 @@
+{
+  "name": "default_flowchart",
+  "type": "flowchart",
+  "version": "1.0.0",
+  "description": "默认流程图模板",
+  "style": {
+    "theme": "default",
+    "fontFamily": "Microsoft YaHei, SimSun, sans-serif",
+    "fontSize": 14,
+    "lineHeight": 1.5,
+    "color": {
+      "text": "#333333",
+      "background": "#ffffff",
+      "border": "#cccccc"
+    },
+    "layout": {
+      "spacing": 40,
+      "horizontalSpacing": 60,
+      "verticalSpacing": 80
+    }
+  },
+  "shapes": {
+    "start": {
+      "type": "ellipse",
+      "style": {
+        "borderColor": "#1e88e5",
+        "backgroundColor": "#e3f2fd",
+        "borderWidth": 2
+      }
+    },
+    "end": {
+      "type": "ellipse",
+      "style": {
+        "borderColor": "#e53935",
+        "backgroundColor": "#ffebee",
+        "borderWidth": 2
+      }
+    },
+    "process": {
+      "type": "rectangle",
+      "style": {
+        "borderColor": "#42a5f5",
+        "backgroundColor": "#ffffff",
+        "borderWidth": 1,
+        "cornerRadius": 4
+      }
+    },
+    "decision": {
+      "type": "diamond",
+      "style": {
+        "borderColor": "#ffca28",
+        "backgroundColor": "#fff9c4",
+        "borderWidth": 1
+      }
+    },
+    "input": {
+      "type": "parallelogram",
+      "style": {
+        "borderColor": "#66bb6a",
+        "backgroundColor": "#e8f5e9",
+        "borderWidth": 1
+      }
+    },
+    "output": {
+      "type": "parallelogram",
+      "style": {
+        "borderColor": "#42a5f5",
+        "backgroundColor": "#e3f2fd",
+        "borderWidth": 1
+      }
+    }
+  },
+  "connectors": {
+    "type": "straight",
+    "style": {
+      "color": "#90a4ae",
+      "width": 1.5,
+      "arrow": "filled"
+    },
+    "curved": {
+      "type": "curved",
+      "style": {
+        "color": "#1e88e5",
+        "width": 1.5,
+        "arrow": "filled"
+      }
+    },
+    "orthogonal": {
+      "type": "orthogonal",
+      "style": {
+        "color": "#42a5f5",
+        "width": 1.5,
+        "arrow": "filled"
+      }
+    }
+  },
+  "colors": {
+    "success": "#66bb6a",
+    "warning": "#ffca28",
+    "error": "#e53935",
+    "info": "#42a5f5"
+  }
+}

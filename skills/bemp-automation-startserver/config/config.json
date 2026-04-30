@@ -1,0 +1,44 @@
+{
+  "globalPaths": {
+    "workspaceRoot": "d:\\code\\QJ\\BEMP5.0DEV",
+    "banksProjectPath": "d:\\code\\QJ\\BEMP5.0DEV\\banks\\ext-hnnxbank",
+    "frontendProjectPath": "d:\\code\\QJ\\BEMP5.0DEV\\frontend",
+    "traePath": "F:\\Program Files\\Trae CN\\Trae CN.exe",
+    "javaHome": "D:\\code\\Java\\jdk1.8.0_341",
+    "nodePath": "D:\\code\\nodejs14\\node.exe",
+    "mavenPath": "D:\\code\\apache-maven-3.6.3\\bin\\mvn.cmd"
+  },
+  "services": {
+    "redis": {
+      "enabled": true,
+      "name": "Redis",
+      "executable": "D:\\code\\Redis-x64-5.0.14.1\\redis-server.exe",
+      "port": 6379
+    },
+    "zookeeper": {
+      "enabled": true,
+      "name": "ZooKeeper",
+      "executable": "D:\\code\\apache-zookeeper-3.8.3-bin\\bin\\zkServer.cmd",
+      "port": 2181
+    },
+    "springboot": {
+      "enabled": true,
+      "name": "SpringBoot",
+      "mainClass": "com.hundsun.bemp.BempServedAppStarter",
+      "modulePath": "hnnxbank-served-deploy",
+      "warFile": "bemp-served.war",
+      "port": 8010,
+      "debugPort": 5005,
+      "jvmOptions": "-server -Xms2048m -Xmx4096m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
+      "launchMode": "terminal",
+      "autoCompile": true,
+      "mavenCommand": "clean install -DskipTests=true"
+    },
+    "frontend": {
+      "enabled": true,
+      "name": "Frontend",
+      "startCommand": "npm run dev",
+      "port": 8091
+    }
+  }
+}

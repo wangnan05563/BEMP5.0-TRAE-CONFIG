@@ -1,0 +1,20 @@
+{
+  "name": "bemp-advanced-doc-generator",
+  "version": "2.0.0",
+  "description": "BEMP 高级文档生成器 - 支持流程图、思维导图自动生成",
+  "main": "cli.js",
+  "scripts": {
+    "generate": "node generate-doc.js",
+    "start-mcp": "npx mcp-server-processon",
+    "cli": "node cli.js",
+    "interactive": "node interactive-cli.js"
+  },
+  "dependencies": {
+    "docx": "^8.5.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0"
+  },
+  "devDependencies": {
+    "mcp-server-processon": "^1.0.0"
+  }
+}

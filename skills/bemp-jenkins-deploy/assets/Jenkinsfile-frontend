@@ -1,0 +1,478 @@
+// BEMP前端项目自动化部署Jenkins Pipeline脚本
+// 版本: 5.0.0 (配置内联版)
+// 描述: 实现BEMP前端项目从代码拉取到Nginx部署的全流程自动化部署
+// 配置: 所有环境变量直接在 environment 块中定义
+
+pipeline {
+    agent {
+        node {
+            label ''
+            customWorkspace 'D:/code/QJ/BEMP5.0DEV/frontend'
+        }
+    }
+
+    parameters {
+        string(name: 'GIT_BRANCH', defaultValue: 'feature/hnnxbank/dev', description: 'Git仓库目标分支')
+        booleanParam(name: 'FORCE_OVERWRITE', defaultValue: true, description: '是否强制覆盖已存在的部署包')
+        booleanParam(name: 'SKIP_CODE_PULL', defaultValue: true, description: '是否跳过代码拉取')
+        booleanParam(name: 'SKIP_NPM_BUILD', defaultValue: false, description: '是否跳过前端编译打包')
+        booleanParam(name: 'SKIP_SONAR', defaultValue: true, description: '是否跳过SonarQube代码扫描')
+        booleanParam(name: 'SKIP_BACKUP', defaultValue: false, description: '是否跳过应用备份')
+        booleanParam(name: 'SKIP_UPLOAD', defaultValue: false, description: '是否跳过部署包上传')
+        booleanParam(name: 'SKIP_NGINX', defaultValue: false, description: '是否跳过Nginx服务启动')
+        choice(name: 'DEPLOY_ENVIRONMENT', choices: ['dev', 'test', 'staging', 'prod'], description: '部署目标环境')
+        string(name: 'NOTIFY_EMAIL', defaultValue: 'wangnan@hundsun.com', description: '构建通知邮箱')
+    }
+
+    environment {
+        // ---- 编码设置 ----
+        JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
+        LANG = 'zh_CN.UTF-8'
+
+        // ---- Git配置 ----
+        GIT_REPO_URL = 'https://gitlab.hundsun.com/bemp/frontend.git'
+        GIT_CREDENTIALS_ID = 'gitlab-credentials'
+        GIT_RETRY_COUNT = '3'
+
+        // ---- Node.js配置 ----
+        NODE_HOME = 'D:/code/nodejs14'
+        NODE_EXE = 'D:/code/nodejs14/node.exe'
+        WORK_DIR = '.'
+
+        // ---- SonarQube配置 ----
+        JAVA_HOME_SONAR = 'D:/code/Java/jdk-25.0.1'
+        SONAR_SCANNER_HOME = 'D:/code/sonar/sonar-scanner-8.0.1.6346-windows-x64'
+        SONAR_SERVER_URL = 'http://localhost:9000'
+        SONAR_PROJECT_KEY = 'bemp-frontend'
+        SONAR_TOKEN = 'squ_e3654bfc73cb2e37b7e6cf33027ab3f9576f0aad'
+
+        // ---- 前端部署配置 ----
+        CURRENT_WAR = 'D:/code/nginx-1.12.2/html/bemp-web'
+        SOURCE_WAR = 'bemp-web'
+        TARGET_DIR = 'D:/code/nginx-1.12.2/html'
+        BACKUP_DIR = 'D:/code/nginx-1.12.2/html/backup'
+        MAX_BACKUPS = '3'
+
+        // ---- Nginx配置 ----
+        NGINX_EXE = 'D:/code/nginx-1.12.2/nginx.exe'
+        NGINX_HOME = 'D:/code/nginx-1.12.2'
+        NGINX_PORT = '8091'
+        NGINX_TIMEOUT = '60'
+        HEALTH_CHECK_URL = 'http://localhost:8091'
+
+        // ---- 构建元数据 ----
+        BUILD_TIMESTAMP = ''
+        BUILD_VERSION = ''
+        GIT_COMMIT_ID = ''
+        ARTIFACT_MD5 = ''
+    }
+
+    options {
+        timeout(time: 1800, unit: 'SECONDS')
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        retry(1)
+    }
+
+    stages {
+        // ==================== 阶段1: 代码拉取 ====================
+        stage('1. 代码拉取') {
+            when {
+                expression { return !params.SKIP_CODE_PULL }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始从Git仓库拉取前端代码"
+                    echo "仓库URL: ${env.GIT_REPO_URL}"
+                    echo "目标分支: ${params.GIT_BRANCH}"
+                    echo "=========================================="
+
+                    def retryCount = 0
+                    def maxRetries = env.GIT_RETRY_COUNT as int
+                    def checkoutSuccess = false
+
+                    while (retryCount <= maxRetries && !checkoutSuccess) {
+                        try {
+                            if (retryCount > 0) {
+                                echo "第 ${retryCount} 次重试拉取代码..."
+                                sleep(5)
+                            }
+
+                            echo "检查Git凭据: ${env.GIT_CREDENTIALS_ID}"
+
+                            withEnv([
+                                'GIT_HTTP_LOW_SPEED_LIMIT=1000',
+                                'GIT_HTTP_LOW_SPEED_TIME=60',
+                                'GIT_CONFIG_COUNT=2',
+                                'GIT_CONFIG_KEY_0=http.postBuffer',
+                                'GIT_CONFIG_VALUE_0=524288000'
+                            ]) {
+                                checkout([
+                                    $class: 'GitSCM',
+                                    branches: [[name: "*/${params.GIT_BRANCH}"]],
+                                    userRemoteConfigs: [[
+                                        url: env.GIT_REPO_URL,
+                                        credentialsId: env.GIT_CREDENTIALS_ID
+                                    ]],
+                                    extensions: [
+                                        [$class: 'CloneOption',
+                                            timeout: 900,
+                                            noTags: true,
+                                            shallow: true,
+                                            depth: 1,
+                                            honorRefspec: true
+                                        ],
+                                        [$class: 'CleanBeforeCheckout']
+                                    ]
+                                ])
+                            }
+
+                            def commitId = bat(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                            echo "代码拉取成功，Commit ID: ${commitId}"
+                            env.GIT_COMMIT_ID = commitId
+
+                            echo "验证代码完整性..."
+                            for (def file : ['package.json', 'src', 'vue.config.js']) {
+                                if (!fileExists(file)) {
+                                    error("关键文件不存在: ${file}")
+                                }
+                            }
+
+                            echo "代码完整性验证通过"
+                            checkoutSuccess = true
+
+                        } catch (Exception e) {
+                            retryCount++
+                            echo "代码拉取失败: ${e.message}"
+                            if (retryCount > maxRetries) {
+                                error("代码拉取失败，已重试 ${maxRetries} 次: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== 阶段2: 前端编译打包 ====================
+        stage('2. 前端编译打包') {
+            when {
+                expression { return !params.SKIP_NPM_BUILD }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始前端编译打包"
+                    echo "Node.js路径: ${env.NODE_EXE}"
+                    echo "工作目录: ${env.WORK_DIR}"
+                    echo "=========================================="
+
+                    env.BUILD_TIMESTAMP = new Date().format('yyyyMMddHHmmss')
+                    env.BUILD_VERSION = "1.0.0-${env.BUILD_TIMESTAMP}"
+
+                    withEnv([
+                        "NODE_HOME=${env.NODE_HOME}",
+                        "PATH+NODE=${env.NODE_HOME}"
+                    ]) {
+                        dir(env.WORK_DIR) {
+                            echo "安装前端依赖..."
+                            def npmInstallExitCode = bat(
+                                script: "set PATH=${env.NODE_HOME};%PATH% & npm install",
+                                returnStatus: true
+                            )
+
+                            if (npmInstallExitCode != 0) {
+                                error("npm install失败，退出码: ${npmInstallExitCode}")
+                            }
+
+                            echo "执行DLL预编译..."
+                            def dllExitCode = bat(
+                                script: "set PATH=${env.NODE_HOME};%PATH% & npm run dll",
+                                returnStatus: true
+                            )
+
+                            if (dllExitCode != 0) {
+                                error("npm run dll失败，退出码: ${dllExitCode}")
+                            }
+
+                            echo "执行前端构建..."
+                            def buildExitCode = bat(
+                                script: "set PATH=${env.NODE_HOME};%PATH% & npm run build",
+                                returnStatus: true
+                            )
+
+                            if (buildExitCode != 0) {
+                                error("前端构建失败，退出码: ${buildExitCode}")
+                            }
+
+                            echo "前端构建成功"
+                        }
+                    }
+
+                    if (!fileExists(env.SOURCE_WAR)) {
+                        error("构建产物不存在: ${env.SOURCE_WAR}")
+                    }
+
+                    echo "构建产物验证通过: ${env.SOURCE_WAR}"
+                    echo "构建版本: ${env.BUILD_VERSION}"
+                }
+            }
+        }
+
+        // ==================== 阶段3: SonarQube代码扫描 ====================
+        stage('3. SonarQube代码扫描') {
+            when {
+                expression { return !params.SKIP_SONAR }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始SonarQube代码扫描"
+                    echo "Sonar服务器: ${env.SONAR_SERVER_URL}"
+                    echo "项目Key: ${env.SONAR_PROJECT_KEY}"
+                    echo "=========================================="
+
+                    withEnv([
+                        "JAVA_HOME=${env.JAVA_HOME_SONAR}",
+                        "PATH+SONAR=${env.SONAR_SCANNER_HOME}\\bin"
+                    ]) {
+                        def sonarExitCode = bat(
+                            script: """
+                                set JAVA_HOME=${env.JAVA_HOME_SONAR}
+                                set PATH=${env.JAVA_HOME_SONAR}\\bin;%PATH%
+                                set SONAR_SCANNER_HOME=${env.SONAR_SCANNER_HOME}
+                                set PATH=${env.SONAR_SCANNER_HOME}\\bin;%PATH%
+                                sonar-scanner ^
+                                    -Dsonar.host.url=${env.SONAR_SERVER_URL} ^
+                                    -Dsonar.projectKey=${env.SONAR_PROJECT_KEY} ^
+                                    -Dsonar.projectName="BEMP Frontend" ^
+                                    -Dsonar.projectVersion=${env.BUILD_VERSION} ^
+                                    -Dsonar.sources=frontend/src ^
+                                    -Dsonar.sourceEncoding=UTF-8 ^
+                                    -Dsonar.qualitygate.wait=true ^
+                                    -Dsonar.login=${env.SONAR_TOKEN}
+                            """,
+                            returnStatus: true
+                        )
+
+                        if (sonarExitCode != 0) {
+                            error("SonarQube代码扫描失败，退出码: ${sonarExitCode}")
+                        }
+
+                        echo "SonarQube代码扫描完成"
+                    }
+                }
+            }
+        }
+
+        // ==================== 阶段4: 应用备份 ====================
+        stage('4. 应用备份') {
+            when {
+                expression { return !params.SKIP_BACKUP }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始备份当前部署应用"
+                    echo "当前目录: ${env.CURRENT_WAR}"
+                    echo "备份目录: ${env.BACKUP_DIR}"
+                    echo "=========================================="
+
+                    // 确保 BUILD_TIMESTAMP 存在（可能因跳过阶段2而为空）
+                    def timestamp = env.BUILD_TIMESTAMP
+                    if (timestamp == null || timestamp == 'null' || timestamp.trim().isEmpty()) {
+                        timestamp = new Date().format('yyyyMMddHHmmss')
+                        env.BUILD_TIMESTAMP = timestamp
+                    }
+
+                    def backupDir = env.BACKUP_DIR.replace('/', '\\')
+                    def currentWar = env.CURRENT_WAR.replace('/', '\\')
+
+                    bat "chcp 65001 > nul & if not exist \"${backupDir}\" mkdir \"${backupDir}\""
+
+                    if (fileExists(env.CURRENT_WAR)) {
+                        def backupName = "bemp-web_${timestamp}.zip"
+                        def backupPath = "${backupDir}\\${backupName}"
+                        echo "创建备份压缩包: ${backupName}"
+
+                        // 使用 PowerShell 压缩目录
+                        powershell """
+                            \$source = '${currentWar}'
+                            \$destination = '${backupPath}'
+                            if (Test-Path \$destination) { Remove-Item \$destination -Force }
+                            Compress-Archive -Path \$source -DestinationPath \$destination -CompressionLevel Optimal -Force
+                        """
+
+                        if (!fileExists(backupPath)) {
+                            error("备份压缩包创建失败: ${backupPath}")
+                        }
+
+                        echo "备份压缩包验证通过"
+                    } else {
+                        echo "当前部署目录不存在，跳过备份"
+                    }
+
+                    echo "清理历史备份，保留最近 ${env.MAX_BACKUPS} 个备份..."
+                    bat """
+                        @echo off
+                        chcp 65001 > nul
+                        set BACKUP_DIR=${backupDir}
+                        set MAX_BACKUPS=${env.MAX_BACKUPS}
+                        if not exist "%BACKUP_DIR%" exit /b 0
+                        set count=0
+                        for /f "delims=" %%f in ('dir /b /o-d "%BACKUP_DIR%\\bemp-web_*.zip" 2^>nul') do (
+                            set /a count+=1
+                            call :check_delete "%%f"
+                        )
+                        exit /b 0
+                        :check_delete
+                        if %count% gtr %MAX_BACKUPS% del /f /q "%BACKUP_DIR%\\%~1"
+                        exit /b 0
+                    """
+
+                    echo "应用备份完成"
+                }
+            }
+        }
+
+        // ==================== 阶段5: 部署包上传 ====================
+        stage('5. 部署包上传') {
+            when {
+                expression { return !params.SKIP_UPLOAD }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始部署包上传"
+                    echo "源目录: ${env.SOURCE_WAR}"
+                    echo "目标目录: ${env.TARGET_DIR}"
+                    echo "强制覆盖: ${params.FORCE_OVERWRITE}"
+                    echo "=========================================="
+
+                    if (!fileExists(env.SOURCE_WAR)) {
+                        error("部署包源目录不存在: ${env.SOURCE_WAR}")
+                    }
+
+                    def targetDir = env.TARGET_DIR.replace('/', '\\')
+                    def targetWarPath = "${targetDir}\\bemp-web"
+
+                    if (fileExists(targetWarPath)) {
+                        if (!params.FORCE_OVERWRITE) {
+                            echo "目标目录已存在且未启用强制覆盖，跳过部署"
+                            return
+                        }
+                        echo "删除旧部署目录..."
+                        bat "rd /s /q \"${targetWarPath}\""
+                    }
+
+                    bat "chcp 65001 > nul & xcopy \"${env.SOURCE_WAR}\" \"${targetWarPath}\\\" /E /I /H /Y"
+
+                    if (!fileExists(targetWarPath)) {
+                        error("部署包上传失败，目标目录不存在: ${targetWarPath}")
+                    }
+
+                    echo "部署包上传完成"
+                }
+            }
+        }
+
+        // ==================== 阶段6: Nginx服务启动 ====================
+        stage('6. Nginx服务启动') {
+            when {
+                expression { return !params.SKIP_NGINX }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "启动 Nginx 服务"
+                    echo "=========================================="
+
+                    def nginxExe = env.NGINX_EXE.replace('/', '\\')
+                    def nginxHome = env.NGINX_HOME.replace('/', '\\')
+
+                    dir(nginxHome) {
+                        // 1. 测试配置文件
+                        echo "测试Nginx配置..."
+                        def testResult = bat(script: "\"${nginxExe}\" -t 2>&1", returnStdout: true).trim()
+                        echo testResult
+                        if (!testResult.contains("successful")) {
+                            error("Nginx配置测试失败")
+                        }
+
+                        // 2. 停止旧进程
+                        echo "停止现有Nginx进程..."
+                        bat "taskkill /F /IM nginx.exe 2>nul || echo Nginx未运行"
+                        sleep(2)
+
+                        // 3. 启动 Nginx
+                        echo "启动Nginx..."
+                        bat "start \"nginx\" \"${nginxExe}\""
+                        sleep(3)
+
+                        // 4. 检测进程是否存在
+                        def processCheck = bat(script: "tasklist | findstr nginx.exe || exit /b 0", returnStdout: true).trim()
+                        if (processCheck && processCheck.contains("nginx.exe")) {
+                            echo "Nginx启动成功 | 访问地址: ${env.HEALTH_CHECK_URL}"
+                        } else {
+                            // 输出错误日志
+                            def errorLog = "logs\\error.log"
+                            if (fileExists(errorLog)) {
+                                echo "Nginx错误日志:"
+                                bat "type \"${errorLog}\""
+                            }
+                            error("Nginx启动失败，未检测到nginx进程")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                // 确保变量有默认值
+                def buildVersion = env.BUILD_VERSION ?: 'unknown'
+                def buildTimestamp = env.BUILD_TIMESTAMP ?: new Date().format('yyyyMMddHHmmss')
+                def commitId = env.GIT_COMMIT_ID ?: 'unknown'
+
+                echo "=========================================="
+                echo "前端流水线执行成功"
+                echo "构建版本: ${buildVersion}"
+                echo "构建时间: ${buildTimestamp}"
+                echo "Commit ID: ${commitId}"
+                echo "=========================================="
+
+                if (params.NOTIFY_EMAIL) {
+                    echo "发送构建成功通知到: ${params.NOTIFY_EMAIL}"
+                }
+            }
+        }
+
+        failure {
+            script {
+                def buildVersion = env.BUILD_VERSION ?: 'unknown'
+                def buildTimestamp = env.BUILD_TIMESTAMP ?: new Date().format('yyyyMMddHHmmss')
+                def commitId = env.GIT_COMMIT_ID ?: 'unknown'
+
+                echo "=========================================="
+                echo "前端流水线执行失败"
+                echo "构建版本: ${buildVersion}"
+                echo "构建时间: ${buildTimestamp}"
+                echo "Commit ID: ${commitId}"
+                echo "请检查日志获取详细错误信息"
+                echo "=========================================="
+
+                if (params.NOTIFY_EMAIL) {
+                    echo "发送构建失败通知到: ${params.NOTIFY_EMAIL}"
+                }
+            }
+        }
+
+        always {
+            echo "清理工作空间"
+            archiveArtifacts artifacts: 'logs/**/*', allowEmptyArchive: true
+        }
+    }
+}

@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-04-18T08:36:01.314Z",
+  "reusedScripts": [
+    {
+      "name": "doc-content-analyzer",
+      "version": "1.0.0",
+      "category": "code-analyzer",
+      "description": "分析BEMP项目代码结构，提取模块信息并生成文档内容骨架",
+      "validation": {
+        "valid": true,
+        "warnings": []
+      }
+    }
+  ],
+  "stats": {
+    "totalReuses": 1,
+    "totalScripts": 1,
+    "lastUpdated": "2026-04-18T08:36:01.104Z",
+    "topScripts": [
+      {
+        "name": "doc-content-analyzer",
+        "reuseCount": 1,
+        "avgQualityScore": "0.95",
+        "lastUsed": "2026-04-18T08:36:01.104Z"
+      }
+    ]
+  }
+}

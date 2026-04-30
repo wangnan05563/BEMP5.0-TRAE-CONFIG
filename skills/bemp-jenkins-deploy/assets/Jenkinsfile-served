@@ -1,0 +1,663 @@
+// BEMP后端项目自动化部署Jenkins Pipeline脚本
+// 版本: 5.0.0 (配置内联版)
+// 描述: 实现BEMP后端项目从代码拉取到服务启动的全流程自动化部署
+// 配置: 所有环境变量直接在 environment 块中定义
+
+pipeline {
+    agent {
+        node {
+            label ''
+            customWorkspace 'D:/code/QJ/BEMP5.0DEV/banks/ext-hnnxbank'
+        }
+    }
+
+    parameters {
+        string(name: 'GIT_BRANCH', defaultValue: 'feature/hnnxbank/dev', description: 'Git仓库目标分支')
+        booleanParam(name: 'FORCE_OVERWRITE', defaultValue: true, description: '是否强制覆盖已存在的部署包')
+        booleanParam(name: 'SKIP_SONAR', defaultValue: true, description: '是否跳过SonarQube代码扫描')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: true, description: '是否跳过单元测试')
+        booleanParam(name: 'SKIP_CODE_PULL', defaultValue: true, description: '是否跳过代码拉取')
+        booleanParam(name: 'SKIP_MAVEN_BUILD', defaultValue: false, description: '是否跳过Maven编译打包')
+        booleanParam(name: 'SKIP_CONFIG_REPLACE', defaultValue: true, description: '是否跳过配置文件替换')
+        booleanParam(name: 'SKIP_BACKUP', defaultValue: false, description: '是否跳过应用备份')
+        booleanParam(name: 'SKIP_UPLOAD', defaultValue: false, description: '是否跳过部署包上传')
+        booleanParam(name: 'SKIP_REDIS', defaultValue: false, description: '是否跳过Redis服务启动')
+        booleanParam(name: 'SKIP_ZOOKEEPER', defaultValue: false, description: '是否跳过Zookeeper服务启动')
+        booleanParam(name: 'SKIP_BEMP_SERVED', defaultValue: false, description: '是否跳过bemp-served服务启动')
+        choice(name: 'DEPLOY_ENVIRONMENT', choices: ['dev', 'test', 'staging', 'prod'], description: '部署目标环境')
+        string(name: 'NOTIFY_EMAIL', defaultValue: 'wangnan@hundsun.com', description: '构建通知邮箱')
+        string(name: 'BUILD_THREADS', defaultValue: '4', description: 'Maven构建线程数')
+    }
+
+    environment {
+        // ---- 编码设置 ----
+        JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
+        LANG = 'zh_CN.UTF-8'
+
+        // ---- Git配置 ----
+        GIT_REPO_URL = 'https://gitlab.hundsun.com/bemp/banks.git'
+        GIT_CREDENTIALS_ID = 'gitlab-credentials'
+        GIT_RETRY_COUNT = '3'
+
+        // ---- Maven构建配置 ----
+        JAVA_HOME_BUILD = 'D:/code/Java/jdk1.8.0_341'
+        MAVEN_HOME = 'D:/code/apache-maven-3.6.3'
+        MAVEN_SETTINGS = 'D:/code/apache-maven-3.6.3/conf/settings-Artifactory.xml'
+        POM_PATH = 'pom.xml'
+
+        // ---- SonarQube配置 ----
+        JAVA_HOME_SONAR = 'D:/code/Java/jdk-25.0.1'
+        SONAR_SCANNER_HOME = 'D:/code/sonar/sonar-scanner-8.0.1.6346-windows-x64'
+        SONAR_SERVER_URL = 'http://localhost:9000'
+        SONAR_PROJECT_KEY = 'bemp-ext-hnnxbank'
+        SONAR_TOKEN = 'squ_e3654bfc73cb2e37b7e6cf33027ab3f9576f0aad'
+
+        // ---- 后端部署配置 ----
+        CURRENT_WAR = 'D:/code/QJ/bempDeploy/bemp-served'
+        SOURCE_WAR = 'hnnxbank-served-deploy/target/bemp-served'
+        TARGET_DIR = 'D:/code/QJ/bempDeploy'
+        BACKUP_DIR = 'D:/code/QJ/bempDeploy/backup'
+        MAX_BACKUPS = '3'
+
+        // ---- 配置文件替换 ----
+        CONFIG_REPLACE_WORKSPACE = 'D:/code/QJ/BEMP5.0DEV/banks/ext-hnnxbank'
+        CONFIG_REPLACE_TARGET_DIR = 'D:/code/QJ/bempDeploy/bemp-served/WEB-INF/classes'
+        CONFIG_REPLACE_FILES = 'application.properties'
+
+        // ---- 依赖服务 ----
+        REDIS_EXE = 'D:/code/Redis-x64-5.0.14.1/redis-server.exe'
+        REDIS_PORT = '6379'
+        REDIS_TIMEOUT = '30'
+        ZOOKEEPER_EXE = 'D:/code/apache-zookeeper-3.8.3-bin/bin/zkServer.cmd'
+        ZOOKEEPER_PORT = '2181'
+        ZOOKEEPER_TIMEOUT = '60'
+
+        // ---- bemp-served服务 ----
+        BEMP_SERVED_HOME = 'D:/code/QJ/bempDeploy/bemp-served/WEB-INF/classes'
+        BEMP_SERVED_PORT = '8010'
+        HEALTH_CHECK_URL = 'http://localhost:8010/bemp-served/health'
+        BEMP_SERVED_TIMEOUT = '600'
+        JVM_OPTS = '-server -Xms2048m -Xmx4096m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=../tmp/heap.dump'
+
+        // ---- 构建元数据 ----
+        BUILD_TIMESTAMP = ''
+        BUILD_VERSION = ''
+        GIT_COMMIT_ID = ''
+    }
+
+    options {
+        timeout(time: 1800, unit: 'SECONDS')
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        retry(1)
+    }
+
+    stages {
+        // ==================== 阶段1: 代码拉取 ====================
+        stage('1. 代码拉取') {
+            when {
+                expression { !params.SKIP_CODE_PULL }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始从Git仓库拉取代码"
+                    echo "仓库URL: ${env.GIT_REPO_URL}"
+                    echo "目标分支: ${params.GIT_BRANCH}"
+                    echo "=========================================="
+
+                    def retryCount = 0
+                    def maxRetries = env.GIT_RETRY_COUNT as int
+                    def checkoutSuccess = false
+
+                    while (retryCount <= maxRetries && !checkoutSuccess) {
+                        try {
+                            if (retryCount > 0) {
+                                echo "第 ${retryCount} 次重试拉取代码..."
+                                sleep(5)
+                            }
+
+                            echo "检查Git凭据: ${env.GIT_CREDENTIALS_ID}"
+
+                            withEnv([
+                                'GIT_HTTP_LOW_SPEED_LIMIT=1000',
+                                'GIT_HTTP_LOW_SPEED_TIME=60',
+                                'GIT_CONFIG_COUNT=2',
+                                'GIT_CONFIG_KEY_0=http.postBuffer',
+                                'GIT_CONFIG_VALUE_0=524288000'
+                            ]) {
+                                checkout([
+                                    $class: 'GitSCM',
+                                    branches: [[name: "*/${params.GIT_BRANCH}"]],
+                                    userRemoteConfigs: [[
+                                        url: env.GIT_REPO_URL,
+                                        credentialsId: env.GIT_CREDENTIALS_ID
+                                    ]],
+                                    extensions: [
+                                        [$class: 'CloneOption',
+                                            timeout: 900,
+                                            noTags: true,
+                                            shallow: true,
+                                            depth: 1,
+                                            honorRefspec: true
+                                        ]
+                                    ]
+                                ])
+                            }
+
+                            def commitId = bat(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                            echo "代码拉取成功，Commit ID: ${commitId}"
+                            env.GIT_COMMIT_ID = commitId
+
+                            echo "=== 详细Git调试信息 ==="
+                            echo "1. 当前目录结构："
+                            def dirOutput = bat(script: 'dir /s /b', returnStdout: true).trim()
+                            if (dirOutput) { echo dirOutput } else { echo "目录为空！" }
+
+                            echo "2. Git状态："
+                            echo bat(script: 'git status', returnStdout: true).trim()
+
+                            echo "3. Git remote信息："
+                            echo bat(script: 'git remote -v', returnStdout: true).trim()
+
+                            echo "4. Git分支信息："
+                            echo bat(script: 'git branch -a', returnStdout: true).trim()
+
+                            echo "5. 当前提交信息："
+                            echo bat(script: 'git log -1', returnStdout: true).trim()
+                            echo "=== 调试信息结束 ==="
+
+                            echo "验证代码完整性..."
+                            def keyFiles = ['pom.xml', 'hnnxbank-served-deploy/pom.xml', 'hnnxbank-biz-as/pom.xml']
+                            for (def file : keyFiles) {
+                                if (!fileExists(file)) {
+                                    error("关键文件不存在: ${file}")
+                                }
+                            }
+
+                            echo "代码完整性验证通过"
+                            checkoutSuccess = true
+
+                        } catch (Exception e) {
+                            retryCount++
+                            echo "代码拉取失败: ${e.message}"
+                            if (retryCount > maxRetries) {
+                                error("代码拉取失败，已重试 ${maxRetries} 次: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== 阶段2: Maven编译打包 ====================
+        stage('2. Maven编译打包') {
+            when {
+                expression { !params.SKIP_MAVEN_BUILD }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始Maven编译打包"
+                    echo "JAVA_HOME: ${env.JAVA_HOME_BUILD}"
+                    echo "MAVEN_HOME: ${env.MAVEN_HOME}"
+                    echo "POM路径: ${env.POM_PATH}"
+                    echo "=========================================="
+
+                    env.BUILD_TIMESTAMP = new Date().format('yyyyMMddHHmmss')
+                    env.BUILD_VERSION = "1.0.0-${env.BUILD_TIMESTAMP}"
+
+                    def mavenCommand = "mvn clean install -DskipTests=${params.SKIP_TESTS} -T${params.BUILD_THREADS} -s ${env.MAVEN_SETTINGS} -f ${env.POM_PATH}"
+                    echo "执行命令: ${mavenCommand}"
+
+                    def exitCode = bat(
+                        script: """
+                            chcp 65001 > nul
+                            set JAVA_HOME=${env.JAVA_HOME_BUILD}
+                            set PATH=${env.JAVA_HOME_BUILD}\\bin;%PATH%
+                            set MAVEN_HOME=${env.MAVEN_HOME}
+                            set PATH=${env.MAVEN_HOME}\\bin;%PATH%
+                            set MAVEN_OPTS=-Xmx2048m -XX:MaxPermSize=512m -Dfile.encoding=UTF-8
+                            set JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8
+                            ${mavenCommand}
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (exitCode != 0) {
+                        error("Maven构建失败，退出码: ${exitCode}")
+                    }
+
+                    echo "Maven构建成功"
+
+                    if (!fileExists(env.SOURCE_WAR)) {
+                        error("构建产物不存在: ${env.SOURCE_WAR}")
+                    }
+
+                    echo "构建产物验证通过: ${env.SOURCE_WAR}"
+                    echo "构建版本: ${env.BUILD_VERSION}"
+                }
+            }
+        }
+
+        // ==================== 阶段3: SonarQube代码扫描 ====================
+        stage('3. SonarQube代码扫描') {
+            when {
+                expression { return !params.SKIP_SONAR }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始SonarQube代码扫描"
+                    echo "Sonar服务器: ${env.SONAR_SERVER_URL}"
+                    echo "项目Key: ${env.SONAR_PROJECT_KEY}"
+                    echo "=========================================="
+
+                    withEnv([
+                        "JAVA_HOME=${env.JAVA_HOME_SONAR}",
+                        "PATH+SONAR=${env.SONAR_SCANNER_HOME}\\bin"
+                    ]) {
+                        def sonarExitCode = bat(
+                            script: """
+                                chcp 65001 >nul
+                                set JAVA_HOME=${env.JAVA_HOME_SONAR}
+                                set PATH=${env.JAVA_HOME_SONAR}\\bin;%PATH%
+                                set SONAR_SCANNER_HOME=${env.SONAR_SCANNER_HOME}
+                                set PATH=${env.SONAR_SCANNER_HOME}\bin;%PATH%
+                                sonar-scanner ^
+                                    -Dsonar.host.url=${env.SONAR_SERVER_URL} ^
+                                    -Dsonar.projectKey=${env.SONAR_PROJECT_KEY} ^
+                                    -Dsonar.projectName="BEMP Henan Rural Credit Personalized Extension" ^
+                                    -Dsonar.projectVersion=${env.BUILD_VERSION} ^
+                                    -Dsonar.sources=. ^
+                                    -Dsonar.java.binaries=hnnxbank-biz-as/target/classes,hnnxbank-served-deploy/target/classes ^
+                                    -Dsonar.sourceEncoding=UTF-8 ^
+                                    -Dsonar.qualitygate.wait=true ^
+                                    -Dsonar.login=${env.SONAR_TOKEN}
+                            """,
+                            returnStatus: true
+                        )
+
+                        if (sonarExitCode != 0) {
+                            error("SonarQube代码扫描失败，退出码: ${sonarExitCode}")
+                        }
+
+                        echo "SonarQube代码扫描完成"
+                    }
+                }
+            }
+        }
+
+        // ==================== 阶段4: 应用备份 ====================
+        stage('4. 应用备份') {
+            when {
+                expression { !params.SKIP_BACKUP }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始备份当前部署应用"
+                    echo "当前部署目录: ${env.CURRENT_WAR}"
+                    echo "备份目录: ${env.BACKUP_DIR}"
+                    echo "=========================================="
+
+                    def buildTimestamp = env.BUILD_TIMESTAMP ? env.BUILD_TIMESTAMP : new Date().format('yyyyMMddHHmmss')
+                    if (!env.BUILD_TIMESTAMP) {
+                        env.BUILD_TIMESTAMP = buildTimestamp
+                    }
+
+                    def normalizedCurrentDir = env.CURRENT_WAR.replace('/', '\\')
+                    def normalizedBackupDir = env.BACKUP_DIR.replace('/', '\\')
+
+                    bat "chcp 65001 > nul && if not exist \"${normalizedBackupDir}\" mkdir \"${normalizedBackupDir}\""
+
+                    if (fileExists(normalizedCurrentDir)) {
+                        def backupFileName = "bemp-served_${buildTimestamp}.zip"
+                        def backupFilePath = "${normalizedBackupDir}\\${backupFileName}"
+                        echo "创建备份压缩包: ${backupFileName}"
+
+                        // 使用 PowerShell 压缩目录
+                        powershell """
+                            \$source = '${normalizedCurrentDir}'
+                            \$destination = '${backupFilePath}'
+                            if (Test-Path \$destination) { Remove-Item \$destination -Force }
+                            Compress-Archive -Path \$source -DestinationPath \$destination -CompressionLevel Optimal -Force
+                        """
+
+                        if (!fileExists(backupFilePath)) {
+                            error("备份压缩包创建失败: ${backupFilePath}")
+                        }
+
+                        echo "备份压缩包验证通过"
+                    } else {
+                        echo "当前部署目录不存在，跳过备份"
+                    }
+
+                    echo "清理历史备份，保留最近 ${env.MAX_BACKUPS} 个备份..."
+                    bat """
+                        @echo off
+                        chcp 65001 > nul
+                        set BACKUP_DIR=${normalizedBackupDir}
+                        set MAX_BACKUPS=${env.MAX_BACKUPS}
+                        if not exist "%BACKUP_DIR%" exit /b 0
+                        set count=0
+                        for /f "delims=" %%f in ('dir /b /o-d "%BACKUP_DIR%\\bemp-served_*.zip" 2^>nul') do (
+                            set /a count+=1
+                            call :check_delete "%%f"
+                        )
+                        exit /b 0
+                        :check_delete
+                        if %count% gtr %MAX_BACKUPS% del /f /q "%BACKUP_DIR%\\%~1"
+                        exit /b 0
+                    """
+
+                    echo "应用备份完成"
+                }
+            }
+        }
+
+        // ==================== 阶段5: 部署包上传 ====================
+        stage('5. 部署包上传') {
+            when {
+                expression { !params.SKIP_UPLOAD }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始部署包上传"
+                    echo "源目录: ${env.SOURCE_WAR}"
+                    echo "目标目录: ${env.TARGET_DIR}"
+                    echo "强制覆盖: ${params.FORCE_OVERWRITE}"
+                    echo "=========================================="
+
+                    if (!fileExists(env.SOURCE_WAR)) {
+                        error("部署包源目录不存在: ${env.SOURCE_WAR}")
+                    }
+
+                    def normalizedSourcePath = env.SOURCE_WAR.replace('/', '\\')
+                    def normalizedTargetDir = env.TARGET_DIR.replace('/', '\\')
+                    def targetDirPath = "${normalizedTargetDir}\\bemp-served"
+
+                    if (fileExists(targetDirPath)) {
+                        if (!params.FORCE_OVERWRITE) {
+                            echo "目标目录已存在且未启用强制覆盖，跳过部署"
+                            return
+                        }
+                        echo "删除旧部署目录..."
+                        bat "chcp 65001 > nul & rmdir /s /q \"${targetDirPath}\""
+                    }
+
+                    bat "chcp 65001 > nul & if not exist \"${normalizedTargetDir}\" mkdir \"${normalizedTargetDir}\""
+
+                    bat "chcp 65001 > nul & xcopy \"${normalizedSourcePath}\" \"${targetDirPath}\\\" /E /I /H /Y"
+
+                    if (!fileExists(targetDirPath)) {
+                        error("部署包上传失败，目标目录不存在: ${targetDirPath}")
+                    }
+
+                    echo "部署包上传完成"
+                }
+            }
+        }
+
+        // ==================== 阶段6: 配置文件替换 ====================
+        stage('6. 配置文件替换') {
+            when {
+                expression { !params.SKIP_CONFIG_REPLACE }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "开始配置文件替换"
+                    echo "工作目录: ${env.CONFIG_REPLACE_WORKSPACE}"
+                    echo "目标目录: ${env.CONFIG_REPLACE_TARGET_DIR}"
+                    echo "替换文件列表: ${env.CONFIG_REPLACE_FILES}"
+                    echo "=========================================="
+
+                    if (!fileExists(env.CONFIG_REPLACE_WORKSPACE)) {
+                        echo "警告: 工作目录不存在，跳过配置文件替换"
+                    } else {
+                        def configFiles = env.CONFIG_REPLACE_FILES.split(',')
+                        def replaceCount = 0
+                        def skipCount = 0
+
+                        for (def configFile : configFiles) {
+                            def relativePath = configFile.trim()
+                            if (!relativePath) continue
+
+                            def sourceFile = "${env.CONFIG_REPLACE_WORKSPACE}/${relativePath}"
+
+                            if (!fileExists(sourceFile)) {
+                                echo "警告: 源文件不存在 - ${sourceFile}，跳过"
+                                skipCount++
+                                continue
+                            }
+
+                            if (!fileExists(env.CONFIG_REPLACE_TARGET_DIR)) {
+                                echo "警告: 目标目录不存在，跳过"
+                                skipCount++
+                                continue
+                            }
+
+                            def targetRelativePath = relativePath
+                            if (targetRelativePath.contains('src/main/java/')) {
+                                targetRelativePath = targetRelativePath.substring(targetRelativePath.indexOf('src/main/java/') + 'src/main/java/'.length())
+                            } else if (targetRelativePath.contains('src/main/resources/')) {
+                                targetRelativePath = targetRelativePath.substring(targetRelativePath.indexOf('src/main/resources/') + 'src/main/resources/'.length())
+                            }
+
+                            def targetFile = "${env.CONFIG_REPLACE_TARGET_DIR}/${targetRelativePath}"
+                            def targetFileDir = targetFile.substring(0, targetFile.lastIndexOf('/'))
+
+                            def normDir = targetFileDir.replace('/', '\\')
+                            bat "chcp 65001 > nul & if not exist \"${normDir}\" mkdir \"${normDir}\""
+
+                            echo "替换配置文件: ${targetRelativePath}"
+                            def normSource = sourceFile.replace('/', '\\')
+                            def normTarget = targetFile.replace('/', '\\')
+                            def copyExitCode = bat(
+                                script: "chcp 65001 > nul & copy /Y \"${normSource}\" \"${normTarget}\"",
+                                returnStatus: true
+                            )
+
+                            if (copyExitCode == 0) {
+                                replaceCount++
+                            }
+                        }
+
+                        echo "配置文件替换完成: 成功 ${replaceCount}, 跳过 ${skipCount}"
+                    }
+                }
+            }
+        }
+
+        // ==================== 阶段8: Redis服务启动 ====================
+        stage('8. Redis服务启动') {
+            when {
+                expression { !params.SKIP_REDIS }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "启动 Redis 服务 | 端口: ${env.REDIS_PORT} | 超时: ${env.REDIS_TIMEOUT}秒"
+                    echo "=========================================="
+
+                    bat """
+                        set JENKINS_NODE_COOKIE=dontKillMe
+                        start "Redis Server" "${env.REDIS_EXE}"
+                    """
+                    sleep(3)
+
+                    def redisStartTime = System.currentTimeMillis()
+                    def redisRunning = false
+                    def redisTimeoutMs = (env.REDIS_TIMEOUT as int) * 1000
+
+                    while ((System.currentTimeMillis() - redisStartTime) < redisTimeoutMs) {
+                        sleep(2)
+                        def netstatOutput = bat(script: "netstat -ano | findstr :${env.REDIS_PORT} | findstr LISTENING || exit /b 0", returnStdout: true).trim()
+                        if (netstatOutput && netstatOutput.contains("LISTENING")) {
+                            redisRunning = true
+                            echo "Redis 服务已在端口 ${env.REDIS_PORT} 上启动"
+                            break
+                        }
+                        echo "等待 Redis 服务启动..."
+                    }
+
+                    if (!redisRunning) {
+                        error("Redis 服务启动超时（${env.REDIS_TIMEOUT}秒），端口 ${env.REDIS_PORT} 未监听")
+                    }
+
+                    echo "Redis 服务启动完成"
+                }
+            }
+        }
+
+        // ==================== 阶段9: Zookeeper服务启动 ====================
+        stage('9. Zookeeper服务启动') {
+            when {
+                expression { !params.SKIP_ZOOKEEPER }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "启动 Zookeeper 服务 | 端口: ${env.ZOOKEEPER_PORT} | 超时: ${env.ZOOKEEPER_TIMEOUT}秒"
+                    echo "=========================================="
+
+                    bat """
+                        set JENKINS_NODE_COOKIE=dontKillMe
+                        start "Zookeeper Server" "${env.ZOOKEEPER_EXE}"
+                    """
+                    sleep(3)
+
+                    def zkStartTime = System.currentTimeMillis()
+                    def zkRunning = false
+                    def zkTimeoutMs = (env.ZOOKEEPER_TIMEOUT as int) * 1000
+
+                    while ((System.currentTimeMillis() - zkStartTime) < zkTimeoutMs) {
+                        sleep(3)
+                        def netstatOutput = bat(script: "netstat -ano | findstr :${env.ZOOKEEPER_PORT} | findstr LISTENING || exit /b 0", returnStdout: true).trim()
+                        if (netstatOutput && netstatOutput.contains("LISTENING")) {
+                            zkRunning = true
+                            echo "Zookeeper 服务已在端口 ${env.ZOOKEEPER_PORT} 上启动"
+                            break
+                        }
+                        echo "等待 Zookeeper 服务启动..."
+                    }
+
+                    if (!zkRunning) {
+                        error("Zookeeper 服务启动超时（${env.ZOOKEEPER_TIMEOUT}秒），端口 ${env.ZOOKEEPER_PORT} 未监听")
+                    }
+
+                    echo "Zookeeper 服务启动完成"
+                }
+            }
+        }
+
+        // ==================== 阶段10: bemp-served服务启动 ====================
+        stage('10. bemp-served服务启动') {
+            when {
+                expression { !params.SKIP_BEMP_SERVED }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "启动 bemp-served 服务 | 端口: ${env.BEMP_SERVED_PORT} | 超时: ${env.BEMP_SERVED_TIMEOUT}秒"
+                    echo "=========================================="
+
+                    def port = env.BEMP_SERVED_PORT
+
+                    bat """
+                        @echo off
+                        setlocal enabledelayedexpansion
+                        set FOUND_PID=
+                        for /f \"tokens=5\" %%a in ('netstat -ano ^| findstr :${port} ^| findstr LISTENING') do (
+                            set FOUND_PID=%%a
+                        )
+                        if defined FOUND_PID (
+                            echo 检测到端口 ${port} 已被占用，PID=!FOUND_PID!
+                            if not \"!FOUND_PID!\"==\"0\" (
+                                echo 正在终止进程 PID=!FOUND_PID!...
+                                taskkill /PID !FOUND_PID! /F
+                                timeout /t 3 /nobreak >nul
+                                echo 旧服务已停止
+                            ) else (
+                                echo PID=0 为系统进程，跳过终止
+                            )
+                        ) else (
+                            echo 端口 ${port} 未被占用，可直接启动
+                        )
+                    """
+
+                    bat """
+                        set JENKINS_NODE_COOKIE=dontKillMe
+                        set JAVA_HOME=${env.JAVA_HOME_BUILD}
+                        set PATH=%JAVA_HOME%\\bin;%PATH%
+                        cd /d "${env.BEMP_SERVED_HOME}"
+                        start /b java %JVM_OPTS% -cp ../classes;../lib/* com.hundsun.bemp.BempServedAppStarter
+                    """
+
+                    def startTime = System.currentTimeMillis()
+                    def running = false
+                    def timeoutMs = (env.BEMP_SERVED_TIMEOUT as int) * 1000
+
+                    echo "开始监控 bemp-served 端口 ${port}..."
+
+                    while ((System.currentTimeMillis() - startTime) < timeoutMs) {
+                        sleep(5)
+                        def netstatOutput = bat(script: "netstat -ano | findstr :${port} | findstr LISTENING || exit /b 0", returnStdout: true).trim()
+                        if (netstatOutput && netstatOutput.contains("LISTENING")) {
+                            running = true
+                            echo "bemp-served 服务已在端口 ${port} 上监听，启动成功"
+                            break
+                        }
+                        echo "等待端口监听... (${(System.currentTimeMillis() - startTime) / 1000}秒)"
+                    }
+
+                    if (!running) {
+                        error("bemp-served 服务启动超时（${env.BEMP_SERVED_TIMEOUT}秒），端口 ${port} 未监听")
+                    }
+
+                    echo "bemp-served 服务启动完成"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "=========================================="
+            echo "流水线执行成功"
+            echo "构建版本: ${env.BUILD_VERSION}"
+            echo "构建时间: ${env.BUILD_TIMESTAMP}"
+            echo "Commit ID: ${env.GIT_COMMIT_ID}"
+            echo "=========================================="
+
+            script {
+                if (params.NOTIFY_EMAIL) {
+                    echo "发送构建成功通知到: ${params.NOTIFY_EMAIL}"
+                }
+            }
+        }
+
+        failure {
+            echo "=========================================="
+            echo "流水线执行失败"
+            echo "请检查日志获取详细错误信息"
+            echo "=========================================="
+
+            script {
+                if (params.NOTIFY_EMAIL) {
+                    echo "发送构建失败通知到: ${params.NOTIFY_EMAIL}"
+                }
+            }
+        }
+
+        always {
+            echo "=========================================="
+            echo "清理工作空间"
+            echo "=========================================="
+            archiveArtifacts artifacts: 'logs/**/*', allowEmptyArchive: true
+        }
+    }
+}

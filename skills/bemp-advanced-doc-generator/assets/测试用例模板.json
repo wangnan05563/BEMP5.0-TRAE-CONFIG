@@ -1,0 +1,407 @@
+{
+  "templateName": "BEMP 测试用例模板",
+  "version": "V5.0",
+  "documentType": "test-case",
+  "coverPage": {
+    "title": "${moduleName}测试用例",
+    "company": "恒生电子股份有限公司",
+    "product": "HUNDSUN 票据交易管理平台软件",
+    "version": "V5.0",
+    "documentType": "测试用例说明书",
+    "department": "票据业务事业部",
+    "date": "${currentDate}"
+  },
+  "revisionHistory": {
+    "headers": ["版本", "修订人", "修订说明", "批准人", "发布日期"],
+    "rows": []
+  },
+  "chapters": [
+    {
+      "id": 1,
+      "title": "第一章 引言",
+      "sections": [
+        {
+          "id": "1.1",
+          "title": "1.1 编写目的",
+          "content": {
+            "description": "说明编写本测试用例文档的目的，明确测试的范围、目标和验证标准。本文档用于指导测试人员执行功能测试、集成测试和异常测试，确保功能符合需求规格。"
+          }
+        },
+        {
+          "id": "1.2",
+          "title": "1.2 背景说明",
+          "content": {
+            "description": "说明项目的业务背景、功能背景和开发背景。描述当前系统存在的问题以及本功能要解决的业务痛点。"
+          }
+        },
+        {
+          "id": "1.3",
+          "title": "1.3 定义",
+          "content": {
+            "description": "定义测试中使用的专业术语和缩写。",
+            "headers": ["术语", "定义"],
+            "rows": [
+              ["ECIF", "企业客户信息管理系统（Enterprise Customer Information Facility）"],
+              ["MessageConverter", "消息转换器，负责外围系统与内部系统之间的消息格式转换"],
+              ["BaseRequest", "BEMP框架基础请求参数类，用于Service层与Controller层的交互"]
+            ]
+          }
+        },
+        {
+          "id": "1.4",
+          "title": "1.4 参考资料",
+          "content": {
+            "description": "列出参考的文档和规范。",
+            "headers": ["文档名称", "文档版本", "说明"],
+            "rows": [
+              ["0402006广播机构客户合并接口规范", "V1.0", "外围接口定义"],
+              ["Ecif4001ReqDto/Ecif4001ResDto", "V5.0", "产品服务接口定义"],
+              ["BEMP项目开发规范", "V5.0", "编码规范文档"]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "第二章 测试计划",
+      "sections": [
+        {
+          "id": "2.1",
+          "title": "2.1 测试范围",
+          "content": {
+            "headers": ["范围类型", "说明"],
+            "rows": [
+              ["纳入范围", "消息转换器fromMessage方法、toMessage方法、功能号映射配置"],
+              ["纳入范围", "字段映射正确性验证、数组字段解析验证"],
+              ["排除范围", "外围系统广播消息发送、产品服务接口内部实现"]
+            ]
+          }
+        },
+        {
+          "id": "2.2",
+          "title": "2.2 测试目标",
+          "content": {
+            "headers": ["测试类型", "目标描述", "验收标准"],
+            "rows": [
+              ["功能测试", "验证消息转换的正确性和完整性", "字段映射准确率100%"],
+              ["异常测试", "验证异常场景的处理和错误提示", "异常处理覆盖率100%"],
+              ["边界测试", "验证边界条件下的系统行为", "边界场景全部通过"],
+              ["性能测试", "验证消息处理性能", "单次处理耗时<100ms"]
+            ]
+          }
+        },
+        {
+          "id": "2.3",
+          "title": "2.3 测试资源",
+          "content": {
+            "headers": ["资源类型", "配置说明"],
+            "rows": [
+              ["硬件", "开发环境服务器：CPU 8核/内存16G"],
+              ["软件", "JDK 1.8、Spring Boot、JUnit 4.x、Maven"],
+              ["人员", "测试工程师1名、开发工程师1名"]
+            ]
+          }
+        },
+        {
+          "id": "2.4",
+          "title": "2.4 测试进度",
+          "content": {
+            "headers": ["测试阶段", "测试内容", "预计时间"],
+            "rows": [
+              ["单元测试", "fromMessage方法测试", "1天"],
+              ["单元测试", "toMessage方法测试", "1天"],
+              ["集成测试", "端到端消息转换测试", "1天"],
+              ["异常测试", "异常场景覆盖测试", "1天"]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "第三章 测试环境",
+      "sections": [
+        {
+          "id": "3.1",
+          "title": "3.1 硬件环境",
+          "content": {
+            "headers": ["设备", "配置", "用途"],
+            "rows": [
+              ["开发服务器", "CPU 8核/内存16G/硬盘500G", "代码编译和测试执行"],
+              ["测试客户端", "CPU 4核/内存8G/硬盘256G", "测试工具运行"]
+            ]
+          }
+        },
+        {
+          "id": "3.2",
+          "title": "3.2 软件环境",
+          "content": {
+            "headers": ["软件名称", "版本", "用途"],
+            "rows": [
+              ["操作系统", "Windows 10 / Linux CentOS 7", "运行环境"],
+              ["JDK", "1.8", "Java运行环境"],
+              ["Maven", "3.6+", "项目构建工具"],
+              ["Spring Boot", "2.x", "应用框架"],
+              ["JUnit", "4.x", "单元测试框架"]
+            ]
+          }
+        },
+        {
+          "id": "3.3",
+          "title": "3.3 测试工具",
+          "content": {
+            "headers": ["工具名称", "用途", "版本"],
+            "rows": [
+              ["JUnit", "单元测试执行", "4.x"],
+              ["Maven", "项目构建和测试执行", "3.6+"],
+              ["IDE", "代码编写和调试", "IntelliJ IDEA / VS Code"]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "第四章 功能测试用例",
+      "sections": [
+        {
+          "id": "4.1",
+          "title": "4.1 正常场景测试",
+          "content": {
+            "description": "验证消息转换器在正常输入条件下的处理结果。",
+            "headers": ["用例编号", "用例名称", "前置条件", "测试步骤", "测试数据", "预期结果", "优先级"],
+            "rows": [
+              ["TC-FUN-001", "fromMessage-完整XML解析", "消息已初始化", "1.构造完整XML消息 2.调用fromMessage方法", "完整的外围广播消息XML", "返回正确的JSONObject，所有字段映射正确", "高"],
+              ["TC-FUN-002", "fromMessage-mOrgCust数组解析", "消息已初始化", "1.构造含mOrgCust数组的XML 2.调用fromMessage方法", "含多个客户基本信息的XML", "正确提取保留客户名称", "高"],
+              ["TC-FUN-003", "fromMessage-mOrgCertInfo数组解析", "消息已初始化", "1.构造含证件信息的XML 2.调用fromMessage方法", "含主辅证件的XML", "正确提取主证件类型和号码", "高"],
+              ["TC-FUN-004", "fromMessage-报文头解析", "消息已初始化", "1.构造含ebbsHdrReq的XML 2.调用fromMessage方法", "含报文头的XML", "opCode、reqUserNo、reqBrchNo正确映射", "高"],
+              ["TC-FUN-005", "toMessage-正常响应构造", "服务已返回", "1.构造正常响应JSON 2.调用toMessage方法", "含retCode、retData的JSON", "返回正确的XML响应报文", "高"],
+              ["TC-FUN-006", "toMessage-检查结果字段", "服务已返回", "1.构造含chkRsltRetCd的JSON 2.调用toMessage方法", "含检查结果的服务响应", "XML中包含chkRsltRetCd和chkRsltRetRsn", "高"]
+            ]
+          }
+        },
+        {
+          "id": "4.2",
+          "title": "4.2 异常场景测试",
+          "content": {
+            "description": "验证消息转换器在异常输入条件下的处理结果。",
+            "headers": ["用例编号", "用例名称", "前置条件", "测试步骤", "测试数据", "预期结果", "优先级"],
+            "rows": [
+              ["TC-ERR-001", "fromMessage-消息格式错误", "消息已初始化", "1.构造格式错误的XML 2.调用fromMessage方法", "缺少body节点的XML", "抛出异常或返回错误", "高"],
+              ["TC-ERR-002", "fromMessage-必填字段缺失", "消息已初始化", "1.构造缺少必填字段的XML 2.调用fromMessage方法", "缺少custNo字段的XML", "字段值为null，不抛出异常", "高"],
+              ["TC-ERR-003", "fromMessage-空数组处理", "消息已初始化", "1.构造空数组的XML 2.调用fromMessage方法", "mOrgCust为空的XML", "正常处理，字段为null", "中"],
+              ["TC-ERR-004", "fromMessage-证件客户号不匹配", "消息已初始化", "1.构造证件号不匹配的XML 2.调用fromMessage方法", "custNo不一致的证件信息", "未提取到证件信息", "中"],
+              ["TC-ERR-005", "toMessage-空retData处理", "服务已返回", "1.构造retData为空的JSON 2.调用toMessage方法", "retData为null的JSON", "正常处理，不抛出NPE", "高"],
+              ["TC-ERR-006", "toMessage-部分字段为空", "服务已返回", "1.构造部分字段为空的JSON 2.调用toMessage方法", "chkRsltRetCd为null的JSON", "正常处理，XML中对应节点为空", "中"]
+            ]
+          }
+        },
+        {
+          "id": "4.3",
+          "title": "4.3 边界值测试",
+          "content": {
+            "description": "验证消息转换器在边界条件下的处理结果。",
+            "headers": ["用例编号", "用例名称", "前置条件", "测试步骤", "测试数据", "预期结果", "优先级"],
+            "rows": [
+              ["TC-BND-001", "fromMessage-客户号长度边界", "消息已初始化", "1.构造13位客户号的XML 2.调用fromMessage方法", "custNo长度为13的XML", "正常解析", "中"],
+              ["TC-BND-002", "fromMessage-证件号码长度边界", "消息已初始化", "1.构造32位证件号的XML 2.调用fromMessage方法", "certNo长度为32的XML", "正常解析", "中"],
+              ["TC-BND-003", "fromMessage-客户名称长度边界", "消息已初始化", "1.构造80位客户名称的XML 2.调用fromMessage方法", "custNmcn长度为80的XML", "正常解析", "中"],
+              ["TC-BND-004", "toMessage-响应码长度边界", "服务已返回", "1.构造长响应码的JSON 2.调用toMessage方法", "retCode长度为32的JSON", "正常构造XML", "低"]
+            ]
+          }
+        },
+        {
+          "id": "4.4",
+          "title": "4.4 字段映射验证",
+          "content": {
+            "description": "验证每个字段的映射关系是否正确。",
+            "headers": ["用例编号", "外围字段", "产品字段", "测试数据", "预期值", "优先级"],
+            "rows": [
+              ["TC-MAP-001", "txCode", "opCode", "0402006", "0402006", "高"],
+              ["TC-MAP-002", "tellerNo", "reqUserNo", "T001", "T001", "高"],
+              ["TC-MAP-003", "orgCode", "reqBrchNo", "B001", "B001", "高"],
+              ["TC-MAP-004", "custNo", "custNo", "CUST000000001", "CUST000000001", "高"],
+              ["TC-MAP-005", "suspectCustNo", "mrgdCustNo", "CUST000000002", "CUST000000002", "高"],
+              ["TC-MAP-006", "mOrgCust.custNmcn", "custName", "测试客户", "测试客户", "高"],
+              ["TC-MAP-007", "mOrgCertInfo.certType", "certType", "01", "01", "高"],
+              ["TC-MAP-008", "mOrgCertInfo.certNo", "certNo", "CERT001", "CERT001", "高"]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "第五章 集成测试用例",
+      "sections": [
+        {
+          "id": "5.1",
+          "title": "5.1 端到端测试",
+          "content": {
+            "description": "验证完整的消息接收、转换、服务调用、响应返回流程。",
+            "headers": ["用例编号", "用例名称", "前置条件", "测试步骤", "测试数据", "预期结果", "优先级"],
+            "rows": [
+              ["TC-INT-001", "完整流程-正常合并", "服务已启动", "1.发送外围广播消息 2.接收消息并转换 3.调用服务 4.返回响应", "完整的外围广播消息", "流程正常完成，响应正确", "高"],
+              ["TC-INT-002", "完整流程-校验操作", "服务已启动", "1.发送校验类型消息 2.接收消息并转换 3.调用服务 4.返回响应", "operType=1的消息", "校验操作正常完成", "高"]
+            ]
+          }
+        },
+        {
+          "id": "5.2",
+          "title": "5.2 服务调用测试",
+          "content": {
+            "description": "验证产品服务接口的调用正确性。",
+            "headers": ["用例编号", "用例名称", "前置条件", "测试步骤", "测试数据", "预期结果", "优先级"],
+            "rows": [
+              ["TC-SVC-001", "服务调用-参数验证", "服务已启动", "1.调用Ecif4001Service 2.验证请求参数", "BaseRequest<Ecif4001ReqDto>", "参数正确传递", "高"],
+              ["TC-SVC-002", "服务调用-返回值验证", "服务已返回", "1.接收服务响应 2.验证返回结果", "Ecif4001ResDto", "返回值正确解析", "高"]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "第六章 性能测试用例",
+      "sections": [
+        {
+          "id": "6.1",
+          "title": "6.1 负载测试",
+          "content": {
+            "description": "验证在高负载条件下的消息处理性能。",
+            "headers": ["用例编号", "用例名称", "并发数", "测试时长", "预期响应时间", "预期结果"],
+            "rows": [
+              ["TC-PERF-001", "单消息处理性能", "1", "10秒", "<100ms", "所有消息处理成功"],
+              ["TC-PERF-002", "批量消息处理", "10", "60秒", "<500ms", "所有消息处理成功"]
+            ]
+          }
+        },
+        {
+          "id": "6.2",
+          "title": "6.2 压力测试",
+          "content": {
+            "description": "验证系统在极限压力下的表现。",
+            "headers": ["用例编号", "用例名称", "并发数", "测试时长", "预期结果"],
+            "rows": [
+              ["TC-STR-001", "高并发消息处理", "100", "300秒", "系统不崩溃，错误率<1%"]
+            ]
+          }
+        },
+        {
+          "id": "6.3",
+          "title": "6.3 稳定性测试",
+          "content": {
+            "description": "验证系统长时间运行的稳定性。",
+            "headers": ["用例编号", "用例名称", "测试时长", "消息频率", "预期结果"],
+            "rows": [
+              ["TC-STB-001", "24小时持续运行", "24小时", "每秒1条消息", "无内存泄漏，无异常"]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "第七章 安全测试用例",
+      "sections": [
+        {
+          "id": "7.1",
+          "title": "7.1 认证测试",
+          "content": {
+            "description": "验证消息来源的认证机制。",
+            "headers": ["用例编号", "用例名称", "测试步骤", "预期结果"],
+            "rows": [
+              ["TC-SEC-001", "消息来源验证", "1.发送未认证消息", "消息被拒绝"]
+            ]
+          }
+        },
+        {
+          "id": "7.2",
+          "title": "7.2 授权测试",
+          "content": {
+            "description": "验证操作权限控制。",
+            "headers": ["用例编号", "用例名称", "测试步骤", "预期结果"],
+            "rows": [
+              ["TC-AUTH-001", "操作权限验证", "1.使用无权限用户发送消息", "操作被拒绝"]
+            ]
+          }
+        },
+        {
+          "id": "7.3",
+          "title": "7.3 数据加密测试",
+          "content": {
+            "description": "验证敏感数据的加密处理。",
+            "headers": ["用例编号", "用例名称", "测试步骤", "预期结果"],
+            "rows": [
+              ["TC-ENC-001", "日志脱敏验证", "1.执行操作 2.检查日志", "敏感字段已脱敏"]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "第八章 测试执行结果",
+      "sections": [
+        {
+          "id": "8.1",
+          "title": "8.1 测试执行情况",
+          "content": {
+            "headers": ["统计项", "数量", "占比"],
+            "rows": [
+              ["总用例数", "0", "100%"],
+              ["已通过", "0", "0%"],
+              ["已失败", "0", "0%"],
+              ["未执行", "0", "0%"]
+            ]
+          }
+        },
+        {
+          "id": "8.2",
+          "title": "8.2 缺陷统计",
+          "content": {
+            "headers": ["严重程度", "数量", "修复状态"],
+            "rows": [
+              ["严重", "0", "待修复"],
+              ["一般", "0", "待修复"],
+              ["轻微", "0", "待修复"]
+            ]
+          }
+        },
+        {
+          "id": "8.3",
+          "title": "8.3 测试结论",
+          "content": {
+            "description": "测试总结：根据测试结果，评估功能质量是否达到上线标准。说明遗留问题和风险。给出发布建议。"
+          }
+        }
+      ]
+    }
+  ],
+  "testCaseTemplate": {
+    "headers": ["用例编号", "用例名称", "前置条件", "测试步骤", "测试数据", "预期结果", "实际结果", "执行状态", "执行人", "执行日期", "备注"],
+    "structure": {
+      "caseId": "TC-${module}-${seq}",
+      "caseName": "",
+      "preCondition": "",
+      "steps": [],
+      "testData": "",
+      "expectedResult": "",
+      "actualResult": "",
+      "status": "未执行",
+      "priority": "中",
+      "executor": "",
+      "execDate": "",
+      "remarks": ""
+    }
+  },
+  "appendix": {
+    "templates": [],
+    "glossary": [
+      {"term": "ECIF", "definition": "企业客户信息管理系统"},
+      {"term": "BaseRequest", "definition": "BEMP框架基础请求参数类"},
+      {"term": "MessageConverter", "definition": "消息转换器，负责外围消息与内部消息的转换"}
+    ]
+  }
+}
