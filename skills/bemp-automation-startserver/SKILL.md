@@ -30,9 +30,10 @@ triggers:
 
 ## 核心特性
 
-- **独立终端运行**：每个服务在独立的 IDE 终端中以前台方式运行，日志直接可见
+- **独立终端运行**：每个服务在独立的 IDE 终端中以前台方式运行,日志直接可见
 - **状态检测**：自动检测各服务端口占用情况
 - **强制重启**：支持 `-ForceRestart` 参数停止冲突进程并重启
+- **快速启动**：支持 `-QuickStart` 参数跳过 Maven 编译,直接启动后端服务
 - **配置化**：所有路径和参数通过 `config.json` 统一管理
 
 ## 支持的服务
@@ -57,12 +58,36 @@ SpringBoot 服务支持两种启动模式，通过 `config.json` 中的 `launchM
   - 适合日常开发和调试
 
 ### 2. Debug 模式
-- **配置**: `"launchMode": "debug"`（或不配置，默认模式）
+- **配置**: `"launchMode": "debug"`(或不配置,默认模式)
 - **特点**:
   - 在 Trae IDE 中以 F5 Debug 模式启动
   - 支持断点调试、热重载
   - 自动打开 IDE 工作区
   - 适合需要调试的场景
+
+## 快速启动模式
+
+SpringBoot 服务支持快速启动模式,通过 `-QuickStart` 参数启用:
+
+### 使用场景
+- 近期已编译过项目,代码无变化
+- 需要快速重启后端服务
+- 节省编译时间,提高开发效率
+
+### 使用方法
+
+```powershell
+# 正常启动(会执行 Maven 编译)
+.\start-bemp-env.ps1 -Service springboot
+
+# 快速启动(跳过 Maven 编译)
+.\start-bemp-env.ps1 -Service springboot -QuickStart
+```
+
+### 注意事项
+- 仅适用于 SpringBoot 服务
+- 确保项目已编译且 WAR 文件存在
+- 如果代码有变更,请使用正常启动模式或手动编译
 
 ## 快速使用
 
@@ -72,7 +97,7 @@ SpringBoot 服务支持两种启动模式，通过 `config.json` 中的 `launchM
 2. **服务启动后，不要在该终端执行其他命令**
 3. **使用 `-Status` 参数时，使用独立的终端**
 
-### 启动单个服务（每个服务在新终端执行）
+### 启动单个服务(每个服务在新终端执行)
 
 ```powershell
 cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
@@ -83,8 +108,11 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 # 终端 2 - 启动 ZooKeeper
 .\start-bemp-env.ps1 -Service zookeeper
 
-# 终端 3 - 启动 SpringBoot（Debug 模式）
+# 终端 3 - 启动 SpringBoot(Debug 模式)
 .\start-bemp-env.ps1 -Service springboot
+
+# 终端 3 - 启动 SpringBoot(快速启动模式,跳过编译)
+.\start-bemp-env.ps1 -Service springboot -QuickStart
 
 # 终端 4 - 启动前端
 .\start-bemp-env.ps1 -Service frontend

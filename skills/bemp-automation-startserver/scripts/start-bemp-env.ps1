@@ -5,7 +5,8 @@ param(
     [string]$ConfigPath = "$PSScriptRoot\..\config\config.json",
     [string]$Service = "",
     [switch]$Status,
-    [switch]$ForceRestart
+    [switch]$ForceRestart,
+    [switch]$QuickStart
 )
 
 $originalLocation = Get-Location
@@ -255,7 +256,8 @@ function Start-ZooKeeperService {
 function Start-SpringBootService {
     param(
         [object]$config,
-        [object]$globalPaths
+        [object]$globalPaths,
+        [switch]$QuickStart
     )
 
     # Use global paths from config
@@ -343,7 +345,10 @@ function Start-SpringBootService {
     }
 
     # Step 2: Auto compile with Maven if enabled
-    if ($autoCompile) {
+    if ($QuickStart) {
+        Write-Warning "QuickStart mode enabled: Skipping Maven compilation"
+        Write-Warning "Make sure the project was previously compiled"
+    } elseif ($autoCompile) {
         Write-Step "Auto-compiling project with Maven..."
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Cyan
@@ -787,7 +792,7 @@ if ($Service -ne "") {
         }
         "springboot" {
             if ($config.services.springboot.enabled) {
-                Start-SpringBootService -config $config.services.springboot -globalPaths $globalPaths
+                Start-SpringBootService -config $config.services.springboot -globalPaths $globalPaths -QuickStart:$QuickStart
             } else {
                 Write-Warning "SpringBoot is disabled"
             }

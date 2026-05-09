@@ -41,7 +41,7 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 
 ### 二、启动服务
 
-按推荐顺序，在每个服务中使用**独立的 IDE 终端**依次执行：
+按推荐顺序,在每个服务中使用**独立的 IDE 终端**依次执行:
 
 ```powershell
 # 终端 1 - Redis
@@ -50,12 +50,34 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 # 终端 2 - ZooKeeper
 .\start-bemp-env.ps1 -Service zookeeper
 
-# 终端 3 - SpringBoot（F5 Debug 模式）
+# 终端 3 - SpringBoot(F5 Debug 模式)
 .\start-bemp-env.ps1 -Service springboot
+
+# 终端 3 - SpringBoot(快速启动模式,跳过编译)
+.\start-bemp-env.ps1 -Service springboot -QuickStart
 
 # 终端 4 - 前端
 .\start-bemp-env.ps1 -Service frontend
 ```
+
+### 快速启动模式
+
+当项目近期已编译且代码无变化时,可使用 `-QuickStart` 参数跳过 Maven 编译,直接启动后端服务:
+
+```powershell
+# 快速启动 SpringBoot(跳过 Maven 编译)
+.\start-bemp-env.ps1 -Service springboot -QuickStart
+```
+
+**适用场景**:
+- 近期已编译过项目,代码无变化
+- 需要快速重启后端服务
+- 节省编译时间,提高开发效率
+
+**注意事项**:
+- 仅适用于 SpringBoot 服务
+- 确保项目已编译且 WAR 文件存在
+- 如果代码有变更,请使用正常启动模式或手动编译
 
 ### 三、强制重启
 
@@ -197,6 +219,10 @@ Frontend          8091 [--] Stopped
 - 内存不足调整
 
 ## 更新日志
+
+### v6.0.0 (2026-05-09)
+- 新增快速启动模式(-QuickStart 参数),支持跳过 Maven 编译直接启动后端服务
+- 优化开发体验,节省重复编译时间
 
 ### v5.9.0 (2026-04-17)
 - 新增终端窗口标题自动设置功能
