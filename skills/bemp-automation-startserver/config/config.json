@@ -38,7 +38,9 @@
       "enabled": true,
       "name": "Frontend",
       "startCommand": "npm run dev",
-      "port": 8091
+      "port": 8091,
+      "nodeMemoryLimit": 6096,
+      "_quickStartNote": "使用 -QuickStart 参数可跳过依赖安装检查, 适合 dependencies 未变更的日常启动"
     }
   }
 }

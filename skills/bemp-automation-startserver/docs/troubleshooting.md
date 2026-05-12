@@ -94,14 +94,70 @@ taskkill /PID <PID> /F
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-## 8. 内存不足
+## 8. 前端启动慢 / npm install 耗时长
 
-**解决方案**：修改 `config.json` 中的 JVM 参数：
+**原因**：首次启动时 `npm install` 需要下载大量依赖包。
+
+**解决方案 1 - 使用 QuickStart 跳过依赖检查（日常启动推荐）**：
+```powershell
+.\start-bemp-env.ps1 -Service frontend -QuickStart
+```
+
+**解决方案 2 - 脚本内置优化**（v6.1.0+ 已自动生效）：
+- `--prefer-offline`：优先使用本地 npm 缓存
+- `--no-audit`：跳过安全审计（节省 5-15 秒）
+- `--no-fund`：跳过赞助信息（节省 ~2 秒）
+- `PUPPETEER_SKIP_DOWNLOAD=true`：跳过 Chromium 下载
+- `ELECTRON_SKIP_BINARY_DOWNLOAD=true`：跳过 Electron 下载
+
+**解决方案 3 - 手动操作**：
+```powershell
+cd d:\code\QJ\BEMP5.0DEV\frontend
+
+# 使用快速 install
+npm install --prefer-offline --no-audit --no-fund
+
+# 然后启动 dev server
+npm run dev
+```
+
+**首次启动预估时间对比**：
+
+| 场景 | 优化前 | 优化后 | 节省 |
+|------|--------|--------|------|
+| node_modules 已存在 | ~30 秒 | ~3 秒 | ~90% |
+| node_modules 不存在(npm install) | ~150-300 秒 | ~40-120 秒 | ~50-70% |
+| QuickStart(有 node_modules) | - | ~1 秒 | ~97% |
+
+## 9. 前端首次启动 npm install 执行两次
+
+**现象**（v6.0.0 及之前版本）：首次启动前端时 `npm install` 日志出现两次。
+
+**原因**：脚本中存在重复的 `node_modules` 检查代码块（Bug）。
+
+**解决方案**：升级到 v6.1.0+，脚本已修复此问题。第二次 `npm install` 将被跳过所以不影响最终结果, 但会多等待 1-2 秒的诊断输出。
+
+---
+
+## 10. 内存不足
+
+JVM 内存不足时,修改 `config.json` 中的参数：
 ```json
 {
   "services": {
     "springboot": {
       "jvmOptions": "-Xmx512m -Xms256m"
+    }
+  }
+}
+```
+
+前端 Node 内存不足时,修改 `config.json` 中的 `nodeMemoryLimit`：
+```json
+{
+  "services": {
+    "frontend": {
+      "nodeMemoryLimit": 4096
     }
   }
 }

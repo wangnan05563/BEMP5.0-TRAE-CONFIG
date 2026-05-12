@@ -568,12 +568,13 @@ function Start-SpringBootInTerminal {
 }
 
 function Start-FrontendService {
-    param([object]$config, [object]$globalPaths)
+    param([object]$config, [object]$globalPaths, [switch]$QuickStart)
 
     $projectPath = $globalPaths.frontendProjectPath
     $startCommand = $config.startCommand
     $nodePath = $globalPaths.nodePath
     $serviceName = $config.name
+    $nodeMemoryLimit = $config.nodeMemoryLimit
 
     # 设置终端窗口标题
     Set-TerminalTitle "BEMP - Frontend (8091)"
@@ -641,21 +642,7 @@ function Start-FrontendService {
         $nodeExe = "node"
     }
     
-    # Step 3: Install dependencies if needed
-    Set-Location $projectPath
-    
-    if (-not (Test-Path "node_modules")) {
-        Write-Host "First run, installing dependencies..." -ForegroundColor Yellow
-        npm install
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Dependency install failed!" -ForegroundColor Red
-            return $false
-        }
-        Write-Host "Dependencies installed" -ForegroundColor Green
-        Write-Host ""
-    }
-    
-    # Step 4: Execute npm command with specified Node.js
+    # Step 3: Execute npm command with specified Node.js
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "  Frontend Development Server" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
@@ -663,6 +650,10 @@ function Start-FrontendService {
     Write-Host "Working Dir: $projectPath" -ForegroundColor Gray
     Write-Host "Node.js: $nodeExe" -ForegroundColor Gray
     Write-Host "Command: $startCommand" -ForegroundColor Gray
+    
+    if ($nodeMemoryLimit) {
+        Write-Host "Node Memory Limit: ${nodeMemoryLimit}MB" -ForegroundColor Gray
+    }
     Write-Host ""
     
     # Get npm path from the configured Node.js installation
@@ -673,27 +664,66 @@ function Start-FrontendService {
     $originalPath = $env:PATH
     $env:PATH = "$nodeDir;$env:PATH"
     
+    # Set NODE_OPTIONS for memory limit (matching package.json build config)
+    $originalNodeOptions = $env:NODE_OPTIONS
+    if ($nodeMemoryLimit) {
+        $env:NODE_OPTIONS = "--max_old_space_size=$nodeMemoryLimit"
+        Write-Step "Setting NODE_OPTIONS=$env:NODE_OPTIONS"
+    }
+    
     # Install dependencies if needed
-    if (-not (Test-Path "node_modules")) {
-        Write-Host "First run, installing dependencies..." -ForegroundColor Yellow
-        & $npmCmd install
+    Set-Location $projectPath
+    
+    if ($QuickStart) {
+        Write-Warning "QuickStart mode: Skipping dependency installation check"
+        if (-not (Test-Path "node_modules")) {
+            Write-Error "QuickStart failed: node_modules not found, run without -QuickStart first"
+            $env:PATH = $originalPath
+            return $false
+        }
+        Write-Success "node_modules found, proceeding with startup"
+    } elseif (-not (Test-Path "node_modules")) {
+        Write-Host "First run, installing dependencies (optimized)..." -ForegroundColor Yellow
+        
+        # 跳过二进制文件下载以加速安装（项目中用不到这些可选依赖）
+        $env:PUPPETEER_SKIP_DOWNLOAD = "true"
+        $env:ELECTRON_SKIP_BINARY_DOWNLOAD = "true"
+        
+        # --prefer-offline: 优先使用本地缓存，减少网络请求
+        # --no-audit: 跳过安全审计，节省约 5-15 秒
+        # --no-fund: 跳过赞助信息输出
+        # --scripts-prepend-node-path: 确保 npm scripts 使用正确的 Node
+        & $npmCmd install --prefer-offline --no-audit --no-fund --scripts-prepend-node-path
+        
+        # 清理临时环境变量
+        Remove-Item Env:PUPPETEER_SKIP_DOWNLOAD -ErrorAction SilentlyContinue
+        Remove-Item Env:ELECTRON_SKIP_BINARY_DOWNLOAD -ErrorAction SilentlyContinue
+        
         if ($LASTEXITCODE -ne 0) {
             $env:PATH = $originalPath
+            $env:NODE_OPTIONS = $originalNodeOptions
             Write-Host "Dependency install failed!" -ForegroundColor Red
             return $false
         }
-        Write-Host "Dependencies installed" -ForegroundColor Green
+        Write-Success "Dependencies installed"
         Write-Host ""
+    } else {
+        Write-Success "node_modules exists, skipping install"
     }
     
     # Start frontend service
     # Re-set terminal title before process starts
     Set-TerminalTitle "BEMP - Frontend (8091)"
     
-    & $npmCmd run dev
+    # 显式设置 NODE_ENV，确保 webpack-dev-server 使用正确的环境
+    $env:NODE_ENV = "development"
     
-    # Restore original PATH
+    # --scripts-prepend-node-path: 确保子进程使用配置的 Node.js
+    & $npmCmd run dev --scripts-prepend-node-path
+    
+    # Restore original PATH and NODE_OPTIONS
     $env:PATH = $originalPath
+    $env:NODE_OPTIONS = $originalNodeOptions
     
     return $true
 }
@@ -799,7 +829,7 @@ if ($Service -ne "") {
         }
         "frontend" {
             if ($config.services.frontend.enabled) {
-                Start-FrontendService -config $config.services.frontend -globalPaths $globalPaths
+                Start-FrontendService -config $config.services.frontend -globalPaths $globalPaths -QuickStart:$QuickStart
             } else {
                 Write-Warning "Frontend is disabled"
             }
@@ -846,6 +876,7 @@ Write-Host "    .\start-bemp-env.ps1 -Service springboot" -ForegroundColor White
 Write-Host ""
 Write-Host "  Terminal 4 - Frontend:" -ForegroundColor Cyan
 Write-Host "    .\start-bemp-env.ps1 -Service frontend" -ForegroundColor White
+Write-Host "    .\start-bemp-env.ps1 -Service frontend -QuickStart (skip dependency check)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Step 2: Check status (in a separate terminal):" -ForegroundColor Green
 Write-Host "    .\start-bemp-env.ps1 -Status" -ForegroundColor Gray

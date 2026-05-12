@@ -58,26 +58,32 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 
 # 终端 4 - 前端
 .\start-bemp-env.ps1 -Service frontend
+
+# 终端 4 - 前端(快速启动模式,跳过依赖检查)
+.\start-bemp-env.ps1 -Service frontend -QuickStart
 ```
 
 ### 快速启动模式
 
-当项目近期已编译且代码无变化时,可使用 `-QuickStart` 参数跳过 Maven 编译,直接启动后端服务:
+当项目近期已编译/安装且代码无变化时,可使用 `-QuickStart` 参数跳过编译或依赖检查:
 
 ```powershell
 # 快速启动 SpringBoot(跳过 Maven 编译)
 .\start-bemp-env.ps1 -Service springboot -QuickStart
+
+# 快速启动前端(跳过 npm 依赖检查)
+.\start-bemp-env.ps1 -Service frontend -QuickStart
 ```
 
 **适用场景**:
-- 近期已编译过项目,代码无变化
-- 需要快速重启后端服务
-- 节省编译时间,提高开发效率
+- 近期已编译/安装过项目,代码无变化
+- 需要快速重启后端或前端服务
+- 节省编译/安装时间,提高开发效率
 
 **注意事项**:
-- 仅适用于 SpringBoot 服务
-- 确保项目已编译且 WAR 文件存在
-- 如果代码有变更,请使用正常启动模式或手动编译
+- SpringBoot: 确保 WAR 文件已编译存在
+- 前端: 确保 `node_modules` 目录已存在
+- 如果代码/依赖有变更,请使用正常启动模式或手动执行编译/安装
 
 ### 三、强制重启
 
@@ -219,6 +225,15 @@ Frontend          8091 [--] Stopped
 - 内存不足调整
 
 ## 更新日志
+
+### v6.1.0 (2026-05-08)
+- **前端启动速度全面优化**:
+  - 修复 `node_modules` 重复检查 Bug（首次安装时 `npm install` 被执行两次）
+  - 新增前端 `-QuickStart` 快速启动模式（跳过依赖检查,与 SpringBoot 对称）
+  - `npm install` 命令优化: 添加 `--prefer-offline`、`--no-audit`、`--no-fund` 加速参数
+  - 安装前设置 `PUPPETEER_SKIP_DOWNLOAD`、`ELECTRON_SKIP_BINARY_DOWNLOAD` 跳过无用二进制
+  - `npm run dev` 显式设置 `NODE_ENV=development` 并添加 `--scripts-prepend-node-path`
+  - 已有 `node_modules` 时显示 `skipping install` 提示,启动更快
 
 ### v6.0.0 (2026-05-09)
 - 新增快速启动模式(-QuickStart 参数),支持跳过 Maven 编译直接启动后端服务

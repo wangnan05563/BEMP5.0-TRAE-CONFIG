@@ -1,0 +1,290 @@
+{
+  "active_bank": "hnnxbank",
+  "host": "127.0.0.1",
+  "services": {
+    "backend_api": {
+      "port": 8010,
+      "health_url": "http://127.0.0.1:8010/bemp-served/",
+      "required": true,
+      "description": "SpringBoot后端API服务"
+    },
+    "frontend": {
+      "port": 8091,
+      "health_url": "http://127.0.0.1:8091/",
+      "required": true,
+      "description": "Node.js前端开发服务器"
+    },
+    "redis": {
+      "port": 6379,
+      "required": true,
+      "description": "Redis缓存数据库"
+    },
+    "zookeeper": {
+      "port": 2181,
+      "required": true,
+      "description": "ZooKeeper分布式协调服务"
+    }
+  },
+  "banks": {
+    "hnnxbank": {
+      "name": "河南农信",
+      "url_prefix": "/hnnxbank/",
+      "component_base": "banks/hnnxbank",
+      "view_path": "views/bizViews/banks/hnnxbank",
+      "route_index": "hnnxbankIndex.js",
+      "login": {
+        "default": {
+          "username": "PLACEHOLDER",
+          "password": "PLACEHOLDER",
+          "description": "默认用户，使用前请替换为实际账号"
+        },
+        "admin": {
+          "username": "PLACEHOLDER",
+          "password": "PLACEHOLDER",
+          "description": "系统管理员，使用前请替换为实际账号"
+        }
+      },
+      "pages": {
+        "branch": {
+          "name": "机构管理",
+          "path": "/#/sm/auth/branch/branch",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"},
+            {"type": "text_visible", "text": "新增"}
+          ]
+        },
+        "branchAdmin": {
+          "name": "机构管理(管理员)",
+          "path": "/#/sm/auth/branch/branchAdmin",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"},
+            {"type": "text_visible", "text": "新增"}
+          ]
+        },
+        "custCorpSign": {
+          "name": "企业信息报备",
+          "path": "/#/bm/sign/cpes/custCorpSign",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"},
+            {"type": "text_visible", "text": "新增"}
+          ]
+        },
+        "custCorpSignAudit": {
+          "name": "企业信息报备复核",
+          "path": "/#/bm/sign/cpes/custCorpSignAudit",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"}
+          ]
+        },
+        "custCorpSignRecord": {
+          "name": "企业信息报备记录查询",
+          "path": "/#/bm/sign/cpes/custCorpSignRecord",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"}
+          ]
+        },
+        "custInfoOnlineQuery": {
+          "name": "企业信息在线查询",
+          "path": "/#/bm/sign/cpes/custInfoOnlineQuery",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"}
+          ]
+        },
+        "custCorp": {
+          "name": "企业客户查询",
+          "path": "/#/bm/cust/corp/custCorp",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"}
+          ]
+        },
+        "custAcct": {
+          "name": "企业账号同步",
+          "path": "/#/bm/cust/acct/custAcct",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"}
+          ]
+        }
+      }
+    },
+    "huisbank": {
+      "name": "徽商银行",
+      "url_prefix": "/huisbank/",
+      "component_base": "banks/huisbank",
+      "view_path": "views/bizViews/banks/huisbank",
+      "route_index": "huisbankIndex.js",
+      "login": {
+        "default": {
+          "username": "PLACEHOLDER",
+          "password": "PLACEHOLDER",
+          "description": "默认用户，使用前请替换为实际账号"
+        }
+      },
+      "pages": {}
+    }
+  },
+  "login": {
+    "force_login_timeout": 3000,
+    "login_wait_timeout": 5000
+  },
+  "session": {
+    "state_dir": "session_states",
+    "state_max_age": 1800,
+    "auto_refresh_threshold": 1500,
+    "session_check_interval": 300,
+    "max_login_retries": 2
+  },
+  "test": {
+    "default_timeout": 5000,
+    "networkidle_timeout": 10000,
+    "screenshot_dir": "./screenshots",
+    "report_dir": "./reports",
+    "headless": true,
+    "browser": {
+      "channel": "chrome",
+      "launch_options": {
+        "channel": "chrome",
+        "headless": true,
+        "args": ["--start-maximized", "--disable-gpu"]
+      },
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    }
+  },
+  "error_filters": {
+    "critical_errors": ["TypeError", "ReferenceError", "ChunkLoadError"],
+    "ignorable_errors": ["WebSocket connection failed"],
+    "warning_errors": ["Warning", "Deprecation"]
+  },
+  "product_url_patterns": ["/bm/", "/sm/", "/bm/cust/", "/bm/cpes/"],
+  "selectors": {
+    "login_username": "input[placeholder*=\"用户名\"]",
+    "login_password": "input[placeholder*=\"密码\"]",
+    "login_button": "button:has-text(\"登录\")",
+    "force_login_confirm": ".h-msg-box-confirm button:has-text(\"是\")",
+    "session_expired": "text=会话已失效",
+    "msg_box": ".h-msg-box",
+    "msg_box_visible": ".h-msg-box:visible",
+    "msg_box_close": ".h-msg-box-close:visible",
+    "msg_box_confirm": ".h-msg-box button:has-text(\"确定\")",
+    "msg_box_submit": ".h-msg-box button:has-text(\"提交\")",
+    "msg_box_cancel": ".h-msg-box button:has-text(\"关闭\")",
+    "datagrid": ".h-datagrid",
+    "datagrid_row": ".h-datagrid tbody tr",
+    "datagrid_first_row": ".h-datagrid tbody tr:first-child",
+    "page_next": ".h-page-next",
+    "page_prev": ".h-page-prev",
+    "select": ".h-select-selection",
+    "select_dropdown": ".h-select-dropdown:visible",
+    "select_option": ".h-select-dropdown li:has-text(\"{option}\")",
+    "query_button": "button:has-text(\"查询\")",
+    "add_button": "button:has-text(\"新增\")",
+    "modify_button": "button:has-text(\"修改\")",
+    "delete_button": "button:has-text(\"删除\")"
+  },
+  "test_data": {
+    "accounts_file": "test-data/test-accounts.json"
+  },
+  "code_checks": {
+    "enabled": true,
+    "frontend": {
+      "F-01": {
+        "name": "@on-click事件绑定检查",
+        "pattern": "@on-click",
+        "glob": "**/*.vue",
+        "expected_matches": 0,
+        "severity": "P0",
+        "fix": "将@on-click替换为@click"
+      },
+      "F-02": {
+        "name": "@views/路径缺少/检查",
+        "pattern": "@views/",
+        "glob": "*Index.js",
+        "expected_matches": 0,
+        "severity": "P0",
+        "fix": "将@views/替换为@/views/"
+      },
+      "F-03": {
+        "name": "Col拼写错误检查",
+        "pattern": "\\bCol:",
+        "glob": "**/*.vue",
+        "expected_matches": 0,
+        "severity": "P0",
+        "fix": "将Col:替换为hiddenCol:"
+      },
+      "F-04": {
+        "name": "组件name与文件名一致性检查",
+        "pattern": "name:\\s*['\"]",
+        "glob": "**/*.vue",
+        "severity": "P0",
+        "note": "检查vue文件name属性值与文件名是否一致"
+      },
+      "F-05": {
+        "name": "国际化文本硬编码检查",
+        "pattern": "[\u4e00-\u9fa5]",
+        "glob": "**/*.vue",
+        "severity": "P2",
+        "note": "检查按钮和标签是否使用$t()而非硬编码中文"
+      },
+      "F-06": {
+        "name": "resetFields空指针检查",
+        "pattern": "\\.resetFields\\(\\)",
+        "glob": "**/*.vue",
+        "severity": "P1",
+        "note": "检查resetFields调用前是否有ref存在性判断"
+      }
+    },
+    "backend": {
+      "B-01": {
+        "name": "冗余@Component注解检查",
+        "pattern": "@Component",
+        "glob": "**/*.java",
+        "severity": "P1",
+        "note": "检查@CloudComponent类是否同时有@Component",
+        "fix": "移除冗余的@Component注解"
+      },
+      "B-02": {
+        "name": "空catch块检查",
+        "pattern": "catch.*\\{\\s*\\}",
+        "glob": "**/*.java",
+        "expected_matches": 0,
+        "severity": "P1",
+        "fix": "添加logger.warn日志"
+      },
+      "B-03": {
+        "name": "ThreadLocal未清理检查",
+        "pattern": "ThreadLocal",
+        "glob": "**/*.java",
+        "severity": "P1",
+        "note": "检查ThreadLocal使用处是否有finally块调用remove"
+      },
+      "B-04": {
+        "name": "Controller继承检查",
+        "pattern": "@RequestMapping",
+        "glob": "**/*.java",
+        "severity": "P2",
+        "note": "检查Controller是否继承BaseController"
+      },
+      "B-05": {
+        "name": "个性化Service注解检查",
+        "pattern": "@CloudComponent",
+        "glob": "**/*.java",
+        "severity": "P1",
+        "note": "检查个性化Service是否有@CustomizedBean注解"
+      }
+    }
+  }
+}

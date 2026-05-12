@@ -1,0 +1,21 @@
+{
+  "_comment": "通用测试账号配置，按银行和角色组织。新增银行时在对应bank_id下添加账号即可。使用前请将PLACEHOLDER替换为实际账号信息。",
+  "_bank_id_": {
+    "accounts": [
+      {
+        "role": "default",
+        "username": "PLACEHOLDER",
+        "password": "PLACEHOLDER",
+        "description": "默认用户，常规功能测试",
+        "scope": "self_and_sub"
+      },
+      {
+        "role": "admin",
+        "username": "PLACEHOLDER",
+        "password": "PLACEHOLDER",
+        "description": "系统管理员，全功能测试",
+        "scope": "all"
+      }
+    ]
+  }
+}
