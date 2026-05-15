@@ -111,6 +111,33 @@
           "checks": [
             {"type": "text_visible", "text": "查询"}
           ]
+        },
+        "creditBatch": {
+          "name": "额度申请批次管理",
+          "path": "/#/pc/credit/acceptBankCreditGrantBatch",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"},
+            {"type": "text_visible", "text": "新增"}
+          ]
+        },
+        "creditInfo": {
+          "name": "额度申请明细管理",
+          "path": "/#/pc/credit/acceptBankCreditGrantInfo",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"},
+            {"type": "text_visible", "text": "新增"}
+          ]
+        },
+        "creditReCheck": {
+          "name": "额度复核",
+          "path": "/#/pc/credit/acceptBankCreditGrantInfoReCheck",
+          "require_personalized": true,
+          "checks": [
+            {"type": "text_visible", "text": "查询"},
+            {"type": "text_visible", "text": "复核"}
+          ]
         }
       }
     },
@@ -193,7 +220,24 @@
     "query_button": "button:has-text(\"查询\")",
     "add_button": "button:has-text(\"新增\")",
     "modify_button": "button:has-text(\"修改\")",
-    "delete_button": "button:has-text(\"删除\")"
+    "delete_button": "button:has-text(\"删除\")",
+    "credit_batch_page": {
+      "add_batch_button": "button:has-text('新增')",
+      "delete_batch_button": "button:has-text('删除')",
+      "credit_info_button": "button:has-text('批复明细')"
+    },
+    "credit_info_page": {
+      "add_info_button": "button:has-text('新增')",
+      "modify_info_button": "button:has-text('修改')",
+      "delete_info_button": "button:has-text('删除')",
+      "submit_review_button": "button:has-text('提交复核')",
+      "cancel_submit_button": "button:has-text('撤销提交')"
+    },
+    "credit_recheck_page": {
+      "review_button": "button:has-text('复核')",
+      "cancel_review_button": "button:has-text('撤销复核')",
+      "export_button": "button:has-text('清单导出')"
+    }
   },
   "test_data": {
     "accounts_file": "test-data/test-accounts.json"

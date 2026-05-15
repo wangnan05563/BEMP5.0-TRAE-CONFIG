@@ -1,0 +1,85 @@
+# BEMP Chrome DevTools 执行检查清单
+
+## 阶段一：环境预检
+
+- [ ] **后端服务可达**：访问 `http://127.0.0.1:8010/bemp-served/`，确认返回非500状态
+- [ ] **前端服务可达**：访问 `http://127.0.0.1:8091/`，确认页面加载
+- [ ] **Redis 运行**：端口 6379 可连接
+- [ ] **ZooKeeper 运行**：端口 2181 可连接
+- [ ] 若任一项不可达，通过 `bemp-automation-startserver` 启动
+
+## 阶段二：登录验证
+
+- [ ] 使用 `evaluate_script` 设置用户名（禁止用 `fill`/`fill_form`）
+- [ ] 使用 `evaluate_script` 设置密码
+- [ ] `dispatchEvent(new Event('input', {bubbles:true}))` 触发 Vue 响应
+- [ ] `click` 登录按钮
+- [ ] 处理强制登录弹窗（`button:has-text('是')`）
+- [ ] `take_snapshot` 确认登录成功（无登录表单）
+- [ ] `list_console_messages` 检查无致命错误
+
+## 阶段三：页面导航
+
+- [ ] `navigate_page` 到目标路径 `http://127.0.0.1:8091/#/{target_path}`
+- [ ] `wait_for: networkidle`
+- [ ] `take_snapshot` 确认页面元素完整
+- [ ] 验证查询表单存在（`.h-form-search`）
+- [ ] 验证工具栏按钮存在（查询、重置、新增等）
+- [ ] 验证 DataGrid 存在（`.h-datagrid`）
+- [ ] `take_screenshot` 保存初始状态
+
+## 阶段四：查询功能验证
+
+- [ ] 默认查询：`click(查询)` → `wait_for(networkidle)` → `take_screenshot`
+- [ ] 条件查询：选择/填写每个查询条件 → 查询 → 验证结果
+- [ ] 重置功能：`click(重置)` → 确认查询条件清空
+- [ ] 验证 DataGrid 行数 ≥ 0（无报错即可）
+- [ ] `list_console_messages` 检查无致命错误
+
+## 阶段五：新建操作验证
+
+- [ ] `click(新增)` → `wait_for(弹窗可见)` → `take_screenshot`
+- [ ] 验证弹窗标题正确
+- [ ] 验证必填字段校验（空表单点确定→应有校验提示）
+- [ ] 填写表单各字段（通过 `evaluate_script` 或 `click`）
+- [ ] `click(确定)` → `wait_for(networkidle)` → `take_screenshot`
+- [ ] 验证弹窗关闭
+- [ ] 验证 DataGrid 刷新（新记录出现或总计数变化）
+
+## 阶段六：状态流转验证
+
+- [ ] **操作前截图**：记录当前状态标签文本
+- [ ] **正向流转**：
+  - [ ] `click(提交复核)` → `wait_for(确认弹窗)` → `click(确定)`
+  - [ ] `wait_for(networkidle)` → `take_screenshot`
+  - [ ] 提取状态文本 → 断言状态已变更
+- [ ] **进阶流转**：
+  - [ ] 切换到复核页面 → 查询待复核记录
+  - [ ] `click(复核)` → 确认 → 验证状态变为"已复核"
+- [ ] **逆向回退**：
+  - [ ] `click(撤销复核)` → 确认 → 验证状态回退
+  - [ ] `click(撤销提交)` → 确认 → 验证状态回退
+- [ ] **完整流转链**：0→1→5→1→0 逐状态截图
+
+## 阶段七：删除操作验证
+
+- [ ] 未选中 → `click(删除)` → 验证提示"请选择一条数据"
+- [ ] 选中行 → `click(删除)` → 验证确认弹窗出现
+- [ ] 确认删除 → `wait_for(networkidle)` → `take_screenshot`
+- [ ] 验证记录已从 DataGrid 中移除
+- [ ] 存在关联数据时 → 验证删除被拒绝并提示原因
+
+## 阶段八：控制台验收
+
+- [ ] `list_console_messages` 获取完整控制台日志
+- [ ] 过滤 **TypeError / ReferenceError** → 0个匹配 = PASS
+- [ ] 过滤 **ChunkLoadError** → 0个匹配 = PASS
+- [ ] 过滤 **Warning** → 记录但不阻塞
+- [ ] 忽略 `WebSocket`、`favicon.ico`、`chrome-extension` 相关错误
+
+## 阶段九：回归检查（二轮验证专用）
+
+- [ ] 确认修复的 BUG 不再复现
+- [ ] 确认修复未引入新的控制台错误
+- [ ] 确认修复未破坏关联功能
+- [ ] 对比修复前后截图，确认页面渲染一致

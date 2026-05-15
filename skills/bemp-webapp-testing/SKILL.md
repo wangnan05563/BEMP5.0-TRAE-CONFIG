@@ -10,6 +10,8 @@
 - 开发完成后需要验证功能是否正常
 - 修复 bug 后需要回归测试
 - 代码 review 后需要确认无运行时错误
+- 状态流转验证（如额度管理草稿→待复核→已复核）
+- 额度管理模块测试（额度批次、额度明细、额度复核）
 
 ## 多银行环境支持
 
@@ -172,6 +174,22 @@ finally:
 
 页面路径从 `banks.{bank_id}.pages` 配置读取。导航后必须 `wait_for_load_state('networkidle')`。
 
+**Vue 动态路由导航**：BEMP 使用 Vue 懒加载路由，直接 URL 导航会导致页面空白。必须通过菜单点击触发路由注册：
+
+```javascript
+// playwright_evaluate: 点击子系统选项卡
+const menuItems = document.querySelectorAll('.h-sidebar-leftfixed .h-menu-item');
+for (const item of menuItems) {
+  const span = item.querySelector('span');
+  if (span && span.textContent.includes('业务管理子系统')) {
+    item.click();
+    break;
+  }
+}
+```
+
+然后点击子菜单项触发具体路由注册。回退方案：如果菜单点击失败，尝试 `playwright_navigate` 直接 URL（仅在路由已被注册过时有效）。
+
 ### 第六步：执行功能测试
 
 **弹窗交互**：`click(add_button)` → `wait_for_selector(msg_box_visible)` → `wait_for_timeout(500)` → 操作 → 关闭
@@ -233,6 +251,9 @@ python scripts/run_test.py --test all --bank {bank_id}
 3. **文本验证优于选择器**：`text=查询` 比 `.btn-search` 更稳定
 4. **网络请求监听**：通过 `page.on("request")` 验证个性化路径
 5. **弹窗操作加延时**：弹窗打开/关闭后 `wait_for_timeout(500)`
+6. **Vue路由需菜单触发**：BEMP懒加载路由需要菜单点击注册，直接URL导航不可靠
+7. **选择后等待同步**：DataGrid行选择后等待500ms让Vue数据同步
+8. **密码字段兼容**：BEMP Chrome模式下密码字段可能是tempPassword
 
 ## 参考文件
 
@@ -241,6 +262,8 @@ python scripts/run_test.py --test all --bank {bank_id}
 | references/testing-standards.md | 测试用例编写标准、代码审查检查清单、回归测试策略 |
 | references/bemp-component-guide.md | BEMP 组件交互参考（h-button/h-msg-box/h-datagrid/h-tree/h-upload/h-form等） |
 | references/error-catalog.md | 常见错误分类和处理、调试工作流、错误快速索引 |
+| references/playwright-mcp-guide.md | Playwright MCP自动化测试实战指南（工具概述、登录/导航/组件交互/状态流转/API监控工作流） |
+| references/test-data-management.md | 测试数据管理指南（数据分类、数据库操作、数据生命周期） |
 | scripts/health_check.py | 服务健康检查（支持--bank参数） |
 | scripts/login_manager.py | 统一登录管理器（会话复用、多角色切换、storage_state持久化） |
 | scripts/run_test.py | 通用测试运行器（配置驱动，支持--bank/--role参数、代码预检） |

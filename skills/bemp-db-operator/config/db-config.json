@@ -1,0 +1,50 @@
+{
+    "description": "BEMP数据库连接配置 - 河南农信开发环境",
+    "version": "1.0.0",
+    "lastUpdate": "2026-05-13",
+    "environments": {
+        "dev": {
+            "label": "开发环境",
+            "host": "10.20.18.177",
+            "port": 1521,
+            "serviceName": "orcl",
+            "username": "bemp_hnnx",
+            "password": "123456",
+            "schema": "BEMP_HNNX",
+            "bankName": "河南农信",
+            "dsn": "oracle://bemp_hnnx:123456@10.20.18.177:1521/orcl"
+        },
+        "test": {
+            "label": "测试环境",
+            "host": "",
+            "port": 1521,
+            "serviceName": "",
+            "username": "",
+            "password": "",
+            "schema": "",
+            "bankName": "河南农信",
+            "dsn": ""
+        },
+        "prod": {
+            "label": "生产环境",
+            "host": "",
+            "port": 1521,
+            "serviceName": "",
+            "username": "",
+            "password": "",
+            "schema": "",
+            "bankName": "河南农信",
+            "dsn": ""
+        }
+    },
+    "defaultEnvironment": "dev",
+    "sqlScriptDirs": {
+        "database": "deploy/bemp-script/src/main/resources/banks/{bankName}",
+        "configcenter": "deploy/bemp-home/src/main/resources/configcenter/banks/{bankName}"
+    },
+    "notes": [
+        "生产环境密码不得明文存储，应使用加密方式",
+        "切换环境时需修改 defaultEnvironment 值",
+        "bankName 用于定位SQL脚本存放目录"
+    ]
+}

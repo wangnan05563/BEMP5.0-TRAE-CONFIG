@@ -22,3 +22,13 @@
 - 【强制】编码后执行代码审查（后端 bemp-backend-code-review / 前端 bemp-frontend-code-review）
 - 【强制】编码后 Maven 打包确保编译通过
 - 【推荐】使用 bemp-personalized-developer 智能体完成功能开发
+- 【强制】前端开发涉及 H-UI 组件使用时，必须先调用 `hui_doc` MCP 查询组件详细文档，包括属性、方法、事件、使用示例及最佳实践，禁止凭记忆或猜测使用组件 API
+
+## 数据库脚本开发目录
+- 【强制】增量SQL脚本存放于 `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/` 目录下
+- 【强制】配置中心增量文件存放于 `deploy/bemp-home/src/main/resources/configcenter/banks/{BANK_NAME}/` 目录下
+- 【配置】`BANK_NAME` 默认值为"河南农信"，可根据部署环境动态调整
+- 【强制】SQL脚本命名遵循 `V{产品版本号}_{日期时间}_{任务编号}_{中文描述}.{脚本类型}.sql` 格式
+- 【强制】增量SQL脚本必须采用"先删除后新增"策略，确保幂等可重复执行
+- 【强制】DDL与DML脚本分文件管理，不同功能模块（菜单/参数/流程）分文件管理
+- 【强制】脚本生成后按检查清单逐项验证（详见 database-guide.md 第六章节）

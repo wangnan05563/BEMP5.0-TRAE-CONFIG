@@ -1,0 +1,429 @@
+{
+  "summary": {
+    "total": 29,
+    "pass": 7,
+    "fail": 12,
+    "blocked": 8
+  },
+  "results": [
+    {
+      "case": "1.1 登录页加载",
+      "status": "PASS",
+      "detail": "登录页面正常加载",
+      "time": "03:13:33"
+    },
+    {
+      "case": "1.2 填写登录表单",
+      "status": "PASS",
+      "detail": "用户名: wangnan01",
+      "time": "03:13:33"
+    },
+    {
+      "case": "1.4 强制登录确认",
+      "status": "PASS",
+      "detail": "已确认强制登录",
+      "time": "03:13:36"
+    },
+    {
+      "case": "1.5 登录完成",
+      "status": "PASS",
+      "detail": "已跳转到主页面(mainIndex)",
+      "time": "03:13:39"
+    },
+    {
+      "case": "2.1 批次页面加载",
+      "status": "FAIL",
+      "detail": "DataGrid组件未能在10秒内加载",
+      "time": "03:13:53"
+    },
+    {
+      "case": "2.2 查询条件展示",
+      "status": "FAIL",
+      "detail": "查询表单加载超时",
+      "time": "03:13:58"
+    },
+    {
+      "case": "2.3 查询功能",
+      "status": "FAIL",
+      "detail": "Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"button:has-text('查询')\").first\n",
+      "time": "03:14:28"
+    },
+    {
+      "case": "2.3a DataGrid数据展示",
+      "status": "BLOCKED",
+      "detail": "无数据行，可能数据库中暂无批次数据",
+      "time": "03:14:28"
+    },
+    {
+      "case": "2.4 新增弹窗打开",
+      "status": "FAIL",
+      "detail": "Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"button:has-text('新增')\").first\n",
+      "time": "03:14:58"
+    },
+    {
+      "case": "2.5 新增弹窗表单",
+      "status": "FAIL",
+      "detail": "弹窗不可见",
+      "time": "03:14:58"
+    },
+    {
+      "case": "2.6 新增弹窗关闭",
+      "status": "FAIL",
+      "detail": "Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\".h-msg-box:visible .h-msg-box-close\").first\n",
+      "time": "03:15:28"
+    },
+    {
+      "case": "2.7 未选择删除提示",
+      "status": "BLOCKED",
+      "detail": "删除按钮不可见",
+      "time": "03:15:29"
+    },
+    {
+      "case": "2.8 删除二次确认",
+      "status": "BLOCKED",
+      "detail": "无数据行可供选择",
+      "time": "03:15:29"
+    },
+    {
+      "case": "2.9 批复明细未选择提示",
+      "status": "BLOCKED",
+      "detail": "批复明细按钮不可见（可能需要选中行）",
+      "time": "03:15:29"
+    },
+    {
+      "case": "2.10 批复明细弹窗打开",
+      "status": "BLOCKED",
+      "detail": "无数据行可供选择",
+      "time": "03:15:29"
+    },
+    {
+      "case": "4.1 复核页面加载",
+      "status": "FAIL",
+      "detail": "DataGrid组件未能在10秒内加载",
+      "time": "03:15:42"
+    },
+    {
+      "case": "4.2 复核查询条件",
+      "status": "FAIL",
+      "detail": "查询按钮不可见",
+      "time": "03:15:42"
+    },
+    {
+      "case": "4.3 复核查询执行",
+      "status": "FAIL",
+      "detail": "Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"button:has-text('查询')\").first\n",
+      "time": "03:16:12"
+    },
+    {
+      "case": "4.4 复核按钮",
+      "status": "FAIL",
+      "detail": "复核按钮不可见",
+      "time": "03:16:12"
+    },
+    {
+      "case": "4.5 撤销复核按钮",
+      "status": "FAIL",
+      "detail": "撤销复核按钮不可见",
+      "time": "03:16:12"
+    },
+    {
+      "case": "4.6 清单导出按钮",
+      "status": "FAIL",
+      "detail": "清单导出按钮不可见",
+      "time": "03:16:12"
+    },
+    {
+      "case": "4.7 选择复核数据",
+      "status": "BLOCKED",
+      "detail": "无复核数据可供选择",
+      "time": "03:16:12"
+    },
+    {
+      "case": "5.1 API请求总数",
+      "status": "PASS",
+      "detail": "共 47 个API请求",
+      "time": "03:16:12"
+    },
+    {
+      "case": "5.2 个性化前缀API",
+      "status": "PASS",
+      "detail": "带 /hnnxbank/ 前缀: 0 个",
+      "time": "03:16:12"
+    },
+    {
+      "case": "5.3 API: func_pagingQueryCreditBatchList",
+      "status": "BLOCKED",
+      "detail": "未被调用",
+      "time": "03:16:12"
+    },
+    {
+      "case": "5.3 API: func_pagingQueryCreditInfoList",
+      "status": "BLOCKED",
+      "detail": "未被调用",
+      "time": "03:16:12"
+    },
+    {
+      "case": "5.4 非个性化API",
+      "status": "INFO",
+      "detail": "非/hnnxbank/请求 47 个（公共API正常）",
+      "time": "03:16:12"
+    },
+    {
+      "case": "6.1 致命错误检查",
+      "status": "PASS",
+      "detail": "未发现致命错误（共 6 条日志）",
+      "time": "03:16:12"
+    },
+    {
+      "case": "6.2 控制台日志统计",
+      "status": "INFO",
+      "detail": "共 6 条日志/警告",
+      "time": "03:16:12"
+    }
+  ],
+  "console_errors": [
+    "[error] Failed to load resource: net::ERR_CONNECTION_REFUSED",
+    "[error] Failed to load resource: net::ERR_CONNECTION_REFUSED",
+    "[warning] [ECharts] DEPRECATED: textStyle hierarchy in axisLabel has been removed since 4.0. All textStyle properties are configured in axisLabel directly now.",
+    "[warning] [ECharts] DEPRECATED: barBorderRadius is deprecated, use borderRadius instead.",
+    "[error] WebSocket connection to 'ws://127.0.0.1:9080/bemp/websocket/wangnan01' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+    "[error] WebSocket connection to 'ws://127.0.0.1:9080/bemp/websocket/wangnan01' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED"
+  ],
+  "api_requests": [
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/queryVersion",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/queryVersion",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/queryVersion",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/queryVersion",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/getSecurityKey?securityType=SM4",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/userLogin",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/getSecurityKey?securityType=SM4",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/userLogin",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/systemParameter/findSystemParameter",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/businessParamete/getBusinessParameter",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/authority/queryAuthority",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/userLoginByToken",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/msgpush/msgPushRecordQuery/func_messageCount",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/fw/controller/common/getParamValuesByKeys?paramKeys=bemp.product_name,bemp.product_version&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=3ff85f4c65e93b2a42145091664f78846380270fb47749c2a43b61dfcbc1f327",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/msgpush/msgPushRecordQuery/func_messageCount",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/systemParameter/findSystemParameter",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/login/queryVersion",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/config/dictionary/getDictbyGroupCodes?code=SysStatusCode,EcdsSysStsCode,SysSts,TraderType,TraderStatus&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=ccf78abf5bd68c7b0aed224a77774ddadb10ecf6c257a6e6125b3e79ec3fce0f",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/systemParameter/func_getConnectMode",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/config/dictionary/getDictbyGroupCodes?code=SysStatusCode,EcdsSysStsCode,SysSts&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=9910e28c53b1569efe26aeaa1b20e4f555749db42f00ac1c247f11dafbaf298d",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/systemParameter/func_getConnectMode",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/config/dictionary/getDictbyGroupCodes?code=PushBusiType,PushMethod,PushType&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=edd32cd392da66393c583e0581a32ec8e717031e07a9bfa4a658d7e5efbb9e39",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/config/dictionary/getDictbyGroupCodes?code=PushBusiType,PushMethod,PushType&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=edd32cd392da66393c583e0581a32ec8e717031e07a9bfa4a658d7e5efbb9e39",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/systemParameter/func_getConnectMode",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/ecds/getEcdsSysStatus",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/shcpe/cpes/systemStatus/getCpesSysStatus",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/ecds/getEcdsSysStatus",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/shcpe/cpes/systemStatus/getCpesSysStatus",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/config/dictionary/getDictbyGroupCodes?code=SysStatusCode,EcdsSysStsCode,SysSts&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=9910e28c53b1569efe26aeaa1b20e4f555749db42f00ac1c247f11dafbaf298d",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/ecds/getEcdsSysStatus",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/shcpe/cpes/systemStatus/getCpesSysStatus",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/fw/controller/common/getParamValuesByKeys?paramKeys=sm.config.cust_app_name&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=b7701180bf2ef30c72a05a9a7dc09e8dafffc90655e51db13e9becf7dd3c6147",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/systemParameter/getParamValuesByKeys?paramKeys=sm.msg_is_auto_proceed_pend_item_query,sm.msg_cut_back_to_home_page_is_auto_refresh&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=5ca702eee09f2f3d037893134903562f4875b3bf34aae141f618acb619a233f9",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/auth/systemParameter/getParamValuesByKeys?paramKeys=sm.msg_is_auto_proceed_todo_item_query,sm.msg_cut_back_to_home_page_is_auto_refresh&fwToken=1a31d61c-9e9c-40b6-a65f-c983893f3b3f&fwSign=87d456218d55908ac359e2fcc5707e33a23ea7ebcd9c9c8b5bb5a7c189b8b0ac",
+      "method": "GET",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/homePageRemind/selectHomePageRemind",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/penditem/queryPendItemDto",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/todoitem/todoItemMain/func_queryTodoItemByPage",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/penditem/queryPendItemDto",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/todoitem/todoItemMain/func_queryTodoItemByPage",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/penditem/queryPendItemDto",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/todoitem/todoItemMain/func_queryTodoItemByPage",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/todoitem/todoItemMain/func_queryTodoItemByPage",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/penditem/queryPendItemDto",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/todoitem/todoItemMain/func_queryTodoItemByPage",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/penditem/queryPendItemDto",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/todoitem/todoItemMain/func_queryTodoItemByPage",
+      "method": "POST",
+      "has_hnnxbank": false
+    },
+    {
+      "url": "http://127.0.0.1:8010/sm/msg/penditem/queryPendItemDto",
+      "method": "POST",
+      "has_hnnxbank": false
+    }
+  ]
+}

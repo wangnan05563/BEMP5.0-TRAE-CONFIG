@@ -1,0 +1,70 @@
+{
+  "project": {
+    "key": "bemp-ext-hnnxbank",
+    "name": "BEMP Henan Rural Credit Personalized Extension",
+    "base_path": "banks/ext-hnnxbank"
+  },
+  "sonarqube_server": {
+    "java_home": "D:\\code\\Java\\jdk-25.0.1",
+    "install_path": "D:\\code\\sonar\\sonarqube-26.1.0.118079",
+    "start_script": "bin\\windows-x86-64\\StartSonar.bat",
+    "port": 9000,
+    "host": "http://localhost:9000",
+    "startup_timeout_seconds": 120,
+    "health_check_interval_seconds": 5,
+    "health_check_endpoint": "/api/system/status"
+  },
+  "modules": {
+    "hnnxbank-biz-as": {
+      "path": "hnnxbank-biz-as/src/main/java/com/hundsun/bemp/hnnxbank",
+      "layers": {
+        "controller": "biz/pc/*/controller",
+        "service": "biz/pc/*/service/impl",
+        "dao": "biz/pc/*/dao",
+        "dto": "biz/pc/*/dto",
+        "util": "biz/pc/*/utils",
+        "aspect": "biz/pc/*/aspect"
+      }
+    },
+    "hnnxbank-biz-api": {
+      "path": "hnnxbank-biz-api/src/main/java/com/hundsun/bemp/hnnxbank",
+      "layers": {
+        "service": "biz/pc/*/service",
+        "dto": "biz/pc/*/dto"
+      }
+    },
+    "hnnxbank-adapter-as": {
+      "path": "hnnxbank-adapter-as/src/main/java/com/hundsun/bemp/hnnxbank",
+      "layers": {
+        "converter": "adapter/msg/server/*/MessageConverter.java",
+        "handler": "adapter/msg/server/*/MessageHandler.java"
+      }
+    }
+  },
+  "quality_gate": {
+    "new_coverage_threshold": 80,
+    "new_duplication_threshold": 3,
+    "new_violations_threshold": 0
+  },
+  "scan": {
+    "default_severities": ["BLOCKER", "HIGH", "MEDIUM"],
+    "page_size": 100,
+    "language": "java",
+    "snippet_analysis_enabled": true
+  },
+  "bemp_framework_annotations": {
+    "cloud_component": "@CloudComponent",
+    "cloud_reference": "@CloudReference",
+    "cloud_service": "@CloudService",
+    "resource": "@Resource",
+    "transactional": "@Transactional(rollbackFor = Exception.class)"
+  },
+  "known_false_positive_rules": [
+    "java:S112",
+    "java:S116"
+  ],
+  "report": {
+    "output_dir": ".trae/skills/bemp-sonarqube-mcp/reports",
+    "template": "assets/report-template.md"
+  }
+}

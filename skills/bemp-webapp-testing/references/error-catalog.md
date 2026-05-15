@@ -325,6 +325,10 @@ export default {
 | 文件上传失败 | 组件交互 | 9.1 |
 | 树节点操作报错 | 树组件API | 1.1 / 9.2 |
 | 后端日志无异常信息 | 空catch块 | 8.2 |
+| 直接URL导航页面空白 | Vue动态路由未注册 | 12 |
+| 金额修改后提交未更新 | h-typefield值绑定失效 | 13 |
+| 选中行后操作报ID为空 | checkbox数据同步延迟 | 14 |
+| mvn clean报Failed to delete | Maven文件锁定 | 15 |
 
 ## 9. 文件上传与树组件交互错误
 
@@ -426,3 +430,86 @@ mvn clean compile -DskipTests -pl banks/ext-{bank_id}/{bank_id}-biz-as -am
 - 所有涉及机构数据的查询必须添加机构过滤
 - ThreadLocal 使用后必须在 finally 块中 remove
 - 个性化 Service 使用 `@CustomizedBean` 注解确保覆盖生效
+
+## 12. Vue 动态路由导航失败
+
+### 12.1 直接URL导航后页面空白
+
+**现象**：通过 `playwright_navigate` 直接导航到功能页面 URL 后，页面显示空白或 404。
+
+**根因**：BEMP 使用 Vue 懒加载路由，路由配置在菜单点击时动态注册。直接 URL 导航时路由尚未注册，Vue Router 无法匹配对应组件。
+
+**解决方案**：通过菜单点击触发路由注册：
+
+```javascript
+// playwright_evaluate: 点击子系统选项卡触发路由注册
+const menuItems = document.querySelectorAll('.h-sidebar-leftfixed .h-menu-item');
+for (const item of menuItems) {
+  const span = item.querySelector('span');
+  if (span && span.textContent.includes('业务管理子系统')) {
+    item.click();
+    break;
+  }
+}
+```
+
+**回退方案**：如果菜单点击失败，尝试 `playwright_navigate` 直接 URL（仅在路由已被注册过时有效）。
+
+**预防措施**：所有功能页面导航优先使用菜单点击方式，直接 URL 导航仅作为回退方案。
+
+## 13. h-typefield 值绑定失效
+
+### 13.1 金额修改后提交，列表未更新
+
+**现象**：在弹窗中修改 h-typefield 金额输入框的值后点击确定，提交成功但列表中金额未变更。
+
+**根因**：`document.execCommand('insertText')` 或 `playwright_fill` 不触发 Vue v-model 双向绑定，Vue 实例 data 中的值仍为初始值。
+
+**解决方案**：使用 `playwright_evaluate` 直接修改 Vue 实例 data 并触发事件：
+
+```javascript
+// playwright_evaluate: 直接修改Vue实例数据
+const input = document.querySelector('.h-typefield input');
+const vueInstance = input.__vue__ || input.closest('[class*="h-typefield"]').__vue__;
+if (vueInstance) {
+  vueInstance.currentValue = '1000000.00';
+  vueInstance.$emit('input', '1000000.00');
+  vueInstance.$emit('change', '1000000.00');
+}
+```
+
+**预防措施**：所有 HUI 格式化输入组件（h-typefield、h-date-picker）优先使用 `playwright_evaluate` 修改 Vue 数据，而非 `playwright_fill`。
+
+## 14. checkbox 选择后数据未同步
+
+### 14.1 选中行后操作报"ID不能为空"
+
+**现象**：在 DataGrid 中选中行后点击操作按钮（如删除、提交复核），后端返回"ID不能为空"错误。
+
+**根因**：DataGrid 的 `currentSelectList` 数据同步存在延迟，选中 checkbox 后 Vue 数据尚未更新完成就触发了操作。
+
+**解决方案**：选择行后等待 500ms 让 Vue 数据同步：
+
+```
+1. playwright_click → .h-datagrid tbody tr:nth-child(N) .h-checkbox
+2. 等待 500ms
+3. playwright_click → 操作按钮
+```
+
+**预防措施**：所有 DataGrid 行选择操作后，统一等待 500ms 再执行后续操作。
+
+## 15. Maven 编译文件锁定
+
+### 15.1 mvn clean install 报 Failed to delete jar
+
+**现象**：执行 `mvn clean install` 时报错 `Failed to delete ...jar`，无法删除编译产物。
+
+**根因**：SpringBoot 进程仍在运行，占用了 jar 文件导致无法删除。
+
+**解决方案**：先停止 Java 进程再编译：
+
+```powershell
+Get-Process -Name java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*BEMP*" } | Stop-Process -Force
+```
+
+**预防措施**：编译前检查是否有 Java 进程占用文件，使用启动脚本的停止功能而非直接 kill 进程。

@@ -1,0 +1,25 @@
+{
+    "applicationExportList": [
+        {
+            "applicationGroup": "bemp",
+            "applicationId": "${APPLICATION_ID}",
+            "applicationName": "bemp",
+            "applicationRemark": "${APPLICATION_REMARK}",
+            "applicationService": "bemp",
+            "applicationVersion": "5.0",
+            "updateUser": "admin"
+        }
+    ],
+    "baseConfigExportList": [
+        {
+            "configGroupId": "${CONFIG_GROUP_ID}",
+            "configId": "${CONFIG_ID}",
+            "configKey": "${CONFIG_KEY}",
+            "configValue": "${CONFIG_VALUE}",
+            "createUser": "admin",
+            "gvalue": "${CONFIG_GROUP_NAME}",
+            "remark": "${CONFIG_REMARK}",
+            "updateUser": "admin"
+        }
+    ]
+}

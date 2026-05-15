@@ -1,0 +1,163 @@
+{
+  "environment": {
+    "host": "127.0.0.1",
+    "services": {
+      "backend": {
+        "port": 8010,
+        "base_url": "http://127.0.0.1:8010/bemp-served/",
+        "api_prefix": "/hnnxbank/",
+        "description": "SpringBoot 后端 API 服务"
+      },
+      "frontend": {
+        "port": 8091,
+        "url": "http://127.0.0.1:8091",
+        "description": "Node.js 前端 DevServer"
+      },
+      "redis": {
+        "port": 6379,
+        "description": "Redis 缓存（间接依赖）"
+      },
+      "zookeeper": {
+        "port": 2181,
+        "description": "ZooKeeper（间接依赖）"
+      }
+    }
+  },
+
+  "accounts": {
+    "default_teller": {
+      "username_placeholder": "填入柜员用户名",
+      "password_placeholder": "填入柜员密码",
+      "description": "日常测试用柜员账号"
+    },
+    "admin": {
+      "username_placeholder": "填入管理员用户名",
+      "password_placeholder": "填入管理员密码",
+      "description": "管理员账号，用于复核等高级操作"
+    }
+  },
+
+  "timeouts": {
+    "page_navigation": 15000,
+    "network_idle": 10000,
+    "element_visible": 5000,
+    "dialog_animation": 500,
+    "form_submit": 3000,
+    "data_load": 2000,
+    "confirm_dialog": 3000,
+    "login_page_load": 20000,
+    "vue_data_sync": 500,
+    "menu_click_render": 2000
+  },
+
+  "screenshots": {
+    "output_dir": "d:\\code\\QJ\\BEMP5.0DEV\\screenshots",
+    "naming_pattern": "step{number}_{operation}_{status}.png",
+    "format": "png",
+    "quality": "fullPage"
+  },
+
+  "selectors": {
+    "login_page": {
+      "username_input": "input[placeholder*='用户名']",
+      "password_input": "input[placeholder*='密码']",
+      "login_button": "button:has-text('登录')",
+      "force_login_confirm": "button:has-text('是')"
+    },
+    "common_page": {
+      "query_button": "button:has-text('查询')",
+      "reset_button": "button:has-text('重置')",
+      "add_button": "button:has-text('新增')",
+      "delete_button": "button:has-text('删除')",
+      "edit_button": "button:has-text('修改')",
+      "submit_button": "button:has-text('提交')",
+      "export_button": "button:has-text('导出')",
+      "datagrid": ".h-datagrid",
+      "form_search": ".h-form-search",
+      "table_row": ".h-datagrid tbody tr",
+      "checkbox_column": "input[type='checkbox']",
+      "radio_column": "input[type='radio']"
+    },
+    "dialog": {
+      "confirm_dialog": ".h-msgbox-confirm, .h-modal-confirm",
+      "confirm_button": ".h-msgbox-confirm .h-btn-primary, .h-modal-confirm .h-btn-primary",
+      "cancel_button": ".h-msgbox-confirm button:has-text('取消'), button:has-text('关闭')",
+      "close_x": ".h-msg-box-close, .h-modal-close",
+      "reset_button": "button:has-text('重置')"
+    },
+    "select_dropdown": {
+      "trigger": ".h-select-selection",
+      "option_list": ".h-select-dropdown-list",
+      "option_item": ".h-option",
+      "option_by_text": ".h-option:has-text('{text}')"
+    },
+    "toast": {
+      "container": ".h-message, .h-notice, .h-msg-box .h-msg-box-content"
+    },
+    "vue_dynamic_route": {
+      "sidebar_menu_item": ".h-sidebar-leftfixed .h-menu-item",
+      "sidebar_submenu_title": ".h-sidebar-menu .h-menu-submenu-title span",
+      "sidebar_submenu_item": ".h-menu-item span"
+    },
+    "status_flow": {
+      "draft_status": "草稿",
+      "pending_review_status": "待复核",
+      "reviewed_status": "已复核",
+      "submit_review_button": "button:has-text('提交复核')",
+      "cancel_submit_button": "button:has-text('撤销提交')",
+      "review_button": "button:has-text('复核')",
+      "cancel_review_button": "button:has-text('撤销复核')"
+    },
+    "credit_module": {
+      "batch_page_path": "/#/pc/credit/acceptBankCreditGrantBatch",
+      "info_page_path": "/#/pc/credit/acceptBankCreditGrantInfo",
+      "recheck_page_path": "/#/pc/credit/acceptBankCreditGrantInfoReCheck",
+      "batch_table": "HNNX_ACCBANK_CREDIT_BATCH",
+      "info_table": "HNNX_ACCBANK_CREDIT_INFO"
+    }
+  },
+
+  "error_filters": {
+    "fatal": [
+      "TypeError",
+      "ReferenceError",
+      "SyntaxError"
+    ],
+    "critical": [
+      "ChunkLoadError",
+      "NetworkError",
+      "Failed to fetch"
+    ],
+    "warning": [
+      "Warning",
+      "DeprecationWarning"
+    ],
+    "ignorable_patterns": [
+      "WebSocket connection",
+      "favicon.ico",
+      "chrome-extension"
+    ]
+  },
+
+  "login_strategy": {
+    "method": "evaluate_script",
+    "reason": "HUI 组件库的 input 使用 v-model 绑定，fill_form 会截断输入值。必须用 evaluate_script 直接设置原生 value 属性并 dispatchEvent('input') 来触发 Vue 响应式更新。",
+    "steps": [
+      "1. evaluate_script 设置 input.value = 'username'",
+      "2. dispatchEvent(new Event('input', {bubbles: true})) 触发 Vue 更新",
+      "3. evaluate_script 设置 password input.value",
+      "4. dispatchEvent 触发 password input 事件",
+      "5. click(登录按钮)",
+      "6. 处理强制登录弹窗（如触发）"
+    ]
+  },
+
+  "modal_blocking_strategy": {
+    "description": "BEMP 弹窗使用 position: absolute 全屏遮罩层，关闭弹窗前禁止所有页面级操作。",
+    "recovery": [
+      "优先：click(弹窗X按钮)",
+      "其次：click(取消/关闭按钮)",
+      "最后：new_page → 重新 login → navigate_page"
+    ]
+  }
+}

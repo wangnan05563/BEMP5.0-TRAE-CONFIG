@@ -13,6 +13,9 @@
 | 企业信息在线查询 | ONLINEQRY | TC-ONLINEQRY-001 |
 | 企业客户查询 | CUSTCORP | TC-CUSTCORP-001 |
 | 企业账号同步 | CUSTACCT | TC-CUSTACCT-001 |
+| 承兑行额度批次 | CREDITBATCH | TC-CREDITBATCH-001 |
+| 承兑行额度明细 | CREDITINFO | TC-CREDITINFO-001 |
+| 承兑行额度复核 | CREDITRECHECK | TC-CREDITRECHECK-001 |
 | 通用/登录 | COMMON | TC-COMMON-001 |
 
 ## 用例结构
@@ -317,3 +320,106 @@ python scripts/run_test.py --test all --bank huisbank
 | 视口大小 | 1920x1080 | 全屏模式避免响应式布局问题 |
 | 无头模式 | 默认开启 | 调试时使用--no-headless |
 | 截图格式 | PNG | 全页截图便于问题定位 |
+
+## 状态流转测试标准
+
+### 完整状态机定义
+
+承兑行额度管理的状态机：
+
+```
+草稿(0) ──提交复核──→ 待复核(1) ──复核──→ 已复核(5)
+   ↑                    │                    │
+   └────撤销提交────────┘                    │
+                        ↑                    │
+                        └────撤销复核─────────┘
+```
+
+| 状态值 | 状态名称 | 可执行操作 |
+|--------|---------|-----------|
+| 0 | 草稿 | 修改、删除、提交复核 |
+| 1 | 待复核 | 撤销提交、复核 |
+| 5 | 已复核 | 撤销复核 |
+
+### 正向流转测试
+
+每个状态变更都需要独立验证：
+
+| 测试用例 | 初始状态 | 操作 | 预期状态 |
+|---------|---------|------|---------|
+| TC-CREDITBATCH-FLOW-001 | 草稿(0) | 提交复核 | 待复核(1) |
+| TC-CREDITBATCH-FLOW-002 | 待复核(1) | 复核 | 已复核(5) |
+
+### 逆向回退测试
+
+撤销操作验证：
+
+| 测试用例 | 初始状态 | 操作 | 预期状态 |
+|---------|---------|------|---------|
+| TC-CREDITBATCH-REVERT-001 | 待复核(1) | 撤销提交 | 草稿(0) |
+| TC-CREDITBATCH-REVERT-002 | 已复核(5) | 撤销复核 | 待复核(1) |
+
+### 跨页面验证
+
+额度申请页面提交后，需导航到额度复核页面验证状态：
+
+1. 在额度申请页面创建批次并提交复核
+2. 通过菜单导航到额度复核页面
+3. 在复核页面 DataGrid 中查找对应记录
+4. 验证状态为"待复核"
+5. 在复核页面执行复核操作
+6. 返回额度申请页面验证状态已变为"已复核"
+
+### 状态守卫验证
+
+非预期状态的操作应被拒绝：
+
+| 测试用例 | 当前状态 | 尝试操作 | 预期结果 |
+|---------|---------|---------|---------|
+| TC-CREDITBATCH-GUARD-001 | 草稿(0) | 复核 | 操作不可用或提示错误 |
+| TC-CREDITBATCH-GUARD-002 | 已复核(5) | 删除 | 操作不可用或提示错误 |
+| TC-CREDITBATCH-GUARD-003 | 待复核(1) | 修改 | 操作不可用或提示错误 |
+
+## BEMP 特定断言模式
+
+### 状态列文本断言
+
+```javascript
+// playwright_evaluate: 提取DataGrid中指定行的状态文本
+const rows = document.querySelectorAll('.h-datagrid tbody tr');
+const statusColIndex = 4;
+const statusText = rows[0].querySelectorAll('td')[statusColIndex].textContent.trim();
+const statusMap = {'0': '草稿', '1': '待复核', '5': '已复核'};
+statusText === statusMap['1']
+```
+
+### DataGrid 行数断言
+
+```javascript
+// playwright_evaluate: 验证DataGrid行数
+const rowCount = document.querySelectorAll('.h-datagrid tbody tr').length;
+rowCount > 0
+```
+
+### API 路径前缀断言
+
+```javascript
+// playwright_evaluate: 验证捕获的API请求包含个性化前缀
+const requests = window.__capturedRequests || [];
+requests.some(r => r.includes('/hnnxbank/'))
+```
+
+### 弹窗可见性断言
+
+```javascript
+// playwright_evaluate: 验证弹窗是否可见
+!!document.querySelector('.h-msg-box:visible')
+```
+
+### 控制台错误断言
+
+使用 `playwright_console_logs` 获取控制台日志，过滤 TypeError/ReferenceError：
+
+- 无 TypeError / ReferenceError → PASS
+- 存在 TypeError / ReferenceError → FAIL
+- 仅 Warning → 记录但不阻塞

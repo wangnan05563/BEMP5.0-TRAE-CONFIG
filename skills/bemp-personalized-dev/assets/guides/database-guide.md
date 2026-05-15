@@ -1,4 +1,4 @@
-﻿# 数据库开发指南
+# 数据库开发指南
 
 > 本文档整合了数据库开发规范与代码模板，是 BEMP 个性化数据库开发的完整参考。
 
@@ -2551,6 +2551,419 @@ WHENEVER SQLERROR CONTINUE;
 
 ---
 
-**文档版本**: 1.0.0  
-**最后更新**: 2023-01-01  
+## 三、增量SQL脚本生成规范
+
+> 本章节定义了 BEMP 个性化开发中增量SQL脚本的生成规范，确保数据库变更的安全性和可追溯性。
+
+---
+
+### 1. 脚本目录结构
+
+#### 1.1 数据库脚本目录
+
+```
+deploy/bemp-script/src/main/resources/banks/
+├── 河南农信/                          ← 银行名称（可配置参数，见1.3节）
+│   ├── V202301.02.013_202605131400_T202605130001_菜单定制.dml.sql
+│   ├── V202301.02.013_202605131401_T202605130001_业务参数.dml.sql
+│   ├── V202301.02.013_202605131402_T202605130001_额度表结构.ddl.sql
+│   └── ...
+├── 企业银行/
+├── 九江银行/
+└── ...
+```
+
+#### 1.2 配置中心增量文件目录
+
+```
+deploy/bemp-home/src/main/resources/configcenter/banks/
+├── 河南农信/                          ← 银行名称（可配置参数，同1.3节）
+│   ├── V5.0.0.0_202605131400__T202605130001_配置中心配置导入文件.json
+│   └── ...
+├── 新网银行/
+├── 汉口银行/
+└── ...
+```
+
+#### 1.3 银行名称可配置参数
+
+| 参数名 | 默认值 | 说明 |
+|--------|--------|------|
+| `BANK_NAME` | 河南农信 | SQL脚本存放的银行目录名，根据部署环境动态调整 |
+
+**配置方式**：在项目规则文件 `references/project-rules.md` 中通过 `BANK_SCRIPT_DIR` 参数指定。
+
+**使用场景**：
+- 河南农信环境：`deploy/bemp-script/src/main/resources/banks/河南农信/`
+- 其他银行环境：`deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/`
+
+---
+
+### 2. SQL脚本命名规范
+
+#### 2.1 命名格式
+
+```
+V{产品版本号}_{日期时间}_{任务编号}_{中文描述}.{脚本类型}.sql
+```
+
+#### 2.2 各部分说明
+
+| 组成部分 | 格式 | 示例 | 说明 |
+|----------|------|------|------|
+| 产品版本号 | V{主版本}.{次版本}.{补丁版本} | V202301.02.013 | 与产品基线版本一致 |
+| 日期时间 | YYYYMMDDHHMM | 202605131400 | 脚本创建时间，精确到分钟 |
+| 任务编号 | T{编号} 或 M{编号} | T202605130001 | T=需求单号，M=修改单号 |
+| 中文描述 | 简短中文描述 | 菜单定制 | 描述脚本主要变更内容 |
+| 脚本类型 | dml / ddl | dml | DDL=结构变更，DML=数据变更 |
+
+#### 2.3 命名示例
+
+```
+V202301.02.013_202605131400_T202605130001_菜单定制.dml.sql
+V202301.02.013_202605131401_T202605130001_业务参数.dml.sql
+V202301.02.013_202605131402_T202605130001_额度表结构.ddl.sql
+V202301.02.013_202605131403_T202605130001_额度表索引.ddl.sql
+V202301.02.013_202605131404_T202605130001_待办任务.dml.sql
+V202301.02.013_202605131405_T202605130001_流程编排.dml.sql
+```
+
+#### 2.4 配置中心增量文件命名
+
+```
+V5.0.0.0_{日期时间}__{任务编号}_配置中心配置导入文件.json
+```
+
+示例：
+```
+V5.0.0.0_202605131400__T202605130001_配置中心配置导入文件.json
+```
+
+---
+
+### 3. 增量更新策略："先删除后新增"
+
+#### 3.1 核心原则
+
+所有增量SQL脚本必须遵循**"先删除后新增"**策略，即：
+1. **先删除**：检查并删除可能存在的旧数据或结构
+2. **后新增**：执行新增操作
+
+**目的**：
+- 保证增量升级的安全性——脚本可重复执行不报错
+- 保证兼容性——不会因旧数据残留导致冲突
+- 便于持续迭代——每次升级都是幂等操作
+
+#### 3.2 DML脚本"先删除后新增"模板
+
+##### 3.2.1 菜单定制（TM_AUTHORITY）
+
+```sql
+-- ==========================================================================
+-- 脚本信息
+-- ==========================================================================
+-- 需求编号：T202605130001
+-- 变更描述：承兑行额度管理 - 菜单定制
+-- 影响范围：TM_AUTHORITY
+-- 开发人员：[姓名]
+-- 开发日期：2026-05-13
+-- ==========================================================================
+
+-- 【先删除】删除本需求新增的菜单数据（按ID范围或具体ID）
+DELETE FROM TM_AUTHORITY WHERE ID IN (
+    [新增菜单ID列表]
+);
+
+-- 【后新增】插入菜单数据
+INSERT INTO TM_AUTHORITY (ID, AUTH_NAME, AUTH_TYPE, PARENT_ID, URL, SORT_NO, ICON, IS_LEAF, STATUS, LEGAL_NO, CREATE_TIME, UPDATE_TIME)
+VALUES (
+    [菜单ID], '[菜单名称]', [类型], [父菜单ID], '[页面路径]', [排序号], '[图标]', [是否叶子], '1', '000000', [时间戳], [时间戳]
+);
+
+COMMIT;
+```
+
+##### 3.2.2 业务参数（TM_BUSINESS_PARAMETER）
+
+```sql
+-- ==========================================================================
+-- 脚本信息
+-- ==========================================================================
+-- 需求编号：T202605130001
+-- 变更描述：承兑行额度管理 - 业务参数
+-- 影响范围：TM_BUSINESS_PARAMETER
+-- 开发人员：[姓名]
+-- 开发日期：2026-05-13
+-- ==========================================================================
+
+-- 【先删除】删除本需求新增的业务参数
+DELETE FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY IN (
+    'pc.credit.accept_bank_credit_model',
+    'pc.credit.accept_bank_credit_audit'
+);
+
+-- 【后新增】插入业务参数
+INSERT INTO TM_BUSINESS_PARAMETER (ID, LEGAL_NO, PARAM_TITLE, PARAM_KEY, PARAM_NAME, PARAM_VALUE, PARAM_TYPE, PARAM_REMARK, PARAM_GROUP_CODE, BUSI_TYPE, IS_ROW_SHOW)
+VALUES ([ID], '000000', '额度中心pc.credit', 'pc.credit.accept_bank_credit_model', '承兑行额度控制模式', '1', '1', '1：票据管控；2：外围管控', 'CreditControlType', '2', '0');
+
+COMMIT;
+```
+
+##### 3.2.3 待办任务（TM_PEND_ITEM）
+
+```sql
+-- ==========================================================================
+-- 脚本信息
+-- ==========================================================================
+-- 需求编号：T202605130001
+-- 变更描述：承兑行额度管理 - 待办任务
+-- 影响范围：TM_PEND_ITEM
+-- 开发人员：[姓名]
+-- 开发日期：2026-05-13
+-- ==========================================================================
+
+-- 【先删除】删除本需求新增的待办配置
+DELETE FROM TM_PEND_ITEM WHERE ID IN (
+    [待办ID列表]
+);
+
+-- 【后新增】插入待办配置
+INSERT INTO TM_PEND_ITEM (ID, PEND_NAME, PEND_URL, PEND_TYPE, AUTH_ID, STATUS, LEGAL_NO, CREATE_TIME, UPDATE_TIME)
+VALUES ([ID], '[待办名称]', '[待办URL]', [类型], [权限ID], '1', '000000', [时间戳], [时间戳]);
+
+COMMIT;
+```
+
+##### 3.2.4 流程编排（TB_FLOW_ROUTE / TB_FLOW_STATUS）
+
+```sql
+-- ==========================================================================
+-- 脚本信息
+-- ==========================================================================
+-- 需求编号：T202605130001
+-- 变更描述：承兑行额度管理 - 流程编排
+-- 影响范围：TB_FLOW_ROUTE, TB_FLOW_STATUS
+-- 开发人员：[姓名]
+-- 开发日期：2026-05-13
+-- ==========================================================================
+
+-- 【先删除】删除本需求新增的流程路线
+DELETE FROM TB_FLOW_STATUS WHERE ROUTE_ID IN (
+    SELECT ID FROM TB_FLOW_ROUTE WHERE FLOW_NO = '[流程编号]'
+);
+DELETE FROM TB_FLOW_ROUTE WHERE FLOW_NO = '[流程编号]';
+
+-- 【后新增】插入流程路线
+INSERT INTO TB_FLOW_ROUTE (ID, FLOW_NO, FLOW_NAME, FLOW_DESC, LEGAL_NO, CREATE_TIME, UPDATE_TIME)
+VALUES ([ID], '[流程编号]', '[流程名称]', '[流程描述]', '000000', [时间戳], [时间戳]);
+
+-- 【后新增】插入流程状态
+INSERT INTO TB_FLOW_STATUS (ID, ROUTE_ID, STATUS_NO, STATUS_NAME, NEXT_STATUS, OPER_TYPE, LEGAL_NO, CREATE_TIME, UPDATE_TIME)
+VALUES ([ID], [路线ID], '[状态编号]', '[状态名称]', '[下一状态]', '[操作类型]', '000000', [时间戳], [时间戳]);
+
+COMMIT;
+```
+
+#### 3.3 DDL脚本"先删除后新增"模板
+
+##### 3.3.1 新建表
+
+```sql
+-- ==========================================================================
+-- 脚本信息
+-- ==========================================================================
+-- 需求编号：T202605130001
+-- 变更描述：承兑行额度管理 - 新建表
+-- 影响范围：[TABLE_NAME]
+-- 开发人员：[姓名]
+-- 开发日期：2026-05-13
+-- ==========================================================================
+
+-- 【先删除】删除已存在的表（含存在性判断）
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM USER_TABLES WHERE TABLE_NAME = UPPER('[TABLE_NAME]');
+    IF v_count > 0 THEN
+        EXECUTE IMMEDIATE 'DROP TABLE [TABLE_NAME] CASCADE CONSTRAINTS';
+    END IF;
+END;
+/
+
+-- 【后新增】创建表
+CREATE TABLE [TABLE_NAME] (
+    ID              number(16,0) NOT NULL,
+    LEGAL_NO        varchar2(6),
+    [BUSINESS_FIELDS],
+    CREATE_TIME     number(17,0),
+    UPDATE_TIME     number(17,0),
+    RESERVE1        varchar2(255),
+    RESERVE2        varchar2(255),
+    RESERVE3        varchar2(255),
+    CONSTRAINT pk_[TABLE_NAME] PRIMARY KEY (ID)
+);
+
+COMMENT ON TABLE [TABLE_NAME] IS '[表说明]';
+COMMENT ON COLUMN [TABLE_NAME].ID IS '主键 ID';
+COMMENT ON COLUMN [TABLE_NAME].LEGAL_NO IS '法人编号';
+[BUSINESS_FIELD_COMMENTS]
+COMMENT ON COLUMN [TABLE_NAME].CREATE_TIME IS '创建时间';
+COMMENT ON COLUMN [TABLE_NAME].UPDATE_TIME IS '更新时间';
+
+-- 【后新增】创建序列
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM USER_SEQUENCES WHERE SEQUENCE_NAME = UPPER('SEQ_[TABLE_NAME]');
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'CREATE SEQUENCE SEQ_[TABLE_NAME] START WITH 1 INCREMENT BY 1 MINVALUE 1 NOMAXVALUE NOCACHE NOCYCLE';
+    END IF;
+END;
+/
+
+-- 【后新增】创建索引
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM USER_INDEXES WHERE INDEX_NAME = UPPER('IDX_[TABLE_NAME]_1');
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'CREATE INDEX IDX_[TABLE_NAME]_1 ON [TABLE_NAME] (LEGAL_NO)';
+    END IF;
+END;
+/
+
+COMMIT;
+```
+
+##### 3.3.2 新增字段
+
+```sql
+-- ==========================================================================
+-- 脚本信息
+-- ==========================================================================
+-- 需求编号：T202605130001
+-- 变更描述：[表名] - 新增字段
+-- 影响范围：[TABLE_NAME]
+-- 开发人员：[姓名]
+-- 开发日期：2026-05-13
+-- ==========================================================================
+
+-- 【先判断】检查字段是否已存在，不存在则新增
+DECLARE
+    v_count NUMBER;
+BEGIN
+    -- 新增字段 [FIELD_NAME]
+    SELECT COUNT(*) INTO v_count FROM USER_TAB_COLUMNS
+    WHERE TABLE_NAME = UPPER('[TABLE_NAME]') AND COLUMN_NAME = UPPER('[FIELD_NAME]');
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'ALTER TABLE [TABLE_NAME] ADD [FIELD_NAME] [FIELD_TYPE] DEFAULT [DEFAULT_VALUE]';
+        EXECUTE IMMEDIATE 'COMMENT ON COLUMN [TABLE_NAME].[FIELD_NAME] IS ''[字段说明]''';
+    END IF;
+END;
+/
+
+COMMIT;
+```
+
+---
+
+### 4. 脚本分类与拆分规则
+
+#### 4.1 按变更类型拆分
+
+一个需求涉及的数据库变更应按类型拆分为独立脚本文件：
+
+| 脚本类型 | 文件后缀 | 内容 | 示例 |
+|----------|----------|------|------|
+| 表结构变更 | .ddl.sql | CREATE TABLE / ALTER TABLE / DROP TABLE | `额度表结构.ddl.sql` |
+| 索引变更 | .ddl.sql | CREATE INDEX / DROP INDEX | `额度表索引.ddl.sql` |
+| 菜单数据 | .dml.sql | TM_AUTHORITY 的 INSERT/DELETE | `菜单定制.dml.sql` |
+| 业务参数 | .dml.sql | TM_BUSINESS_PARAMETER 的 INSERT/DELETE | `业务参数.dml.sql` |
+| 待办任务 | .dml.sql | TM_PEND_ITEM 的 INSERT/DELETE | `待办任务.dml.sql` |
+| 流程编排 | .dml.sql | TB_FLOW_ROUTE / TB_FLOW_STATUS 的 INSERT/DELETE | `流程编排.dml.sql` |
+| 字典数据 | .dml.sql | TM_DICT 的 INSERT/DELETE | `字典配置.dml.sql` |
+
+#### 4.2 拆分原则
+
+1. **单表单文件**：同一张表的 DML 变更写在一个文件中，防止执行顺序不一致
+2. **DDL 与 DML 分离**：结构变更和数据变更分文件管理
+3. **功能模块分离**：不同功能模块的变更分文件管理（如菜单、参数、流程）
+4. **依赖顺序**：DDL 先于 DML 执行，菜单先于待办执行
+
+#### 4.3 脚本执行顺序
+
+```
+1. DDL 脚本（表结构）    → xxx.ddl.sql
+2. DDL 脚本（索引）      → xxx索引.ddl.sql
+3. DML 脚本（菜单）      → xxx菜单定制.dml.sql
+4. DML 脚本（业务参数）  → xxx业务参数.dml.sql
+5. DML 脚本（字典）      → xxx字典配置.dml.sql
+6. DML 脚本（流程编排）  → xxx流程编排.dml.sql
+7. DML 脚本（待办任务）  → xxx待办任务.dml.sql
+```
+
+---
+
+### 5. 配置中心增量文件规范
+
+#### 5.1 文件格式
+
+配置中心增量文件为 JSON 格式，包含以下主要结构：
+
+```json
+{
+    "applicationExportList": [
+        {
+            "applicationGroup": "bemp",
+            "applicationId": "[应用ID]",
+            "applicationName": "bemp",
+            "applicationRemark": "[应用备注]",
+            "applicationService": "bemp",
+            "applicationVersion": "5.0"
+        }
+    ],
+    "baseConfigExportList": [
+        {
+            "configGroupId": "[配置组ID]",
+            "configId": "[配置ID]",
+            "configKey": "[配置键]",
+            "configValue": "[配置值]",
+            "gvalue": "[配置组名称]",
+            "remark": "[配置说明]"
+        }
+    ]
+}
+```
+
+#### 5.2 生成规则
+
+1. 仅包含本需求新增或修改的配置项
+2. 配置项需与业务参数脚本保持一致
+3. 文件编码为 UTF-8
+4. JSON 格式需通过语法校验
+
+---
+
+### 6. SQL脚本生成检查清单
+
+在生成增量SQL脚本时，必须逐项检查以下内容：
+
+| 序号 | 检查项 | 要求 | 状态 |
+|------|--------|------|------|
+| 1 | 目录路径 | 存放于 `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/` 下 | ☐ |
+| 2 | 文件命名 | 符合 `V{版本}_{日期}_{任务号}_{描述}.{类型}.sql` 格式 | ☐ |
+| 3 | 先删除后新增 | DML脚本包含 DELETE + INSERT，DDL脚本包含存在性判断 | ☐ |
+| 4 | 幂等性 | 脚本可重复执行不报错 | ☐ |
+| 5 | 事务完整性 | 脚本末尾有 COMMIT | ☐ |
+| 6 | 字段注释 | DDL脚本包含 COMMENT ON COLUMN | ☐ |
+| 7 | 序列创建 | 新建表需配套创建序列 | ☐ |
+| 8 | 索引创建 | 新建表需配套创建必要索引 | ☐ |
+| 9 | WHERE条件 | DELETE/UPDATE 语句必须有 WHERE 条件 | ☐ |
+| 10 | 脚本头部 | 包含需求编号、变更描述、开发人员、开发日期 | ☐ |
+| 11 | 配置中心文件 | 如涉及配置变更，同步生成 JSON 增量文件 | ☐ |
+
+---
+
+**文档版本**: 2.0.0  
+**最后更新**: 2026-05-13  
 **维护人员**: BEMP 开发团队

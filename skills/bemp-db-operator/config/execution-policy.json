@@ -1,0 +1,59 @@
+{
+    "description": "SQL执行策略配置 - 控制执行行为、超时、回退等策略",
+    "version": "1.0.0",
+    "lastUpdate": "2026-05-13",
+    "execution": {
+        "ddlTimeout": 60,
+        "dmlTimeout": 30,
+        "queryTimeout": 120,
+        "maxRetries": 3,
+        "retryInterval": 5,
+        "autoCommit": false,
+        "dryRun": false,
+        "affectRowLimit": 10000,
+        "statementSeparator": ";",
+        "skipEmptyLines": true,
+        "skipCommentLines": true
+    },
+    "preCheck": {
+        "enabled": true,
+        "checkSyntax": true,
+        "checkWhereClause": true,
+        "checkIdempotent": true,
+        "checkTableExists": true,
+        "checkAffectRows": true,
+        "affectRowWarningThreshold": 1000,
+        "affectRowAbortThreshold": 10000
+    },
+    "verification": {
+        "enabled": true,
+        "verifyAfterDdl": true,
+        "verifyAfterDml": true,
+        "verifyInsertData": true,
+        "verifyUpdateData": true,
+        "verifyDeleteData": true,
+        "snapshotBeforeExecute": true
+    },
+    "rollback": {
+        "strategy": "auto",
+        "level": "script",
+        "backupBeforeExecute": true,
+        "generateRollbackScript": true,
+        "rollbackOnFailure": true,
+        "rollbackOnVerifyFail": true,
+        "maxRollbackRetries": 2
+    },
+    "logging": {
+        "level": "INFO",
+        "logExecution": true,
+        "logVerification": true,
+        "logRollback": true,
+        "logToFile": false,
+        "logFilePath": "logs/db-operator/"
+    },
+    "levelDescriptions": {
+        "statement": "单语句回退 - 仅回退失败的SQL语句",
+        "script": "脚本级回退 - 回退整个脚本内的所有变更",
+        "full": "全量回退 - 恢复到执行前的完整数据快照"
+    }
+}

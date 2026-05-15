@@ -226,6 +226,15 @@ Frontend          8091 [--] Stopped
 
 ## 更新日志
 
+### v7.0.0 (2026-05-13)
+- **进程预检机制重构**:
+  - 新增 `Test-ServiceRunning` 统一预检函数，启动前先检测端口+进程名双重验证
+  - 新增 `Test-PortInUse` 跨平台端口检测函数，优先使用 `Get-NetTCPConnection`，自动回退 `netstat`
+  - 新增 `Show-AlreadyRunning` 结构化提示函数，服务已运行时输出端口/进程名/PID/重启指引
+  - 所有服务启动函数（Redis/ZooKeeper/SpringBoot/Frontend）将进程检查移至函数入口最前面
+  - 前端服务仅识别 `node.exe`，后端服务仅识别 `java.exe`，杜绝非目标进程占用端口导致的误判
+- **用户体验优化**: 重复启动时不再设置终端标题、不再显示终端占用警告，直接输出详细信息并终止
+
 ### v6.1.0 (2026-05-08)
 - **前端启动速度全面优化**:
   - 修复 `node_modules` 重复检查 Bug（首次安装时 `npm install` 被执行两次）
