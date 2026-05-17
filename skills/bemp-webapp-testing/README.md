@@ -212,7 +212,7 @@ python scripts/run_test.py --auto-cleanup
 | `bemp-implementation-engineer` | 启动/停止 BEMP 服务、Oracle MCP 测试数据查询 |
 | `bemp-personalized-developer` | 功能开发 → 测试验证环节调用 |
 | `bemp-db-operator` | 测试数据准备时查询数据库 |
-| `jmeter-performance-test` | 性能/负载测试补充 |
+| `bemp-jmeter-test` | 性能/负载测试补充 |
 
 ## License
 

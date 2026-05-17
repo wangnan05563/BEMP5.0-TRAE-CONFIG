@@ -9,10 +9,12 @@ release/**
 target/**  # Java/Rust
 bin/**
 obj/**
+frontend@tmp
 frontend@tmp/**/*
 banks/ext-hnnxbank@tmp/**/*
-ext-hnnxbank@tmp/**/*
-playwright-report
+河南农商个性化需求
+aotutests-devtools
+aotutests-playwright
 
 
 

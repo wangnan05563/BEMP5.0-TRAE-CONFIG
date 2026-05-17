@@ -1,0 +1,34 @@
+{
+  "Total" : {
+    "transaction" : "Total",
+    "sampleCount" : 20,
+    "errorCount" : 0,
+    "errorPct" : 0.0,
+    "meanResTime" : 32531.55,
+    "medianResTime" : 32453.0,
+    "minResTime" : 29949.0,
+    "maxResTime" : 34784.0,
+    "pct1ResTime" : 34417.9,
+    "pct2ResTime" : 34765.7,
+    "pct3ResTime" : 34784.0,
+    "throughput" : 0.5747787101965743,
+    "receivedKBytesPerSec" : 1.5267559489596505,
+    "sentKBytesPerSec" : 0.06623426543280837
+  },
+  "百度首页 GET" : {
+    "transaction" : "百度首页 GET",
+    "sampleCount" : 20,
+    "errorCount" : 0,
+    "errorPct" : 0.0,
+    "meanResTime" : 32531.55,
+    "medianResTime" : 32453.0,
+    "minResTime" : 29949.0,
+    "maxResTime" : 34784.0,
+    "pct1ResTime" : 34417.9,
+    "pct2ResTime" : 34765.7,
+    "pct3ResTime" : 34784.0,
+    "throughput" : 0.5747787101965743,
+    "receivedKBytesPerSec" : 1.5267559489596505,
+    "sentKBytesPerSec" : 0.06623426543280837
+  }
+}

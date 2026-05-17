@@ -1,0 +1,92 @@
+# JMeter 性能测试技能配置文件
+
+# JMeter 环境配置
+jmeter:
+  # JMeter 安装路径（根据实际安装路径修改）
+  path: "D:\\code\\Jmeter\\apache-jmeter-5.6.3\\bin\\jmeter.bat"
+  # Java 环境路径
+  java_home: "D:\\code\\Java\\jdk-25.0.1"
+  # JVM 参数配置
+  jvm_args:
+    - "-Xms512m"
+    - "-Xmx2048m"
+    - "-XX:MaxMetaspaceSize=256m"
+
+# 测试默认参数
+test_defaults:
+  # 默认并发线程数
+  threads: 100
+  # 默认 Ramp-Up 时间（秒）
+  ramp_up: 10
+  # 默认测试持续时间（秒）
+  duration: 300
+  # 默认循环次数（-1 表示配合 duration 使用）
+  loop_count: -1
+  # 默认 HTTP 超时时间（毫秒）
+  connect_timeout: 5000
+  response_timeout: 30000
+
+# 报告配置
+report:
+  # 输出格式：html, markdown, pdf
+  format:
+    - html
+    - markdown
+  # 报告输出目录
+  output_dir: "output/reports"
+  # 是否包含图表
+  include_charts: true
+  # 图表类型
+  charts:
+    - tps_trend
+    - response_time_distribution
+    - error_rate_pie
+    - latency_histogram
+
+# 结果文件配置
+results:
+  # 结果文件输出目录
+  output_dir: "output/results"
+  # 结果文件格式：xml, csv
+  format: csv
+  # 保留最近的结果文件数量
+  keep_count: 10
+
+# 日志配置
+logging:
+  # 日志级别：DEBUG, INFO, WARN, ERROR
+  level: INFO
+  # 日志文件路径
+  file: "logs/jmeter.log"
+  # 是否启用详细日志
+  verbose: false
+
+# 分布式测试配置（可选）
+distributed:
+  # 是否启用分布式测试
+  enabled: false
+  # Slave 节点列表
+  slaves:
+    - "192.168.1.101:1099"
+    - "192.168.1.102:1099"
+    - "192.168.1.103:1099"
+
+# 断言规则配置
+assertions:
+  # 默认响应码断言
+  response_code: "200"
+  # 默认响应时间断言（毫秒）
+  response_time: 5000
+  # 默认响应内容断言（JSON Path）
+  response_content: "$.success=true"
+
+# 集成配置
+integration:
+  # Jenkins 任务名称（可选）
+  jenkins_job: "bemp-jmeter-test"
+  # 测试完成后是否发送通知
+  notify_on_complete: true
+  # 通知方式：email, webhook
+  notification:
+    type: webhook
+    url: ""
