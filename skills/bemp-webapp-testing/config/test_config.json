@@ -34,14 +34,14 @@
       "route_index": "hnnxbankIndex.js",
       "login": {
         "default": {
-          "username": "PLACEHOLDER",
-          "password": "PLACEHOLDER",
-          "description": "默认用户，使用前请替换为实际账号"
+          "username": "wangnan01",
+          "password": "abc@123",
+          "description": "普通柜员账号"
         },
         "admin": {
-          "username": "PLACEHOLDER",
-          "password": "PLACEHOLDER",
-          "description": "系统管理员，使用前请替换为实际账号"
+          "username": "mllzs01",
+          "password": "888888",
+          "description": "法人管理员账号"
         }
       },
       "pages": {
