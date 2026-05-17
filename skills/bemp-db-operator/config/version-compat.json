@@ -1,0 +1,180 @@
+{
+    "description": "数据库版本兼容性矩阵 - 定义支持的数据库版本及其特性兼容性",
+    "version": "1.0.0",
+    "lastUpdate": "2026-05-16",
+    "oracle": {
+        "supportedVersions": ["11g", "12c", "19c", "21c"],
+        "minimumSupportedVersion": "11g",
+        "defaultVersion": "19c",
+        "features": {
+            "basicSql": {
+                "description": "基础SQL功能（SELECT/INSERT/UPDATE/DELETE/DDL）",
+                "minVersion": "11g",
+                "allVersions": true
+            },
+            "pivotUnpivot": {
+                "description": "PIVOT/UNPIVOT旋转操作",
+                "minVersion": "11g",
+                "allVersions": true
+            },
+            "listAgg": {
+                "description": "LISTAGG字符串聚合函数",
+                "minVersion": "11g",
+                "allVersions": true
+            },
+            "jsonFunctions": {
+                "description": "JSON函数（JSON_VALUE, JSON_TABLE等）",
+                "minVersion": "12c",
+                "supportedVersions": ["12c", "19c", "21c"]
+            },
+            "identityColumn": {
+                "description": "IDENTITY列（自动递增）",
+                "minVersion": "12c",
+                "supportedVersions": ["12c", "19c", "21c"]
+            },
+            "lateralJoin": {
+                "description": "LATERAL内联视图",
+                "minVersion": "12c",
+                "supportedVersions": ["12c", "19c", "21c"]
+            },
+            "sqlMacro": {
+                "description": "SQL宏（表宏和标量宏）",
+                "minVersion": "21c",
+                "supportedVersions": ["21c"]
+            },
+            "polymorphicTableFunction": {
+                "description": "多态表函数",
+                "minVersion": "19c",
+                "supportedVersions": ["19c", "21c"]
+            }
+        },
+        "versionDetectionQuery": "SELECT BANNER AS version FROM V$VERSION WHERE ROWNUM = 1",
+        "versionPattern": "Oracle Database (\\d+[cg])",
+        "versionOrder": ["11g", "12c", "19c", "21c"]
+    },
+    "mysql": {
+        "supportedVersions": ["5.7", "8.0", "8.4"],
+        "minimumSupportedVersion": "5.7",
+        "defaultVersion": "8.0",
+        "features": {
+            "basicSql": {
+                "description": "基础SQL功能（SELECT/INSERT/UPDATE/DELETE/DDL）",
+                "minVersion": "5.7",
+                "allVersions": true
+            },
+            "jsonFunctions": {
+                "description": "JSON函数（JSON_VALID, JSON_EXTRACT, JSON_TABLE等）",
+                "minVersion": "5.7",
+                "supportedVersions": ["5.7", "8.0", "8.4"]
+            },
+            "generatedColumns": {
+                "description": "生成列（GENERATED COLUMN）",
+                "minVersion": "5.7",
+                "supportedVersions": ["5.7", "8.0", "8.4"]
+            },
+            "fullTextIndex": {
+                "description": "全文索引（InnoDB ngram解析器）",
+                "minVersion": "5.7",
+                "supportedVersions": ["5.7", "8.0", "8.4"]
+            },
+            "insertOnDuplicate": {
+                "description": "INSERT ... ON DUPLICATE KEY UPDATE",
+                "minVersion": "5.7",
+                "allVersions": true
+            },
+            "windowFunctions": {
+                "description": "窗口函数（ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD等）",
+                "minVersion": "8.0",
+                "supportedVersions": ["8.0", "8.4"]
+            },
+            "cteRecursive": {
+                "description": "CTE递归查询（WITH RECURSIVE）",
+                "minVersion": "8.0",
+                "supportedVersions": ["8.0", "8.4"]
+            },
+            "commonTableExpressions": {
+                "description": "公用表表达式（WITH ... AS）",
+                "minVersion": "8.0",
+                "supportedVersions": ["8.0", "8.4"]
+            },
+            "lateralJoin": {
+                "description": "LATERAL派生表",
+                "minVersion": "8.0",
+                "supportedVersions": ["8.0", "8.4"]
+            },
+            "functionalIndex": {
+                "description": "函数索引（INDEX((expression))）",
+                "minVersion": "8.0",
+                "supportedVersions": ["8.0", "8.4"]
+            },
+            "hiddenColumn": {
+                "description": "隐藏列（INVISIBLE）",
+                "minVersion": "8.0",
+                "supportedVersions": ["8.0", "8.4"]
+            },
+            "windowFunctionRangeFrame": {
+                "description": "窗口函数RANGE帧（日期类型支持）",
+                "minVersion": "8.0",
+                "supportedVersions": ["8.0", "8.4"]
+            }
+        },
+        "sqlModes": {
+            "ONLY_FULL_GROUP_BY": {
+                "description": "GROUP BY必须包含所有非聚合列",
+                "minVersion": "5.7",
+                "defaultEnabled": true,
+                "impact": "影响SELECT列表中非聚合列的使用"
+            },
+            "STRICT_TRANS_TABLES": {
+                "description": "严格事务模式，数据截断报错而非警告",
+                "minVersion": "5.7",
+                "defaultEnabled": true,
+                "impact": "影响INSERT/UPDATE中数据类型转换"
+            },
+            "NO_ZERO_IN_DATE": {
+                "description": "不允许日期中有零值（如2026-00-01）",
+                "minVersion": "5.7",
+                "defaultEnabled": true,
+                "impact": "影响日期数据写入"
+            },
+            "NO_ENGINE_SUBSTITUTION": {
+                "description": "存储引擎不可用时报错而非替换",
+                "minVersion": "5.7",
+                "defaultEnabled": true,
+                "impact": "影响CREATE TABLE时存储引擎选择"
+            }
+        },
+        "versionDetectionQuery": "SELECT VERSION() AS version",
+        "versionPattern": "(\\d+)\\.(\\d+)\\.(\\d+)",
+        "versionOrder": ["5.7", "8.0", "8.4"],
+        "versionComparison": {
+            "5.7": { "major": 5, "minor": 7 },
+            "8.0": { "major": 8, "minor": 0 },
+            "8.4": { "major": 8, "minor": 4 }
+        }
+    },
+    "crossDatabaseCompat": {
+        "description": "跨数据库兼容性提示 - 当SQL需要同时兼容Oracle和MySQL时",
+        "commonFunctions": {
+            "concat": { "oracle": "CONCAT()", "mysql": "CONCAT()", "note": "Oracle也支持||拼接，但MySQL不支持" },
+            "coalesce": { "oracle": "COALESCE()", "mysql": "COALESCE()", "note": "两数据库均支持，推荐替代NVL/IFNULL" },
+            "cast": { "oracle": "CAST()", "mysql": "CAST()", "note": "两数据库均支持，推荐替代TO_CHAR/TO_NUMBER" },
+            "caseWhen": { "oracle": "CASE WHEN", "mysql": "CASE WHEN", "note": "两数据库均支持，推荐替代DECODE/IF" },
+            "leftJoin": { "oracle": "LEFT JOIN", "mysql": "LEFT JOIN", "note": "避免使用(+)外连接语法" }
+        },
+        "oracleOnlyFeatures": [
+            "SEQUENCE", "DUAL表", "CONNECT BY递归", "MERGE INTO",
+            "NVL()", "DECODE()", "SYSDATE", "ROWNUM", "USER_TAB_COLUMNS"
+        ],
+        "mysqlOnlyFeatures": [
+            "AUTO_INCREMENT", "INSERT ON DUPLICATE KEY UPDATE", "LIMIT分页",
+            "IFNULL()", "IF()", "NOW()", "SHOW命令", "INFORMATION_SCHEMA直接查询"
+        ]
+    },
+    "notes": [
+        "版本检测在连接建立后自动执行，结果用于特性兼容性判断",
+        "使用不兼容特性时将发出警告，blockOnIncompatibleFeature=true时阻止执行",
+        "跨数据库兼容性提示用于SQL迁移场景，推荐使用commonFunctions中的通用写法",
+        "MySQL SQL_MODE影响SQL行为，需在版本检测时一并获取"
+    ]
+}

@@ -1,5 +1,5 @@
 // BEMP前端项目自动化部署Jenkins Pipeline脚本
-// 版本: 5.0.0 (配置内联版)
+// 版本: 6.0.0 (凭据外部化 + health-check集成 + 自动回滚)
 // 描述: 实现BEMP前端项目从代码拉取到Nginx部署的全流程自动化部署
 // 配置: 所有环境变量直接在 environment 块中定义
 
@@ -44,7 +44,7 @@ pipeline {
         SONAR_SCANNER_HOME = 'D:/code/sonar/sonar-scanner-8.0.1.6346-windows-x64'
         SONAR_SERVER_URL = 'http://localhost:9000'
         SONAR_PROJECT_KEY = 'bemp-frontend'
-        SONAR_TOKEN = 'squ_e3654bfc73cb2e37b7e6cf33027ab3f9576f0aad'
+        SONAR_TOKEN = credentials('bemp-sonar-token')
 
         // ---- 前端部署配置 ----
         CURRENT_WAR = 'D:/code/nginx-1.12.2/html/bemp-web'
@@ -59,6 +59,9 @@ pipeline {
         NGINX_PORT = '8091'
         NGINX_TIMEOUT = '60'
         HEALTH_CHECK_URL = 'http://localhost:8091'
+
+        // ---- 脚本工具 ----
+        SCRIPTS_HOME = 'D:/code/QJ/BEMP5.0DEV/.trae/skills/bemp-jenkins-deploy/scripts'
 
         // ---- 构建元数据 ----
         BUILD_TIMESTAMP = ''
@@ -314,22 +317,12 @@ pipeline {
                     }
 
                     echo "清理历史备份，保留最近 ${env.MAX_BACKUPS} 个备份..."
-                    bat """
-                        @echo off
-                        chcp 65001 > nul
-                        set BACKUP_DIR=${backupDir}
-                        set MAX_BACKUPS=${env.MAX_BACKUPS}
-                        if not exist "%BACKUP_DIR%" exit /b 0
-                        set count=0
-                        for /f "delims=" %%f in ('dir /b /o-d "%BACKUP_DIR%\\bemp-web_*.zip" 2^>nul') do (
-                            set /a count+=1
-                            call :check_delete "%%f"
-                        )
-                        exit /b 0
-                        :check_delete
-                        if %count% gtr %MAX_BACKUPS% del /f /q "%BACKUP_DIR%\\%~1"
-                        exit /b 0
-                    """
+                    powershell(
+                        script: """
+                            & '${env.SCRIPTS_HOME}\\cleanup-backups.ps1' -BackupDir '${backupDir}' -FilePattern 'bemp-web_*' -KeepCount ${env.MAX_BACKUPS}
+                        """,
+                        returnStatus: true
+                    )
 
                     echo "应用备份完成"
                 }
@@ -392,7 +385,6 @@ pipeline {
                     def nginxHome = env.NGINX_HOME.replace('/', '\\')
 
                     dir(nginxHome) {
-                        // 1. 测试配置文件
                         echo "测试Nginx配置..."
                         def testResult = bat(script: "\"${nginxExe}\" -t 2>&1", returnStdout: true).trim()
                         echo testResult
@@ -400,22 +392,21 @@ pipeline {
                             error("Nginx配置测试失败")
                         }
 
-                        // 2. 停止旧进程
                         echo "停止现有Nginx进程..."
                         bat "taskkill /F /IM nginx.exe 2>nul || echo Nginx未运行"
                         sleep(2)
 
-                        // 3. 启动 Nginx
                         echo "启动Nginx..."
                         bat "start \"nginx\" \"${nginxExe}\""
-                        sleep(3)
 
-                        // 4. 检测进程是否存在
-                        def processCheck = bat(script: "tasklist | findstr nginx.exe || exit /b 0", returnStdout: true).trim()
-                        if (processCheck && processCheck.contains("nginx.exe")) {
-                            echo "Nginx启动成功 | 访问地址: ${env.HEALTH_CHECK_URL}"
-                        } else {
-                            // 输出错误日志
+                        def nginxExitCode = powershell(
+                            script: """
+                                & '${env.SCRIPTS_HOME}\\health-check.ps1' -ServiceName 'Nginx' -TimeoutSeconds ${env.NGINX_TIMEOUT} -CheckMode nginx -NginxExe '${nginxExe}' -NginxHome '${nginxHome}'
+                            """,
+                            returnStatus: true
+                        )
+
+                        if (nginxExitCode != 0) {
                             def errorLog = "logs\\error.log"
                             if (fileExists(errorLog)) {
                                 echo "Nginx错误日志:"
@@ -423,6 +414,8 @@ pipeline {
                             }
                             error("Nginx启动失败，未检测到nginx进程")
                         }
+
+                        echo "Nginx启动成功 | 访问地址: ${env.HEALTH_CHECK_URL}"
                     }
                 }
             }
@@ -461,8 +454,32 @@ pipeline {
                 echo "构建版本: ${buildVersion}"
                 echo "构建时间: ${buildTimestamp}"
                 echo "Commit ID: ${commitId}"
-                echo "请检查日志获取详细错误信息"
                 echo "=========================================="
+
+                echo "开始自动回滚..."
+                def backupDir = env.BACKUP_DIR.replace('/', '\\')
+                def latestBackup = powershell(
+                    script: """
+                        \$backups = Get-ChildItem -Path '${backupDir}' -Filter 'bemp-web_*.zip' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+                        if (\$backups) { \$backups[0].FullName } else { '' }
+                    """,
+                    returnStdout: true
+                ).trim()
+
+                if (latestBackup) {
+                    echo "找到最新备份: ${latestBackup}"
+                    def targetDir = "${env.TARGET_DIR.replace('/', '\\')}\\bemp-web"
+
+                    bat "rd /s /q \"${targetDir}\" 2>nul"
+
+                    powershell """
+                        Expand-Archive -Path '${latestBackup}' -DestinationPath '${targetDir}' -Force
+                    """
+
+                    echo "回滚完成: 已从备份 ${latestBackup} 恢复"
+                } else {
+                    echo "警告: 未找到可用备份，无法自动回滚"
+                }
 
                 if (params.NOTIFY_EMAIL) {
                     echo "发送构建失败通知到: ${params.NOTIFY_EMAIL}"

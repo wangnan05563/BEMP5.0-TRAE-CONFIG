@@ -1,0 +1,12 @@
+{
+  "name": "bemp-frontend-code-review-scripts",
+  "version": "1.0.0",
+  "description": "BEMP前端代码审查自动化脚本",
+  "private": true,
+  "scripts": {
+    "check-all": "node check-all.js",
+    "check-hardcode": "node check-hardcode.js",
+    "check-routes": "node check-routes.js",
+    "check-i18n": "node check-i18n.js"
+  }
+}

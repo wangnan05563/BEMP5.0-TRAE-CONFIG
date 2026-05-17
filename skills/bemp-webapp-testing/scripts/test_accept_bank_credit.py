@@ -2,27 +2,28 @@
 """
 承兑行额度管理自动化测试
 测试范围：额度申请批次管理、批复明细、额度复核
+通过 test_config.json 配置驱动，支持多银行环境切换
+
+Usage:
+    python scripts/test_accept_bank_credit.py
+    python scripts/test_accept_bank_credit.py --bank hnnxbank
+    python scripts/test_accept_bank_credit.py --bank huisbank
 """
 import os
+import sys
 import time
 import json
+import argparse
 from datetime import datetime
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
-# --- 配置 ---
-BASE_URL = "http://127.0.0.1:8091"
-BACKEND_URL = "http://127.0.0.1:8010"
-LOGIN_URL = f"{BASE_URL}/#/login"
-BATCH_URL = f"{BASE_URL}/#/pc/credit/acceptBankCreditGrantBatch"
-RECHECK_URL = f"{BASE_URL}/#/pc/credit/acceptBankCreditGrantInfoReCheck"
-SCREENSHOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "test-data", "screenshots")
-BANK_PREFIX = "hnnxbank"
+# 导入配置加载模块（与 health_check.py 同目录）
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)
+from health_check import load_config, get_bank_config
 
-# 测试账号
-USERNAME = "wangnan01"
-PASSWORD = "abc@123"
-
-# 确保截图目录存在
+# --- 运行时动态解析（不再硬编码）---
+SCREENSHOT_DIR = os.path.join(BASE_DIR, "..", "test-data", "screenshots")
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
 # --- 全局测试结果收集 ---
@@ -82,11 +83,33 @@ def wait_for_network_idle(page, timeout=10000):
         pass
     time.sleep(0.5)
 
-def main():
+def run_accept_bank_credit_test(config, bank_config, bank_id):
+    """执行承兑行额度管理自动化测试，所有银行特定信息从配置读取"""
+    url_prefix = bank_config.get('url_prefix', '/hnnxbank/')
+    host = config.get('host', '127.0.0.1')
+    frontend_port = config.get('services', {}).get('frontend', {}).get('port', 8091)
+    backend_port = config.get('services', {}).get('backend_api', {}).get('port', 8010)
+    login_cred = bank_config.get('login', {}).get('default', {})
+    selectors = config.get('selectors', {})
+    login_config = config.get('login', {})
+
+    BASE_URL = f"http://{host}:{frontend_port}"
+    BACKEND_URL = f"http://{host}:{backend_port}"
+    LOGIN_URL = f"{BASE_URL}/#/login"
+    BATCH_URL = f"{BASE_URL}/#/pc/credit/acceptBankCreditGrantBatch"
+    RECHECK_URL = f"{BASE_URL}/#/pc/credit/acceptBankCreditGrantInfoReCheck"
+
+    USERNAME = login_cred.get('username', '')
+    PASSWORD = login_cred.get('password', '')
+    BANK_PREFIX = url_prefix
+
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        launch_opts = config.get('test', {}).get('browser', {}).get('launch_options', {"headless": True})
+        browser = p.chromium.launch(**{
+            k: v for k, v in launch_opts.items() if k in ('headless', 'channel', 'args')
+        })
         context = browser.new_context(
-            viewport={"width": 1920, "height": 1080},
+            viewport=config.get('test', {}).get('viewport', {"width": 1920, "height": 1080}),
             locale="zh-CN"
         )
         page = context.new_page()
@@ -102,7 +125,7 @@ def main():
                 api_requests.append({
                     "url": request.url,
                     "method": request.method,
-                    "has_hnnxbank": "/hnnxbank/" in request.url
+                    "has_personalized": url_prefix in request.url
                 })
         page.on("request", on_request)
 
@@ -151,8 +174,8 @@ def main():
 
             # 点击登录按钮
             try:
-                # BEMP登录按钮
-                login_btn = page.locator("button:has-text('登录')").last
+                login_btn_sel = selectors.get('login_button', 'button:has-text("登录")')
+                login_btn = page.locator(login_btn_sel).last
                 login_btn.click()
                 time.sleep(1)
             except Exception as e:
@@ -182,8 +205,8 @@ def main():
                     record_result("1.5 登录完成", "PASS", "已跳转到主页面(mainIndex)")
                 except PlaywrightTimeoutError:
                     # URL未变化，但检查页面内容确认登录
-                    page.wait_for_selector("text='wangnan01'", timeout=5000)
-                    record_result("1.5 登录完成", "PASS", "页面显示用户名，登录成功")
+                    page.wait_for_selector(f"text='{USERNAME}'", timeout=5000)
+                    record_result("1.5 登录完成", "PASS", f"页面显示用户名，登录成功")
             except PlaywrightTimeoutError:
                 screenshot(page, "login_timeout")
                 record_result("1.5 登录完成", "FAIL", "登录后未显示预期页面内容")
@@ -718,13 +741,13 @@ def main():
             print("="*60)
 
             if len(api_requests) > 0:
-                # 检查个性化前缀
-                non_bank_apis = [r for r in api_requests if not r["has_hnnxbank"]]
-                hnnxbank_apis = [r for r in api_requests if r["has_hnnxbank"]]
+                # 检查个性化前缀（动态从bank_config读取）
+                non_personalized_apis = [r for r in api_requests if not r["has_personalized"]]
+                personalized_apis = [r for r in api_requests if r["has_personalized"]]
 
                 record_result("5.1 API请求总数", "PASS", f"共 {len(api_requests)} 个API请求")
                 record_result("5.2 个性化前缀API", "PASS",
-                              f"带 /hnnxbank/ 前缀: {len(hnnxbank_apis)} 个")
+                              f"带 {url_prefix} 前缀: {len(personalized_apis)} 个")
 
                 # 检查关键API
                 expected_apis = [
@@ -736,9 +759,9 @@ def main():
                     record_result(f"5.3 API: {api}", "PASS" if found else "BLOCKED",
                                   "已调用" if found else "未被调用")
 
-                if non_bank_apis:
+                if non_personalized_apis:
                     record_result("5.4 非个性化API", "INFO",
-                                  f"非/hnnxbank/请求 {len(non_bank_apis)} 个（公共API正常）")
+                                  f"非{url_prefix}请求 {len(non_personalized_apis)} 个（公共API正常）")
             else:
                 record_result("5.1 API请求总数", "BLOCKED", "未捕获到API请求")
 
@@ -810,6 +833,25 @@ def main():
             print(f"\n详细报告已保存: {report_path}")
 
             browser.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='承兑行额度管理自动化测试')
+    parser.add_argument('--config', default='../config/test_config.json',
+                        help='配置文件路径 (默认: ../config/test_config.json)')
+    parser.add_argument('--bank', default=None,
+                        help='银行标识 (默认: 使用active_bank)')
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    bank_config, bank_id = get_bank_config(config, args.bank)
+    if not bank_config:
+        print(f"[ERROR] 未找到银行配置: {args.bank or config.get('active_bank')}")
+        sys.exit(1)
+
+    print(f"[INFO] 银行: {bank_id} ({bank_config.get('name', '')})")
+    print(f"[INFO] URL前缀: {bank_config.get('url_prefix', '/')}")
+    run_accept_bank_credit_test(config, bank_config, bank_id)
 
 
 if __name__ == "__main__":

@@ -43,7 +43,9 @@ function Get-BuildConfig {
         "PARALLEL_BUILD=false",
         "BUILD_THREADS=4",
         "GIT_RETRY_COUNT=3",
-        "ENABLE_BUILD_REPORT=true"
+        "ENABLE_BUILD_REPORT=true",
+        "BUILD_ORDER=bom,framework,adapter,banks,served",
+        "SKIP_BUILD_EXTENSIONS=.md,.txt,.gitignore,.gitattributes,.properties"
     )
     foreach ($pair in $defaultPairs) {
         $parts = $pair.Split("=", 2)
@@ -92,6 +94,13 @@ function Test-BuildConfig {
 
     if (@("stop", "warn", "skip") -notcontains $Config["CONFLICT_ACTION"]) {
         $errors += "CONFLICT_ACTION invalid: $($Config['CONFLICT_ACTION'])"
+    }
+
+    if ($Config["BUILD_ORDER"]) {
+        $orderModules = ($Config["BUILD_ORDER"] -split "," | ForEach-Object { $_.Trim() })
+        if ($orderModules.Count -eq 0) {
+            $errors += "BUILD_ORDER is empty"
+        }
     }
 
     return $errors

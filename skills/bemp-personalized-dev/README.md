@@ -1,143 +1,166 @@
-# 河南农信 BEMP 个性化开发规范文档
+# BEMP 个性化开发技能
 
-## 文档说明
+## 概述
 
-本文档是河南农信 BEMP 系统个性化开发的完整规范指南，包含编码规范和标准化的开发模板两部分核心内容。
+`bemp-personalized-dev` 是 BEMP 票据系统个性化开发的完整技能，涵盖前端（Vue）、后端（Java/Spring Boot）、数据库（MySQL）和 Adapter（消息通道）四大开发领域的编码规范、代码模板、参考文档和最佳实践。
 
 ## 文档结构
 
 ```
 bemp-personalized-dev/
-├── SKILL.md                          # Skill 定义文件
-├── README.md                         # 使用说明
-└── assets/
-    ├── 开发指南/                     # 开发指南文档
-    │   ├── README.md                 # 开发指南说明
-    │   ├── 前端开发规范.md           # 前端开发规范文档
-    │   ├── 前端开发模板.md           # 前端开发模板文档
-    │   ├── 后端开发规范.md           # 后端开发规范文档
-    │   ├── 后端开发模板.md           # 后端开发模板文档
-    │   └── 综合开发指南.md           # 综合开发指南
-    └── templates/                    # 代码模板
-        ├── Hnnx.java                 # 基础模板
-        ├── HnnxDtoTemplate.java      # DTO模板
-        └── HnnxServiceTemplate.java  # Service模板
+├── SKILL.md                         # Skill 定义文件（触发词、执行步骤、输出格式）
+├── README.md                        # 使用说明
+├── assets/
+│   ├── guides/                      # 分领域开发指南
+│   │   ├── frontend-guide.md        # 前端开发规范与模板
+│   │   ├── backend-guide.md         # 后端开发规范与模板
+│   │   ├── database-guide.md        # 数据库开发规范与模板
+│   │   └── adapter-guide.md         # Adapter 消息通道开发规范与模板
+│   └── templates/                   # 标准化代码模板
+│       ├── java/                    # Java 模板
+│       │   ├── Controller.java
+│       │   ├── Service.java
+│       │   └── Dto.java
+│       └── sql/                     # SQL 脚本模板
+│           ├── table-ddl.sql        # 建表 DDL
+│           ├── menu-dml.sql         # 菜单 DML
+│           ├── param-dml.sql        # 参数 DML
+│           ├── flow-dml.sql         # 流程 DML
+│           ├── pend-item-dml.sql    # 待办事项 DML
+│           └── configcenter.json    # 配置中心 JSON
+└── references/                      # 参考文档
+    ├── faq.md                       # 常见问题与最佳实践
+    └── project-rules.md             # 项目强制约束与规则
 ```
 
 ## 文档内容
 
-### 1. 前端开发规范
+### 1. 前端开发指南
 
-**文件位置**：`assets/开发指南/前端开发规范.md`
-
-**包含内容**：
-- 命名约定（文件命名、变量命名、方法命名、组件命名、CSS 命名）
-- 代码风格（Vue 文件结构、代码格式、注释规范、导入顺序）
-- 组件设计原则（单一职责原则、组件复用原则、Props 设计、事件触发）
-- 状态管理规范（Store 模块化、组件中使用 Store、状态命名规范）
-- 错误处理机制（表单校验、API 错误处理、全局错误处理）
-- 性能优化指南（懒加载、防抖节流、列表优化、图片优化）
-- 最佳实践（代码审查清单、自测清单、安全规范、国际化最佳实践）
-
-### 2. 前端开发模板
-
-**文件位置**：`assets/开发指南/前端开发模板.md`
+**文件位置**：`assets/guides/frontend-guide.md`
 
 **包含内容**：
-- 标准页面模板（查询表单、数据表格、新增/修改弹窗）
-- 批量操作模板（批量操作按钮、批量操作弹窗）
-- 表格页面模板（查询表单、数据表格、分页）
-- 表单页面模板（弹窗表单、表单校验）
-- 树形页面模板（左侧树、右侧表格）
-- API 调用模板（常用 API 方法）
-- 测试用例模板（单元测试用例）
+- 命名约定（文件、变量、方法、组件、CSS 命名规范）
+- Vue 2.6 开发规范（文件结构、代码格式、组件设计原则）
+- 组件设计（单一职责、复用原则、Props/事件设计、commonTree 树形弹框布局规范）
+- 状态管理（Vuex Store 模块化、状态命名）
+- H-UI 组件文档查询规范（13 章，强制使用 `hui_doc` MCP 查询）
+- 国际化使用规范
+- 错误处理（表单校验、API 错误处理、全局错误处理）
+- 性能优化（懒加载、防抖节流、列表优化）
+- 代码模板（7 个标准模板）
 
-### 3. 后端开发规范
+### 2. 后端开发指南
 
-**文件位置**：`assets/开发指南/后端开发规范.md`
-
-**包含内容**：
-- 命名约定（包命名、类命名、方法命名、变量命名、参数命名）
-- 代码风格（类结构规范、注释规范、代码格式、导入顺序）
-- 组件设计原则（单一职责原则、继承复用原则、依赖注入原则、接口设计原则）
-- 状态管理规范（事务管理、缓存管理、数据库连接管理）
-- 错误处理机制（异常类型选择、异常码使用、异常处理原则）
-- 性能优化指南（批量查询、使用 Set、数据库索引、连接池优化）
-- 最佳实践（代码审查清单、自测清单、安全规范、日志规范、国际化规范、事务管理最佳实践、数据库操作最佳实践）
-
-### 4. 后端开发模板
-
-**文件位置**：`assets/开发指南/后端开发模板.md`
+**文件位置**：`assets/guides/backend-guide.md`
 
 **包含内容**：
-- Controller 模板（标准 Controller 结构、方法注释、参数校验）
-- Service 模板（标准 Service 结构、事务管理、日志记录）
-- DTO 模板（扩展产品化 DTO）
-- DAO 模板（标准 DAO 接口）
-- 异常处理模板（异常码常量定义）
-- 事务处理模板（事务注解使用、事务范围控制）
-- 日志处理模板（日志级别选择、日志内容规范）
-- 测试用例模板（单元测试用例）
+- 工程规约（个性化开发目录 `banks/ext-hnnxbank`）
+- 命名约定（包、类、方法、变量命名规范）
+- 应用分层规范（Controller → Service → Atom → DAO）
+- Service/DAO 分层职责与规范
+- `@CustomizedBean` 注解使用规则（Service/Atom 层需要，Controller 不需要）
+- 日志规约（级别选择、内容规范）
+- 无效引用控制规范
+- 事务管理规范
+- 异常处理（异常类型、异常码、处理原则）
+- 性能优化（批量查询、集合优化、连接池）
+- 代码模板（8 个标准模板）
 
-### 5. 综合开发指南
+### 3. 数据库开发指南
 
-**文件位置**：`assets/开发指南/综合开发指南.md`
+**文件位置**：`assets/guides/database-guide.md`
 
 **包含内容**：
-- 概述（文档目的、适用范围、核心原则）
-- 开发规范（前端开发规范、后端开发规范）
-- 开发模板（前端开发模板、后端开发模板）
-- 最佳实践（代码审查清单、自测清单、安全规范、国际化规范）
-- 常见问题（路径问题、国际化问题、组件问题、性能问题、后端问题）
-- 附录（常用国际化键、常用注解、常用常量、常用工具类）
+- 表设计规范（字段类型、长度、默认值）
+- 字段命名规范
+- MyBatis 3.5 使用规范
+- 增量 SQL 脚本生成规范（命名格式：`V{版本}_{日期}_{任务号}_{描述}.{类型}.sql`）
+- SQL 脚本"先删除后新增"策略
+- 脚本拆分规范（按类型独立文件）
+- SQL 检查清单
+- 代码模板（8 个标准模板，含 DDL/DML/配置中心）
+
+### 4. Adapter 开发指南
+
+**文件位置**：`assets/guides/adapter-guide.md`
+
+**包含内容**：
+- 消息通道开发概述（TCP/HTTP/MQ 协议）
+- Client 端开发规范（继承 `AbstractGenericMessageRequestReplyConverter`）
+- Server 端开发规范（继承 `AbstractMessageApplyResponseConverter`）
+- 工具类使用规范
+- 接口协议定义规范
+- 代码模板（7 个标准模板）
+
+### 5. 参考文档
+
+**文件位置**：`references/`
+
+| 文件 | 说明 |
+|------|------|
+| `faq.md` | 11 个常见问题（Q&A）+ 后端/前端/Adapter 最佳实践 |
+| `project-rules.md` | 版本约束、个性化开发目录、SQL 脚本目录、命名规范等强制规则 |
 
 ## 使用指南
 
 ### 1. 开发前准备
 
-1. 阅读 [综合开发指南](assets/开发指南/综合开发指南.md) 了解整体规范
-2. 根据开发需求查阅对应的前端或后端开发规范
-3. 参考对应的开发模板进行代码编写
+1. 阅读 [project-rules.md](references/project-rules.md) 了解项目强制约束
+2. 根据开发领域查阅对应的指南文档：
+   - 前端：`assets/guides/frontend-guide.md`
+   - 后端：`assets/guides/backend-guide.md`
+   - 数据库：`assets/guides/database-guide.md`
+   - Adapter：`assets/guides/adapter-guide.md`
+3. 参考 `assets/templates/` 目录下的对应模板进行代码编写
 
 ### 2. 开发流程
 
-#### 前端开发流程
+#### 前端开发
 
-1. 检查 `frontend/src/views/bizViews/banks/hnnxbank` 目录下是否有对应的个性化 Vue 文件
+1. 检查 `frontend/src/views/bizViews/banks/hnnxbank` 目录下是否有可复用的个性化 Vue 文件
 2. 如有则复用，如无则新增 Vue 文件
 3. 在 `frontend/src/api/bank/hnnxbankIndex.js` 中维护路径映射关系
-4. 参考 [前端开发规范](assets/开发指南/前端开发规范.md) 进行编码
-5. 参考 [前端开发模板](assets/开发指南/前端开发模板.md) 编写代码
+4. 参考 [frontend-guide.md](assets/guides/frontend-guide.md) 进行编码
 
-#### 后端开发流程
+#### 后端开发
 
-1. 检查 `banks/ext-hnnxbank` 目录下是否有可复用的带 @CustomizedBean 注解的个性化类
+1. 检查 `banks/ext-hnnxbank` 目录下是否有可复用的带 `@CustomizedBean` 注解的个性化类
 2. 如有则复用，如无则新增个性化类
-3. 参考 [后端开发规范](assets/开发指南/后端开发规范.md) 进行编码
-4. 参考 [后端开发模板](assets/开发指南/后端开发模板.md) 编写代码
+3. 参考 [backend-guide.md](assets/guides/backend-guide.md) 进行编码
+
+#### 数据库开发
+
+1. 按增量 SQL 脚本命名规范（`V{版本}_{日期}_{任务号}_{描述}.{类型}.sql`）创建脚本
+2. 参考 [database-guide.md](assets/guides/database-guide.md) 的 SQL 检查清单
+3. DDL 和各类 DML 按类型拆分独立文件
+
+#### Adapter 开发
+
+1. Client 端继承 `AbstractGenericMessageRequestReplyConverter`
+2. Server 端继承 `AbstractMessageApplyResponseConverter`
+3. 参考 [adapter-guide.md](assets/guides/adapter-guide.md) 进行通道开发
 
 ### 3. 代码审查
 
-1. 前端代码审查：调用 `bemp-frontend-code-review` Skill
-2. 后端代码审查：调用 `bemp-backend-code-review` Skill
+- 前端代码审查：调用 `bemp-frontend-code-review` Skill
+- 后端代码审查：调用 `bemp-backend-code-review` Skill
 
-### 4. 编译验证
+### 4. 常见问题
 
-1. 前端：检查是否有编译错误
-2. 后端：执行 Maven 打包确保编译通过
+遇到问题先查阅 [faq.md](references/faq.md)，已覆盖路径问题、国际化问题、组件问题、性能问题、后端问题等常见场景。
 
 ## 技术栈
 
-### 前端技术栈
+### 前端
 
 - Vue 2.6.12
 - Vue Router 3.0.1
 - Vuex 3.0.1
-- iView UI 3.4.1
-- Lodash 4.17.15
+- H-UI（启金前端组件库）
 - Axios 0.21.1
 
-### 后端技术栈
+### 后端
 
 - Java 1.8
 - Spring Boot 2.7.11
@@ -145,38 +168,6 @@ bemp-personalized-dev/
 - Maven 3.8.6
 - Lombok 1.18.24
 
-## 常见问题
+### 数据库
 
-### 1. 路径问题
-
-**问题**：接口路径 404
-
-**原因**：
-- 缺少 `/hnnxbank` 前缀
-- 路径与后端不匹配
-
-**解决方案**：参考 [综合开发指南](assets/开发指南/综合开发指南.md) 中的路径规范
-
-### 2. 国际化问题
-
-**问题**：国际化不生效
-
-**原因**：
-- 键名拼写错误
-- 国际化文件未正确导入
-
-**解决方案**：参考 [综合开发指南](assets/开发指南/综合开发指南.md) 中的国际化规范
-
-### 3. 性能问题
-
-**问题**：页面加载慢
-
-**原因**：
-- 一次性加载大量数据
-- 组件未懒加载
-
-**解决方案**：参考 [综合开发指南](assets/开发指南/综合开发指南.md) 中的性能优化指南
-
-## 联系方式
-
-如有问题，请联系开发团队。
+- MySQL 5.7+

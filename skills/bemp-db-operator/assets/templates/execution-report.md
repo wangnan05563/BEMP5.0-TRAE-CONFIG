@@ -8,8 +8,9 @@
 | 操作时间 | ${EXECUTION_TIME} |
 | 操作人员 | ${OPERATOR} |
 | 需求编号 | ${TASK_NO} |
+| 数据库类型 | ${DB_TYPE}（Oracle/MySQL） |
 | 数据库环境 | ${DB_ENV} |
-| 目标Schema | ${SCHEMA} |
+| 目标Schema/数据库 | ${SCHEMA_OR_DATABASE} |
 
 ---
 
@@ -39,6 +40,7 @@ ${CHANGE_DESCRIPTION}
 | 字段匹配 | 通过/失败 | |
 | 影响行数预估 | 正常/警告/中止 | 预估影响 ${AFFECT_ROWS} 行 |
 | ID/KEY冲突 | 无冲突/有冲突 | |
+| 数据库兼容性 | 通过/失败 | SQL语法是否兼容当前数据库类型 |
 
 ### 执行前快照
 
@@ -61,6 +63,8 @@ ${BEFORE_SNAPSHOT}
 
 | 指标 | 值 |
 |------|-----|
+| 数据库类型 | ${DB_TYPE} |
+| 执行方式 | Oracle:SQL*Plus / MySQL:MCP |
 | 总语句数 | ${TOTAL_STATEMENTS} |
 | 成功语句数 | ${SUCCESS_COUNT} |
 | 失败语句数 | ${FAIL_COUNT} |
@@ -92,6 +96,7 @@ ${BEFORE_SNAPSHOT}
 | 是否需要回退 | 是/否 |
 | 回退级别 | statement/script/full |
 | 回退脚本 | ${ROLLBACK_SCRIPT} |
+| 回退执行方式 | Oracle:SQL*Plus / MySQL:MCP |
 | 回退状态 | 未执行/执行中/已完成 |
 | 回退验证 | 通过/不通过 |
 

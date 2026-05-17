@@ -1,0 +1,365 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "BEMP数据库操作执行结果",
+    "description": "bemp-db-operator 技能的结构化执行结果输出格式，便于与其他技能/智能体集成",
+    "type": "object",
+    "required": ["header", "status", "execution", "verification"],
+    "properties": {
+        "header": {
+            "type": "object",
+            "required": ["reportId", "executionTime", "operator", "dbType", "dbEnvironment"],
+            "properties": {
+                "reportId": {
+                    "type": "string",
+                    "description": "报告编号",
+                    "examples": ["RPT-20260516-001"]
+                },
+                "executionTime": {
+                    "type": "string",
+                    "description": "操作时间",
+                    "examples": ["2026-05-16T14:30:25+08:00"]
+                },
+                "operator": {
+                    "type": "string",
+                    "description": "操作人员"
+                },
+                "taskNo": {
+                    "type": "string",
+                    "description": "需求编号"
+                },
+                "dbType": {
+                    "type": "string",
+                    "enum": ["oracle", "mysql"],
+                    "description": "数据库类型"
+                },
+                "dbTypeDetection": {
+                    "type": "object",
+                    "description": "数据库类型检测信息（仅autoDetection模式时存在）",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": ["config", "auto"],
+                            "description": "检测模式：config=配置指定，auto=自动检测"
+                        },
+                        "oracleMcpAvailable": {
+                            "type": "boolean",
+                            "description": "Oracle MCP是否可用"
+                        },
+                        "mysqlMcpAvailable": {
+                            "type": "boolean",
+                            "description": "MySQL MCP是否可用"
+                        },
+                        "detectionPriority": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "检测优先级顺序"
+                        }
+                    }
+                },
+                "dbVersion": {
+                    "type": "string",
+                    "description": "数据库版本（版本检测启用时填充）",
+                    "examples": ["19c", "8.0.35", "5.7.44"]
+                },
+                "dbEnvironment": {
+                    "type": "string",
+                    "enum": ["dev", "test", "prod"],
+                    "description": "数据库环境"
+                },
+                "schemaOrDatabase": {
+                    "type": "string",
+                    "description": "目标Schema（Oracle）或数据库名（MySQL）"
+                },
+                "featureFlags": {
+                    "type": "object",
+                    "description": "当前数据库版本支持的特性标记（版本检测启用时填充）",
+                    "properties": {
+                        "windowFunctions": {
+                            "type": "boolean",
+                            "description": "是否支持窗口函数"
+                        },
+                        "cteRecursive": {
+                            "type": "boolean",
+                            "description": "是否支持CTE递归"
+                        },
+                        "jsonFunctions": {
+                            "type": "boolean",
+                            "description": "是否支持JSON函数"
+                        },
+                        "insertOnDuplicate": {
+                            "type": "boolean",
+                            "description": "是否支持INSERT ON DUPLICATE KEY UPDATE（MySQL特有）"
+                        }
+                    }
+                }
+            }
+        },
+        "status": {
+            "type": "object",
+            "required": ["overall"],
+            "properties": {
+                "overall": {
+                    "type": "string",
+                    "enum": ["success", "partial_success", "failure", "rolled_back"],
+                    "description": "整体执行状态"
+                },
+                "connectionStatus": {
+                    "type": "string",
+                    "enum": ["connected", "failed", "reconnected"],
+                    "description": "连接状态"
+                },
+                "executionMode": {
+                    "type": "string",
+                    "enum": ["oracle_sqlplus", "mysql_mcp_normal", "mysql_mcp_safe"],
+                    "description": "执行方式"
+                }
+            }
+        },
+        "execution": {
+            "type": "object",
+            "required": ["totalStatements", "successCount", "failCount"],
+            "properties": {
+                "totalStatements": {
+                    "type": "integer",
+                    "description": "总语句数"
+                },
+                "successCount": {
+                    "type": "integer",
+                    "description": "成功语句数"
+                },
+                "failCount": {
+                    "type": "integer",
+                    "description": "失败语句数"
+                },
+                "totalAffectRows": {
+                    "type": "integer",
+                    "description": "总影响行数"
+                },
+                "totalTimeMs": {
+                    "type": "integer",
+                    "description": "总耗时（毫秒）"
+                },
+                "safeModeTransaction": {
+                    "type": "object",
+                    "description": "安全执行模式事务信息",
+                    "properties": {
+                        "started": {
+                            "type": "boolean",
+                            "description": "是否开启了事务"
+                        },
+                        "result": {
+                            "type": "string",
+                            "enum": ["committed", "rolled_back", "pending"],
+                            "description": "事务结果"
+                        }
+                    }
+                },
+                "statements": {
+                    "type": "array",
+                    "description": "逐语句执行详情",
+                    "items": {
+                        "type": "object",
+                        "required": ["index", "sql", "status"],
+                        "properties": {
+                            "index": {
+                                "type": "integer",
+                                "description": "语句序号"
+                            },
+                            "sql": {
+                                "type": "string",
+                                "description": "SQL语句"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["success", "failure", "skipped"],
+                                "description": "执行状态"
+                            },
+                            "affectRows": {
+                                "type": "integer",
+                                "description": "影响行数"
+                            },
+                            "timeMs": {
+                                "type": "integer",
+                                "description": "耗时（毫秒）"
+                            },
+                            "errorCode": {
+                                "type": "string",
+                                "description": "错误码"
+                            },
+                            "errorMessage": {
+                                "type": "string",
+                                "description": "错误信息"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "verification": {
+            "type": "object",
+            "required": ["passed"],
+            "properties": {
+                "passed": {
+                    "type": "boolean",
+                    "description": "复核是否通过"
+                },
+                "items": {
+                    "type": "array",
+                    "description": "验证项详情",
+                    "items": {
+                        "type": "object",
+                        "required": ["item", "method", "expected", "actual", "match"],
+                        "properties": {
+                            "item": {
+                                "type": "string",
+                                "description": "验证项名称"
+                            },
+                            "method": {
+                                "type": "string",
+                                "description": "验证方法"
+                            },
+                            "expected": {
+                                "type": "string",
+                                "description": "预期结果"
+                            },
+                            "actual": {
+                                "type": "string",
+                                "description": "实际结果"
+                            },
+                            "match": {
+                                "type": "boolean",
+                                "description": "是否一致"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "rollback": {
+            "type": "object",
+            "description": "回退信息（仅在需要回退时存在）",
+            "properties": {
+                "required": {
+                    "type": "boolean",
+                    "description": "是否需要回退"
+                },
+                "level": {
+                    "type": "string",
+                    "enum": ["statement", "script", "full", "batch"],
+                    "description": "回退级别"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": ["mysql_rollback", "rollback_sql", "oracle_sqlplus"],
+                    "description": "回退方式"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["not_started", "in_progress", "completed", "failed"],
+                    "description": "回退状态"
+                },
+                "verificationPassed": {
+                    "type": "boolean",
+                    "description": "回退验证是否通过"
+                }
+            }
+        },
+        "connectionKeepAlive": {
+            "type": "object",
+            "description": "连接保活信息",
+            "properties": {
+                "checksPerformed": {
+                    "type": "integer",
+                    "description": "保活检查次数"
+                },
+                "reconnectsPerformed": {
+                    "type": "integer",
+                    "description": "重连次数"
+                }
+            }
+        },
+        "batch": {
+            "type": "object",
+            "description": "批量操作信息（仅批量执行模式时存在）",
+            "properties": {
+                "isBatch": {
+                    "type": "boolean",
+                    "description": "是否为批量操作"
+                },
+                "totalScripts": {
+                    "type": "integer",
+                    "description": "总脚本数"
+                },
+                "completedScripts": {
+                    "type": "integer",
+                    "description": "成功完成的脚本数"
+                },
+                "failedScripts": {
+                    "type": "integer",
+                    "description": "失败的脚本数"
+                },
+                "skippedScripts": {
+                    "type": "integer",
+                    "description": "跳过的脚本数"
+                },
+                "rollbackStrategy": {
+                    "type": "string",
+                    "enum": ["all_or_nothing", "best_effort"],
+                    "description": "批量回退策略"
+                },
+                "scripts": {
+                    "type": "array",
+                    "description": "逐脚本执行详情",
+                    "items": {
+                        "type": "object",
+                        "required": ["index", "scriptName", "scriptType", "status"],
+                        "properties": {
+                            "index": {
+                                "type": "integer",
+                                "description": "脚本序号"
+                            },
+                            "scriptName": {
+                                "type": "string",
+                                "description": "脚本文件名"
+                            },
+                            "scriptType": {
+                                "type": "string",
+                                "enum": ["ddl", "dml", "config"],
+                                "description": "脚本类型"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["success", "failure", "skipped", "rolled_back"],
+                                "description": "执行状态"
+                            },
+                            "totalStatements": {
+                                "type": "integer",
+                                "description": "脚本内语句总数"
+                            },
+                            "successCount": {
+                                "type": "integer",
+                                "description": "脚本内成功语句数"
+                            },
+                            "failCount": {
+                                "type": "integer",
+                                "description": "脚本内失败语句数"
+                            },
+                            "totalAffectRows": {
+                                "type": "integer",
+                                "description": "脚本内总影响行数"
+                            },
+                            "timeMs": {
+                                "type": "integer",
+                                "description": "脚本执行耗时（毫秒）"
+                            },
+                            "errorMessage": {
+                                "type": "string",
+                                "description": "错误信息"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

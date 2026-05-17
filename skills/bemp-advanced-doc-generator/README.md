@@ -1,279 +1,269 @@
-# BEMP 高级文档生成器使用指南
+# BEMP 高级文档生成器 v5.0
 
 ## 简介
 
-BEMP 高级文档生成器是一个专业的技术文档生成工具，支持详细设计文档和测试用例文档的自动生成。最新版本（V2.0）新增了可视化文档生成功能，能够根据业务场景自动识别并生成流程图或思维导图。
+BEMP 高级文档生成器是专业的技术文档生成工具，支持详细设计文档、测试用例、测试报告的自动生成，以及基于Excel模板的SIT测试用例生成。V5.0进行了全面重构优化，统一了文档构建引擎、精简了可视化模块、统一了错误处理和环境配置。
 
 ## 主要特性
 
-### V2.0 新增功能
-
-- **智能场景识别**：自动判断内容适合生成流程图还是思维导图
-- **ProcessOn MCP 集成**：无缝集成 ProcessOn API，生成高质量可视化文档
-- **自定义模板系统**：支持用户自定义流程图/思维导图样式
-- **错误处理与重试机制**：保障文档生成过程的可靠性
-- **交互式界面**：提供直观的场景选择和参数配置选项
-
-### 核心功能
-
-- 双格式输出：同时支持 Markdown (.md) 和 Word (.docx) 格式
-- 标准化文档结构：符合行业标准的文档模板
-- 模块化设计：易于扩展和维护
-- 命令行接口：支持参数配置和交互式两种模式
+- **三种文档类型**：详细设计、测试用例、测试报告
+- **三种输出格式**：Word (.docx)、Markdown (.md)、Excel (.xlsx)
+- **Excel SIT测试用例**：基于自定义Excel模板，自动解析列映射生成SIT格式测试用例
+- **需求文档智能分析**：从Markdown需求文档自动提取测试点并生成用例
+- **可视化文档生成**：智能场景识别，ProcessOn MCP + 本地HTML备用
+- **统一错误处理**：BempDocError 统一错误码
+- **统一配置管理**：集中管理常量、路径、样式和错误码
+- **JSON结构化输出**：`--json` 参数输出含自动验证结果的结构化数据
 
 ## 快速开始
 
 ### 安装依赖
 
 ```bash
-cd .trae/skills/bemp-advanced-doc-generator/scripts
+cd .trae/skills/bemp-advanced-doc-generator
 npm install
 ```
 
 ### 基本用法
 
-#### 方式一：命令行参数模式
+```bash
+# 生成详细设计文档（Word格式）
+node cli.js -t design -m "机构管理"
+
+# 生成Markdown格式
+node cli.js -t design -f md -m "机构管理"
+
+# 生成Excel SIT测试用例（从需求文档分析）
+node cli.js -t testcase -f excel -r "需求.md" -m "额度管理"
+
+# JSON结构化输出（含自动验证结果）
+node cli.js -t testcase -f excel -r "需求.md" -m "额度管理" --json
+
+# 生成测试用例文档（Word格式）
+node cli.js -t testcase -m "角色管理"
+
+# 生成测试报告
+node cli.js -t testreport -m "批量导入"
+
+# 生成可视化文档
+node cli.js -t design -m "机构管理" -v
+```
+
+### 命令行参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| --type | -t | 文档类型: design/testcase/testreport | design |
+| --module | -m | 模块名称 | 必填 |
+| --format | -f | 输出格式: docx/md/excel | docx |
+| --output | -o | 输出文件路径 | 自动生成 |
+| --requirement | -r | 需求文档路径 | - |
+| --template | | 模板文件路径 | 默认模板 |
+| --config | -c | 配置文件路径 | - |
+| --json | | JSON结构化输出（含自动验证结果） | false |
+| --visualization | -v | 生成可视化文档 | false |
+| --help | -h | 显示帮助信息 | - |
+
+## 目录结构
+
+```
+bemp-advanced-doc-generator/
+├── cli.js                      # 统一命令行入口
+├── package.json                # 依赖管理
+├── config/
+│   └── default.js              # 统一配置（常量/路径/错误码）
+├── lib/
+│   ├── doc-builder.js          # Word文档构建引擎
+│   ├── excel-testcase-generator.js  # Excel测试用例生成器
+│   ├── excel-template-parser.js     # Excel模板解析器
+│   ├── requirement-analyzer.js      # 需求文档分析器
+│   └── visualization.js            # 可视化生成模块
+├── assets/
+│   ├── templates/              # 模板文件
+│   │   ├── 测试用例.xlsx       # Excel测试用例模板
+│   │   ├── excel-testcase-template-config.json
+│   │   ├── default_flowchart.json
+│   │   └── default_mindmap.json
+│   ├── 详细设计文档模板.json
+│   ├── 测试用例模板.json
+│   └── 测试报告模板.json
+├── references/                 # 参考文档
+│   ├── 内容结构标准.md
+│   ├── 技术术语表.md
+│   └── 文档格式标准.md
+└── output/                     # 输出目录
+```
+
+## 技术架构
+
+```
+┌──────────────────────────────────────────────────────┐
+│            bemp-advanced-doc-generator v5.0           │
+├──────────────────────────────────────────────────────┤
+│  cli.js (统一命令行入口)                              │
+│    ├── -t design/testcase/testreport                 │
+│    ├── -f docx/md/excel                              │
+│    ├── -r requirementPath                            │
+│    ├── --json 结构化输出                              │
+│    └── -v visualization                              │
+├──────────────────────────────────────────────────────┤
+│  config/default.js (统一配置)                         │
+│    ├── 常量(A4/字体/字号/表格样式)                     │
+│    ├── 路径(projectRoot/templateDir/outputDir)        │
+│    ├── 错误码(ERROR_CODES)                           │
+│    └── ProcessOn配置                                 │
+├──────────────────────────────────────────────────────┤
+│  lib/ (核心模块)                                     │
+│    ├── doc-builder.js      Word文档构建引擎           │
+│    ├── excel-testcase-generator.js  Excel测试用例生成  │
+│    ├── excel-template-parser.js     Excel模板解析      │
+│    ├── requirement-analyzer.js      需求文档分析       │
+│    └── visualization.js    可视化生成(ProcessOn+本地)  │
+└──────────────────────────────────────────────────────┘
+```
+
+## 模块说明
+
+### config/default.js — 统一配置模块
+
+集中管理所有常量、路径、样式定义和错误码：
+- A4页面常量、字体字号常量
+- BEMP文档样式定义（DOC_STYLES）
+- 表格边框和表头背景色
+- 路径配置（projectRoot、templateDir、outputDir）
+- ProcessOn API配置
+- 错误码定义（ERROR_CODES）和 BempDocError 类
+
+### lib/doc-builder.js — 统一文档构建引擎
+
+合并了原 generate-doc.js 和 generate-simple-branch-doc.js 的公共逻辑：
+- DocumentBuilder 类：统一的 Word 文档构建方法
+- 支持 design/testcase/testreport 三种文档类型
+- 支持 Markdown 格式输出
+- 数据驱动的模板系统，消除硬编码业务内容
+
+### lib/excel-testcase-generator.js — Excel测试用例生成器
+
+基于Excel模板生成SIT格式测试用例：
+- 模板解析 + 配置合并
+- 需求文档分析 + 测试用例生成
+- 数据写入 + 样式应用 + 列对齐自动验证
+- `--json` 模式输出结构化结果
+
+### lib/excel-template-parser.js — Excel模板解析器
+
+自动检测Excel模板结构：
+- 表头行检测（基于核心数据字段关键词匹配）
+- 列映射提取（最长关键词优先匹配，避免误映射）
+- 样式提取、合并单元格提取
+- 配置文件加载与合并
+
+### lib/requirement-analyzer.js — 需求文档分析器
+
+从Markdown需求文档提取测试点：
+- 多级标题解析（支持######级别）
+- 业务规则提取、字段描述解析
+- 校验规则识别（12种校验类型）
+- 正例/反例/边界用例自动生成
+
+### lib/visualization.js — 可视化生成模块
+
+精简的可视化文档生成：
+- SceneIdentifier：场景识别（流程图/思维导图）
+- VisualizationGenerator：ProcessOn API + 本地HTML备用模式
+- 自动降级：API不可用时切换到本地Mermaid HTML生成
+
+## Excel SIT测试用例生成
+
+### 从需求文档自动生成
 
 ```bash
-# 生成详细设计文档（双格式）
-node cli.js --type design --module "机构批量导入"
-
-# 生成测试用例文档（仅 Word 格式）
-node cli.js --type testcase --module "机构批量导入" --format docx
-
-# 生成文档但不生成可视化
-node cli.js --type design --module "测试" --visualization false
+node cli.js -t testcase -f excel -m "承兑行额度" -r "需求文档.md"
 ```
 
-#### 方式二：交互式界面模式
+### 指定模板和配置
 
 ```bash
-# 启动交互式界面
-node interactive-cli.js
-
-# 或使用 cli.js
-node cli.js --interactive
+node cli.js -t testcase -f excel -m "机构管理" -r "需求.md" --template "自定义模板.xlsx" -c "自定义配置.json" -o "输出.xlsx"
 ```
 
-## 命令行参数
+### 模板配置说明
 
-| 参数 | 说明 | 默认值 | 示例 |
-|------|------|--------|------|
-| `--type` | 文档类型：design（详细设计）或 testcase（测试用例） | design | `--type design` |
-| `--module` | 模块名称 | 业务功能 | `--module "机构批量导入"` |
-| `--format` | 输出格式：both（双格式）、docx（仅 Word）、md（仅 Markdown） | both | `--format docx` |
-| `--visualization` | 是否生成可视化文档（true/false） | true | `--visualization false` |
-| `--template` | 使用的模板名称 | default | `--template flowchart_template` |
-| `--interactive` | 启动交互式界面 | - | `--interactive` |
-| `--help` | 显示帮助信息 | - | `--help` |
+Excel模板配置文件 `assets/templates/excel-testcase-template-config.json` 定义了字段到Excel列的映射关系，支持自定义对齐方式和数据类型。
 
-## 交互式界面使用
+### 自动验证
 
-启动交互式界面后，您将看到以下菜单：
-
-### 主菜单
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ 主菜单                                                  │
-├─────────────────────────────────────────────────────────┤
-│ 1. 生成详细设计文档                                      │
-│ 2. 生成测试用例文档                                      │
-│ 3. 高级配置                                              │
-│ 4. 退出                                                  │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 高级配置菜单
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ 高级配置                                                │
-├─────────────────────────────────────────────────────────┤
-│ 当前配置：                                              │
-│   - 文档类型: 详细设计                                  │
-│   - 模块名称: 机构批量导入                              │
-│   - 输出格式: both                                      │
-│   - 生成可视化: 是                                      │
-│   - 模板名称: default                                   │
-├─────────────────────────────────────────────────────────┤
-│ 1. 修改文档类型                                          │
-│ 2. 修改模块名称                                          │
-│ 3. 修改输出格式                                          │
-│ 4. 切换可视化生成                                        │
-│ 5. 修改模板                                              │
-│ 6. 返回主菜单                                            │
-└─────────────────────────────────────────────────────────┘
-```
-
-## 可视化文档生成
-
-### 场景识别机制
-
-系统会根据以下特征自动识别适合的图表类型：
-
-#### 流程图特征
-
-- 包含"流程"、"步骤"、"顺序"、"判断"、"决策"等关键词
-- 内容较长（超过 10 行）
-- 包含流程图标记（`->`、`==>`、`-->`）
-
-#### 思维导图特征
-
-- 包含"思维导图"、"中心主题"、"分支"、"层级"等关键词
-- 包含 Markdown 标题标记（`#`、`##`、`###`）
-- 内容较短但层级清晰
-
-### 可用模板
-
-系统内置了以下模板：
-
-- `default_mindmap`：默认思维导图模板
-- `default_flowchart`：默认流程图模板
-
-您可以在 `assets/templates/` 目录下创建自定义模板。
-
-### 自定义模板
-
-模板文件位于 `assets/templates/` 目录，格式为 JSON：
-
+生成完成后自动验证列对齐率，`--json` 模式输出验证结果：
 ```json
 {
-  "name": "my_custom_template",
-  "type": "mindmap",
-  "theme": {
-    "color": "#333333",
-    "font": "SimSun",
-    "fontSize": 14
-  },
-  "layout": {
-    "direction": "TB",
-    "spacing": 20
+  "success": true,
+  "outputPath": "output/模块-SIT测试用例-20260516.xlsx",
+  "totalCases": 68,
+  "positive": 13,
+  "negative": 55,
+  "boundary": 0,
+  "validation": {
+    "valid": true,
+    "alignmentRate": "100.0%",
+    "fileSize": 12345
   }
 }
 ```
 
-## 输出文件
+## 文档格式标准
 
-生成的文档将保存在 `output/` 目录下：
+| 项目 | 标准 |
+|------|------|
+| 文件格式 | Word (.docx) / Markdown (.md) / Excel (.xlsx) |
+| 页面设置 | A4 纵向，边距上下 2.54cm，左右 3.17cm |
+| 标题样式 | 一级黑体三号，二级黑体四号，三级黑体小四号 |
+| 正文字体 | 宋体小四号，1.5 倍行距 |
+| 表格样式 | 表头黑体五号加粗，内容宋体五号 |
+
+### 输出文件命名规范
 
 ```
-output/
-├── {模块名}-详细设计.md
-├── {模块名}-详细设计.docx
-├── {模块名}-测试用例.md
-└── {模块名}-测试用例.docx
+详细设计文档：{模块名称}-详细设计文档-{日期}.docx/.md
+测试用例文档：{模块名称}-测试用例-{日期}.docx/.md
+测试报告文档：{模块名称}-测试报告-{日期}.docx/.md
+Excel SIT测试用例：{模块名称}-SIT测试用例-{日期}.xlsx
 ```
 
-## ProcessOn MCP 集成
+## 错误码定义
 
-### API Key 配置
-
-如需使用 ProcessOn MCP 功能，请设置 API Key：
-
-```bash
-# Windows
-set PROCESSON_API_KEY=your_api_key_here
-
-# Linux/Mac
-export PROCESSON_API_KEY=your_api_key_here
-```
-
-### MCP 服务启动
-
-```bash
-npm run start-mcp
-```
-
-## 故障排除
-
-### 常见问题
-
-1. **docx 模块未找到**
-   ```
-   解决方案：执行 npm install
-   ```
-
-2. **模板文件不存在**
-   ```
-   解决方案：检查 assets 目录下是否有对应的 JSON 文件
-   ```
-
-3. **ProcessOn API 连接失败**
-   ```
-   解决方案：检查 PROCESSON_API_KEY 环境变量是否设置
-   ```
-
-4. **中文显示异常**
-   ```
-   解决方案：确保使用 SimSun/SimHei 字体
-   ```
-
-5. **文件写入失败**
-   ```
-   解决方案：检查输出路径是否有写入权限
-   ```
-
-### 错误码说明
-
-| 错误码 | 说明 | 解决方案 |
+| 错误码 | 说明 | 处理建议 |
 |--------|------|----------|
-| -32001 | MCP 调用超时 | 增加重试次数或检查网络连接 |
-| EACCES | 文件权限错误 | 检查输出目录权限 |
-| ENOENT | 文件不存在 | 检查文件路径是否正确 |
-| ECONNREFUSED | 连接被拒绝 | 检查 ProcessOn 服务是否启动 |
+| E001 | 模板文件未找到 | 检查模板路径是否正确 |
+| E002 | 需求文件未找到 | 检查需求文档路径 |
+| E003 | 文档生成失败 | 查看详细错误信息 |
+| E004 | 输出文件失败 | 检查输出目录权限 |
+| E005 | 数据验证失败 | 检查输入参数 |
+| E006 | 参数无效 | 检查命令行参数 |
 
-## 高级配置
+## 可视化文档生成
 
-### 环境变量
+### ProcessOn MCP 集成
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `PROCESSON_API_KEY` | ProcessOn API 密钥 | 空 |
-| `PROCESSON_API_BASE` | ProcessOn API 地址 | https://www.processon.com |
-| `PROCESSON_RETRY_COUNT` | 重试次数 | 3 |
-| `PROCESSON_RETRY_DELAY` | 重试延迟（毫秒） | 1000 |
-
-### 自定义配置文件
-
-可以创建 `.env` 文件进行自定义配置：
-
-```
-PROCESSON_API_KEY=your_api_key
-PROCESSON_RETRY_COUNT=5
-PROCESSON_RETRY_DELAY=2000
+设置环境变量：
+```bash
+set PROCESSON_API_KEY=your_api_key_here
 ```
 
-## 版本历史
+### 自动降级
 
-### V2.0.0 (2026-04-14)
+当 ProcessOn API 不可用时，自动切换到本地 Mermaid HTML 生成模式。
 
-**新增功能**
+## V5.0 变更记录
 
-- ✅ 智能场景识别机制
-- ✅ ProcessOn MCP 集成
-- ✅ 自定义模板系统
-- ✅ 错误处理与重试机制
-- ✅ 交互式命令行界面
-
-**改进**
-
-- 优化文档生成性能
-- 增强错误提示信息
-- 改进用户交互体验
-
-### V1.0.0 (2026-04-14)
-
-**初始版本**
-
-- 基础文档生成功能
-- Markdown 和 Word 双格式输出
-- 标准化文档模板
-
-## 技术支持
-
-如有问题或建议，请联系 BEMP 开发团队。
-
-## 许可证
-
-本工具基于 BEMP 项目内部使用协议。
+| 变更项 | 说明 |
+|--------|------|
+| 目录重构 | scripts/ → lib/ + config/，职责更清晰 |
+| 统一配置 | 新增 config/default.js，集中管理常量、路径、错误码 |
+| 统一文档引擎 | 合并 generate-doc.js + generate-simple-branch-doc.js → doc-builder.js |
+| 精简可视化 | processon-integration.js (710行) → visualization.js (163行) |
+| 统一CLI | 合并 cli.js + smart-doc-generator.js → 新 cli.js |
+| 统一错误处理 | BempDocError + ERROR_CODES |
+| 删除冗余 | 移除 script-registry.js、interactive-cli.js、SCRIPT_TEMPLATE.js 等 |
+| SKILL.md精简 | 从252行精简至70行，详细内容迁移至README.md，节省~2900 tokens/次 |
+| --json输出 | 新增JSON结构化输出模式，含自动列对齐验证结果 |
+| 自动验证 | Excel测试用例生成后自动验证列对齐率 |

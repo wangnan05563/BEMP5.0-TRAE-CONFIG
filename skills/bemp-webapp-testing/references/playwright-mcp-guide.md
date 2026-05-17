@@ -424,3 +424,187 @@ Object.values(statusMap).includes(statusText)
 16. playwright_evaluate → 获取DataGrid行数，验证删除成功
 17. playwright_console_logs → 检查控制台无错误
 ```
+
+## 10. 批量导入与文件上传工作流（Playwright MCP版）
+
+### 10.1 h-upload 组件的 MCP 限制
+
+**核心问题**：Playwright MCP 的 `playwright_upload_file` 工具严格要求 `input[type="file"]` 元素可见，但 BEMP 的 `h-upload` 组件将 file input 设为不可见状态（`display: none`），导致 MCP 工具无法完成文件上传操作。
+
+**影响范围**：
+- 机构信息批量导入
+- 管理员批量导入
+- 所有使用 h-upload 组件的文件上传场景
+
+**MCP 模式解决方案**（有限）：
+- 可打开批量导入弹窗并验证弹窗内容
+- 可验证模板下载功能
+- 可验证导入预览表格列头
+- **无法**完成实际文件上传
+
+**完整 Playwright 脚本解决方案**：
+```python
+# 使用 fileChooser 事件处理文件上传
+async with page.expect_file_chooser() as fc_info:
+    upload_trigger = page.locator('.h-upload').first
+    await upload_trigger.click(timeout=5000)
+
+file_chooser = await fc_info.value
+await file_chooser.set_files(file_path)
+```
+
+### 10.2 批量导入弹窗验证流程
+
+```
+1. playwright_click → button:has-text("批量导入")
+2. playwright_evaluate → !!document.querySelector('.h-msg-box:visible')  （等待弹窗）
+3. playwright_screenshot → 记录弹窗内容
+4. playwright_evaluate → 检查弹窗内表格列头是否包含"是否简单机构"等预期列
+5. playwright_click → .h-msg-box-close:visible  （关闭弹窗）
+```
+
+### 10.3 模板下载验证流程
+
+```
+1. playwright_click → button:has-text("导入模板下载")
+2. playwright_evaluate → 检查是否触发下载（监听网络请求或 download 事件）
+3. 验证下载文件名和内容
+```
+
+### 10.4 批量复制角色验证流程
+
+```
+1. playwright_click → button:has-text("批量复制角色")
+2. playwright_evaluate → !!document.querySelector('.h-msg-box:visible')
+3. playwright_evaluate → 检查弹窗是否包含"目标机构号"字段
+4. playwright_click → .h-msg-box button:has-text("确定")  （不选目标直接确定）
+5. playwright_evaluate → 检查是否出现必输校验提示
+6. playwright_screenshot → 记录校验结果
+```
+
+## 11. BEMP 登录深度解析（Playwright 脚本版）
+
+### 11.1 密码加密机制
+
+BEMP 登录使用 SM4 加密（非 DES），加密在 `login()` API 函数内部自动完成：
+
+```
+1. 前端调用 getKeys('SM4') 获取密钥 key1
+2. 用 SM4DecryptLogin(key1) 解密得到实际 key
+3. 用 SM4Encrypt(password, key) 加密密码
+4. 发送加密后的 userNo 和 password 到后端
+```
+
+**关键发现**：
+- `loginForm.password` 应设为**明文密码**，加密在 API 层自动完成
+- `tempPassword` 是用户可见的密码输入框，`password` 是隐藏的加密后字段
+- `pwdBlur()` 方法使用旧的 DES 加密，仅用于前端预校验（`/checkUserNameOrPwd.json`），不影响实际登录
+
+### 11.2 正确的登录表单填写方式
+
+```python
+# Playwright Python 脚本 - 正确的登录方式
+# 方式1：直接填写表单字段
+await page.fill('input[name="username"]', username)
+await page.fill('input[name="tempPassword"]', password)
+await page.wait_for_timeout(1000)  # 等待前端处理
+await page.click('button.h-btn-primary')
+
+# 方式2：通过 Vue 实例设置（更可靠）
+await page.evaluate("""() => {
+    const vue = document.querySelector('#app').__vue__;
+    const loginComp = vue.$children.find(c => c.loginForm);
+    if (loginComp) {
+        loginComp.loginForm.userNo = '%s';
+        loginComp.loginForm.username = '%s';
+        loginComp.loginForm.tempPassword = '%s';
+        loginComp.loginForm.password = '%s';
+        loginComp.loginForm.forceLogin = '1';
+        loginComp.handleLogin();
+    }
+}""" % (username, username, password, password))
+```
+
+### 11.3 登录字段映射
+
+| 字段名 | 类型 | 用途 | 说明 |
+|--------|------|------|------|
+| `input[name="username"]` | 可见 | 用户名输入 | placeholder="用户名" |
+| `input[name="tempPassword"]` | 可见 | 密码输入 | placeholder="密码"，用户可见 |
+| `input[name="password"]` | 隐藏 | 加密后密码 | 由前端JS自动填充 |
+| `button.h-btn-primary` | 按钮 | 登录按钮 | type="button", text="登录" |
+
+### 11.4 账号锁定机制
+
+- 密码错误次数达到配置值（默认10次，网商银行配置3次）时自动锁定
+- 锁定后 `IS_ENABLE` 被设为 `0`，需管理员解锁
+- 解锁API：`/sm/auth/branch/branchAdmin/func_unLockLegalPersonManager`
+- 数据库字段映射：`USER_NO`(非USER_CODE)、`IS_ENABLE`(非STATUS)、`LOGIN_STATUS`(非LOCK_FLAG)、`PWD_ERR_TIMES`(非LOGIN_FAIL_COUNT)
+
+## 12. 数据隔离验证工作流
+
+### 12.1 双账号对比测试模式
+
+```
+1. 账号A（法人管理员）登录 → 导航到目标页面 → 记录数据列表
+2. 账号B（分行柜员）登录 → 导航到同一页面 → 记录数据列表
+3. 对比两个账号的数据范围差异
+```
+
+### 12.2 权限验证要点
+
+- 法人管理员(userType=4)：可见全部菜单和按钮（含批量导入）
+- 分行柜员(userType=3)：仅可见授权菜单，无系统管理权限
+- 权限校验前后端双重保障：前端隐藏菜单 + 后端API返回"权限不足"
+
+### 12.3 多选组件验证
+
+```javascript
+// playwright_evaluate: 检查选择组件是否为多选
+(() => {
+    const selects = document.querySelectorAll('.h-selectTable, .h-select');
+    const result = [];
+    selects.forEach(s => {
+        const label = s.closest('.h-form-item')?.querySelector('label')?.textContent || '';
+        const isMultiple = s.classList.contains('h-selectTable-multiple') || s.classList.contains('h-select-multiple');
+        const isSingle = s.classList.contains('h-select-single');
+        result.push({ label, isMultiple, isSingle, classes: s.className });
+    });
+    return JSON.stringify(result);
+})()
+```
+
+## 13. 弹窗重叠BUG处理
+
+### 13.1 问题描述
+
+在机构管理页面中，点击"批量导入"按钮弹出导入弹窗后，关闭弹窗再点击"批量复制角色"会导致两个弹窗同时存在且重叠，批量导入弹窗的关闭按钮无法正常关闭。
+
+### 13.2 临时解决方案
+
+```javascript
+// playwright_evaluate: 强制移除残留弹窗
+document.querySelectorAll('.h-modal-mask, .h-modal, .h-msg-box-wrapper').forEach(el => el.remove());
+```
+
+### 13.3 预防措施
+
+- 每次弹窗操作后，立即截图确认弹窗已完全关闭
+- 打开新弹窗前，先检查是否有残留弹窗
+- 使用 `playwright_evaluate` 检查可见弹窗数量
+
+## 14. Playwright MCP vs 完整脚本能力对比
+
+| 操作 | Playwright MCP | Playwright Python 脚本 |
+|------|---------------|----------------------|
+| 页面导航 | ✅ playwright_navigate | ✅ page.goto() |
+| 元素点击 | ✅ playwright_click | ✅ page.click() |
+| 表单填写 | ⚠️ 有限（HUI组件问题） | ✅ page.fill() + evaluate |
+| 文件上传 | ❌ h-upload不可见input | ✅ fileChooser API |
+| 截图 | ✅ playwright_screenshot | ✅ page.screenshot() |
+| JS执行 | ⚠️ 返回值可能undefined | ✅ page.evaluate() |
+| 多标签页 | ⚠️ 有限 | ✅ browser.new_context() |
+| 下载验证 | ⚠️ 有限 | ✅ expect_download |
+| 网络监听 | ⚠️ 有限 | ✅ page.on('request') |
+
+**建议**：对于文件上传等复杂交互，优先使用 Playwright Python 脚本而非 MCP 工具调用。

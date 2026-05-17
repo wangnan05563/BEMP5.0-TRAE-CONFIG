@@ -13,6 +13,8 @@
 
 ## 登录操作
 
+> 标准登录流程详见 [SKILL.md](../SKILL.md#第二步登录系统)。以下仅列出 CDP 工具映射，不重复完整流程。
+
 | BEMP 操作 | CDP 工具 | 参数/用法 | 说明 |
 |-----------|---------|----------|------|
 | 填写用户名 | `evaluate_script` | 设置 value + dispatchEvent('input') | **不要用 fill_form** |
@@ -128,3 +130,273 @@ click(外层按钮) → wait_for(外层弹窗) → click(内层按钮) → wait_
 ```
 
 适用场景：额度申请页面提交复核后，需切换到额度复核页面验证状态。两个页面使用不同路由，需分别通过菜单点击注册。
+
+### 模式8：双账号数据隔离验证
+```
+账号A登录 → navigate_page(目标) → evaluate_script(提取数据) → take_screenshot
+→ new_page → 账号B登录 → navigate_page(目标) → evaluate_script(提取数据) → take_screenshot
+→ 对比数据范围
+```
+
+适用场景：验证不同用户类型（法人管理员/分行柜员）的数据隔离是否生效。需两个独立浏览器上下文。
+
+### 模式9：通过 Vue 实例调用后端 API
+```
+evaluate_script(获取Vue实例和$http) → evaluate_script(调用API并返回结果) → 解析retCode
+```
+
+适用场景：前端界面无对应菜单但需要执行后端操作（如解锁用户、查询特定数据）。需要已登录用户的会话。
+
+---
+
+## evaluate_script 常用代码片段库
+
+> 以下片段是最常用的 evaluate_script 操作，按场景分类。直接复制使用，替换 `{...}` 占位符。
+
+### 数据表操作
+
+```javascript
+// 获取 DataGrid 行数
+document.querySelectorAll('.h-datagrid tbody tr').length
+```
+
+```javascript
+// 获取指定行列的文本
+document.querySelector('.h-datagrid tbody tr:nth-child({rowIndex}) td:nth-child({colIndex})')?.textContent?.trim()
+```
+
+```javascript
+// 提取所有行的状态列文本
+(() => {
+  const rows = document.querySelectorAll('.h-datagrid tbody tr');
+  const results = [];
+  rows.forEach((row, index) => {
+    const cells = row.querySelectorAll('td');
+    const statusCell = cells[cells.length - 2];
+    if (statusCell) {
+      results.push({ row: index + 1, status: statusCell.textContent.trim() });
+    }
+  });
+  return JSON.stringify(results);
+})()
+```
+
+### 选中行操作
+
+```javascript
+// 获取 DataGrid 的 Vue currentSelectList
+(() => {
+  const grid = document.querySelector('.h-datagrid');
+  const vueInstance = grid?.__vue__;
+  if (vueInstance && vueInstance.currentSelectList) {
+    return JSON.stringify({ count: vueInstance.currentSelectList.length, ids: vueInstance.currentSelectList });
+  }
+  return '无法获取选中行数据';
+})()
+```
+
+### 页面状态检测
+
+```javascript
+// 检测页面是否白屏（核心元素缺失）
+(() => {
+  const hasForm = !!document.querySelector('.h-form-search');
+  const hasGrid = !!document.querySelector('.h-datagrid');
+  const hasMenu = !!document.querySelector('.h-sidebar-leftfixed');
+  return JSON.stringify({ hasForm, hasGrid, hasMenu, isBlank: !hasForm && !hasGrid && !hasMenu });
+})()
+```
+
+```javascript
+// 检测是否仍在登录页
+(() => {
+  const hasLoginForm = !!document.querySelector('input[placeholder*="用户名"]');
+  return hasLoginForm ? '仍在登录页' : '已登录';
+})()
+```
+
+### 弹窗操作
+
+```javascript
+// 获取当前所有可见弹窗信息
+(() => {
+  const visibleDialogs = document.querySelectorAll('.h-msg-box, .h-modal');
+  const results = [];
+  visibleDialogs.forEach((dialog, index) => {
+    if (dialog.offsetParent !== null || getComputedStyle(dialog).display !== 'none') {
+      const title = dialog.querySelector('.h-msg-box-title, .h-modal-title');
+      results.push({ index, title: title?.textContent.trim() || '无标题', visible: true });
+    }
+  });
+  return JSON.stringify(results);
+})()
+```
+
+```javascript
+// 强制移除残留遮罩层（异常恢复用）
+document.querySelectorAll('.h-modal-mask, .h-msg-box-wrapper').forEach(el => el.remove());
+```
+
+```javascript
+// 关闭最内层弹窗
+(() => {
+  const closeButtons = document.querySelectorAll('.h-msg-box:visible .h-msg-box-close, .h-modal:visible .h-modal-close');
+  if (closeButtons.length > 0) {
+    closeButtons[closeButtons.length - 1].click();
+    return '已关闭最内层弹窗';
+  }
+  return '未找到可见弹窗的关闭按钮';
+})()
+```
+
+### 菜单导航
+
+```javascript
+// 通用菜单点击（按文本匹配）
+// 用法：替换 {menuText} 为目标菜单名称
+(() => {
+  const selector = '{selector}';  // 如 .h-menu-submenu-title span 或 .h-menu-item span
+  const menus = document.querySelectorAll(selector);
+  for (const menu of menus) {
+    if (menu.textContent.trim() === '{menuText}') {
+      menu.click();
+      return '已点击{menuText}';
+    }
+  }
+  return '未找到{menuText}';
+})()
+```
+
+### HUI 组件表单
+
+```javascript
+// 设置普通 Input 并触发 Vue 响应（用于 h-input）
+(() => {
+  const input = document.querySelector('{selector}');
+  if (!input) return '未找到输入框';
+  input.value = '{value}';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return '已设置输入值';
+})()
+```
+
+```javascript
+// 设置 h-date-picker 日期（通过 Vue 实例）
+(() => {
+  const picker = document.querySelector('.h-date-picker');
+  if (!picker) return '未找到日期选择器';
+  const vueInstance = picker.__vue__;
+  if (!vueInstance) return '未找到Vue实例';
+  vueInstance.value = '{date}';
+  vueInstance.$emit('input', '{date}');
+  return '日期已设置';
+})()
+```
+
+```javascript
+// 设置 h-typefield 金额（通过 Vue 实例）
+(() => {
+  const input = document.querySelector('.h-typefield input');
+  if (!input) return '未找到金额输入框';
+  const vueInstance = input.__vue__ || input.closest('[data-v-]')?.__vue__;
+  if (vueInstance) {
+    vueInstance.currentValue = '{amount}';
+    vueInstance.$emit('input', '{amount}');
+    return '金额已通过Vue实例设置';
+  }
+  input.value = '{amount}';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return '金额已通过DOM设置';
+})()
+```
+
+### 截图 vs 快照 使用决策
+
+| 场景 | 使用工具 | 原因 |
+|------|---------|------|
+| 留存操作证据 | `take_screenshot` | 视觉完整，可人工复查 |
+| 定位元素 UID | `take_snapshot` | 返回可访问性树，用于 click 的 uid 参数 |
+| 提取结构化数据 | `evaluate_script` | 返回 JSON，可编程比较 |
+| 确认弹窗关闭 | `take_screenshot` | 直观确认无遮罩残留 |
+| 确认页面渲染完成 | `take_snapshot` | 返回文本列表，可搜索关键元素名 |
+
+### 登录与认证
+
+```javascript
+// 通过 Vue 实例设置登录表单并触发登录
+(() => {
+    const vue = document.querySelector('#app').__vue__;
+    const loginComp = vue.$children.find(c => c.loginForm);
+    if (loginComp) {
+        loginComp.loginForm.userNo = '{username}';
+        loginComp.loginForm.username = '{username}';
+        loginComp.loginForm.tempPassword = '{password}';
+        loginComp.loginForm.password = '{password}';
+        loginComp.loginForm.forceLogin = '1';
+        loginComp.handleLogin();
+        return { triggered: true };
+    }
+    return { triggered: false };
+})()
+```
+
+```javascript
+// 获取当前登录用户信息
+(() => {
+    const vue = document.querySelector('#app').__vue__;
+    const user = vue.$store?.state?.user;
+    if (!user) return '未登录';
+    return JSON.stringify({
+        userNo: user.userNo,
+        userType: user.userType,
+        brchNo: user.brchNo,
+        legalNo: user.legalNo,
+        userName: user.userName,
+        optAuths: user.optAuths?.length || 0
+    });
+})()
+```
+
+```javascript
+// 通过 Vue 实例调用后端 API
+(async () => {
+    const vue = document.querySelector('#app').__vue__;
+    const http = vue.$http || vue.$store._vm.$http;
+    const token = vue.$store.state.user?.fwToken || '';
+    const res = await http.post('{api_path}', { fwToken: token });
+    return { retCode: res.data?.retCode, retMsg: res.data?.retMsg };
+})()
+```
+
+### 多选组件检测
+
+```javascript
+// 检查页面中的选择组件是否为多选
+(() => {
+    const selects = document.querySelectorAll('.h-selectTable, .h-select');
+    const result = [];
+    selects.forEach(s => {
+        const label = s.closest('.h-form-item')?.querySelector('label')?.textContent || '';
+        const isMultiple = s.classList.contains('h-selectTable-multiple') || s.classList.contains('h-select-multiple');
+        const isSingle = s.classList.contains('h-select-single');
+        result.push({ label, isMultiple, isSingle, classes: s.className });
+    });
+    return JSON.stringify(result);
+})()
+```
+
+### 批量导入弹窗验证
+
+```javascript
+// 检查批量导入弹窗内的表格列头
+(() => {
+    const dialog = document.querySelector('.h-msg-box:visible') || document.querySelector('.h-modal:visible');
+    if (!dialog) return '未找到可见弹窗';
+    const headers = dialog.querySelectorAll('th');
+    const columns = [];
+    headers.forEach(th => columns.push(th.textContent?.trim()));
+    return JSON.stringify({ columns, hasSimpleBranch: columns.some(c => c.includes('是否简单机构')) });
+})()
+```

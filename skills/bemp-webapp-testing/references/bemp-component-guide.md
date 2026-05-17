@@ -335,6 +335,40 @@ page.wait_for_timeout(3000)
 download_urls = [r for r in api_requests if 'download' in r['url'].lower()]
 ```
 
+### h-selectTable-multiple（多选表格选择组件）
+
+**用途**：多选机构、多选用户等场景，支持表格形式的多选。
+
+**组件特征**：
+- 类名包含 `h-selectTable h-selectTable-multiple`（多选模式）
+- 类名包含 `h-selectTable h-selectTable-single`（单选模式）
+- 与 `h-select` 不同，`h-selectTable` 是表格形式的选择组件
+
+**验证方式**：
+```javascript
+// 检查组件是否为多选
+const component = document.querySelector('.h-selectTable');
+const isMultiple = component?.classList.contains('h-selectTable-multiple');
+const isSingle = component?.classList.contains('h-selectTable-single');
+```
+
+**交互方式**：
+```python
+# 点击打开选择弹窗
+page.click('.h-selectTable .h-selectTable-selection')
+page.wait_for_selector('.h-selectTable-dropdown:visible', timeout=3000)
+
+# 多选模式下勾选多个选项
+page.click('.h-selectTable-dropdown .h-checkbox:first-child')
+page.click('.h-selectTable-dropdown .h-checkbox:nth-child(2)')
+page.wait_for_timeout(300)
+```
+
+**注意事项**：
+- 多选与单选模式通过 CSS 类名区分，非 props 属性
+- 企业客户维护页面的"创建机构名称"查询条件已确认为多选组件
+- 选择后需等待 Vue 数据同步
+
 ## h-tree（树组件）
 
 **用途**：机构树、菜单树等层级数据展示和选择。

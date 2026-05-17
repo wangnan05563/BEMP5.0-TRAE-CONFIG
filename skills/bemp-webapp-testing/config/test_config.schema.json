@@ -1,0 +1,233 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bemp/schemas/test_config.schema.json",
+  "title": "BEMP 测试配置文件 Schema",
+  "description": "定义 test_config.json 的结构和约束，用于自动化测试的配置校验",
+  "type": "object",
+  "required": ["active_bank", "host", "services", "banks"],
+  "properties": {
+    "active_bank": {
+      "type": "string",
+      "description": "当前激活的银行标识，必须是 banks 节点下的有效 key"
+    },
+    "host": {
+      "type": "string",
+      "default": "127.0.0.1",
+      "description": "目标服务器主机地址"
+    },
+    "services": {
+      "type": "object",
+      "required": ["backend_api", "frontend"],
+      "properties": {
+        "backend_api": {
+          "$ref": "#/definitions/service"
+        },
+        "frontend": {
+          "$ref": "#/definitions/service"
+        },
+        "redis": {
+          "$ref": "#/definitions/service"
+        },
+        "zookeeper": {
+          "$ref": "#/definitions/service"
+        }
+      }
+    },
+    "banks": {
+      "type": "object",
+      "description": "银行配置，key 为银行标识（如 hnnxbank, huisbank），至少需要配置一个银行",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_]*$": {
+          "$ref": "#/definitions/bank"
+        }
+      }
+    },
+    "login": {
+      "type": "object",
+      "description": "登录行为配置",
+      "properties": {
+        "force_login_timeout": { "type": "integer", "default": 3000 },
+        "login_wait_timeout": { "type": "integer", "default": 5000 }
+      }
+    },
+    "session": {
+      "type": "object",
+      "description": "会话管理配置",
+      "properties": {
+        "state_dir": { "type": "string", "default": "session_states" },
+        "state_max_age": { "type": "integer", "default": 1800 },
+        "auto_refresh_threshold": { "type": "integer", "default": 1500 },
+        "session_check_interval": { "type": "integer", "default": 300 },
+        "max_login_retries": { "type": "integer", "default": 2 }
+      }
+    },
+    "test": {
+      "type": "object",
+      "description": "测试执行配置",
+      "properties": {
+        "default_timeout": { "type": "integer" },
+        "networkidle_timeout": { "type": "integer" },
+        "screenshot_dir": { "type": "string" },
+        "report_dir": { "type": "string" },
+        "headless": { "type": "boolean" },
+        "viewport": {
+          "$ref": "#/definitions/viewport"
+        },
+        "browser": {
+          "type": "object",
+          "properties": {
+            "channel": { "type": "string", "enum": ["chrome", "chromium", "firefox"] },
+            "launch_options": { "type": "object" },
+            "viewport": { "$ref": "#/definitions/viewport" }
+          }
+        }
+      }
+    },
+    "error_filters": {
+      "type": "object",
+      "description": "错误分类过滤配置",
+      "properties": {
+        "critical_errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "ignorable_errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warning_errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "selectors": {
+      "type": "object",
+      "description": "UI 选择器配置，所有页面元素的选择器统一管理",
+      "properties": {
+        "login_username": { "type": "string" },
+        "login_password": { "type": "string" },
+        "login_button": { "type": "string" },
+        "force_login_confirm": { "type": "string" },
+        "session_expired": { "type": "string" },
+        "msg_box": { "type": "string" },
+        "msg_box_visible": { "type": "string" },
+        "msg_box_close": { "type": "string" },
+        "msg_box_confirm": { "type": "string" },
+        "msg_box_cancel": { "type": "string" },
+        "datagrid": { "type": "string" },
+        "datagrid_row": { "type": "string" },
+        "query_button": { "type": "string" },
+        "add_button": { "type": "string" },
+        "modify_button": { "type": "string" },
+        "delete_button": { "type": "string" }
+      }
+    },
+    "product_url_patterns": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "test_data": {
+      "type": "object",
+      "properties": {
+        "accounts_file": { "type": "string" }
+      }
+    },
+    "code_checks": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "frontend": { "type": "object" },
+        "backend": { "type": "object" }
+      }
+    }
+  },
+  "definitions": {
+    "service": {
+      "type": "object",
+      "required": ["port", "required"],
+      "properties": {
+        "port": { "type": "integer" },
+        "health_url": { "type": "string", "format": "uri" },
+        "required": { "type": "boolean" },
+        "description": { "type": "string" }
+      }
+    },
+    "bank": {
+      "type": "object",
+      "required": ["name", "url_prefix", "login", "pages"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "银行中文名称"
+        },
+        "url_prefix": {
+          "type": "string",
+          "pattern": "^/[a-zA-Z0-9_-]+/$",
+          "description": "个性化 URL 前缀，格式如 /hnnxbank/"
+        },
+        "component_base": {
+          "type": "string",
+          "description": "组件基础路径"
+        },
+        "view_path": {
+          "type": "string",
+          "description": "视图路径"
+        },
+        "route_index": {
+          "type": "string",
+          "description": "路由索引文件名"
+        },
+        "login": {
+          "type": "object",
+          "description": "登录账号（按角色组织）",
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+              "type": "object",
+              "required": ["username", "password"],
+              "properties": {
+                "username": { "type": "string" },
+                "password": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        },
+        "pages": {
+          "type": "object",
+          "description": "页面路由配置",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9_]*$": {
+              "type": "object",
+              "required": ["name", "path"],
+              "properties": {
+                "name": { "type": "string" },
+                "path": { "type": "string" },
+                "require_personalized": { "type": "boolean", "default": false },
+                "checks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string" },
+                      "text": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "viewport": {
+      "type": "object",
+      "properties": {
+        "width": { "type": "integer", "minimum": 320 },
+        "height": { "type": "integer", "minimum": 240 }
+      }
+    }
+  }
+}

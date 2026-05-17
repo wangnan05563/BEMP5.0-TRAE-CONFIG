@@ -29,7 +29,7 @@
       "warFile": "bemp-served.war",
       "port": 8010,
       "debugPort": 5005,
-      "jvmOptions": "-server -Xms1024m -Xmx2048m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
+      "jvmOptions": "-server -Xms2048m -Xmx4096m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
       "launchMode": "terminal",
       "autoCompile": true,
       "mavenCommand": "clean install -DskipTests=true"

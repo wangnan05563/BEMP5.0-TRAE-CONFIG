@@ -1,5 +1,5 @@
 // BEMP后端项目自动化部署Jenkins Pipeline脚本
-// 版本: 5.0.0 (配置内联版)
+// 版本: 6.0.0 (凭据外部化 + health-check集成 + 并行启动 + 自动回滚)
 // 描述: 实现BEMP后端项目从代码拉取到服务启动的全流程自动化部署
 // 配置: 所有环境变量直接在 environment 块中定义
 
@@ -50,7 +50,7 @@ pipeline {
         SONAR_SCANNER_HOME = 'D:/code/sonar/sonar-scanner-8.0.1.6346-windows-x64'
         SONAR_SERVER_URL = 'http://localhost:9000'
         SONAR_PROJECT_KEY = 'bemp-ext-hnnxbank'
-        SONAR_TOKEN = 'squ_e3654bfc73cb2e37b7e6cf33027ab3f9576f0aad'
+        SONAR_TOKEN = credentials('bemp-sonar-token')
 
         // ---- 后端部署配置 ----
         CURRENT_WAR = 'D:/code/QJ/bempDeploy/bemp-served'
@@ -78,6 +78,9 @@ pipeline {
         HEALTH_CHECK_URL = 'http://localhost:8010/bemp-served/health'
         BEMP_SERVED_TIMEOUT = '600'
         JVM_OPTS = '-server -Xms2048m -Xmx4096m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=../tmp/heap.dump'
+
+        // ---- 脚本工具 ----
+        SCRIPTS_HOME = 'D:/code/QJ/BEMP5.0DEV/.trae/skills/bemp-jenkins-deploy/scripts'
 
         // ---- 构建元数据 ----
         BUILD_TIMESTAMP = ''
@@ -302,8 +305,9 @@ pipeline {
                     echo "备份目录: ${env.BACKUP_DIR}"
                     echo "=========================================="
 
-                    def buildTimestamp = env.BUILD_TIMESTAMP ? env.BUILD_TIMESTAMP : new Date().format('yyyyMMddHHmmss')
-                    if (!env.BUILD_TIMESTAMP) {
+                    def buildTimestamp = env.BUILD_TIMESTAMP
+                    if (buildTimestamp == null || buildTimestamp == 'null' || buildTimestamp.trim().isEmpty()) {
+                        buildTimestamp = new Date().format('yyyyMMddHHmmss')
                         env.BUILD_TIMESTAMP = buildTimestamp
                     }
 
@@ -335,22 +339,12 @@ pipeline {
                     }
 
                     echo "清理历史备份，保留最近 ${env.MAX_BACKUPS} 个备份..."
-                    bat """
-                        @echo off
-                        chcp 65001 > nul
-                        set BACKUP_DIR=${normalizedBackupDir}
-                        set MAX_BACKUPS=${env.MAX_BACKUPS}
-                        if not exist "%BACKUP_DIR%" exit /b 0
-                        set count=0
-                        for /f "delims=" %%f in ('dir /b /o-d "%BACKUP_DIR%\\bemp-served_*.zip" 2^>nul') do (
-                            set /a count+=1
-                            call :check_delete "%%f"
-                        )
-                        exit /b 0
-                        :check_delete
-                        if %count% gtr %MAX_BACKUPS% del /f /q "%BACKUP_DIR%\\%~1"
-                        exit /b 0
-                    """
+                    powershell(
+                        script: """
+                            & '${env.SCRIPTS_HOME}\\cleanup-backups.ps1' -BackupDir '${normalizedBackupDir}' -FilePattern 'bemp-served_*' -KeepCount ${env.MAX_BACKUPS}
+                        """,
+                        returnStatus: true
+                    )
 
                     echo "应用备份完成"
                 }
@@ -472,84 +466,71 @@ pipeline {
             }
         }
 
-        // ==================== 阶段8: Redis服务启动 ====================
-        stage('8. Redis服务启动') {
-            when {
-                expression { !params.SKIP_REDIS }
-            }
-            steps {
-                script {
-                    echo "=========================================="
-                    echo "启动 Redis 服务 | 端口: ${env.REDIS_PORT} | 超时: ${env.REDIS_TIMEOUT}秒"
-                    echo "=========================================="
+        // ==================== 阶段8-9: Redis & Zookeeper 并行启动 ====================
+        stage('8-9. Redis & Zookeeper 并行启动') {
+            parallel {
+                stage('Redis') {
+                    when {
+                        expression { !params.SKIP_REDIS }
+                    }
+                    steps {
+                        script {
+                            echo "=========================================="
+                            echo "启动 Redis 服务 | 端口: ${env.REDIS_PORT} | 超时: ${env.REDIS_TIMEOUT}秒"
+                            echo "=========================================="
 
-                    bat """
-                        set JENKINS_NODE_COOKIE=dontKillMe
-                        start "Redis Server" "${env.REDIS_EXE}"
-                    """
-                    sleep(3)
+                            bat """
+                                set JENKINS_NODE_COOKIE=dontKillMe
+                                start "Redis Server" "${env.REDIS_EXE}"
+                            """
+                            sleep(2)
 
-                    def redisStartTime = System.currentTimeMillis()
-                    def redisRunning = false
-                    def redisTimeoutMs = (env.REDIS_TIMEOUT as int) * 1000
+                            def redisExitCode = powershell(
+                                script: """
+                                    & '${env.SCRIPTS_HOME}\\health-check.ps1' -ServiceName 'Redis' -Port ${env.REDIS_PORT} -TimeoutSeconds ${env.REDIS_TIMEOUT} -CheckMode port
+                                """,
+                                returnStatus: true
+                            )
 
-                    while ((System.currentTimeMillis() - redisStartTime) < redisTimeoutMs) {
-                        sleep(2)
-                        def netstatOutput = bat(script: "netstat -ano | findstr :${env.REDIS_PORT} | findstr LISTENING || exit /b 0", returnStdout: true).trim()
-                        if (netstatOutput && netstatOutput.contains("LISTENING")) {
-                            redisRunning = true
-                            echo "Redis 服务已在端口 ${env.REDIS_PORT} 上启动"
-                            break
+                            if (redisExitCode != 0) {
+                                error("Redis 服务启动超时（${env.REDIS_TIMEOUT}秒），端口 ${env.REDIS_PORT} 未监听")
+                            }
+
+                            echo "Redis 服务启动完成"
                         }
-                        echo "等待 Redis 服务启动..."
                     }
-
-                    if (!redisRunning) {
-                        error("Redis 服务启动超时（${env.REDIS_TIMEOUT}秒），端口 ${env.REDIS_PORT} 未监听")
-                    }
-
-                    echo "Redis 服务启动完成"
                 }
-            }
-        }
 
-        // ==================== 阶段9: Zookeeper服务启动 ====================
-        stage('9. Zookeeper服务启动') {
-            when {
-                expression { !params.SKIP_ZOOKEEPER }
-            }
-            steps {
-                script {
-                    echo "=========================================="
-                    echo "启动 Zookeeper 服务 | 端口: ${env.ZOOKEEPER_PORT} | 超时: ${env.ZOOKEEPER_TIMEOUT}秒"
-                    echo "=========================================="
+                stage('Zookeeper') {
+                    when {
+                        expression { !params.SKIP_ZOOKEEPER }
+                    }
+                    steps {
+                        script {
+                            echo "=========================================="
+                            echo "启动 Zookeeper 服务 | 端口: ${env.ZOOKEEPER_PORT} | 超时: ${env.ZOOKEEPER_TIMEOUT}秒"
+                            echo "=========================================="
 
-                    bat """
-                        set JENKINS_NODE_COOKIE=dontKillMe
-                        start "Zookeeper Server" "${env.ZOOKEEPER_EXE}"
-                    """
-                    sleep(3)
+                            bat """
+                                set JENKINS_NODE_COOKIE=dontKillMe
+                                start "Zookeeper Server" "${env.ZOOKEEPER_EXE}"
+                            """
+                            sleep(2)
 
-                    def zkStartTime = System.currentTimeMillis()
-                    def zkRunning = false
-                    def zkTimeoutMs = (env.ZOOKEEPER_TIMEOUT as int) * 1000
+                            def zkExitCode = powershell(
+                                script: """
+                                    & '${env.SCRIPTS_HOME}\\health-check.ps1' -ServiceName 'Zookeeper' -Port ${env.ZOOKEEPER_PORT} -TimeoutSeconds ${env.ZOOKEEPER_TIMEOUT} -CheckMode port
+                                """,
+                                returnStatus: true
+                            )
 
-                    while ((System.currentTimeMillis() - zkStartTime) < zkTimeoutMs) {
-                        sleep(3)
-                        def netstatOutput = bat(script: "netstat -ano | findstr :${env.ZOOKEEPER_PORT} | findstr LISTENING || exit /b 0", returnStdout: true).trim()
-                        if (netstatOutput && netstatOutput.contains("LISTENING")) {
-                            zkRunning = true
-                            echo "Zookeeper 服务已在端口 ${env.ZOOKEEPER_PORT} 上启动"
-                            break
+                            if (zkExitCode != 0) {
+                                error("Zookeeper 服务启动超时（${env.ZOOKEEPER_TIMEOUT}秒），端口 ${env.ZOOKEEPER_PORT} 未监听")
+                            }
+
+                            echo "Zookeeper 服务启动完成"
                         }
-                        echo "等待 Zookeeper 服务启动..."
                     }
-
-                    if (!zkRunning) {
-                        error("Zookeeper 服务启动超时（${env.ZOOKEEPER_TIMEOUT}秒），端口 ${env.ZOOKEEPER_PORT} 未监听")
-                    }
-
-                    echo "Zookeeper 服务启动完成"
                 }
             }
         }
@@ -597,24 +578,14 @@ pipeline {
                         start /b java %JVM_OPTS% -cp ../classes;../lib/* com.hundsun.bemp.BempServedAppStarter
                     """
 
-                    def startTime = System.currentTimeMillis()
-                    def running = false
-                    def timeoutMs = (env.BEMP_SERVED_TIMEOUT as int) * 1000
+                    def servedExitCode = powershell(
+                        script: """
+                            & '${env.SCRIPTS_HOME}\\health-check.ps1' -ServiceName 'bemp-served' -Port ${port} -TimeoutSeconds ${env.BEMP_SERVED_TIMEOUT} -HealthCheckUrl '${env.HEALTH_CHECK_URL}' -CheckMode port
+                        """,
+                        returnStatus: true
+                    )
 
-                    echo "开始监控 bemp-served 端口 ${port}..."
-
-                    while ((System.currentTimeMillis() - startTime) < timeoutMs) {
-                        sleep(5)
-                        def netstatOutput = bat(script: "netstat -ano | findstr :${port} | findstr LISTENING || exit /b 0", returnStdout: true).trim()
-                        if (netstatOutput && netstatOutput.contains("LISTENING")) {
-                            running = true
-                            echo "bemp-served 服务已在端口 ${port} 上监听，启动成功"
-                            break
-                        }
-                        echo "等待端口监听... (${(System.currentTimeMillis() - startTime) / 1000}秒)"
-                    }
-
-                    if (!running) {
+                    if (servedExitCode != 0) {
                         error("bemp-served 服务启动超时（${env.BEMP_SERVED_TIMEOUT}秒），端口 ${port} 未监听")
                     }
 
@@ -643,10 +614,34 @@ pipeline {
         failure {
             echo "=========================================="
             echo "流水线执行失败"
-            echo "请检查日志获取详细错误信息"
             echo "=========================================="
 
             script {
+                echo "开始自动回滚..."
+                def normalizedBackupDir = env.BACKUP_DIR.replace('/', '\\')
+                def latestBackup = powershell(
+                    script: """
+                        \$backups = Get-ChildItem -Path '${normalizedBackupDir}' -Filter 'bemp-served_*.zip' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+                        if (\$backups) { \$backups[0].FullName } else { '' }
+                    """,
+                    returnStdout: true
+                ).trim()
+
+                if (latestBackup) {
+                    echo "找到最新备份: ${latestBackup}"
+                    def targetDir = "${env.TARGET_DIR.replace('/', '\\')}\\bemp-served"
+
+                    bat "if exist \"${targetDir}\" rmdir /s /q \"${targetDir}\""
+
+                    powershell """
+                        Expand-Archive -Path '${latestBackup}' -DestinationPath '${targetDir}' -Force
+                    """
+
+                    echo "回滚完成: 已从备份 ${latestBackup} 恢复"
+                } else {
+                    echo "警告: 未找到可用备份，无法自动回滚"
+                }
+
                 if (params.NOTIFY_EMAIL) {
                     echo "发送构建失败通知到: ${params.NOTIFY_EMAIL}"
                 }

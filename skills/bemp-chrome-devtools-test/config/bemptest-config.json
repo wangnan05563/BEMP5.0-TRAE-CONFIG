@@ -1,43 +1,31 @@
 {
+  "bank_profile": "hnnxbank",
+
   "environment": {
     "host": "127.0.0.1",
     "services": {
-      "backend": {
-        "port": 8010,
-        "base_url": "http://127.0.0.1:8010/bemp-served/",
-        "api_prefix": "/hnnxbank/",
-        "description": "SpringBoot 后端 API 服务"
-      },
-      "frontend": {
-        "port": 8091,
-        "url": "http://127.0.0.1:8091",
-        "description": "Node.js 前端 DevServer"
-      },
-      "redis": {
-        "port": 6379,
-        "description": "Redis 缓存（间接依赖）"
-      },
-      "zookeeper": {
-        "port": 2181,
-        "description": "ZooKeeper（间接依赖）"
-      }
+      "backend": { "port": 8010, "base_url": "http://127.0.0.1:8010/bemp-served/", "api_prefix": "/hnnxbank/" },
+      "frontend": { "port": 8091, "url": "http://127.0.0.1:8091" },
+      "redis": { "port": 6379 },
+      "zookeeper": { "port": 2181 }
     }
   },
 
   "accounts": {
-    "default_teller": {
-      "username_placeholder": "填入柜员用户名",
-      "password_placeholder": "填入柜员密码",
-      "description": "日常测试用柜员账号"
-    },
-    "admin": {
-      "username_placeholder": "填入管理员用户名",
-      "password_placeholder": "填入管理员密码",
-      "description": "管理员账号，用于复核等高级操作"
+    "default_teller": { "username": "填入柜员用户名", "password": "填入柜员密码" },
+    "admin": { "username": "填入管理员用户名", "password": "填入管理员密码" },
+    "branch_teller_sjl03": {
+      "userNo": "sjl03",
+      "password": "888888",
+      "userType": 3,
+      "brchNo": "233301",
+      "role": "分行柜员",
+      "note": "用于数据隔离验证测试"
     }
   },
 
   "timeouts": {
+    "multiplier": 1.0,
     "page_navigation": 15000,
     "network_idle": 10000,
     "element_visible": 5000,
@@ -94,70 +82,78 @@
     "toast": {
       "container": ".h-message, .h-notice, .h-msg-box .h-msg-box-content"
     },
-    "vue_dynamic_route": {
-      "sidebar_menu_item": ".h-sidebar-leftfixed .h-menu-item",
-      "sidebar_submenu_title": ".h-sidebar-menu .h-menu-submenu-title span",
-      "sidebar_submenu_item": ".h-menu-item span"
-    },
-    "status_flow": {
-      "draft_status": "草稿",
-      "pending_review_status": "待复核",
-      "reviewed_status": "已复核",
-      "submit_review_button": "button:has-text('提交复核')",
-      "cancel_submit_button": "button:has-text('撤销提交')",
-      "review_button": "button:has-text('复核')",
-      "cancel_review_button": "button:has-text('撤销复核')"
-    },
-    "credit_module": {
-      "batch_page_path": "/#/pc/credit/acceptBankCreditGrantBatch",
-      "info_page_path": "/#/pc/credit/acceptBankCreditGrantInfo",
-      "recheck_page_path": "/#/pc/credit/acceptBankCreditGrantInfoReCheck",
-      "batch_table": "HNNX_ACCBANK_CREDIT_BATCH",
-      "info_table": "HNNX_ACCBANK_CREDIT_INFO"
+
+    "selectors_by_bank": {
+      "hnnxbank": {
+        "vue_dynamic_route": {
+          "sidebar_menu_item": ".h-sidebar-leftfixed .h-menu-item",
+          "sidebar_submenu_title": ".h-sidebar-menu .h-menu-submenu-title span",
+          "sidebar_submenu_item": ".h-menu-item span"
+        },
+        "status_flow": {
+          "draft_status": "草稿",
+          "pending_review_status": "待复核",
+          "reviewed_status": "已复核",
+          "submit_review_button": "button:has-text('提交复核')",
+          "cancel_submit_button": "button:has-text('撤销提交')",
+          "review_button": "button:has-text('复核')",
+          "cancel_review_button": "button:has-text('撤销复核')"
+        },
+        "credit_module": {
+          "batch_page_path": "/#/pc/credit/acceptBankCreditGrantBatch",
+          "info_page_path": "/#/pc/credit/acceptBankCreditGrantInfo",
+          "recheck_page_path": "/#/pc/credit/acceptBankCreditGrantInfoReCheck",
+          "batch_table": "HNNX_ACCBANK_CREDIT_BATCH",
+          "info_table": "HNNX_ACCBANK_CREDIT_INFO"
+        },
+        "menu_tree": {
+          "level1": "业务管理子系统",
+          "level2": "承兑行额度管理",
+          "items": ["额度申请", "额度复核"]
+        }
+      },
+      "default": {
+        "vue_dynamic_route": {
+          "sidebar_menu_item": ".h-sidebar-leftfixed .h-menu-item",
+          "sidebar_submenu_title": ".h-sidebar-menu .h-menu-submenu-title span",
+          "sidebar_submenu_item": ".h-menu-item span"
+        },
+        "status_flow": {
+          "draft_status": "草稿",
+          "pending_review_status": "待复核",
+          "reviewed_status": "已复核",
+          "submit_review_button": "button:has-text('提交复核')",
+          "cancel_submit_button": "button:has-text('撤销提交')",
+          "review_button": "button:has-text('复核')",
+          "cancel_review_button": "button:has-text('撤销复核')"
+        },
+        "menu_tree": { "level1": "", "level2": "", "items": [] }
+      }
     }
   },
 
   "error_filters": {
-    "fatal": [
-      "TypeError",
-      "ReferenceError",
-      "SyntaxError"
-    ],
-    "critical": [
-      "ChunkLoadError",
-      "NetworkError",
-      "Failed to fetch"
-    ],
-    "warning": [
-      "Warning",
-      "DeprecationWarning"
-    ],
-    "ignorable_patterns": [
-      "WebSocket connection",
-      "favicon.ico",
-      "chrome-extension"
-    ]
+    "fatal": ["TypeError", "ReferenceError", "SyntaxError"],
+    "critical": ["ChunkLoadError", "NetworkError", "Failed to fetch"],
+    "warning": ["Warning", "DeprecationWarning"],
+    "ignorable_patterns": ["WebSocket connection", "favicon.ico", "chrome-extension"]
   },
 
   "login_strategy": {
     "method": "evaluate_script",
-    "reason": "HUI 组件库的 input 使用 v-model 绑定，fill_form 会截断输入值。必须用 evaluate_script 直接设置原生 value 属性并 dispatchEvent('input') 来触发 Vue 响应式更新。",
     "steps": [
-      "1. evaluate_script 设置 input.value = 'username'",
-      "2. dispatchEvent(new Event('input', {bubbles: true})) 触发 Vue 更新",
-      "3. evaluate_script 设置 password input.value",
-      "4. dispatchEvent 触发 password input 事件",
-      "5. click(登录按钮)",
-      "6. 处理强制登录弹窗（如触发）"
+      "evaluate_script: input.value = 'username'",
+      "dispatchEvent('input', {bubbles: true})",
+      "evaluate_script: password input.value",
+      "dispatchEvent('input') on password",
+      "click(登录按钮)",
+      "处理强制登录弹窗（如触发）"
     ]
   },
 
-  "modal_blocking_strategy": {
-    "description": "BEMP 弹窗使用 position: absolute 全屏遮罩层，关闭弹窗前禁止所有页面级操作。",
-    "recovery": [
-      "优先：click(弹窗X按钮)",
-      "其次：click(取消/关闭按钮)",
-      "最后：new_page → 重新 login → navigate_page"
-    ]
-  }
+  "modal_recovery": [
+    "优先: click(弹窗X按钮)",
+    "其次: click(取消/关闭按钮)",
+    "最后: new_page → 重新 login → navigate_page"
+  ]
 }

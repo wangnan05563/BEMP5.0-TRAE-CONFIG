@@ -1,50 +1,180 @@
 {
-    "description": "BEMP数据库连接配置 - 河南农信开发环境",
-    "version": "1.0.0",
-    "lastUpdate": "2026-05-13",
-    "environments": {
-        "dev": {
-            "label": "开发环境",
-            "host": "10.20.18.177",
-            "port": 1521,
-            "serviceName": "orcl",
-            "username": "bemp_hnnx",
-            "password": "123456",
-            "schema": "BEMP_HNNX",
-            "bankName": "河南农信",
-            "dsn": "oracle://bemp_hnnx:123456@10.20.18.177:1521/orcl"
+    "description": "BEMP数据库连接配置 - 河南农信开发环境（支持Oracle和MySQL）",
+    "version": "2.3.0",
+    "lastUpdate": "2026-05-16",
+    "defaultDbType": "oracle",
+    "defaultEnvironment": "dev",
+    "autoDetection": {
+        "description": "数据库类型自动检测配置 - 当defaultDbType为auto时启用自动检测",
+        "enabled": true,
+        "triggerValue": "auto",
+        "detectionPriority": ["oracle", "mysql"],
+        "fallbackDbType": "mysql",
+        "cacheResult": true,
+        "cacheDurationSeconds": 3600,
+        "note": "设置defaultDbType为auto时，将按detectionPriority顺序探测可用MCP工具，自动确定数据库类型"
+    },
+    "configPurposeNote": "本文件中的连接参数（host/port/username/password等）仅为记录和参考用途，实际数据库连接由MCP服务端配置管理。修改本文件中的连接参数不会影响MCP的实际连接行为。如需修改实际连接，请编辑MCP服务端配置文件。",
+    "mcpConfigRef": {
+        "description": "MCP服务端配置文件路径，修改实际连接参数需编辑此文件",
+        "path": ".trae/mcp.json"
+    },
+    "databases": {
+        "oracle": {
+            "description": "Oracle数据库配置",
+            "configPurpose": "连接参数仅为记录用途，实际连接由Oracle MCP服务端管理",
+            "environments": {
+                "dev": {
+                    "label": "开发环境",
+                    "host": "10.20.18.177",
+                    "port": 1521,
+                    "serviceName": "orcl",
+                    "username": "bemp_hnnx",
+                    "password": "123456",
+                    "schema": "BEMP_HNNX",
+                    "bankName": "河南农信",
+                    "dsn": "oracle://bemp_hnnx:123456@10.20.18.177:1521/orcl"
+                },
+                "test": {
+                    "label": "测试环境",
+                    "host": "",
+                    "port": 1521,
+                    "serviceName": "",
+                    "username": "",
+                    "password": "",
+                    "schema": "",
+                    "bankName": "河南农信",
+                    "dsn": ""
+                },
+                "prod": {
+                    "label": "生产环境",
+                    "host": "",
+                    "port": 1521,
+                    "serviceName": "",
+                    "username": "",
+                    "password": "",
+                    "schema": "",
+                    "bankName": "河南农信",
+                    "dsn": ""
+                }
+            },
+            "mcpTools": {
+                "listSchemas": "mcp_oracle-mcp_list_schemas",
+                "listTables": "mcp_oracle-mcp_list_tables",
+                "describeTable": "mcp_oracle-mcp_describe_table",
+                "executeQuery": "mcp_oracle-mcp_execute_query"
+            }
         },
-        "test": {
-            "label": "测试环境",
-            "host": "",
-            "port": 1521,
-            "serviceName": "",
-            "username": "",
-            "password": "",
-            "schema": "",
-            "bankName": "河南农信",
-            "dsn": ""
-        },
-        "prod": {
-            "label": "生产环境",
-            "host": "",
-            "port": 1521,
-            "serviceName": "",
-            "username": "",
-            "password": "",
-            "schema": "",
-            "bankName": "河南农信",
-            "dsn": ""
+        "mysql": {
+            "description": "MySQL数据库配置",
+            "configPurpose": "连接参数仅为记录用途，实际连接由MySQL MCP服务端管理",
+            "environments": {
+                "dev": {
+                    "label": "开发环境",
+                    "host": "127.0.0.1",
+                    "port": 3306,
+                    "database": "bemp_hnnx",
+                    "username": "root",
+                    "password": "123456",
+                    "charset": "utf8mb4",
+                    "bankName": "河南农信",
+                    "dsn": "mysql://root:123456@127.0.0.1:3306/bemp_hnnx"
+                },
+                "test": {
+                    "label": "测试环境",
+                    "host": "",
+                    "port": 3306,
+                    "database": "",
+                    "username": "",
+                    "password": "",
+                    "charset": "utf8mb4",
+                    "bankName": "河南农信",
+                    "dsn": ""
+                },
+                "prod": {
+                    "label": "生产环境",
+                    "host": "",
+                    "port": 3306,
+                    "database": "",
+                    "username": "",
+                    "password": "",
+                    "charset": "utf8mb4",
+                    "bankName": "河南农信",
+                    "dsn": ""
+                }
+            },
+            "mcpTools": {
+                "executeSql": "mcp_MySQL_execute_sql"
+            },
+            "permissionTemplates": {
+                "description": "MySQL用户权限配置模板，建议为MCP创建专用数据库用户",
+                "readOnly": {
+                    "description": "只读用户 - 仅支持SELECT查询",
+                    "sql": "CREATE USER 'bemp_readonly'@'%' IDENTIFIED BY '{password}'; GRANT SELECT ON bemp_hnnx.* TO 'bemp_readonly'@'%'; FLUSH PRIVILEGES;"
+                },
+                "readWrite": {
+                    "description": "读写用户 - 支持SELECT/INSERT/UPDATE/DELETE",
+                    "sql": "CREATE USER 'bemp_readwrite'@'%' IDENTIFIED BY '{password}'; GRANT SELECT, INSERT, UPDATE, DELETE ON bemp_hnnx.* TO 'bemp_readwrite'@'%'; FLUSH PRIVILEGES;"
+                },
+                "fullAccess": {
+                    "description": "完全访问用户 - 支持所有操作（含DDL），仅开发环境使用",
+                    "sql": "CREATE USER 'bemp_full'@'%' IDENTIFIED BY '{password}'; GRANT ALL PRIVILEGES ON bemp_hnnx.* TO 'bemp_full'@'%'; FLUSH PRIVILEGES;"
+                },
+                "recommendation": "生产环境建议使用readOnly用户，开发/测试环境可使用readWrite用户，fullAccess用户仅限本地开发环境"
+            }
         }
     },
-    "defaultEnvironment": "dev",
     "sqlScriptDirs": {
         "database": "deploy/bemp-script/src/main/resources/banks/{bankName}",
         "configcenter": "deploy/bemp-home/src/main/resources/configcenter/banks/{bankName}"
     },
+    "encoding": {
+        "description": "数据库编码配置 - 解决中文乱码问题",
+        "terminal": {
+            "codePage": 65001,
+            "outputEncoding": "UTF-8",
+            "inputEncoding": "UTF-8",
+            "note": "PowerShell终端编码设置，chcp 65001为UTF-8代码页"
+        },
+        "oracle": {
+            "nlsLang": "AMERICAN_AMERICA.AL32UTF8",
+            "nlsDateFormat": "YYYY-MM-DD HH24:MI:SS",
+            "nlsTimestampFormat": "YYYY-MM-DD HH24:MI:SS.FF",
+            "nlsDateLanguage": "AMERICAN",
+            "note": "NLS_LANG需在Oracle MCP服务端启动前设置，ALTER SESSION仅影响日期格式"
+        },
+        "mysql": {
+            "charset": "utf8mb4",
+            "collation": "utf8mb4_general_ci",
+            "initSql": "SET NAMES utf8mb4",
+            "cliDefaultCharset": "utf8mb4",
+            "note": "MySQL MCP连接时需确保charset=utf8mb4，CLI执行时需指定--default-character-set=utf8mb4"
+        }
+    },
+    "cliExecution": {
+        "description": "命令行执行工具配置 - 用于DML/DDL执行（MCP不支持DML/DDL时的备选方案）",
+        "oracle": {
+            "tool": "sqlplus",
+            "script": "scripts/execute-oracle-sql.ps1",
+            "required": true,
+            "note": "Oracle MCP仅支持SELECT，DML/DDL必须通过sqlplus执行"
+        },
+        "mysql": {
+            "tool": "mysql",
+            "script": "scripts/execute-mysql-sql.ps1",
+            "required": false,
+            "note": "MySQL MCP已支持DML/DDL，CLI作为大数据量脚本执行的备选方案"
+        }
+    },
     "notes": [
+        "本文件中的连接参数仅为记录用途，实际连接由MCP服务端配置管理",
+        "修改实际连接参数请编辑 mcpConfigRef.path 指向的MCP配置文件",
         "生产环境密码不得明文存储，应使用加密方式",
         "切换环境时需修改 defaultEnvironment 值",
-        "bankName 用于定位SQL脚本存放目录"
+        "切换数据库类型时需修改 defaultDbType 值（oracle/mysql）",
+        "bankName 用于定位SQL脚本存放目录",
+        "MySQL MCP的execute_sql支持DDL/DML/SELECT全类型操作",
+        "Oracle MCP的execute_query仅支持SELECT语句",
+        "建议为MySQL MCP配置专用数据库用户，参照permissionTemplates"
     ]
 }

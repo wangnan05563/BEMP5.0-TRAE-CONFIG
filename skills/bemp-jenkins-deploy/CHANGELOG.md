@@ -6,6 +6,53 @@
 
 ---
 
+## [6.1.0] - 2026-05-17
+
+### 优化
+
+- **SKILL.md瘦身**: 从285行精简至119行（-58%），转为"索引路由"角色，移除关键技术要点代码块、目录结构树、冗余代码示例
+- **SKILL.md按需读取指引**: 新增信息获取指引表，明确"修改配置→读Jenkinsfile、故障排查→读references/"，减少防御性文件读取
+- **删除pipeline-parameters.yml**: v5.0配置内联后此文件已无运行时价值，参数定义直接看Jenkinsfile
+- **合并quick-start+usage**: 两个文档80%内容重叠，合并为精简的usage.md（372→138行，-63%）
+- **精简config/README.md**: 移除与usage.md重复的参数表和配置表，只保留操作指引（205→56行，-73%）
+- **精简bemp-deploy.yml**: 移除冗余注释标题，只保留key:value（105→89行）
+- **精简docs/index.md**: 移除重复的问题查找表和emoji装饰（92→56行）
+- **更新overview.md/index.md**: 移除对已删除文件的引用，版本号更新为v6.0.0
+
+### Token节省预估
+
+| 指标 | 优化前 | 优化后 | 降幅 |
+|------|--------|--------|------|
+| SKILL.md固定成本 | ~4000 token/次 | ~1700 token/次 | -57% |
+| 文件总数 | 20个 | 18个 | -10% |
+| 总行数 | ~3473行 | ~2360行 | -32% |
+
+---
+
+## [6.0.0] - 2026-05-17
+
+### 新增
+
+- **失败自动回滚**: failure post块新增自动回滚机制，查找最新备份zip并解包覆盖部署目录
+- **Redis & Zookeeper 并行启动**: 阶段8和9合并为阶段8-9并行块，缩短启动等待时间约50%
+- **health-check.ps1 集成**: Redis/ZK/bemp-served/Nginx 服务启动检测统一调用health-check.ps1脚本，替代内联while循环
+- **cleanup-backups.ps1 集成**: 备份历史清理统一调用cleanup-backups.ps1脚本，替代内联bat批处理
+
+### 变更
+
+- **凭据外部化**: SONAR_TOKEN从明文改为`credentials('bemp-sonar-token')`引用Jenkins凭据存储
+- **BUILD_TIMESTAMP空值保护统一**: 后端采用与前端一致的三重保护（null / 'null' / isEmpty）
+- **SCRIPTS_HOME环境变量**: 新增脚本工具目录路径配置
+- **Nginx启动检测增强**: 使用health-check.ps1 nginx模式替代单次tasklist检查，增加重试等待逻辑
+
+### 优化
+
+- Redis/ZK/bemp-served/Nginx内联监控循环合计减少约50行Groovy代码
+- 备份清理内联bat批处理合计减少约30行代码
+- 服务启动可观测性提升：health-check.ps1提供统一日志格式和TCP连接检测
+
+---
+
 ## [5.0.0] - 2026-04-26
 
 ### 变更

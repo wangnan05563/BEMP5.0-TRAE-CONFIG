@@ -1,0 +1,60 @@
+{
+    "description": "BEMP后端代码审查 - 银行个性化配置参数。切换银行时修改此文件即可，无需修改SKILL.md。",
+    "version": "1.0.0",
+    "lastUpdate": "2026-05-16",
+
+    "currentBank": "hnnxbank",
+
+    "banks": {
+        "hnnxbank": {
+            "bankName": "河南农信",
+            "bankCode": "hnnxbank",
+            "bankCodeShort": "hnnx",
+            "sourceDir": "banks/ext-hnnxbank",
+            "packagePath": "com.hundsun.bemp.hnnxbank",
+            "classPrefix": "HnnxBank",
+            "dtoPrefix": "Hnnx",
+            "urlPrefixes": ["/hnnx/", "/hnnxbank/"],
+            "dtoSourceDir": "banks/ext-hnnxbank/hnnxbank-biz-api/src/main/java",
+            "enableAutoScan": true,
+            "note": "河南农信个性化模块"
+        },
+        "example": {
+            "bankName": "示例银行",
+            "bankCode": "examplebank",
+            "bankCodeShort": "eb",
+            "sourceDir": "banks/ext-examplebank",
+            "packagePath": "com.hundsun.bemp.examplebank",
+            "classPrefix": "ExampleBank",
+            "dtoPrefix": "Eb",
+            "urlPrefixes": ["/eb/", "/examplebank/"],
+            "dtoSourceDir": "banks/ext-examplebank/examplebank-biz-api/src/main/java",
+            "enableAutoScan": true,
+            "note": "新银行接入示例配置，按此模板添加新银行"
+        }
+    },
+
+    "activeConfig": "{{auto}}",
+
+    "newBankChecklist": [
+        "在 banks 中添加新银行配置",
+        "设置 bankName（中文名称）",
+        "设置 bankCode（目录名/包名中使用）",
+        "设置 bankCodeShort（URL前缀中使用）",
+        "设置 sourceDir（确保目录存在）",
+        "设置 packagePath（确保包结构存在）",
+        "设置 classPrefix（如 ExampleBank extends BaseXxx）",
+        "设置 dtoPrefix（如 EbXxxReq / EbXxxResp）",
+        "设置 urlPrefixes（至少两个：短前缀和完整前缀）",
+        "设置 dtoSourceDir（DTO文件存放的源码目录）",
+        "修改 currentBank 为新的 bankCode",
+        "在SKILL.md中，将 bankCodeShort 的代码示例从 hnnx 改为实际值（如项目中有特殊约定）"
+    ],
+
+    "notes": [
+        "修改 currentBank 即可切换当前活跃的银行配置",
+        "SKILL.md 中使用 {bankName} {bankCode} {classPrefix} 等占位符，运行审查时替换为实际值",
+        "自动扫描脚本会读取此配置文件的 activeConfig",
+        "新增银行时在 banks 中添加配置即可，审查规则无需修改"
+    ]
+}

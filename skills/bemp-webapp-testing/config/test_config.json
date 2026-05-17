@@ -182,13 +182,13 @@
         "args": ["--start-maximized", "--disable-gpu"]
       },
       "viewport": {
-        "width": 1920,
-        "height": 1080
+        "width": 1024,
+        "height": 768
       }
     },
     "viewport": {
-      "width": 1920,
-      "height": 1080
+        "width": 1024,
+        "height": 768
     }
   },
   "error_filters": {

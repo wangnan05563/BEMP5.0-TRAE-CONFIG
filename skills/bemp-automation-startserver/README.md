@@ -41,7 +41,7 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 
 ### 二、启动服务
 
-按推荐顺序,在每个服务中使用**独立的 IDE 终端**依次执行:
+按推荐顺序，在每个服务中使用**独立的 IDE 终端**依次执行：
 
 ```powershell
 # 终端 1 - Redis
@@ -50,40 +50,12 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 # 终端 2 - ZooKeeper
 .\start-bemp-env.ps1 -Service zookeeper
 
-# 终端 3 - SpringBoot(F5 Debug 模式)
+# 终端 3 - SpringBoot（F5 Debug 模式）
 .\start-bemp-env.ps1 -Service springboot
-
-# 终端 3 - SpringBoot(快速启动模式,跳过编译)
-.\start-bemp-env.ps1 -Service springboot -QuickStart
 
 # 终端 4 - 前端
 .\start-bemp-env.ps1 -Service frontend
-
-# 终端 4 - 前端(快速启动模式,跳过依赖检查)
-.\start-bemp-env.ps1 -Service frontend -QuickStart
 ```
-
-### 快速启动模式
-
-当项目近期已编译/安装且代码无变化时,可使用 `-QuickStart` 参数跳过编译或依赖检查:
-
-```powershell
-# 快速启动 SpringBoot(跳过 Maven 编译)
-.\start-bemp-env.ps1 -Service springboot -QuickStart
-
-# 快速启动前端(跳过 npm 依赖检查)
-.\start-bemp-env.ps1 -Service frontend -QuickStart
-```
-
-**适用场景**:
-- 近期已编译/安装过项目,代码无变化
-- 需要快速重启后端或前端服务
-- 节省编译/安装时间,提高开发效率
-
-**注意事项**:
-- SpringBoot: 确保 WAR 文件已编译存在
-- 前端: 确保 `node_modules` 目录已存在
-- 如果代码/依赖有变更,请使用正常启动模式或手动执行编译/安装
 
 ### 三、强制重启
 
@@ -190,6 +162,60 @@ cd d:\code\QJ\BEMP5.0DEV\banks\ext-hnnxbank
 mvn clean install -DskipTests=true -pl hnnxbank-served-deploy -am
 ```
 
+## 后端启动模式
+
+SpringBoot 服务支持两种启动模式，通过 `config.json` 中的 `launchMode` 配置：
+
+### Terminal 模式（推荐）
+- **配置**: `"launchMode": "terminal"`
+- 在 IDE 终端中直接启动，日志实时可见，前台运行
+- 适合日常开发和调试
+
+### Debug 模式
+- **配置**: `"launchMode": "debug"`（默认）
+- 在 Trae IDE 中以 F5 Debug 模式启动，支持断点调试、热重载
+
+## 快速启动模式（-QuickStart）
+
+SpringBoot 和前端服务均支持快速启动模式，跳过编译/依赖检查：
+
+```powershell
+# SpringBoot: 跳过 Maven 编译
+.\start-bemp-env.ps1 -Service springboot -QuickStart
+
+# 前端: 跳过 npm 依赖检查
+.\start-bemp-env.ps1 -Service frontend -QuickStart
+```
+
+> **注意**：SpringBoot QuickStart 需确保 WAR 文件已编译存在；前端 QuickStart 需确保 `node_modules` 目录已存在。代码/依赖有变更时请使用正常启动模式。
+
+## 前端内存配置
+
+前端服务通过 `config.json` 中 `frontend.nodeMemoryLimit` 配置 Node.js 内存上限：
+
+```json
+"frontend": {
+  "nodeMemoryLimit": 6096
+}
+```
+
+- **默认值**: 6096 (MB)，与项目 `package.json` 中 `--max_old_space_size` 一致
+- **作用**: 启动时自动设置 `NODE_OPTIONS=--max_old_space_size=6096`，避免大型项目编译时内存溢出
+- **调整**: 根据机器内存增减，设为 0 或删除则不限制
+
+## 前端启动加速策略
+
+脚本已内置以下加速策略（无需手动配置）：
+
+| 策略 | 说明 | 节省时间 |
+|------|------|----------|
+| `--no-audit` | 跳过 npm 安全审计 | ~5-15 秒 |
+| `--no-fund` | 跳过赞助信息输出 | ~2 秒 |
+| `--prefer-offline` | 优先使用本地缓存的包 | ~5-30 秒 |
+| `PUPPETEER_SKIP_DOWNLOAD` | 跳过 Chromium 二进制下载 | ~30-120 秒 |
+| `ELECTRON_SKIP_BINARY_DOWNLOAD` | 跳过 Electron 二进制下载 | ~30-120 秒 |
+| `-QuickStart` | 跳过依赖安装检查 | ~10-150 秒 |
+
 ## 输出示例
 
 ### 状态检查输出
@@ -225,28 +251,6 @@ Frontend          8091 [--] Stopped
 - 内存不足调整
 
 ## 更新日志
-
-### v7.0.0 (2026-05-13)
-- **进程预检机制重构**:
-  - 新增 `Test-ServiceRunning` 统一预检函数，启动前先检测端口+进程名双重验证
-  - 新增 `Test-PortInUse` 跨平台端口检测函数，优先使用 `Get-NetTCPConnection`，自动回退 `netstat`
-  - 新增 `Show-AlreadyRunning` 结构化提示函数，服务已运行时输出端口/进程名/PID/重启指引
-  - 所有服务启动函数（Redis/ZooKeeper/SpringBoot/Frontend）将进程检查移至函数入口最前面
-  - 前端服务仅识别 `node.exe`，后端服务仅识别 `java.exe`，杜绝非目标进程占用端口导致的误判
-- **用户体验优化**: 重复启动时不再设置终端标题、不再显示终端占用警告，直接输出详细信息并终止
-
-### v6.1.0 (2026-05-08)
-- **前端启动速度全面优化**:
-  - 修复 `node_modules` 重复检查 Bug（首次安装时 `npm install` 被执行两次）
-  - 新增前端 `-QuickStart` 快速启动模式（跳过依赖检查,与 SpringBoot 对称）
-  - `npm install` 命令优化: 添加 `--prefer-offline`、`--no-audit`、`--no-fund` 加速参数
-  - 安装前设置 `PUPPETEER_SKIP_DOWNLOAD`、`ELECTRON_SKIP_BINARY_DOWNLOAD` 跳过无用二进制
-  - `npm run dev` 显式设置 `NODE_ENV=development` 并添加 `--scripts-prepend-node-path`
-  - 已有 `node_modules` 时显示 `skipping install` 提示,启动更快
-
-### v6.0.0 (2026-05-09)
-- 新增快速启动模式(-QuickStart 参数),支持跳过 Maven 编译直接启动后端服务
-- 优化开发体验,节省重复编译时间
 
 ### v5.9.0 (2026-04-17)
 - 新增终端窗口标题自动设置功能

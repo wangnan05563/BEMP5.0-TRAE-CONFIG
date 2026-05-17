@@ -20,7 +20,7 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
-from health_check import run_health_check, load_config, get_bank_config
+from health_check import run_health_check, load_config, get_bank_config, validate_config
 from login_manager import LoginManager, LoginError
 
 
@@ -370,6 +370,16 @@ def main():
     if not bank_config:
         print(f"[ERROR] Bank '{args.bank}' not found in config")
         sys.exit(1)
+
+    # 配置完整性校验
+    is_valid, errors = validate_config(config)
+    if errors:
+        print("\n[CONFIG] 配置校验发现问题:")
+        for err in errors:
+            print(f"  - {err}")
+        if not is_valid:
+            print("\n[ERROR] 配置存在必填字段缺失，请修复后重试")
+            sys.exit(1)
 
     print(f"[INFO] Using bank: {bank_id} ({bank_config.get('name', '')})")
     print(f"[INFO] URL prefix: {bank_config.get('url_prefix', '/')}")

@@ -9,6 +9,7 @@
 | 回退时间 | ${ROLLBACK_TIME} |
 | 回退操作人员 | ${OPERATOR} |
 | 回退原因 | ${ROLLBACK_REASON} |
+| 数据库类型 | ${DB_TYPE}（Oracle/MySQL） |
 | 数据库环境 | ${DB_ENV} |
 
 ---
@@ -43,6 +44,12 @@ ${ROLLBACK_DETAIL}
 - 回退级别：statement / script / full
 - 说明：${LEVEL_DESCRIPTION}
 
+### 回退执行方式
+
+- Oracle：通过 SQL*Plus 执行回退脚本
+- MySQL：通过 `mcp_MySQL_execute_sql` 直接执行回退SQL
+- MySQL 事务回退：如使用了 START TRANSACTION，可直接 ROLLBACK
+
 ---
 
 ## 回退执行过程
@@ -58,6 +65,8 @@ ${ROLLBACK_DETAIL}
 
 | 指标 | 值 |
 |------|-----|
+| 数据库类型 | ${DB_TYPE} |
+| 回退执行方式 | Oracle:SQL*Plus / MySQL:MCP |
 | 总语句数 | ${TOTAL_STATEMENTS} |
 | 成功语句数 | ${SUCCESS_COUNT} |
 | 失败语句数 | ${FAIL_COUNT} |

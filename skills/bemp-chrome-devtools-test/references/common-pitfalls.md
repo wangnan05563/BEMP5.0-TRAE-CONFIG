@@ -338,6 +338,188 @@ h-date-picker是复合组件，内部有独立的日期解析逻辑。仅设置`
 
 ---
 
+## 陷阱12：BEMP 登录密码加密未触发（P0 级影响）
+
+**现象**：
+使用 Chrome DevTools 的 `fill` 或 `type_text` 填写 `input[name="tempPassword"]` 后点击登录，返回"用户名或密码错误"或"用户已锁定"。
+
+**根因**：
+BEMP 登录使用 SM4 加密，加密在 `login()` API 函数内部自动完成。`tempPassword` 是用户可见的密码输入框，`password` 是隐藏的加密后字段。当使用 `fill` 或 `type_text` 设置 `tempPassword` 时，Vue 的响应式系统可能未正确触发 `passwordTempChange()` 方法，导致 `password` 字段仍为空或为原始密码（非加密后值）。
+
+**标准解决方案**：
+
+**方案A - 通过 Vue 实例设置（最可靠）**：
+```javascript
+// evaluate_script: 通过 Vue 实例设置登录表单
+(() => {
+    const vue = document.querySelector('#app').__vue__;
+    const loginComp = vue.$children.find(c => c.loginForm);
+    if (loginComp) {
+        loginComp.loginForm.userNo = '{username}';
+        loginComp.loginForm.username = '{username}';
+        loginComp.loginForm.tempPassword = '{password}';
+        loginComp.loginForm.password = '{password}';
+        loginComp.loginForm.forceLogin = '1';
+        loginComp.handleLogin();
+        return { triggered: true };
+    }
+    return { triggered: false };
+})()
+```
+
+**方案B - 通过原生 setter 设置（备选）**：
+```javascript
+// evaluate_script: 通过原生 setter 设置并触发 Vue 响应
+(() => {
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    const usernameInput = document.querySelector('input[name="username"]');
+    const tempPwdInput = document.querySelector('input[name="tempPassword"]');
+    
+    nativeSetter.call(usernameInput, '{username}');
+    usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    usernameInput.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    nativeSetter.call(tempPwdInput, '{password}');
+    tempPwdInput.dispatchEvent(new Event('input', { bubbles: true }));
+    tempPwdInput.dispatchEvent(new Event('change', { bubbles: true }));
+    tempPwdInput.dispatchEvent(new Event('blur', { bubbles: true }));
+    
+    return { username: usernameInput.value, tempPassword: tempPwdInput.value };
+})()
+```
+
+**不推荐**：`fill_form`（截断+绑定问题）、`fill` 单字段（可能不触发 Vue 响应）、`type_text`（逐字慢+输入法干扰）
+
+**关键发现**：
+- 登录表单字段映射：`input[name="username"]`(用户名)、`input[name="tempPassword"]`(密码)、`input[name="password"]`(隐藏加密字段)
+- 登录按钮选择器：`button.h-btn-primary`（非 `button:has-text("登录")`，因为按钮文本可能含空格）
+- 三种登录方式：密码登录(`div.login-type-content-pwd`)、指纹登录、手机号登录
+
+---
+
+## 陷阱13：用户账号被锁定后无法解锁（P0 级影响）
+
+**现象**：
+测试账号多次登录失败后被系统自动锁定，后续登录返回"用户已锁定"(错误码0BE229904013)，即使数据库中已解锁仍然失败。
+
+**根因**：
+1. 后端实际连接的数据库可能与 Oracle MCP 连接的数据库不同（如后端连10.20.29.136而MCP连10.20.18.177）
+2. 密码错误次数达到配置值后，后端将 `IS_ENABLE` 设为 `0` 并增加 `PWD_ERR_TIMES`
+3. 即使在MCP数据库中解锁，实际数据库中账号仍为锁定状态
+
+**标准解决方案**：
+
+**方案A - 通过前端管理界面解锁（最可靠）**：
+```
+1. 用法人管理员(mllzs01)登录
+2. 导航到系统管理 → 柜员管理/管理员管理
+3. 找到被锁定的用户
+4. 通过界面操作解锁
+```
+
+**方案B - 通过前端 Vue 实例调用解锁 API**：
+```javascript
+// evaluate_script: 通过 Vue 实例调用后端解锁API
+(async () => {
+    const vue = document.querySelector('#app').__vue__;
+    const http = vue.$http || vue.$store._vm.$http;
+    const token = vue.$store.state.user?.fwToken || '';
+    
+    const res = await http.post('/sm/auth/branch/branchAdmin/func_unLockLegalPersonManager', {
+        userNo: '{locked_user_no}',
+        fwToken: token
+    });
+    return { retCode: res.data?.retCode, retMsg: res.data?.retMsg };
+})()
+```
+
+**方案C - 通过 SQL*Plus 在正确数据库上解锁**：
+```sql
+UPDATE TM_USER SET IS_ENABLE = '1', PWD_ERR_TIMES = 0, LOGIN_STATUS = '0' WHERE USER_NO = '{user_no}';
+COMMIT;
+```
+
+**关键字段映射**（TM_USER 表）：
+| 常见误解字段名 | 实际字段名 | 说明 |
+|---------------|-----------|------|
+| USER_CODE | USER_NO | 用户编号 |
+| STATUS | IS_ENABLE | 启用状态(1=启用/0=禁用) |
+| LOCK_FLAG | LOGIN_STATUS | 登录锁定(0=正常/1=锁定) |
+| LOGIN_FAIL_COUNT | PWD_ERR_TIMES | 密码错误次数 |
+
+**预防措施**：
+- 测试前先确认后端实际连接的数据库地址
+- 避免连续多次错误登录同一账号
+- 准备备用测试账号
+
+---
+
+## 陷阱14：弹窗重叠无法关闭（P1 级影响）
+
+**现象**：
+在机构管理页面中，点击"批量导入"按钮弹出导入弹窗后，关闭弹窗再点击"批量复制角色"会导致两个弹窗同时存在且重叠，批量导入弹窗的关闭按钮无法正常关闭。
+
+**根因**：
+BEMP 弹窗组件的状态管理存在缺陷，关闭弹窗时未完全清理 Vue 组件状态和 DOM 元素，导致再次打开其他弹窗时出现重叠。
+
+**标准解决方案**：
+
+**方案A - 强制移除残留弹窗 DOM**：
+```javascript
+// evaluate_script: 强制移除所有残留弹窗
+document.querySelectorAll('.h-modal-mask, .h-modal, .h-msg-box-wrapper').forEach(el => el.remove());
+```
+
+**方案B - 刷新页面后重新操作**：
+```
+navigate_page(当前页面URL) → wait_for(networkidle) → 重新执行操作
+```
+
+**方案C - 新标签页重新登录**：
+```
+new_page → 重新登录 → navigate_page(目标页面)
+```
+
+**预防措施**：
+- 每次弹窗操作后，立即 `take_screenshot` 确认弹窗已完全关闭
+- 打开新弹窗前，先用 `evaluate_script` 检查可见弹窗数量
+- 不同弹窗操作之间增加 500ms 等待
+
+---
+
+## 陷阱15：后端数据库地址与 MCP 数据库不一致（P1 级影响）
+
+**现象**：
+通过 Oracle MCP 解锁用户后，登录仍然失败，提示"用户已锁定"。
+
+**根因**：
+后端 Spring Boot 应用实际连接的数据库地址（配置在 `merge.properties` 的 `jdbc.url` 中）可能与 Oracle MCP 配置的数据库地址不同。在 MCP 数据库上执行的解锁操作不会影响后端实际使用的数据库。
+
+**标准解决方案**：
+
+1. **先确认后端实际数据库地址**：
+```javascript
+// 方式1：通过前端 Vue 实例查询后端配置
+// 方式2：查看 deploy/bemp-home/src/main/resources/configcenter/banks/{bankName}/merge.properties 中的 jdbc.url
+```
+
+2. **在正确的数据库上执行解锁**：
+```powershell
+# 使用后端配置的数据库连接信息
+$sqlFile = "unlock_user.sql"
+[System.IO.File]::WriteAllText($sqlFile, "UPDATE TM_USER SET IS_ENABLE='1', PWD_ERR_TIMES=0 WHERE USER_NO='{user_no}'; COMMIT; EXIT;", [System.Text.Encoding]::ASCII)
+& sqlplus -S "{jdbc_username}/{jdbc_password}@{jdbc_host}:{jdbc_port}:{jdbc_service}" "@$sqlFile"
+```
+
+3. **通过前端管理界面解锁（最可靠）**：见陷阱13方案A
+
+**注意事项**：
+- `merge.properties` 中的密码可能使用 SM4 加密（`sm4:` 前缀）
+- SQL*Plus 执行 SQL 文件时需使用 ASCII 编码（非 UTF8，避免 BOM 问题）
+- 解锁后需重启后端服务或清除 Redis 缓存才能生效
+
+---
+
 ## 快速问题排查索引
 
 | 症状 | 可能原因 | 参考陷阱 |
@@ -353,3 +535,7 @@ h-date-picker是复合组件，内部有独立的日期解析逻辑。仅设置`
 | 金额修改后未生效 | h-typefield绑定失效 | 陷阱9 |
 | 提交复核报ID为空 | checkbox选中数据未同步 | 陷阱10 |
 | 日期设置后未生效 | h-date-picker组件内部逻辑 | 陷阱11 |
+| 登录失败密码错误 | tempPassword未触发加密 | 陷阱12 |
+| 账号锁定无法解锁 | 数据库地址不一致 | 陷阱13 |
+| 弹窗重叠无法关闭 | 弹窗状态管理缺陷 | 陷阱14 |
+| MCP解锁无效 | 后端数据库与MCP不同 | 陷阱15 |

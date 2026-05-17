@@ -1,0 +1,272 @@
+{
+  "_comment": "BEMP 测试用例索引 - test-cases ↔ scripts 双向映射。用于追踪覆盖率、定位关联脚本。",
+  "index_version": "1.0",
+  "generated": "2026-05-16",
+  "scripts_index": {
+    "scripts/run_test.py": {
+      "description": "通用测试运行器，配置驱动执行所有 bank_config.pages 中的页面测试",
+      "covered_cases": [
+        "TC-SM-001", "TC-SM-002", "TC-BM-001", "TC-BM-002", "TC-BM-003",
+        "TC-BM-004", "TC-BM-005", "TC-CREDIT-001", "TC-CREDIT-002", "TC-CREDIT-003"
+      ],
+      "test_type": "page_smoke"
+    },
+    "scripts/login_manager.py": {
+      "description": "统一登录管理器，提供会话复用和多角色切换",
+      "covered_cases": ["TC-COMMON-001", "TC-COMMON-002"],
+      "test_type": "utility"
+    },
+    "scripts/test_accept_bank_credit.py": {
+      "description": "承兑行额度管理端到端测试",
+      "covered_cases": ["TC-CREDIT-001", "TC-CREDIT-002", "TC-CREDIT-003"],
+      "test_type": "e2e"
+    },
+    "scripts/health_check.py": {
+      "description": "服务健康检查与配置校验",
+      "covered_cases": [],
+      "test_type": "utility"
+    }
+  },
+  "test_cases": [
+    {
+      "id": "TC-COMMON-001",
+      "file": "test-cases/common/login.md",
+      "subsystem": "common",
+      "feature": "登录基础功能",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/login_manager.py", "scripts/run_test.py"],
+      "description": "用户名密码登录、强制登录弹窗处理"
+    },
+    {
+      "id": "TC-COMMON-002",
+      "file": "test-cases/common/login-session.md",
+      "subsystem": "common",
+      "feature": "登录与会话管理",
+      "priority": "P0",
+      "case_count": 21,
+      "scripts": ["scripts/login_manager.py", "scripts/run_test.py"],
+      "description": "密码登录、强制登录、会话过期检测、多角色管理"
+    },
+    {
+      "id": "TC-SM-001",
+      "file": "test-cases/sm/branch/branch.md",
+      "subsystem": "sm",
+      "feature": "机构管理",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/run_test.py"],
+      "description": "机构查询、新增、修改、删除，个性化路径验证"
+    },
+    {
+      "id": "TC-SM-002",
+      "file": "test-cases/sm/branch/simple-branch.md",
+      "subsystem": "sm",
+      "feature": "简版机构管理",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/run_test.py"],
+      "description": "简版机构页面功能验证"
+    },
+    {
+      "id": "TC-SM-003",
+      "file": "test-cases/sm/role-permission.md",
+      "subsystem": "sm",
+      "feature": "角色与权限管理",
+      "priority": "P0",
+      "case_count": 12,
+      "scripts": [],
+      "description": "角色分配、机构业务权限配置"
+    },
+    {
+      "id": "TC-SM-004",
+      "file": "test-cases/sm/clearing/clearing.md",
+      "subsystem": "sm",
+      "feature": "清算管理",
+      "priority": "P0",
+      "case_count": 17,
+      "scripts": [],
+      "description": "清算明细查询、清算排队管理、业务结算状态同步"
+    },
+    {
+      "id": "TC-BM-001",
+      "file": "test-cases/bm/cust/custCorp.md",
+      "subsystem": "bm",
+      "feature": "企业客户查询",
+      "priority": "P1",
+      "case_count": null,
+      "scripts": ["scripts/run_test.py"],
+      "description": "企业客户信息查询功能"
+    },
+    {
+      "id": "TC-BM-002",
+      "file": "test-cases/bm/cust/custAcct.md",
+      "subsystem": "bm",
+      "feature": "企业账号同步",
+      "priority": "P1",
+      "case_count": null,
+      "scripts": ["scripts/run_test.py"],
+      "description": "企业账号同步功能验证"
+    },
+    {
+      "id": "TC-BM-003",
+      "file": "test-cases/bm/sign/custCorpSign.md",
+      "subsystem": "bm",
+      "feature": "企业信息报备",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/run_test.py"],
+      "description": "企业信息报备录入功能"
+    },
+    {
+      "id": "TC-BM-004",
+      "file": "test-cases/bm/sign/custCorpSignAudit.md",
+      "subsystem": "bm",
+      "feature": "企业信息报备复核",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/run_test.py"],
+      "description": "报备信息复核流程验证"
+    },
+    {
+      "id": "TC-BM-005",
+      "file": "test-cases/bm/sign/custCorpSignRecord.md",
+      "subsystem": "bm",
+      "feature": "企业报备记录查询",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/run_test.py"],
+      "description": "报备历史记录查询功能"
+    },
+    {
+      "id": "TC-BM-006",
+      "file": "test-cases/bm/approval/approval-accounting.md",
+      "subsystem": "bm",
+      "feature": "审批与记账管理",
+      "priority": "P0",
+      "case_count": 21,
+      "scripts": [],
+      "description": "审批路线配置、待审批任务、分录配置、科目维护"
+    },
+    {
+      "id": "TC-BM-007",
+      "file": "test-cases/bm/payment/payment.md",
+      "subsystem": "bm",
+      "feature": "支付管理",
+      "priority": "P0",
+      "case_count": 13,
+      "scripts": [],
+      "description": "支付申请录入、支付复核流程"
+    },
+    {
+      "id": "TC-CREDIT-001",
+      "file": "test-cases/bm/credit/",
+      "subsystem": "bm",
+      "feature": "额度申请批次管理",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/test_accept_bank_credit.py"],
+      "description": "批次查询、新增批次弹窗、删除二次确认"
+    },
+    {
+      "id": "TC-CREDIT-002",
+      "file": "test-cases/bm/credit/",
+      "subsystem": "bm",
+      "feature": "批复明细管理",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/test_accept_bank_credit.py"],
+      "description": "批复明细弹窗操作、提交复核/撤销复核验证"
+    },
+    {
+      "id": "TC-CREDIT-003",
+      "file": "test-cases/bm/credit/",
+      "subsystem": "bm",
+      "feature": "额度复核",
+      "priority": "P0",
+      "case_count": null,
+      "scripts": ["scripts/test_accept_bank_credit.py"],
+      "description": "复核按钮验证、选择数据复核、清单导出"
+    },
+    {
+      "id": "TC-BE-001",
+      "file": "test-cases/be/trust/trust.md",
+      "subsystem": "be",
+      "feature": "托管业务",
+      "priority": "P0",
+      "case_count": 32,
+      "scripts": [],
+      "description": "提示付款应答、付款记账、质押申请/签收、解质押"
+    },
+    {
+      "id": "TC-BE-002",
+      "file": "test-cases/be/market/market.md",
+      "subsystem": "be",
+      "feature": "市场交易",
+      "priority": "P0",
+      "case_count": 32,
+      "scripts": [],
+      "description": "买入、卖出、再贴现、回购、返售、点击成交"
+    },
+    {
+      "id": "TC-CE-001",
+      "file": "test-cases/ce/acceptance/acceptance.md",
+      "subsystem": "ce",
+      "feature": "承兑业务",
+      "priority": "P0",
+      "case_count": 25,
+      "scripts": [],
+      "description": "电票签发、承兑记账、付款登记/记账、到期扣款"
+    },
+    {
+      "id": "TC-CE-002",
+      "file": "test-cases/ce/discount/discount.md",
+      "subsystem": "ce",
+      "feature": "贴现业务",
+      "priority": "P0",
+      "case_count": 19,
+      "scripts": [],
+      "description": "贴现申请、贴现记账、计息复核"
+    },
+    {
+      "id": "TC-CE-003",
+      "file": "test-cases/ce/pledge/pledge.md",
+      "subsystem": "ce",
+      "feature": "质押业务",
+      "priority": "P0",
+      "case_count": 15,
+      "scripts": [],
+      "description": "提示付款、质押申请/签收、解质押"
+    }
+  ],
+  "summary": {
+    "total_cases": 21,
+    "total_estimated_count": 207,
+    "by_subsystem": {
+      "common": 1,
+      "sm": 4,
+      "bm": 10,
+      "be": 2,
+      "ce": 3,
+      "credit": 3
+    },
+    "by_priority": {
+      "P0": 16,
+      "P1": 2,
+      "P2": 0,
+      "P3": 0,
+      "unknown": 3
+    },
+    "scripts_coverage": {
+      "run_test.py": 10,
+      "login_manager.py": 2,
+      "test_accept_bank_credit.py": 3,
+      "health_check.py": 0
+    },
+    "uncovered_cases": [
+      "TC-SM-003", "TC-SM-004", "TC-BM-006", "TC-BM-007",
+      "TC-BE-001", "TC-BE-002", "TC-CE-001", "TC-CE-002", "TC-CE-003"
+    ],
+    "uncovered_note": "以上用例尚无对应的 Python 自动化脚本，仅有 markdown 文档描述。如需自动化覆盖，需创建对应脚本。"
+  }
+}

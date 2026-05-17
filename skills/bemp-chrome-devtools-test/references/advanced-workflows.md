@@ -1,185 +1,59 @@
 # Chrome DevTools MCP 高级工作流
 
-基于BEMP承兑行额度管理功能二轮测试实战经验提炼的高级工作流模式。这些工作流解决了Vue动态路由、HUI组件交互、状态流转端到端验证等复杂场景。
+基于 BEMP 承兑行额度管理功能二轮测试实战经验提炼的关键发现与工作流模式。**代码实现见 [tool-mapping.md §片段库](tool-mapping.md#evaluate_script-常用代码片段库)**。
 
 ---
 
-## 1. Vue动态路由导航工作流
+## 1. Vue 动态路由导航
 
 ### 问题背景
 
-BEMP使用Vue懒加载路由，银行个性化路由（如hnnxbank的承兑行额度管理）不在初始路由表中。直接通过`navigate_page`访问URL会导致页面空白或404，因为这些路由需要通过菜单点击触发`mergeMenus()`注册后才能访问。
+BEMP 使用 Vue 懒加载路由，银行个性化路由不在初始路由表中。直接 `navigate_page` 会空白/404，需通过菜单点击触发 `mergeMenus()` 注册。
 
 ### 标准流程
 
 ```
-evaluate_script(定位菜单项并点击) → wait_for(networkidle) → take_snapshot(确认页面渲染) → take_screenshot
+evaluate_script(定位菜单并点击) → wait_for(networkidle) → take_snapshot → take_screenshot
 ```
 
-### 菜单点击代码模板
-
-```javascript
-// 第一步：展开"业务管理子系统"菜单
-(() => {
-  const menus = document.querySelectorAll('.h-sidebar-leftfixed .h-menu-submenu-title span');
-  for (const menu of menus) {
-    if (menu.textContent.trim() === '业务管理子系统') {
-      menu.click();
-      return '已点击业务管理子系统';
-    }
-  }
-  return '未找到业务管理子系统菜单';
-})()
-```
-
-```javascript
-// 第二步：展开"承兑行额度管理"子菜单
-(() => {
-  const submenus = document.querySelectorAll('.h-sidebar-menu .h-menu-submenu-title span');
-  for (const submenu of submenus) {
-    if (submenu.textContent.trim() === '承兑行额度管理') {
-      submenu.click();
-      return '已点击承兑行额度管理';
-    }
-  }
-  return '未找到承兑行额度管理子菜单';
-})()
-```
-
-```javascript
-// 第三步：点击具体功能菜单（额度申请/额度复核）
-(() => {
-  const items = document.querySelectorAll('.h-menu-item span');
-  for (const item of items) {
-    if (item.textContent.trim() === '额度申请') {
-      item.click();
-      return '已点击额度申请';
-    }
-  }
-  return '未找到额度申请菜单项';
-})()
-```
+> 菜单点击代码见 [tool-mapping.md §片段库-菜单导航](tool-mapping.md#菜单导航)。菜单树文本配置见 [config](../config/bemptest-config.json) `selectors_by_bank.{bank_profile}.menu_tree`。
 
 ### 关键发现
 
-- 不同子菜单（额度申请/额度复核）需要分别点击注册路由，点击"额度申请"不会自动注册"额度复核"的路由
-- 菜单点击后必须`wait_for(networkidle)`等待路由注册和组件加载完成
-- 每次菜单点击后用`take_snapshot`确认目标页面已正确渲染
-- 已注册的路由在当前会话中保持有效，后续可直接`navigate_page`访问
+- 不同子菜单需**分别点击注册**路由，点击"额度申请"不会自动注册"额度复核"
+- 菜单点击后必须 `wait_for(networkidle)`，等待路由注册 + 组件加载
+- 每次菜单点击后 `take_snapshot` 确认目标页面已渲染
+- 已注册路由在当前会话中有效，后续可直接 `navigate_page` 访问
 
 ---
 
-## 2. HUI组件交互工作流
+## 2. HUI 组件交互
 
-### 2.1 h-date-picker 日期选择器
+> 以下各组件的问题背景与关键发现。**正确做法代码见 [tool-mapping.md §片段库-HUI组件表单](tool-mapping.md#hui-组件表单)**。
 
-h-date-picker是复合组件，直接设置`input.value`不会触发组件内部日期解析逻辑。
+### 2.1 h-date-picker
 
-**错误做法**：
-```javascript
-// 仅设置input.value无法触发Vue组件内部日期解析
-document.querySelector('.h-date-picker input').value = '2026-05-15';
-document.querySelector('.h-date-picker input').dispatchEvent(new Event('input', {bubbles:true}));
-```
+**问题**：复合组件，设 `input.value` 不触发内部日期解析逻辑。
+**解决**：通过 `__vue__` 实例直接设 `vueInstance.value` + `$emit('input')`。
 
-**正确做法**：通过`evaluate_script`直接设置Vue组件的data值
-```javascript
-// 找到日期选择器对应的Vue实例并修改其data
-(() => {
-  const picker = document.querySelector('.h-date-picker');
-  if (!picker) return '未找到日期选择器';
-  const vueInstance = picker.__vue__;
-  if (!vueInstance) return '未找到Vue实例';
-  vueInstance.value = '2026-05-15';
-  vueInstance.$emit('input', '2026-05-15');
-  return '日期已设置';
-})()
-```
+### 2.2 h-typefield
 
-### 2.2 h-typefield 金额输入
+**问题**：`document.execCommand('insertText')` 或设 `input.value` 不触发 Vue v-model，提交时金额未更新。
+**解决**：通过 `__vue__` 实例设 `currentValue` + `$emit('input')`；降级：`value` + `dispatchEvent`。
 
-h-typefield使用`document.execCommand('insertText')`无法触发Vue v-model双向绑定，修改后提交列表中金额不会更新。
+### 2.3 h-select
 
-**错误做法**：
-```javascript
-// insertText不会触发v-model绑定
-const input = document.querySelector('.h-typefield input');
-input.focus();
-document.execCommand('insertText', false, '1000000');
-```
-
-**正确做法**：直接修改Vue实例的data属性
-```javascript
-// 通过Vue实例修改金额字段
-(() => {
-  const input = document.querySelector('.h-typefield input');
-  if (!input) return '未找到金额输入框';
-  const vueInstance = input.__vue__ || input.closest('[data-v-]')?.__vue__;
-  if (vueInstance) {
-    // 直接修改组件data中的金额字段
-    vueInstance.currentValue = '1000000';
-    vueInstance.$emit('input', '1000000');
-    return '金额已通过Vue实例设置';
-  }
-  // 降级方案：设置value并触发input事件
-  input.value = '1000000';
-  input.dispatchEvent(new Event('input', {bubbles: true}));
-  input.dispatchEvent(new Event('change', {bubbles: true}));
-  return '金额已通过DOM设置';
-})()
-```
-
-### 2.3 h-select 下拉框
-
-两步操作模式：
-```javascript
-// 第一步：点击触发器打开下拉列表
-document.querySelector('.h-select-selection').click();
-```
-```
-wait_for → 下拉列表可见
-```
-```javascript
-// 第二步：点击目标选项
-(() => {
-  const options = document.querySelectorAll('.h-option');
-  for (const opt of options) {
-    if (opt.textContent.trim() === '目标选项文本') {
-      opt.click();
-      return '已选择目标选项';
-    }
-  }
-  return '未找到目标选项';
-})()
-```
+两步模式：click(触发器) → wait_for(列表) → click(选项)。选择器见 [config](../config/bemptest-config.json) `selectors.select_dropdown`。
 
 ### 2.4 h-datagrid 行选择
 
-checkbox/radio选择后Vue的`currentSelectList`数据同步有延迟，需要等待：
-```javascript
-// 点击checkbox选中行
-document.querySelector('.h-datagrid tbody tr:first-child input[type="checkbox"]').click();
-```
-```
-wait_for_timeout → 500ms（等待currentSelectList同步）
-```
-```javascript
-// 验证选中状态
-(() => {
-  const grid = document.querySelector('.h-datagrid');
-  const vueInstance = grid?.__vue__;
-  if (vueInstance && vueInstance.currentSelectList) {
-    return `已选中${vueInstance.currentSelectList.length}行`;
-  }
-  return '无法获取选中行数据';
-})()
-```
+**关键**：checkbox 点击后 `currentSelectList` 异步同步有延迟，必须 `wait_for_timeout(500ms)` 后再 `evaluate_script` 验证 `grid.__vue__.currentSelectList.length > 0`。见 [pitfalls](common-pitfalls.md) 陷阱10。
 
 ---
 
-## 3. 状态流转端到端验证工作流
+## 3. 状态流转端到端验证
 
-### 完整状态机
+### 状态机
 
 ```
 草稿(0) ──提交复核──→ 待复核(1) ──复核──→ 已复核(5)
@@ -191,106 +65,45 @@ wait_for_timeout → 500ms（等待currentSelectList同步）
 
 ### 验证模式
 
-每个状态变更操作遵循以下四步模式：
-
 ```
-1. 操作前 take_screenshot → 记录当前状态
-2. click(操作按钮) → wait_for(确认弹窗) → click(确定)
-3. wait_for(networkidle) → take_screenshot → 记录操作后状态
-4. evaluate_script(提取状态列文本) → 与预期状态比较
+操作前截图 → click(操作) → click(确认) → wait_for(networkidle) → 操作后截图 → 提取状态文本对比
 ```
 
-### 状态文本提取
-
-```javascript
-// 提取DataGrid中指定行的状态列文本
-(() => {
-  const rows = document.querySelectorAll('.h-datagrid tbody tr');
-  const results = [];
-  rows.forEach((row, index) => {
-    const cells = row.querySelectorAll('td');
-    // 状态列通常在倒数第2或第3列，根据实际页面调整
-    const statusCell = cells[cells.length - 2];
-    if (statusCell) {
-      results.push({ row: index + 1, status: statusCell.textContent.trim() });
-    }
-  });
-  return JSON.stringify(results);
-})()
-```
-
-### 跨页面状态验证
-
-额度申请页面提交复核后，需切换到额度复核页面验证：
+### 跨页面验证
 
 ```
-1. 额度申请页面 → 提交复核 → 确认 → wait_for(networkidle)
-2. take_screenshot → 记录申请页面状态变为"待复核"
-3. 通过菜单导航到"额度复核"页面（必须菜单点击注册路由）
-4. wait_for(networkidle) → 点击查询
-5. evaluate_script → 验证复核页面中该记录状态为"待复核"
-6. take_screenshot → 记录复核页面状态
+页面A操作 → 截图 → 提取状态 → 菜单导航到页面B → wait_for(networkidle) → 查询 → 验证状态 → 截图
 ```
+
+> 状态文本提取代码见 [tool-mapping.md §片段库-数据表操作](tool-mapping.md#数据表操作)。
 
 ### 关键注意
 
-- 选中checkbox后需等待`currentSelectList`同步（500ms），否则提交复核会报"ID不能为空"
-- 状态变更操作后必须验证，因为Service层可能静默拒绝不符合状态前置条件的操作
-- 跨页面验证时，两个页面使用不同的路由，需要分别通过菜单点击注册
+- checkbox 选中后等 500ms，否则提交复核报"ID 不能为空"
+- 状态变更后**必须验证**，Service 层可能静默拒绝不符合前置条件的操作
+- 跨页面验证时两页使用不同路由，需分别通过菜单点击注册
 
 ---
 
-## 4. 删除功能验证工作流
+## 4. 删除功能验证
 
 ### 验证步骤
 
 ```
-1. 选中草稿状态的明细行（checkbox）
-2. wait_for_timeout(500ms) → 等待currentSelectList同步
-3. 点击删除按钮
-4. 确认二次确认弹窗
-5. wait_for(networkidle)
-6. evaluate_script → 检查DataGrid行数是否减少
-```
-
-### 行数变化验证
-
-```javascript
-// 删除前后对比DataGrid行数
-(() => {
-  const rows = document.querySelectorAll('.h-datagrid tbody tr');
-  return `当前DataGrid行数: ${rows.length}`;
-})()
+选中草稿行(checkbox) → wait 500ms → click(删除) → 确认弹窗 → wait_for(networkidle) → 检查行数变化
 ```
 
 ### 边界验证
 
-非草稿状态（待复核/已复核）的记录删除应被拒绝：
-```javascript
-// 尝试删除非草稿状态记录，验证操作被拒绝
-(() => {
-  const rows = document.querySelectorAll('.h-datagrid tbody tr');
-  const nonDraftRows = [];
-  rows.forEach((row, index) => {
-    const cells = row.querySelectorAll('td');
-    const statusCell = cells[cells.length - 2];
-    if (statusCell && statusCell.textContent.trim() !== '草稿') {
-      nonDraftRows.push({ row: index + 1, status: statusCell.textContent.trim() });
-    }
-  });
-  return JSON.stringify(nonDraftRows);
-})()
-```
+非草稿状态（待复核/已复核）的记录删除应被拒绝。
 
-### 修复案例参考
-
-`delCreditInfo`方法从`infoDto.getId()`改为`HnnxAcceptBankCreditUtil.parseIds(infoDto.getIds())`，修复了删除时ID传递不正确的问题。验证时需确认删除操作能正确传递选中行的ID列表。
+> 行数检查、状态筛选代码见 [tool-mapping.md §片段库](tool-mapping.md#evaluate_script-常用代码片段库)。
 
 ---
 
-## 5. 弹窗嵌套操作工作流
+## 5. 弹窗嵌套操作
 
-### BEMP常见弹窗嵌套结构
+### 嵌套结构
 
 ```
 批次页面 → 批复明细弹窗 → 新增/修改明细弹窗
@@ -299,94 +112,173 @@ wait_for_timeout → 500ms（等待currentSelectList同步）
 ### 操作模式
 
 ```
-1. 外层弹窗：click(按钮) → wait_for(外层弹窗标题) → take_screenshot
-2. 内层弹窗：在外层弹窗中 click(新增/修改) → wait_for(内层弹窗标题) → take_screenshot
-3. 内层操作：evaluate_script(填表单) → click(确定) → wait_for(networkidle)
-4. 关闭顺序：先关内层 → 再关外层
+外层: click(按钮) → wait_for(标题) → 截图
+内层: click(新增/修改) → wait_for(标题) → 截图 → evaluate_script(填表) → click(确定)
+关闭: 先内后外，使用 .h-msg-box:visible 定位当前可见弹窗
 ```
 
-### 定位当前可见弹窗
-
-```javascript
-// 使用:visible定位当前可见的弹窗
-(() => {
-  const visibleDialogs = document.querySelectorAll('.h-msg-box');
-  const results = [];
-  visibleDialogs.forEach((dialog, index) => {
-    if (dialog.offsetParent !== null || getComputedStyle(dialog).display !== 'none') {
-      const title = dialog.querySelector('.h-msg-box-title, .h-modal-title');
-      results.push({
-        index,
-        title: title?.textContent.trim() || '无标题',
-        visible: true
-      });
-    }
-  });
-  return JSON.stringify(results);
-})()
-```
-
-### 遮罩层残留处理
-
-弹窗关闭后遮罩层可能残留，导致页面无法操作：
-```javascript
-// 强制移除残留遮罩层
-document.querySelectorAll('.h-modal-mask').forEach(el => el.remove());
-```
-
-### 关闭弹窗的最佳实践
-
-```javascript
-// 关闭最内层弹窗
-(() => {
-  const closeButtons = document.querySelectorAll('.h-msg-box:visible .h-msg-box-close, .h-modal:visible .h-modal-close');
-  if (closeButtons.length > 0) {
-    closeButtons[closeButtons.length - 1].click();
-    return '已关闭最内层弹窗';
-  }
-  return '未找到可见弹窗的关闭按钮';
-})()
-```
+> 弹窗操作代码见 [tool-mapping.md §片段库-弹窗操作](tool-mapping.md#弹窗操作)。遮罩残留处理见 [pitfalls](common-pitfalls.md) 陷阱2。
 
 ---
 
-## 6. 控制台错误检测与分类工作流
+## 6. 控制台错误检测
 
 ### 错误分类
 
-| 级别 | 错误类型 | 处理方式 |
-|------|---------|---------|
-| 致命 | TypeError / ReferenceError | 必须修复，阻塞测试通过 |
-| 严重 | ChunkLoadError | 组件加载失败，需检查路由和打包配置 |
-| 可忽略 | WebSocket连接失败、favicon.ico 404 | 不影响功能，记录即可 |
+| 级别 | 类型 | 处理 |
+|------|------|------|
+| 致命 | TypeError / ReferenceError | 阻塞 PASS，必须修复 |
+| 严重 | ChunkLoadError | 组件加载失败，需检查路由 |
+| 可忽略 | WebSocket / favicon / extension | 记录，不影响判定 |
 
 ### 检测时机
 
-每个关键操作步骤后执行`list_console_messages`，检测是否有新增错误：
+登录后 → 导航后 → CRUD 后 → 状态流转后 → 测试结束汇总。
+
+> 错误过滤配置见 [config](../config/bemptest-config.json) `error_filters`。自动检测见 [pitfalls §自动检测](common-pitfalls.md#陷阱自动检测脚本)。
+
+---
+
+## 7. 双账号数据隔离验证
+
+### 问题背景
+
+BEMP 系统基于机构号(brchNo)实现数据隔离，不同用户类型的可见数据范围不同。需要通过双账号对比验证数据隔离是否生效。
+
+### 用户类型与数据范围
+
+| userType | 角色 | 数据范围 | 示例账号 |
+|----------|------|---------|---------|
+| 4 | 法人管理员 | 全部机构数据 | mllzs01(brchNo=233) |
+| 3 | 分行柜员 | 本机构及下级机构数据 | sjl03(brchNo=233301) |
+
+### 验证流程
 
 ```
-1. 登录后 → list_console_messages → 检查致命错误
-2. 导航到目标页面后 → list_console_messages → 检查ChunkLoadError
-3. CRUD操作后 → list_console_messages → 检查TypeError
-4. 状态流转后 → list_console_messages → 检查所有级别
-5. 测试结束 → 汇总所有控制台错误到验证报告
+1. 账号A(法人管理员)登录 → navigate_page(目标页面) → evaluate_script(提取数据列表) → 截图
+2. new_page → 账号B(分行柜员)登录 → navigate_page(目标页面) → evaluate_script(提取数据列表) → 截图
+3. 对比两个账号的数据范围差异
 ```
 
-### 错误过滤脚本
+### 数据提取脚本
 
 ```javascript
-// 从控制台消息中过滤致命和严重错误
+// evaluate_script: 提取企业客户数据列表
 (() => {
-  // 此脚本需在list_console_messages返回结果后手动分析
-  // 致命错误关键词: TypeError, ReferenceError, SyntaxError
-  // 严重错误关键词: ChunkLoadError, NetworkError
-  // 可忽略: WebSocket, favicon.ico, chrome-extension
-  return '请在list_console_messages输出中按上述关键词过滤';
+    const rows = document.querySelectorAll('.h-datagrid tbody tr');
+    const results = [];
+    rows.forEach((row, index) => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            results.push({
+                row: index + 1,
+                custNo: cells[0]?.textContent?.trim(),
+                custName: cells[1]?.textContent?.trim(),
+                brchNo: cells[cells.length - 1]?.textContent?.trim()
+            });
+        }
+    });
+    return JSON.stringify({ total: results.length, data: results });
 })()
 ```
 
-### 错误与测试结果判定
+### 权限验证
 
-- 出现致命错误（TypeError/ReferenceError）→ 当前步骤判定为FAIL
-- 出现严重错误（ChunkLoadError）→ 需评估是否影响当前测试功能
-- 仅出现可忽略错误 → 不影响PASS判定
+```javascript
+// evaluate_script: 检查当前用户权限信息
+(() => {
+    const vue = document.querySelector('#app').__vue__;
+    const store = vue.$store;
+    const user = store.state.user;
+    return JSON.stringify({
+        userNo: user.userNo,
+        userType: user.userType,
+        brchNo: user.brchNo,
+        legalNo: user.legalNo,
+        optAuths: user.optAuths?.length || 0
+    });
+})()
+```
+
+### 关键发现
+
+- 数据隔离前后端双重保障：前端隐藏菜单 + 后端API返回"权限不足"(retCode=000005)
+- 分行柜员可能完全没有某些模块的菜单权限，无法通过前端访问
+- 可通过 evaluate_script 调用后端 API 验证权限隔离（即使前端无菜单）
+
+---
+
+## 8. 通过前端 Vue 实例调用后端 API
+
+### 问题背景
+
+当需要执行后端操作（如解锁用户、查询数据）但前端界面无对应菜单时，可通过已登录用户的 Vue 实例直接调用后端 API。
+
+### 标准流程
+
+```javascript
+// evaluate_script: 通过 Vue 实例调用后端 API
+(async () => {
+    const vue = document.querySelector('#app').__vue__;
+    const http = vue.$http || vue.$store._vm.$http;
+    const token = vue.$store.state.user?.fwToken || '';
+    
+    const res = await http.post('{api_path}', {
+        // 请求参数
+        fwToken: token
+    });
+    return { retCode: res.data?.retCode, retMsg: res.data?.retMsg, data: res.data?.retData };
+})()
+```
+
+### 常用 API 路径
+
+| API 路径 | 用途 | 请求参数 |
+|----------|------|---------|
+| `/sm/auth/branch/branchAdmin/func_unLockLegalPersonManager` | 解锁管理员 | `{userNo, fwToken}` |
+| `/sm/auth/branchUser/userManager/func_getBranchUserList` | 查询柜员列表 | `{userNo, page, rows}` |
+| `/sm/auth/branch/branchAdmin/func_queryBranchAdminList` | 查询管理员列表 | `{page, rows}` |
+
+### 注意事项
+
+- API 路径可能因银行个性化而不同
+- 需要当前登录用户有对应 API 的权限
+- `fwToken` 从 Vuex store 的 `user` 模块获取
+- 返回值 `retCode="000000"` 表示成功，`"000005"` 表示权限不足
+
+---
+
+## 9. 批量导入弹窗验证
+
+### 验证流程
+
+```
+1. click(批量导入按钮) → wait_for(弹窗) → take_screenshot
+2. evaluate_script(检查弹窗内表格列头) → 验证"是否简单机构"等预期列
+3. click(关闭弹窗) → take_screenshot(确认关闭)
+```
+
+### 弹窗列头验证脚本
+
+```javascript
+// evaluate_script: 检查批量导入弹窗内的表格列头
+(() => {
+    const dialog = document.querySelector('.h-msg-box:visible') || document.querySelector('.h-modal:visible');
+    if (!dialog) return '未找到可见弹窗';
+    const headers = dialog.querySelectorAll('th');
+    const columns = [];
+    headers.forEach(th => {
+        columns.push(th.textContent?.trim());
+    });
+    return JSON.stringify({ columns, hasSimpleBranch: columns.some(c => c.includes('是否简单机构')) });
+})()
+```
+
+### 必输校验验证
+
+```
+1. click(批量复制角色) → wait_for(弹窗)
+2. click(确定) → wait_for(500ms)
+3. evaluate_script(检查校验提示) → 验证必输校验
+4. take_screenshot(记录校验结果)
+```

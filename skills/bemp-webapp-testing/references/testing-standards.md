@@ -1,22 +1,47 @@
 # BEMP 测试用例编写标准
 
+## 基准文档体系
+
+编写测试用例前，应先参考以下基准文档了解系统全貌和测试优先级：
+
+| 文档 | 位置 | 用途 |
+|------|------|------|
+| 网站功能地图 | `references/website-functional-map.md` | 了解6子系统285+页面清单、路由映射、页面关系、业务流程依赖 |
+| 测试范围与优先级矩阵 | `references/test-priority-matrix.md` | 确定测试优先级(P0-P3)、高风险场景、资源分配策略 |
+| P0测试用例基准 | `test-cases/` 目录下各子系统子目录 | 已设计的P0用例(约192条)，作为新用例编写的参考基准 |
+
+**用例编写流程**：功能地图(了解页面) → 优先级矩阵(确定范围) → P0基准用例(参考格式) → 编写新用例
+
 ## 用例编号规则
 
 格式：`TC-{模块缩写}-{三位序号}`
 
 | 模块 | 缩写 | 示例 |
 |------|------|------|
+| 通用/登录 | COMMON | TC-COMMON-001 |
 | 机构管理 | BRANCH | TC-BRANCH-001 |
+| 角色权限 | ROLE | TC-ROLE-001 |
+| 清算管理 | CLEAR | TC-CLEAR-001 |
 | 企业信息报备 | CUSTSIGN | TC-CUSTSIGN-001 |
 | 企业信息报备复核 | SIGNAUDIT | TC-SIGNAUDIT-001 |
 | 企业信息报备记录 | SIGNRECORD | TC-SIGNRECORD-001 |
-| 企业信息在线查询 | ONLINEQRY | TC-ONLINEQRY-001 |
 | 企业客户查询 | CUSTCORP | TC-CUSTCORP-001 |
 | 企业账号同步 | CUSTACCT | TC-CUSTACCT-001 |
+| 审批与记账 | APPROVAL | TC-APPROVAL-001 |
+| 支付管理 | PAYMENT | TC-PAYMENT-001 |
 | 承兑行额度批次 | CREDITBATCH | TC-CREDITBATCH-001 |
 | 承兑行额度明细 | CREDITINFO | TC-CREDITINFO-001 |
 | 承兑行额度复核 | CREDITRECHECK | TC-CREDITRECHECK-001 |
-| 通用/登录 | COMMON | TC-COMMON-001 |
+| 场内-托管 | TRUST | TC-TRUST-001 |
+| 场内-市场交易 | MARKET | TC-MARKET-001 |
+| 场外-承兑 | ACCEPT | TC-ACCEPT-001 |
+| 场外-贴现 | DISCOUNT | TC-DISCOUNT-001 |
+| 场外-质押 | PLEDGE | TC-PLEDGE-001 |
+| 机构管理员管理 | ADMIN | TC-ADMIN-001 |
+| 发票维护 | INVOICE | TC-INVOICE-001 |
+| 合同发票管理 | CONTRACT | TC-CONTRACT-001 |
+| 其他凭证管理 | VOUCHER | TC-VOUCHER-001 |
+| 贴现发票后补 | DISCPOST | TC-DISCPOST-001 |
 
 ## 用例结构
 

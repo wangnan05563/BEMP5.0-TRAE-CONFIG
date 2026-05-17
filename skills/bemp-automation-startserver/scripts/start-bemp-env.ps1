@@ -11,6 +11,17 @@ param(
 
 $originalLocation = Get-Location
 
+function Set-ConsoleEncoding {
+    try {
+        chcp 65001 > $null 2>&1
+    } catch {}
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+}
+
+Set-ConsoleEncoding
+
 function Write-Header {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
@@ -35,80 +46,20 @@ function Write-Error($message) {
     Write-Host "[ERROR] $message" -ForegroundColor Red
 }
 
-function Test-PortInUse {
-    param(
-        [int]$Port,
-        [string[]]$ProcessFilter = @()
-    )
-    try {
-        if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
-            $connections = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-            if ($connections) {
-                $pids = $connections | Select-Object -ExpandProperty OwningProcess -Unique
-                foreach ($pidItem in $pids) {
-                    try {
-                        $proc = Get-Process -Id $pidItem -ErrorAction SilentlyContinue
-                        if ($proc) {
-                            if ($ProcessFilter.Count -eq 0 -or $ProcessFilter -contains $proc.Name) {
-                                return @{ InUse = $true; Pid = $proc.Id; ProcessName = $proc.Name; Port = $Port }
-                            }
-                        }
-                    } catch {}
-                }
-            }
-            return @{ InUse = $false; Pid = 0; ProcessName = ""; Port = $Port }
-        }
-        throw "Get-NetTCPConnection not available"
-    } catch {
-        $result = netstat -ano 2>$null | Select-String ":$Port\s" | Select-String "LISTENING"
-        if ($result) {
-            $line = $result.ToString().Trim()
-            $parts = $line -split '\s+' | Where-Object { $_ -ne "" }
-            if ($parts.Count -ge 5) {
-                $rawPid = $parts[-1]
-                if ($rawPid -match '^\d+$') {
-                    $netPid = [int]$rawPid
-                    try {
-                        $proc = Get-Process -Id $netPid -ErrorAction SilentlyContinue
-                        if ($proc) {
-                            if ($ProcessFilter.Count -eq 0 -or $ProcessFilter -contains $proc.Name) {
-                                return @{ InUse = $true; Pid = $proc.Id; ProcessName = $proc.Name; Port = $Port }
-                            }
-                        }
-                    } catch {}
-                }
-            }
-            return @{ InUse = $true; Pid = 0; ProcessName = "unknown"; Port = $Port }
-        }
-        return @{ InUse = $false; Pid = 0; ProcessName = ""; Port = $Port }
-    }
-}
-
-function Test-ServiceRunning {
-    param(
-        [int[]]$Ports,
-        [string[]]$ProcessNames = @(),
-        [string]$ServiceName = ""
-    )
-    foreach ($port in $Ports) {
-        $check = Test-PortInUse -Port $port -ProcessFilter $ProcessNames
-        if ($check.InUse) {
-            return @{
-                Running     = $true
-                Port        = $port
-                Pid         = $check.Pid
-                ProcessName = $check.ProcessName
-                ServiceName = $ServiceName
-            }
-        }
-    }
-    return @{ Running = $false; Port = 0; Pid = 0; ProcessName = ""; ServiceName = $ServiceName }
-}
-
 function Test-PortListening {
     param([int]$port)
-    $check = Test-PortInUse -Port $port
-    return $check.InUse
+    try {
+        $ipv4 = Get-NetTCPConnection -LocalPort $port -AddressFamily IPv4 -State Listen -ErrorAction SilentlyContinue
+        $ipv6 = Get-NetTCPConnection -LocalPort $port -AddressFamily IPv6 -State Listen -ErrorAction SilentlyContinue
+        return ($null -ne $ipv4 -and $ipv4.Count -gt 0) -or ($null -ne $ipv6 -and $ipv6.Count -gt 0)
+    } catch {
+        try {
+            $result = netstat -ano | findstr ":$port " | findstr "LISTENING"
+            return ($null -ne $result -and $result -ne "")
+        } catch {
+            return $false
+        }
+    }
 }
 
 function Stop-ServiceByPort {
@@ -164,38 +115,9 @@ function Set-TerminalTitle {
 
 function Show-TerminalWarning {
     Write-Host ""
-    Write-Host "⚠️  IMPORTANT: This terminal will be occupied by the service." -ForegroundColor Yellow
+    Write-Host "[!] IMPORTANT: This terminal will be occupied by the service." -ForegroundColor Yellow
     Write-Host "   Do NOT run other commands in this terminal after starting the service." -ForegroundColor Yellow
     Write-Host "   Use a separate terminal for status checks or other operations." -ForegroundColor Gray
-    Write-Host ""
-}
-
-function Show-AlreadyRunning {
-    param(
-        [string]$ServiceName,
-        [int]$Port,
-        [int]$Pid,
-        [string]$ProcessName
-    )
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host "  $ServiceName 已在运行" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "  端口:     $Port" -ForegroundColor Gray
-    Write-Host "  进程名:   $ProcessName" -ForegroundColor Gray
-    if ($Pid -gt 0) {
-        Write-Host "  PID:      $Pid" -ForegroundColor Gray
-    }
-    Write-Host ""
-    Write-Host "  如需重启，请使用 -ForceRestart 参数:" -ForegroundColor Yellow
-    Write-Host "    .\start-bemp-env.ps1 -Service $($ServiceName.ToLower()) -ForceRestart" -ForegroundColor White
-    Write-Host ""
-    Write-Host "  或手动停止进程:" -ForegroundColor Yellow
-    if ($Pid -gt 0) {
-        Write-Host "    taskkill /PID $Pid /F" -ForegroundColor White
-    }
-    Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -225,12 +147,26 @@ function Start-RedisService {
     
     $executable = $config.executable
     $serviceName = $config.name
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
     
-    # 进程预检：在设置终端状态前先检查服务是否已运行
-    $preCheck = Test-ServiceRunning -Ports $checkPorts -ServiceName $serviceName
-    if ($preCheck.Running -and -not $ForceRestart) {
-        Show-AlreadyRunning -ServiceName $serviceName -Port $preCheck.Port -Pid $preCheck.Pid -ProcessName $preCheck.ProcessName
+    # 设置终端窗口标题
+    Set-TerminalTitle "BEMP - Redis (6379)"
+    
+    Show-TerminalWarning
+    
+    Write-Step "Checking $serviceName status..."
+    
+    $isRunning = $false
+    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
+    foreach ($port in $checkPorts) {
+        if (Test-PortListening -port $port) {
+            $isRunning = $true
+            break
+        }
+    }
+    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
+    
+    if ($isRunning -and -not $ForceRestart) {
+        Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
     
@@ -239,13 +175,6 @@ function Start-RedisService {
             Stop-ServiceByPort -port $port -serviceName $serviceName
         }
     }
-    
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - Redis (6379)"
-    
-    Show-TerminalWarning
-    
-    Write-Step "Checking $serviceName status..."
     
     if (-not (Test-Path $executable)) {
         Write-Error "$serviceName executable not found: $executable"
@@ -279,12 +208,26 @@ function Start-ZooKeeperService {
 
     $executable = $config.executable
     $serviceName = $config.name
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
 
-    # 进程预检：在设置终端状态前先检查服务是否已运行
-    $preCheck = Test-ServiceRunning -Ports $checkPorts -ProcessNames @("java", "java.exe") -ServiceName $serviceName
-    if ($preCheck.Running -and -not $ForceRestart) {
-        Show-AlreadyRunning -ServiceName $serviceName -Port $preCheck.Port -Pid $preCheck.Pid -ProcessName $preCheck.ProcessName
+    # 设置终端窗口标题
+    Set-TerminalTitle "BEMP - ZooKeeper (2181)"
+    
+    Show-TerminalWarning
+
+    Write-Step "Checking $serviceName status..."
+    
+    $isRunning = $false
+    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
+    foreach ($port in $checkPorts) {
+        if (Test-PortListening -port $port) {
+            $isRunning = $true
+            break
+        }
+    }
+    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
+    
+    if ($isRunning -and -not $ForceRestart) {
+        Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
     
@@ -293,13 +236,6 @@ function Start-ZooKeeperService {
             Stop-ServiceByPort -port $port -serviceName $serviceName
         }
     }
-
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - ZooKeeper (2181)"
-    
-    Show-TerminalWarning
-
-    Write-Step "Checking $serviceName status..."
     
     if (-not (Test-Path $executable)) {
         Write-Error "$serviceName executable not found: $executable"
@@ -319,6 +255,8 @@ function Start-ZooKeeperService {
     Write-Host ""
     
     Set-Location $zkDir
+    
+    $env:JAVA_TOOL_OPTIONS = "-Dfile.encoding=UTF-8"
     
     # Re-set terminal title before process starts
     Set-TerminalTitle "BEMP - ZooKeeper (2181)"
@@ -350,21 +288,35 @@ function Start-SpringBootService {
     $launchMode = $config.launchMode
     $autoCompile = $config.autoCompile
     $mavenCommand = $config.mavenCommand
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
 
-    # 进程预检：在设置终端状态前先检查服务是否已运行
-    $preCheck = Test-ServiceRunning -Ports $checkPorts -ProcessNames @("java", "java.exe") -ServiceName $serviceName
-    if ($preCheck.Running -and -not $ForceRestart) {
-        Show-AlreadyRunning -ServiceName $serviceName -Port $preCheck.Port -Pid $preCheck.Pid -ProcessName $preCheck.ProcessName
+    # 设置终端窗口标题
+    Set-TerminalTitle "BEMP - SpringBoot (8010)"
+    
+    Show-TerminalWarning
+
+    Write-Step "Checking $serviceName status..."
+
+    $isRunning = $false
+    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
+    foreach ($port in $checkPorts) {
+        if (Test-PortListening -port $port) {
+            $isRunning = $true
+            break
+        }
+    }
+    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
+
+    if ($isRunning -and -not $ForceRestart) {
+        Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
 
-    # Check for port conflicts with non-SpringBoot processes before starting
+    # Check for port conflicts with other services before starting
     Write-Step "Checking for port conflicts..."
     $conflicts = @()
     foreach ($port in $checkPorts) {
         $conflict = Test-PortConflict -port $port -serviceName $serviceName
-        if ($conflict.HasConflict -and $conflict.ProcessName -ne "java" -and $conflict.ProcessName -ne "java.exe") {
+        if ($conflict.HasConflict -and $conflict.ProcessName -ne "java") {
             $conflicts += @{ Port = $port; Process = $conflict.ProcessName; PID = $conflict.ProcessId }
         }
     }
@@ -372,7 +324,7 @@ function Start-SpringBootService {
     if ($conflicts.Count -gt 0 -and -not $ForceRestart) {
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Red
-        Write-Host "  ⚠️  PORT CONFLICT DETECTED" -ForegroundColor Red
+        Write-Host "  [!] PORT CONFLICT DETECTED" -ForegroundColor Red
         Write-Host "========================================" -ForegroundColor Red
         Write-Host ""
         foreach ($c in $conflicts) {
@@ -392,12 +344,11 @@ function Start-SpringBootService {
         }
     }
 
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - SpringBoot (8010)"
-    
-    Show-TerminalWarning
-
-    Write-Step "Checking $serviceName status..."
+    Write-Step "Starting $serviceName..."
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  $serviceName Startup" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
 
     # Step 1: Check if project path exists
@@ -528,10 +479,10 @@ function Start-SpringBootWithDebug {
         Write-Host "  2. Press F5 (or click Run → Start Debugging)" -ForegroundColor White
         Write-Host ""
         Write-Host "Debug Features:" -ForegroundColor Cyan
-        Write-Host "  ✓ Auto-detect compilation status" -ForegroundColor Green
-        Write-Host "  ✓ Auto-compile if needed" -ForegroundColor Green
-        Write-Host "  ✓ Start SpringBoot with debugger attached" -ForegroundColor Green
-        Write-Host "  ✓ Hot-reload support enabled" -ForegroundColor Green
+        Write-Host "  [v] Auto-detect compilation status" -ForegroundColor Green
+        Write-Host "  [v] Auto-compile if needed" -ForegroundColor Green
+        Write-Host "  [v] Start SpringBoot with debugger attached" -ForegroundColor Green
+        Write-Host "  [v] Hot-reload support enabled" -ForegroundColor Green
         Write-Host ""
 
     } catch {
@@ -613,6 +564,9 @@ function Start-SpringBootInTerminal {
     }
 
     $javaArgs += $jvmOptions.Split(' ')
+    $javaArgs += "-Dfile.encoding=UTF-8"
+    $javaArgs += "-Dsun.stdout.encoding=UTF-8"
+    $javaArgs += "-Dsun.stderr.encoding=UTF-8"
     $javaArgs += "-cp"
     $javaArgs += "$cpClasses;$cpLib"
     $javaArgs += $mainClass
@@ -637,13 +591,36 @@ function Start-FrontendService {
     $nodePath = $globalPaths.nodePath
     $serviceName = $config.name
     $nodeMemoryLimit = $config.nodeMemoryLimit
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
 
-    # 进程预检：在设置终端状态前先检查前端服务是否已运行
-    # 前端端口可能被 node.exe 或其他进程占用，使用进程名过滤确保精确匹配
-    $preCheck = Test-ServiceRunning -Ports $checkPorts -ProcessNames @("node", "node.exe") -ServiceName $serviceName
-    if ($preCheck.Running -and -not $ForceRestart) {
-        Show-AlreadyRunning -ServiceName $serviceName -Port $preCheck.Port -Pid $preCheck.Pid -ProcessName $preCheck.ProcessName
+    # 设置终端窗口标题
+    Set-TerminalTitle "BEMP - Frontend (8091)"
+    
+    Show-TerminalWarning
+
+    Write-Step "Checking $serviceName status..."
+    
+    $isRunning = $false
+    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
+    foreach ($port in $checkPorts) {
+        if (Test-PortListening -port $port) {
+            # 验证是否真的是前端服务（检查进程名）
+            $processIds = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+            foreach ($processId in $processIds) {
+                try {
+                    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+                    if ($process -and ($process.Name -eq "node" -or $process.Name -eq "node.exe")) {
+                        $isRunning = $true
+                        break
+                    }
+                } catch {}
+            }
+            if ($isRunning) { break }
+        }
+    }
+    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
+    
+    if ($isRunning -and -not $ForceRestart) {
+        Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
     
@@ -652,13 +629,12 @@ function Start-FrontendService {
             Stop-ServiceByPort -port $port -serviceName $serviceName
         }
     }
-
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - Frontend (8091)"
     
-    Show-TerminalWarning
-
-    Write-Step "Checking $serviceName status..."
+    Write-Step "Starting $serviceName..."
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  $serviceName Startup" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
     
     # Step 1: Check if project path exists
@@ -886,44 +862,10 @@ if ($Service -ne "") {
 Show-Status -config $config
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Red
-Write-Host "  ⚠️  IMPORTANT WARNINGS" -ForegroundColor Red
-Write-Host "========================================" -ForegroundColor Red
-Write-Host ""
-Write-Host "1. Each service MUST run in a SEPARATE IDE terminal" -ForegroundColor Yellow
-Write-Host "   ❌ Don't start multiple services in the same terminal" -ForegroundColor Red
-Write-Host "   ✅ Use a new terminal for each service" -ForegroundColor Green
-Write-Host ""
-Write-Host "2. Once started, DON'T run other commands in that terminal" -ForegroundColor Yellow
-Write-Host "   The terminal is occupied by the service process" -ForegroundColor Gray
-Write-Host ""
-Write-Host "3. Use '-Status' in a separate terminal to check service status" -ForegroundColor Yellow
-Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Startup Instructions" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Step 1: Open a NEW terminal for each service:" -ForegroundColor Green
-Write-Host ""
-Write-Host "  Terminal 1 - Redis:" -ForegroundColor Cyan
-Write-Host "    .\start-bemp-env.ps1 -Service redis" -ForegroundColor White
-Write-Host ""
-Write-Host "  Terminal 2 - ZooKeeper:" -ForegroundColor Cyan
-Write-Host "    .\start-bemp-env.ps1 -Service zookeeper" -ForegroundColor White
-Write-Host ""
-Write-Host "  Terminal 3 - SpringBoot (Debug Mode - Press F5):" -ForegroundColor Cyan
-Write-Host "    .\start-bemp-env.ps1 -Service springboot" -ForegroundColor White
-Write-Host ""
-Write-Host "  Terminal 4 - Frontend:" -ForegroundColor Cyan
-Write-Host "    .\start-bemp-env.ps1 -Service frontend" -ForegroundColor White
-Write-Host "    .\start-bemp-env.ps1 -Service frontend -QuickStart (skip dependency check)" -ForegroundColor Gray
-Write-Host ""
-Write-Host "Step 2: Check status (in a separate terminal):" -ForegroundColor Green
-Write-Host "    .\start-bemp-env.ps1 -Status" -ForegroundColor Gray
-Write-Host ""
-Write-Host "Step 3: Force restart if needed:" -ForegroundColor Green
-Write-Host "    .\start-bemp-env.ps1 -Service <name> -ForceRestart" -ForegroundColor Gray
-Write-Host ""
+Write-Host "  每个服务需在独立终端启动，详见 SKILL.md" -ForegroundColor Yellow
+Write-Host "  命令: .\start-bemp-env.ps1 -Service <redis|zookeeper|springboot|frontend> [-QuickStart] [-ForceRestart]" -ForegroundColor White
+Write-Host "  状态: .\start-bemp-env.ps1 -Status" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor Cyan
 
 Set-Location $originalLocation

@@ -1,0 +1,109 @@
+{
+  "name": "BEMP SIT测试用例Excel模板配置",
+  "version": "1.0.0",
+  "description": "定义Excel格式SIT测试用例模板的列映射和样式规范，支持动态适配不同模板格式",
+  "defaultTemplate": "测试用例.xlsx",
+  "dataStartRow": 7,
+  "columnMapping": {
+    "id": {
+      "column": "B",
+      "header": "用例编号",
+      "align": "center",
+      "type": "number"
+    },
+    "level1": {
+      "column": "C",
+      "header": "一级模块",
+      "align": "center",
+      "type": "string"
+    },
+    "level2": {
+      "column": "D",
+      "header": "二级模块",
+      "align": "center",
+      "type": "string"
+    },
+    "level3": {
+      "column": "E",
+      "header": "三级模块",
+      "align": "center",
+      "type": "string"
+    },
+    "level4": {
+      "column": "F",
+      "header": "四级模块",
+      "align": "center",
+      "type": "string"
+    },
+    "precondition": {
+      "column": "G",
+      "header": "前置条件",
+      "align": "left",
+      "type": "string"
+    },
+    "content": {
+      "column": "H",
+      "header": "测试用例内容",
+      "align": "left",
+      "type": "string"
+    },
+    "nature": {
+      "column": "I",
+      "header": "用例性质",
+      "align": "center",
+      "type": "enum",
+      "enumValues": ["正例", "反例", "边界"]
+    },
+    "expected": {
+      "column": "J",
+      "header": "预期结果",
+      "align": "left",
+      "type": "string"
+    },
+    "actual": {
+      "column": "K",
+      "header": "实际结果",
+      "align": "left",
+      "type": "string",
+      "writable": false
+    },
+    "tester": {
+      "column": "L",
+      "header": "测试人员",
+      "align": "center",
+      "type": "string",
+      "writable": false
+    },
+    "status": {
+      "column": "M",
+      "header": "测试状态",
+      "align": "center",
+      "type": "string",
+      "writable": false
+    },
+    "remark": {
+      "column": "T",
+      "header": "备注",
+      "align": "left",
+      "type": "string",
+      "writable": false
+    }
+  },
+  "styles": {
+    "font": {
+      "name": "宋体",
+      "size": 9
+    },
+    "border": "thin",
+    "rowHeight": 45,
+    "alignment": {
+      "horizontal": "center",
+      "vertical": "center",
+      "wrapText": true
+    }
+  },
+  "customTemplates": {
+    "description": "用户可在此定义自定义模板配置，格式与columnMapping一致",
+    "templates": []
+  }
+}

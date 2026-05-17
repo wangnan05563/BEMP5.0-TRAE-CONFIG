@@ -1,0 +1,16 @@
+{
+  "bankName": "hnnxbank",
+  "description": "BEMP 前端代码审查配置 — 切换 bankName 即可适配不同银行",
+  "availableBanks": [
+    "hnnxbank", "huisbank", "jinzbank", "huzbank",
+    "hxbank", "yibbank", "tianjbank", "shaoxbank",
+    "qinnbank", "nmgbank", "hlsecurity", "fxbank"
+  ],
+  "paths": {
+    "apiIndexTemplate": "frontend/src/api/bank/{bankName}Index.js",
+    "vueDirTemplate": "frontend/src/views/bizViews/banks/{bankName}",
+    "zhCNTemplate": "frontend/src/views/bizViews/banks/{bankName}/locale/lang/zh-CN.js",
+    "enUSTemplate": "frontend/src/views/bizViews/banks/{bankName}/locale/lang/en-US.js",
+    "componentDirTemplate": "frontend/src/views/bizViews/banks/{bankName}/components"
+  }
+}

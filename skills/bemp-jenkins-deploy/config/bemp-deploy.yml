@@ -1,43 +1,35 @@
-# BEMP 部署配置参考文档
-# 版本: v5.0.0 (配置内联版)
-# 说明: 本文件仅作为配置参考文档，不参与运行时加载
-#       所有配置直接定义在 Jenkinsfile 的 environment 块中
-#       修改配置请直接编辑 assets/Jenkinsfile-served 或 assets/Jenkinsfile-frontend
+# BEMP 部署配置参考 | v6.0.0
+# 仅作参考文档，不参与运行时加载。修改配置请直接编辑 Jenkinsfile 的 environment 块。
 
-# ==================== 后端配置 (Jenkinsfile-served) ====================
+# ==================== 后端 (Jenkinsfile-served) ====================
 
-# ---- 编码设置 ----
 encoding:
   JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
   LANG: "zh_CN.UTF-8"
 
-# ---- Git配置 ----
 git:
   GIT_REPO_URL: "https://gitlab.hundsun.com/bemp/banks.git"
   GIT_CREDENTIALS_ID: "gitlab-credentials"
   GIT_RETRY_COUNT: "3"
 
-# ---- Maven构建配置 ----
 maven:
   JAVA_HOME_BUILD: "D:/code/Java/jdk1.8.0_341"
   MAVEN_HOME: "D:/code/apache-maven-3.6.3"
   MAVEN_SETTINGS: "D:/code/apache-maven-3.6.3/conf/settings-Artifactory.xml"
   POM_PATH: "pom.xml"
 
-# ---- SonarQube配置 ----
 sonar:
   JAVA_HOME_SONAR: "D:/code/Java/jdk-25.0.1"
   SONAR_SCANNER_HOME: "D:/code/sonar/sonar-scanner-8.0.1.36819"
   SONAR_SERVER_URL: "http://localhost:9000"
   SONAR_PROJECT_KEY: "bemp-ext-hnnxbank"
   SONAR_PROJECT_NAME: "BEMP Ext HNNXBank"
-  SONAR_TOKEN: "squ_xxx"
+  SONAR_TOKEN: "credentials('bemp-sonar-token')"
   SONAR_SOURCES: "hnnxbank-served-deploy/src/main/java,hnnxbank-served-core/src/main/java,hnnxbank-served-facade/src/main/java"
   SONAR_JAVA_BINARIES: "hnnxbank-served-deploy/target/classes,hnnxbank-served-core/target/classes,hnnxbank-served-facade/target/classes"
   SONAR_JAVA_LIBRARIES: "hnnxbank-served-deploy/target/lib"
   SONAR_EXCLUSIONS: "**/test/**,**/generated/**,**/*.xml"
 
-# ---- 部署配置 ----
 deploy:
   CURRENT_WAR: "D:/code/QJ/bempDeploy/bemp-served"
   SOURCE_WAR: "hnnxbank-served-deploy/target/bemp-served"
@@ -45,13 +37,11 @@ deploy:
   BACKUP_DIR: "D:/code/QJ/bempDeploy/backup"
   MAX_BACKUPS: "3"
 
-# ---- 配置文件替换 ----
 config_replace:
   CONFIG_REPLACE_WORKSPACE: "D:/code/QJ/BEMP5.0DEV/banks/ext-hnnxbank"
   CONFIG_REPLACE_TARGET_DIR: "D:/code/QJ/bempDeploy/bemp-served/WEB-INF/classes"
   CONFIG_REPLACE_FILES: "application.properties"
 
-# ---- 依赖服务 ----
 services:
   redis:
     REDIS_EXE: "D:/code/Redis-x64-5.0.14.1/redis-server.exe"
@@ -68,38 +58,31 @@ services:
     BEMP_SERVED_TIMEOUT: "600"
     JVM_OPTS: "-server -Xms2048m -Xmx4096m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=../tmp/heap.dump"
 
-# ==================== 前端配置 (Jenkinsfile-frontend) ====================
+# ==================== 前端 (Jenkinsfile-frontend) ====================
 
 frontend:
-  # ---- Node.js配置 ----
   node:
     NODE_HOME: "D:/code/nodejs14"
     NODE_EXE: "D:/code/nodejs14/node.exe"
     WORK_DIR: "."
-
-  # ---- 部署配置 ----
   deploy:
     CURRENT_WAR: "D:/code/nginx-1.12.2/html/bemp-web"
     SOURCE_WAR: "bemp-web"
     TARGET_DIR: "D:/code/nginx-1.12.2/html"
     BACKUP_DIR: "D:/code/nginx-1.12.2/html/backup"
     MAX_BACKUPS: "3"
-
-  # ---- Nginx配置 ----
   nginx:
     NGINX_EXE: "D:/code/nginx-1.12.2/nginx.exe"
     NGINX_HOME: "D:/code/nginx-1.12.2"
     NGINX_PORT: "8091"
     NGINX_TIMEOUT: "60"
     HEALTH_CHECK_URL: "http://localhost:8091"
-
-  # ---- SonarQube配置 ----
   sonar:
     JAVA_HOME_SONAR: "D:/code/Java/jdk-25.0.1"
     SONAR_SCANNER_HOME: "D:/code/sonar/sonar-scanner-8.0.1.6346-windows-x64"
     SONAR_SERVER_URL: "http://localhost:9000"
     SONAR_PROJECT_KEY: "bemp-frontend"
     SONAR_PROJECT_NAME: "BEMP Frontend"
-    SONAR_TOKEN: "squ_e3654bfc73cb2e37b7e6cf33027ab3f9576f0aad"
+    SONAR_TOKEN: "credentials('bemp-sonar-token')"
     SONAR_SOURCES: "frontend/src"
     SONAR_EXCLUSIONS: "**/node_modules/**,**/*.spec.ts,**/*.test.ts"

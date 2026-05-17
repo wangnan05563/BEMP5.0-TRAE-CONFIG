@@ -47,7 +47,7 @@ BEMP Jenkins Pipeline Deployer 是一个专为河南农信BEMP项目设计的Jen
 
 ---
 
-## 目录结构（v5.0.0）
+## 目录结构（v6.0.0）
 
 ```
 bemp-jenkins-deploy/
@@ -56,12 +56,11 @@ bemp-jenkins-deploy/
 │
 ├── config/                     # 配置目录
 │   ├── bemp-deploy.yml        # 配置参考文档（非运行时加载）
-│   ├── pipeline-parameters.yml# 构建参数定义参考
 │   └── README.md              # 配置使用说明
 │
 ├── assets/                     # 核心资源
-│   ├── Jenkinsfile-served     # 后端Pipeline脚本（v5.0.0 配置内联版）
-│   ├── Jenkinsfile-frontend   # 前端Pipeline脚本（v5.0.0 配置内联版）
+│   ├── Jenkinsfile-served     # 后端Pipeline脚本
+│   ├── Jenkinsfile-frontend   # 前端Pipeline脚本
 │   └── sonar-project.properties # SonarQube模板
 │
 ├── scripts/                    # 辅助脚本
@@ -71,7 +70,6 @@ bemp-jenkins-deploy/
 │
 └── docs/                       # 详细文档
     ├── index.md               # 文档导航索引
-    ├── getting-started/        # 快速入门
     ├── user-guide/             # 用户指南
     ├── troubleshooting/        # 故障排查
     ├── architecture/           # 架构文档（本文档）
@@ -93,7 +91,6 @@ bemp-jenkins-deploy/
 | 配置文件 | 职责 | 运行时加载 |
 |----------|------|-----------|
 | bemp-deploy.yml | 记录所有内联配置项，新环境部署参考 | 否 |
-| pipeline-parameters.yml | 构建参数定义参考 | 否 |
 
 **设计原则**:
 - 配置内联：所有配置直接定义在Jenkinsfile的environment块
@@ -237,4 +234,4 @@ cp assets/Jenkinsfile-served assets/Jenkinsfile-served-prod
 
 ---
 
-*最后更新: 2026-04-26*
+*最后更新: 2026-05-17*

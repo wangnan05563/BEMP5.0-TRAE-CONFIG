@@ -1,19 +1,157 @@
 {
-    "description": "SQL执行策略配置 - 控制执行行为、超时、回退等策略",
-    "version": "1.0.0",
-    "lastUpdate": "2026-05-13",
+    "description": "SQL执行策略配置 - 控制执行行为、超时、回退等策略（支持Oracle和MySQL）",
+    "version": "2.3.0",
+    "lastUpdate": "2026-05-16",
     "execution": {
-        "ddlTimeout": 60,
-        "dmlTimeout": 30,
-        "queryTimeout": 120,
-        "maxRetries": 3,
-        "retryInterval": 5,
-        "autoCommit": false,
-        "dryRun": false,
-        "affectRowLimit": 10000,
-        "statementSeparator": ";",
-        "skipEmptyLines": true,
-        "skipCommentLines": true
+        "oracle": {
+            "ddlTimeout": 60,
+            "dmlTimeout": 30,
+            "queryTimeout": 120,
+            "maxRetries": 3,
+            "retryInterval": 5,
+            "autoCommit": false,
+            "dryRun": false,
+            "affectRowLimit": 10000,
+            "statementSeparator": ";",
+            "skipEmptyLines": true,
+            "skipCommentLines": true,
+            "dmlViaMcp": false,
+            "ddlViaMcp": false
+        },
+        "mysql": {
+            "ddlTimeout": 60,
+            "dmlTimeout": 30,
+            "queryTimeout": 120,
+            "maxRetries": 3,
+            "retryInterval": 5,
+            "autoCommit": true,
+            "dryRun": false,
+            "affectRowLimit": 10000,
+            "statementSeparator": ";",
+            "skipEmptyLines": true,
+            "skipCommentLines": true,
+            "dmlViaMcp": true,
+            "ddlViaMcp": true,
+            "safeExecutionMode": {
+                "description": "安全执行模式 - 使用事务包裹DML操作，验证后提交，失败自动回滚",
+                "enabled": true,
+                "startTransaction": "START TRANSACTION",
+                "commitOnVerifyPass": true,
+                "rollbackOnFailure": true,
+                "rollbackOnVerifyFail": true,
+                "applicableTo": ["DML"],
+                "notApplicableTo": ["DDL", "SELECT"],
+                "note": "DDL语句在MySQL中会隐式提交，无法被ROLLBACK回滚"
+            },
+            "transactionControl": {
+                "enabled": false,
+                "startTransaction": "START TRANSACTION",
+                "commit": "COMMIT",
+                "rollback": "ROLLBACK"
+            }
+        }
+    },
+    "autoDetection": {
+        "description": "数据库类型自动检测策略 - 当db-config.json中defaultDbType为auto时启用",
+        "enabled": true,
+        "timeoutPerProbeSeconds": 10,
+        "oracleProbeTool": "mcp_oracle-mcp_list_schemas",
+        "mysqlProbeSql": "SELECT 1 AS db_type_probe",
+        "onBothAvailable": "usePriority",
+        "onNeitherAvailable": "abort",
+        "cacheDetectionResult": true,
+        "note": "自动检测通过探测MCP工具可用性来判断数据库类型，不依赖配置文件中的连接参数"
+    },
+    "versionDetection": {
+        "description": "数据库版本检测策略 - 连接建立后自动检测数据库版本，用于特性兼容性判断",
+        "enabled": true,
+        "oracleVersionQuery": "SELECT BANNER AS version FROM V$VERSION WHERE ROWNUM = 1",
+        "mysqlVersionQuery": "SELECT VERSION() AS version",
+        "mysqlSqlModeQuery": "SELECT @@sql_mode AS sql_mode",
+        "warnOnUnsupportedVersion": true,
+        "blockOnIncompatibleFeature": true,
+        "note": "版本检测结果用于与version-compat.json中的兼容性矩阵比对，自动调整可用特性"
+    },
+    "batchOperation": {
+        "description": "批量操作策略 - 支持多脚本顺序执行、进度跟踪、部分失败处理",
+        "enabled": true,
+        "maxBatchSize": 20,
+        "stopOnFailure": true,
+        "continueOnFailure": false,
+        "executionOrder": ["ddl", "dml", "config"],
+        "safeModeForBatch": true,
+        "generateBatchReport": true,
+        "progressTracking": true,
+        "batchRollbackStrategy": "all_or_nothing",
+        "note": "batchRollbackStrategy: all_or_nothing表示任一脚本失败则回退所有已执行的DML；best_effort表示仅回退失败脚本"
+    },
+    "encodingCheck": {
+        "description": "编码检查与初始化策略 - 解决中文乱码问题",
+        "enabled": true,
+        "checkBeforeExecution": true,
+        "initEncodingOnConnect": true,
+        "oracle": {
+            "initSqls": [
+                "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS'",
+                "ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF'",
+                "ALTER SESSION SET NLS_DATE_LANGUAGE = 'AMERICAN'",
+                "ALTER SESSION SET NLS_LANGUAGE = 'AMERICAN'"
+            ],
+            "verifySql": "SELECT VALUE FROM NLS_SESSION_PARAMETERS WHERE PARAMETER = 'NLS_DATE_FORMAT'",
+            "nlsLangEnvVar": "AMERICAN_AMERICA.AL32UTF8",
+            "note": "NLS_LANG需在MCP服务端启动前设置，ALTER SESSION仅影响当前会话的日期格式"
+        },
+        "mysql": {
+            "initSqls": [
+                "SET NAMES utf8mb4",
+                "SET CHARACTER_SET_CLIENT = utf8mb4",
+                "SET CHARACTER_SET_CONNECTION = utf8mb4",
+                "SET CHARACTER_SET_RESULTS = utf8mb4"
+            ],
+            "verifySql": "SELECT @@character_set_results AS results_charset",
+            "expectedCharset": "utf8mb4",
+            "note": "每次MCP连接后应先执行SET NAMES utf8mb4，确保会话编码正确"
+        },
+        "terminal": {
+            "codePage": 65001,
+            "initCommands": [
+                "chcp 65001 > $null 2>&1",
+                "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
+                "[Console]::InputEncoding = [System.Text.Encoding]::UTF8",
+                "$OutputEncoding = [System.Text.Encoding]::UTF8"
+            ],
+            "note": "Windows PowerShell终端默认使用GBK(936)，需切换为UTF-8(65001)"
+        }
+    },
+    "cliExecution": {
+        "description": "命令行执行策略 - Oracle DML/DDL通过sqlplus执行，MySQL CLI作为备选",
+        "oracle": {
+            "enabled": true,
+            "tool": "sqlplus",
+            "script": "scripts/execute-oracle-sql.ps1",
+            "autoSetNlsLang": true,
+            "silenceMode": true,
+            "errorPatterns": ["ORA-\\d{5}", "SP2-\\d{4}"],
+            "note": "Oracle MCP仅支持SELECT，DML/DDL必须通过sqlplus命令行执行"
+        },
+        "mysql": {
+            "enabled": true,
+            "tool": "mysql",
+            "script": "scripts/execute-mysql-sql.ps1",
+            "defaultCharset": "utf8mb4",
+            "errorPatterns": ["ERROR \\d{4}"],
+            "note": "MySQL MCP已支持DML/DDL，CLI作为大数据量脚本或MCP不可用时的备选方案"
+        }
+    },
+    "connectionKeepAlive": {
+        "description": "连接保活与自动重连配置 - 防止长时间操作时连接断开",
+        "enabled": true,
+        "intervalSeconds": 300,
+        "checkSql": "SELECT 1",
+        "maxReconnectAttempts": 3,
+        "reconnectIntervalSeconds": 5,
+        "reconnectableErrorCodes": [2006, 2013, 1040],
+        "note": "intervalSeconds应小于MySQL的wait_timeout（默认28800秒=8小时）"
     },
     "preCheck": {
         "enabled": true,
@@ -23,7 +161,13 @@
         "checkTableExists": true,
         "checkAffectRows": true,
         "affectRowWarningThreshold": 1000,
-        "affectRowAbortThreshold": 10000
+        "affectRowAbortThreshold": 10000,
+        "mysql": {
+            "checkEngine": true,
+            "checkCharset": true,
+            "checkAutoIncrement": true,
+            "checkSqlCompatibility": true
+        }
     },
     "verification": {
         "enabled": true,
@@ -32,7 +176,12 @@
         "verifyInsertData": true,
         "verifyUpdateData": true,
         "verifyDeleteData": true,
-        "snapshotBeforeExecute": true
+        "snapshotBeforeExecute": true,
+        "mysql": {
+            "verifyEngine": false,
+            "verifyCharset": false,
+            "verifyAutoIncrement": true
+        }
     },
     "rollback": {
         "strategy": "auto",
@@ -41,7 +190,13 @@
         "generateRollbackScript": true,
         "rollbackOnFailure": true,
         "rollbackOnVerifyFail": true,
-        "maxRollbackRetries": 2
+        "maxRollbackRetries": 2,
+        "mysql": {
+            "useTransactionRollback": true,
+            "cascadeDrop": false,
+            "preferRollbackOverScript": true,
+            "rollbackPriorityDescription": "安全执行模式下优先使用ROLLBACK回滚事务，仅普通模式使用回退SQL脚本"
+        }
     },
     "logging": {
         "level": "INFO",
@@ -49,7 +204,9 @@
         "logVerification": true,
         "logRollback": true,
         "logToFile": false,
-        "logFilePath": "logs/db-operator/"
+        "logFilePath": "logs/db-operator/",
+        "includeDbType": true,
+        "logKeepAlive": true
     },
     "levelDescriptions": {
         "statement": "单语句回退 - 仅回退失败的SQL语句",
