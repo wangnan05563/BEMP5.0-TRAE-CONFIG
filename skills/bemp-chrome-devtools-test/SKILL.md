@@ -35,17 +35,29 @@ triggers:
 ```
 bemp-chrome-devtools-test/
 ├── SKILL.md                             本文件（执行框架 + 加载指引）
-├── config/bemptest-config.json          环境/账号/超时/选择器
+├── config/bemptest-config.json          环境/账号/超时/选择器/输出路径
 ├── references/
 │   ├── execution-checklist.md           分阶段检查清单（含快速模式）
 │   ├── common-pitfalls.md               已知陷阱 + 自动检测脚本
 │   ├── tool-mapping.md                  CDP工具映射 + 片段库
 │   ├── advanced-workflows.md            实战经验与关键发现
-│   └── output-standards.md              报告格式/PASS-FAIL标准
+│   └── output-standards.md              报告格式/PASS-FAIL标准/产出管理
 ├── assets/
 │   ├── verification-report-template.md  报告模板
 │   └── test-step-template.md            单步骤模板
-└── scripts/organize-screenshots.ps1    截图归档
+└── scripts/organize-screenshots.ps1     截图归档（旧版，保留兼容）
+
+aotutests-devtools/                       项目根目录下的统一输出目录
+├── index.json                            全局索引（元数据记录）
+├── manage-index.ps1                      索引管理脚本
+├── organize-screenshots.ps1              截图归档脚本（新版）
+├── cleanup-old-tests.ps1                 过期内容清理脚本
+├── reports/{日期}/                        验证报告
+├── screenshots/
+│   ├── _incoming/                        验证过程中临时截图
+│   └── {日期}/{任务ID}/                  归档截图
+├── console-logs/{日期}/                  控制台日志
+└── archives/                             过期归档暂存（清理前缓冲）
 ```
 
 ---
@@ -108,19 +120,30 @@ bemp-chrome-devtools-test/
 
 **重试上限**：同一操作最多 2 次。连续 3 次失败 → BLOCKED。
 
-### 第五步：生成验证报告
+### 第五步：生成验证报告与归档
 
 详见 [output-standards.md](references/output-standards.md)。使用 [verification-report-template.md](assets/verification-report-template.md) 模板。
 
-必须包含：步骤+状态(PASS/FAIL/BLOCKED) + 截图路径 + 控制台错误 + 缺陷汇总。
+**强制流程**：
+
+1. **生成报告**：按命名规范 `{模块}_{测试类型}_{日期}_v{序号}.md` 生成，保存到 `aotutests-devtools/reports/{日期}/`
+2. **导出控制台日志**：将 `list_console_messages` 结果导出为 JSON，保存到 `aotutests-devtools/console-logs/{日期}/`
+3. **归档截图**：运行 `.\aotutests-devtools\organize-screenshots.ps1 -TaskId "{任务ID}"`
+4. **更新索引**：运行 `.\aotutests-devtools\manage-index.ps1 -Action add -TaskId "..." -Module "..." ...`
+
+报告必须包含：步骤+状态(PASS/FAIL/BLOCKED) + 截图路径 + 控制台错误 + 缺陷汇总。
 
 ---
 
 ## 输出标准（摘要）
 
-- **截图命名**：`step{序号}_{操作}_{状态}.png`，目录 `d:\code\QJ\BEMP5.0DEV\screenshots\`
+- **统一输出目录**：`aotutests-devtools/`（项目根目录）
+- **截图命名**：`step{序号}_{操作}_{状态}.png`，临时存放 `screenshots/_incoming/`，归档至 `screenshots/{日期}/{任务ID}/`
+- **报告命名**：`{模块}_{测试类型}_{日期}_v{序号}.md`，存放至 `reports/{日期}/`
 - **判定标准**：PASS = 预期结果 + 无致命JS错误；FAIL = 不符预期 或 致命错误；BLOCKED = 前置不满足
 - **缺陷编号**：`BUG-{序号}`，严重度 P0(阻塞全部)/P1(阻塞模块)/P2(不影响主流程)
+- **索引管理**：每次验证后更新 `index.json`，记录任务元数据
+- **定期清理**：每月执行 `cleanup-old-tests.ps1`，默认保留 30 天，支持归档模式
 
 完整标准见 [output-standards.md](references/output-standards.md)。
 

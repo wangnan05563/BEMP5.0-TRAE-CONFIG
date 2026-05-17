@@ -30,14 +30,16 @@ bemp-webapp-testing/
 ├── scripts/
 │   ├── health_check.py               服务健康检查 + 配置校验 (--validate-only)
 │   ├── login_manager.py              会话复用、多角色切换
-│   ├── run_test.py                   通用测试运行器 (--test/--bank/--role)
-│   └── test_accept_bank_credit.py    承兑行额度管理 E2E 测试
+│   ├── run_test.py                   通用测试运行器 (--test/--bank/--role/--auto-cleanup)
+│   ├── test_accept_bank_credit.py    承兑行额度管理 E2E 测试
+│   └── cleanup.py                    定期清理过期产物 (--dry-run)
 ├── examples/                         测试模式示例（登录/页面测试/API监控）
 ├── references/                       参考文档（见下方参考文件表）
 ├── test-cases/                       用例文档（按 common/sm/bm/be/ce 子系统）
-├── test-data/                        测试账号 + 截图
-└── session_states/                   登录状态持久化（自动生成）
+└── test-data/                        测试账号
 ```
+
+> 所有运行时产物统一输出至项目根目录 `aotutests-playwright/`（报告/截图/会话/日志），详见下方输出规范。
 
 ## 核心配置
 
@@ -70,8 +72,24 @@ python scripts/run_test.py --test all
 python scripts/run_test.py --test all --bank hnnxbank --role admin
 python scripts/run_test.py --test branch --no-headless    # 可见模式调试
 
-# 4. 查看报告 → reports/ 目录
+# 4. 查看报告 → aotutests-playwright/reports/{bank_id}/YYYY-MM/ 目录
 ```
+
+## 输出规范
+
+所有自动化测试生成内容统一存放于项目根目录 `aotutests-playwright/`：
+
+```
+aotutests-playwright/
+├── index.json                       元数据索引（每次测试自动更新）
+├── reports/{bank_id}/YYYY-MM/       报告：{bank_id}_{YYYYMMDD}_{HHmmss}_{mode}.{md|json}
+├── screenshots/{bank_id}/YYYY-MM/   截图：{bank_id}_{test_id}_{step}_{timestamp}.png
+├── session_states/                   会话：{bank_id}_{role}_state.json
+└── logs/                             日志：{bank_id}_{YYYYMMDD}.log
+```
+
+> 清理过期产物：`python scripts/cleanup.py --dry-run`（预览）/ 去掉 `--dry-run`（执行）
+> 测试前自动清理：`python scripts/run_test.py --auto-cleanup`
 
 ## 测试命令速查
 
@@ -85,6 +103,7 @@ python scripts/run_test.py --test branch --no-headless    # 可见模式调试
 | `--no-headless` | 显示浏览器窗口（调试用） |
 | `--skip-health-check` | 跳过健康检查 |
 | `--cleanup-states` | 清理缓存的会话状态 |
+| `--auto-cleanup` | 测试前自动清理过期产物 |
 
 ## 执行步骤概要
 
@@ -96,7 +115,7 @@ python scripts/run_test.py --test branch --no-headless    # 可见模式调试
 | ④ 登录 | LoginManager 自动处理（storage_state 复用） | `python scripts/login_manager.py --pre-login` |
 | ⑤ 导航 | Vue 懒加载路由须菜单点击注册，URL 回退 | `references/bemp-component-guide.md` |
 | ⑥ 测试 | 弹窗交互 / DataGrid 查询 / 控制台错误检测 | `references/bemp-component-guide.md` |
-| ⑦ 报告 | Markdown 格式，含 Token 消耗统计 | `reports/` 目录 |
+| ⑦ 报告 | Markdown 格式，含 Token 消耗统计 | `aotutests-playwright/reports/` |
 
 > BEMP Chrome 模式下密码字段可能是 tempPassword，登录按钮文本可能是"登 录"(含空格)
 > 弹窗操作必须先截图后断言，关闭弹窗前不要导航

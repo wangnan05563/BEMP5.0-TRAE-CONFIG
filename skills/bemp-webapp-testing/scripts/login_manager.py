@@ -20,6 +20,9 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from health_check import load_config, get_bank_config
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..', '..'))
+
 
 class LoginManager:
     SESSION_STATE_DIR = "session_states"
@@ -44,10 +47,8 @@ class LoginManager:
         self._contexts = {}
         self._pages = {}
         self._login_timestamps = {}
-        self._state_dir = os.path.join(
-            os.path.dirname(__file__), '..',
-            self._session_config.get('state_dir', self.SESSION_STATE_DIR)
-        )
+        state_dir = self._session_config.get('state_dir', self.SESSION_STATE_DIR)
+        self._state_dir = os.path.join(PROJECT_ROOT, state_dir) if not os.path.isabs(state_dir) else state_dir
 
     def _ensure_browser(self):
         if self._browser is None:
@@ -77,7 +78,7 @@ class LoginManager:
 
     def _load_test_accounts(self):
         accounts_file = self._config.get('test_data', {}).get('accounts_file', 'test-data/test-accounts.json')
-        accounts_path = os.path.join(os.path.dirname(__file__), '..', accounts_file)
+        accounts_path = os.path.join(PROJECT_ROOT, '.trae', 'skills', 'bemp-webapp-testing', accounts_file)
         try:
             with open(accounts_path, 'r', encoding='utf-8') as f:
                 return json.load(f)

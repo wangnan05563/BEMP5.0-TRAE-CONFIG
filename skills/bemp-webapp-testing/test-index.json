@@ -160,17 +160,21 @@
     },
     {
       "id": "TC-CREDIT-001",
-      "file": "test-cases/bm/credit/",
+      "file": "test-cases/bm/credit/credit-management.md",
       "subsystem": "bm",
-      "feature": "额度申请批次管理",
+      "feature": "承兑行额度管理（完整）",
       "priority": "P0",
-      "case_count": null,
+      "case_count": 81,
       "scripts": ["scripts/test_accept_bank_credit.py"],
-      "description": "批次查询、新增批次弹窗、删除二次确认"
+      "description": "额度使用规则(13)、额度申请查询(8)、新增(7)、删除(2)、批复明细查询(7)、新增批复明细(11)、修改(3)、删除确认(2)、额度复核(11)、状态流转(6)、状态守卫(4)、跨页面(2)、冻结额度(1)、有效期(1)、循环逻辑(2)、同步幂等(1)",
+      "tested": "2026-05-17",
+      "tested_count": 20,
+      "tested_result": "PASS:18, FAIL:0, BLOCKED:2",
+      "bugs": ["P3:提示文本'请选择'vs需求'请选中'", "P2:导出模板acceptBankCreditGrantReCheckExport未配置"]
     },
     {
       "id": "TC-CREDIT-002",
-      "file": "test-cases/bm/credit/",
+      "file": "test-cases/bm/credit/credit-management.md",
       "subsystem": "bm",
       "feature": "批复明细管理",
       "priority": "P0",
@@ -180,7 +184,7 @@
     },
     {
       "id": "TC-CREDIT-003",
-      "file": "test-cases/bm/credit/",
+      "file": "test-cases/bm/credit/credit-management.md",
       "subsystem": "bm",
       "feature": "额度复核",
       "priority": "P0",

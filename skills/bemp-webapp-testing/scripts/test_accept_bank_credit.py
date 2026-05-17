@@ -19,12 +19,35 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 
 # 导入配置加载模块（与 health_check.py 同目录）
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, '..', '..', '..', '..'))
 sys.path.insert(0, BASE_DIR)
 from health_check import load_config, get_bank_config
 
-# --- 运行时动态解析（不再硬编码）---
-SCREENSHOT_DIR = os.path.join(BASE_DIR, "..", "test-data", "screenshots")
+# 输出目录统一指向 aotutests-playwright（按银行/月份子目录组织）
+SCREENSHOT_DIR = os.path.join(PROJECT_ROOT, 'aotutests-playwright', 'screenshots')
+REPORT_DIR = os.path.join(PROJECT_ROOT, 'aotutests-playwright', 'reports')
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+os.makedirs(REPORT_DIR, exist_ok=True)
+
+# --- 承兑行额度管理状态码映射（实测确认 2026-05-17）---
+STATUS_MAP = {
+    "0": "未提交",
+    "1": "待复核",
+    "5": "已复核"
+}
+
+# --- 实测确认的提示文本（与需求文档有差异）---
+PROMPT_TEXT = {
+    "select_one": "请选择一条数据",
+    "select_one_requirement": "请选中一条数据",
+    "confirm_delete": "确认要删除吗?",
+    "confirm_submit_review": "确认提交复核？",
+    "confirm_review": "确定复核？",
+    "confirm_cancel_review": "确定撤销复核?"
+}
+
+# --- 导出模板名称（实测发现未配置）---
+EXPORT_TEMPLATE_NAME = "acceptBankCreditGrantReCheckExport"
 
 # --- 全局测试结果收集 ---
 test_results = []
@@ -82,6 +105,35 @@ def wait_for_network_idle(page, timeout=10000):
     except PlaywrightTimeoutError:
         pass
     time.sleep(0.5)
+
+def _update_index(report_path, bank_id, test_mode):
+    """更新 aotutests-playwright/index.json 元数据索引"""
+    index_path = os.path.join(PROJECT_ROOT, 'aotutests-playwright', 'index.json')
+    existing = {}
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    if 'entries' not in existing:
+        existing['entries'] = []
+    entry = {
+        "file": os.path.relpath(report_path, PROJECT_ROOT).replace('\\', '/'),
+        "bank_id": bank_id,
+        "mode": test_mode,
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "total": len(test_results),
+        "pass": sum(1 for r in test_results if r['status'] == 'PASS'),
+        "fail": sum(1 for r in test_results if r['status'] == 'FAIL')
+    }
+    existing['entries'].append(entry)
+    existing['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    existing['total_entries'] = len(existing['entries'])
+    os.makedirs(os.path.dirname(index_path), exist_ok=True)
+    with open(index_path, 'w', encoding='utf-8') as f:
+        json.dump(existing, f, indent=2, ensure_ascii=False)
+
 
 def run_accept_bank_credit_test(config, bank_config, bank_id):
     """执行承兑行额度管理自动化测试，所有银行特定信息从配置读取"""
@@ -821,16 +873,22 @@ def run_accept_bank_credit_test(config, bank_config, bank_id):
             print("-" * 70)
             print(f"截图目录: {SCREENSHOT_DIR}")
 
-            # 保存结果JSON
-            report_path = os.path.join(SCREENSHOT_DIR, f"test_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            now = datetime.now()
+            month_dir = os.path.join(REPORT_DIR, bank_id, now.strftime('%Y-%m'))
+            os.makedirs(month_dir, exist_ok=True)
+            report_path = os.path.join(month_dir, f"{bank_id}_{now.strftime('%Y%m%d_%H%M%S')}_accept_bank_credit.json")
+            report_data = {
+                "summary": {"total": len(test_results), "pass": pass_count, "fail": fail_count, "blocked": blocked_count,
+                            "bank_id": bank_id, "test_mode": "accept_bank_credit"},
+                "results": test_results,
+                "console_errors": console_errors[:50],
+                "api_requests": api_requests[:100]
+            }
             with open(report_path, "w", encoding="utf-8") as f:
-                json.dump({
-                    "summary": {"total": len(test_results), "pass": pass_count, "fail": fail_count, "blocked": blocked_count},
-                    "results": test_results,
-                    "console_errors": console_errors[:50],
-                    "api_requests": api_requests[:100]
-                }, f, ensure_ascii=False, indent=2)
+                json.dump(report_data, f, ensure_ascii=False, indent=2)
             print(f"\n详细报告已保存: {report_path}")
+
+            _update_index(report_path, bank_id, 'accept_bank_credit')
 
             browser.close()
 

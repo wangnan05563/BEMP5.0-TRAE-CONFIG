@@ -26,8 +26,9 @@ bemp-webapp-testing/
 ├── scripts/
 │   ├── health_check.py           服务健康检查 + --validate-only 配置校验
 │   ├── login_manager.py          会话复用、多角色切换
-│   ├── run_test.py               通用测试运行器
-│   └── test_accept_bank_credit.py 承兑行额度管理 E2E 测试
+│   ├── run_test.py               通用测试运行器 (--auto-cleanup)
+│   ├── test_accept_bank_credit.py 承兑行额度管理 E2E 测试
+│   └── cleanup.py                定期清理过期产物 (--dry-run)
 ├── examples/
 │   ├── bemp_login.py             登录流程示例
 │   ├── bemp_page_test.py         弹窗交互 / DataGrid 查询示例
@@ -43,10 +44,10 @@ bemp-webapp-testing/
 ├── test-cases/                   测试用例（common/sm/bm/be/ce）
 ├── test-data/
 │   └── test-accounts.json        测试账号配置（PLACEHOLDER）
-├── assets/templates/             用例模板 + 报告模板
-├── reports/                      测试报告输出（运行时生成）
-└── session_states/               登录会话持久化（运行时生成）
+└── assets/templates/             用例模板 + 报告模板
 ```
+
+> 运行时产物统一输出至项目根目录 `aotutests-playwright/`（详见下方"输出管理"）
 
 ## 前置条件
 
@@ -75,7 +76,7 @@ python scripts/health_check.py --validate-only   # 仅校验配置
 python scripts/run_test.py --test all
 python scripts/run_test.py --test all --bank hnnxbank --role admin
 
-# 4. 查看报告 → reports/ 目录
+# 4. 查看报告 → aotutests-playwright/reports/{bank_id}/YYYY-MM/ 目录
 ```
 
 ## 核心命令
@@ -91,6 +92,7 @@ python scripts/run_test.py --role admin            # 管理员角色
 python scripts/run_test.py --no-headless           # 显示浏览器（调试）
 python scripts/run_test.py --skip-health-check     # 跳过健康检查
 python scripts/run_test.py --cleanup-states        # 清理缓存会话
+python scripts/run_test.py --auto-cleanup          # 测试前自动清理过期产物
 ```
 
 ### 专项测试
@@ -132,6 +134,44 @@ python scripts/health_check.py --validate-only    # 仅校验配置格式
 ```
 
 新增银行只需在 `banks` 下添加配置 + 在 `test-data/test-accounts.json` 中添加测试账号。
+
+## 输出管理
+
+所有自动化测试产物统一存放于项目根目录 `aotutests-playwright/`：
+
+```
+aotutests-playwright/
+├── index.json                          # 元数据索引（自动更新）
+├── reports/{bank_id}/YYYY-MM/          # {bank_id}_{YYYYMMDD}_{HHmmss}_{mode}.md
+├── screenshots/{bank_id}/YYYY-MM/      # {bank_id}_{test_id}_{step}_{timestamp}.png
+├── session_states/                     # {bank_id}_{role}_state.json（30分钟过期）
+└── logs/                               # {bank_id}_{YYYYMMDD}.log
+```
+
+### 文件命名规范
+
+| 类型 | 格式 | 示例 |
+|:---|:---|:---|
+| 报告 | `{bank_id}_{日期}_{时间}_{模式}.md` | `hnnxbank_20260516_143000_all.md` |
+| 截图 | `{bank_id}_{用例}_{步骤}_{时间戳}.png` | `hnnxbank_TC001_step1_20260516143000.png` |
+| 会话 | `{bank_id}_{角色}_state.json` | `hnnxbank_admin_state.json` |
+| 日志 | `{bank_id}_{日期}.log` | `hnnxbank_20260516.log` |
+
+### 定期清理
+
+```powershell
+# 预览过期文件（不删除）
+python scripts/cleanup.py --dry-run
+
+# 执行清理（报告30天/截图14天/会话7天/日志14天）
+python scripts/cleanup.py
+
+# 自定义保留天数
+python scripts/cleanup.py --report-days 60 --screenshot-days 30
+
+# 测试前自动清理
+python scripts/run_test.py --auto-cleanup
+```
 
 ## 测试覆盖
 

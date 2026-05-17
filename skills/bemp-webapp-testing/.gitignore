@@ -1,27 +1,16 @@
 # BEMP Webapp Testing - 运行时生成文件
-# 这些文件/目录由测试脚本自动生成，不应纳入版本控制
-
-# 会话状态（storage_state 持久化）
-session_states/
-
-# 测试报告（自动生成）
-reports/*.json
-reports/*.md
-reports/*.html
-!reports/.gitkeep
-
-# 测试截图（自动生成）
-test-data/screenshots/*.png
-test-data/screenshots/*.json
-
-# 日志文件
-*.log
+# 所有自动化测试产出统一存放于项目根目录 aotutests-playwright/ 下
 
 # Python 缓存
 __pycache__/
 *.pyc
 *.pyo
 
-# 测试输出临时文件
+# 临时文件
 *.tmp
 .temp/
+
+# 旧输出路径——已迁移至 aotutests-playwright/
+session_states/
+reports/
+test-data/screenshots/

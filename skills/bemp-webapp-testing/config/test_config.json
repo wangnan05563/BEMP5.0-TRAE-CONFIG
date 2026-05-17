@@ -162,7 +162,7 @@
     "login_wait_timeout": 5000
   },
   "session": {
-    "state_dir": "session_states",
+    "state_dir": "aotutests-playwright/session_states",
     "state_max_age": 1800,
     "auto_refresh_threshold": 1500,
     "session_check_interval": 300,
@@ -171,8 +171,10 @@
   "test": {
     "default_timeout": 5000,
     "networkidle_timeout": 10000,
-    "screenshot_dir": "./screenshots",
-    "report_dir": "./reports",
+    "output_root": "aotutests-playwright",
+    "screenshot_dir": "aotutests-playwright/screenshots",
+    "report_dir": "aotutests-playwright/reports",
+    "log_dir": "aotutests-playwright/logs",
     "headless": true,
     "browser": {
       "channel": "chrome",
@@ -238,6 +240,23 @@
       "cancel_review_button": "button:has-text('撤销复核')",
       "export_button": "button:has-text('清单导出')"
     }
+  },
+  "credit_status_codes": {
+    "0": "未提交",
+    "1": "待复核",
+    "5": "已复核"
+  },
+  "credit_export_templates": {
+    "acceptBankCreditGrantReCheckExport": {
+      "page": "额度复核",
+      "configured": false,
+      "note": "实测发现未配置，导出功能不可用"
+    }
+  },
+  "credit_prompt_text": {
+    "select_one_actual": "请选择一条数据",
+    "select_one_requirement": "请选中一条数据",
+    "note": "实际提示文本与需求文档存在措辞差异"
   },
   "test_data": {
     "accounts_file": "test-data/test-accounts.json"

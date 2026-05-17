@@ -12,6 +12,7 @@ obj/**
 frontend@tmp/**/*
 banks/ext-hnnxbank@tmp/**/*
 ext-hnnxbank@tmp/**/*
+playwright-report
 
 
 

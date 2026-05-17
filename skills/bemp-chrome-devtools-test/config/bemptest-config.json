@@ -39,10 +39,34 @@
   },
 
   "screenshots": {
-    "output_dir": "d:\\code\\QJ\\BEMP5.0DEV\\screenshots",
+    "output_dir": "aotutests-devtools\\screenshots\\_incoming",
+    "archive_dir": "aotutests-devtools\\screenshots",
     "naming_pattern": "step{number}_{operation}_{status}.png",
     "format": "png",
     "quality": "fullPage"
+  },
+
+  "reports": {
+    "output_dir": "aotutests-devtools\\reports",
+    "template": "assets\\verification-report-template.md",
+    "naming_pattern": "{module}_{testType}_{date}_v{seq}.md"
+  },
+
+  "console_logs": {
+    "output_dir": "aotutests-devtools\\console-logs",
+    "naming_pattern": "{taskId}_console_{date}.json"
+  },
+
+  "index": {
+    "path": "aotutests-devtools\\index.json",
+    "auto_update": true
+  },
+
+  "cleanup": {
+    "retention_days": 30,
+    "max_reports_per_module": 10,
+    "auto_archive": true,
+    "archive_dir": "aotutests-devtools\\archives"
   },
 
   "selectors": {

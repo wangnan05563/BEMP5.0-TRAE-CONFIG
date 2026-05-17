@@ -19,6 +19,9 @@ import os
 import sys
 from datetime import datetime
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..', '..'))
+
 sys.path.insert(0, os.path.dirname(__file__))
 from health_check import run_health_check, load_config, get_bank_config, validate_config
 from login_manager import LoginManager, LoginError
@@ -225,10 +228,19 @@ def get_test_pages(bank_pages, test_module):
     return filtered
 
 
+def resolve_output_path(relative_path):
+    """将配置中的相对路径解析为项目根目录下的绝对路径"""
+    if os.path.isabs(relative_path):
+        return relative_path
+    return os.path.normpath(os.path.join(PROJECT_ROOT, relative_path))
+
+
 def generate_report(results, output_dir, bank_id):
-    os.makedirs(output_dir, exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    report_file = os.path.join(output_dir, f"test_report_{bank_id}_{timestamp}.md")
+    now = datetime.now()
+    month_dir = os.path.join(output_dir, bank_id, now.strftime('%Y-%m'))
+    os.makedirs(month_dir, exist_ok=True)
+    timestamp = now.strftime('%Y%m%d_%H%M%S')
+    report_file = os.path.join(month_dir, f"{bank_id}_{timestamp}_report.md")
 
     meta = None
     test_results = []
@@ -327,10 +339,10 @@ def main():
                         help='Bank identifier (default: active_bank from config)')
     parser.add_argument('--role', default='default',
                         help='Login role (default: default). Options: default, admin, or custom role from config')
-    parser.add_argument('--screenshot-dir', default='./screenshots',
-                        help='Directory for screenshots')
-    parser.add_argument('--output-dir', default='./reports',
-                        help='Directory for test reports')
+    parser.add_argument('--screenshot-dir', default=None,
+                        help='Directory for screenshots (default: from config → aotutests-playwright/screenshots)')
+    parser.add_argument('--output-dir', default=None,
+                        help='Directory for test reports (default: from config → aotutests-playwright/reports)')
     parser.add_argument('--no-headless', action='store_true',
                         help='Run browser in visible mode')
     parser.add_argument('--skip-health-check', action='store_true',
@@ -340,7 +352,9 @@ def main():
     parser.add_argument('--project-root', default='../../..',
                         help='Project root directory for code checks')
     parser.add_argument('--cleanup-states', action='store_true',
-                        help='Clean cached session states before testing')
+                        help='Clean up cached session states before running')
+    parser.add_argument('--auto-cleanup', action='store_true',
+                        help='Auto-clean expired reports/screenshots/sessions before test')
     args = parser.parse_args()
 
     if not ensure_playwright():
@@ -385,8 +399,15 @@ def main():
     print(f"[INFO] URL prefix: {bank_config.get('url_prefix', '/')}")
     print(f"[INFO] Login role: {args.role}")
 
+    if args.auto_cleanup:
+        print("[CLEANUP] Auto-cleaning expired test artifacts...")
+        from cleanup import main as cleanup_main
+        import sys as _sys
+        _sys.argv = ['cleanup.py', '--report-days', '30', '--screenshot-days', '14', '--session-days', '7', '--log-days', '14']
+        cleanup_main()
+
     if args.cleanup_states:
-        state_dir = os.path.join(os.path.dirname(__file__), '..', 'session_states')
+        state_dir = resolve_output_path(config.get('session', {}).get('state_dir', 'aotutests-playwright/session_states'))
         cleaned = 0
         if os.path.exists(state_dir):
             for f in os.listdir(state_dir):
@@ -397,8 +418,7 @@ def main():
 
     if not args.skip_code_check:
         print("[PRE-CHECK] Running code pre-checks...")
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), args.project_root))
-        code_issues = run_pre_code_checks(project_root, bank_id)
+        code_issues = run_pre_code_checks(PROJECT_ROOT, bank_id)
         if code_issues:
             print("\n[WARNING] Code pre-checks found issues:")
             for issue in code_issues:
@@ -415,7 +435,11 @@ def main():
             sys.exit(1)
 
     print(f"\n[RUN] Starting tests: {args.test} (bank={bank_id}, role={args.role})")
-    results = run_tests(args.test, config, bank_id, args.screenshot_dir,
+    screenshot_dir = args.screenshot_dir or resolve_output_path(
+        config.get('test', {}).get('screenshot_dir', 'aotutests-playwright/screenshots'))
+    output_dir = args.output_dir or resolve_output_path(
+        config.get('test', {}).get('report_dir', 'aotutests-playwright/reports'))
+    results = run_tests(args.test, config, bank_id, screenshot_dir,
                         headless=not args.no_headless, role=args.role)
 
     meta = None
@@ -426,13 +450,41 @@ def main():
         else:
             test_results.append(r)
 
-    report_file = generate_report(results, args.output_dir, bank_id)
+    report_file = generate_report(results, output_dir, bank_id)
+    update_index(report_file, bank_id, args.test, meta)
 
     if meta:
         print(f"\n[TOKEN] Login count: {meta['login_count']}, Pages: {meta['pages_tested']}, Saving: {meta['token_saving_pct']}%")
 
     fail_count = sum(1 for r in test_results if r['status'] == 'FAIL')
     sys.exit(1 if fail_count > 0 else 0)
+
+
+def update_index(report_path, bank_id, test_mode, meta):
+    index_path = resolve_output_path('aotutests-playwright/index.json')
+    existing = {}
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    if 'entries' not in existing:
+        existing['entries'] = []
+    entry = {
+        "file": os.path.relpath(report_path, PROJECT_ROOT).replace('\\', '/'),
+        "bank_id": bank_id,
+        "mode": test_mode,
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "pages_tested": meta.get('pages_tested', 0) if meta else 0,
+        "login_count": meta.get('login_count', 0) if meta else 0
+    }
+    existing['entries'].append(entry)
+    existing['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    existing['total_entries'] = len(existing['entries'])
+    os.makedirs(os.path.dirname(index_path), exist_ok=True)
+    with open(index_path, 'w', encoding='utf-8') as f:
+        json.dump(existing, f, indent=2, ensure_ascii=False)
 
 
 if __name__ == '__main__':

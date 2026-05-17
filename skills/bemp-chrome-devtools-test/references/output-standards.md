@@ -85,6 +85,18 @@
 
 ## 三、截图规范
 
+### 临时存放路径（验证过程中）
+```
+aotutests-devtools/screenshots/_incoming/
+```
+验证过程中的截图临时存放在此目录。验证完成后通过 `organize-screenshots.ps1` 归档。
+
+### 归档路径规则
+```
+aotutests-devtools/screenshots/{YYYY-MM-DD}/{任务ID}/
+```
+示例: `aotutests-devtools/screenshots/2026-05-17/credit-20260517-001/`
+
 ### 文件命名
 ```
 格式: step{序号}_{操作描述}_{状态}.png
@@ -97,16 +109,8 @@
   step16_undo_submit.png
 ```
 
-### 存放路径
-```
-d:\code\QJ\BEMP5.0DEV\screenshots\
-```
-
 ### 归档策略
-验证完成后运行 `scripts/organize-screenshots.ps1`，按时间戳归档：
-```
-d:\code\QJ\BEMP5.0DEV\screenshots\YYYY-MM-DD_HHmm\
-```
+验证完成后运行 `aotutests-devtools/organize-screenshots.ps1 -TaskId "{任务ID}"`，按日期+任务ID两层目录归档。自动生成每任务独立的 `index.md` 截图索引。
 
 ## 四、缺陷记录规范
 
@@ -151,3 +155,82 @@ d:\code\QJ\BEMP5.0DEV\screenshots\YYYY-MM-DD_HHmm\
 3. 无新增阻塞性缺陷
 4. 所有状态流转截图齐全
 5. 修复前后对比截图整齐（二轮验证）
+
+---
+
+## 七、产出文件管理规范
+
+### 报告命名规范
+
+```
+格式: {模块名}_{测试类型}_{日期}_v{序号}.md
+字段说明:
+  - 模块名: credit(额度) / bill(票据) / auth(认证) / ...
+  - 测试类型: regression(回归) / bugfix(缺陷修复) / smoke(冒烟) / exploratory(探索性)
+  - 日期: YYYYMMDD
+  - 序号: v1, v2, ...（同模块同日期递增）
+
+示例:
+  credit_regression_20260517_v1.md
+  bill_bugfix_20260517_v2.md
+  auth_smoke_20260517_v1.md
+```
+
+### 报告存放路径
+
+```
+aotutests-devtools/reports/{YYYY-MM-DD}/{报告文件名}
+```
+
+示例: `aotutests-devtools/reports/2026-05-17/credit_regression_20260517_v1.md`
+
+### 控制台日志命名规范
+
+```
+格式: {任务ID}_console_{日期}.json
+任务ID格式: {模块名}-{日期}-{序号}
+示例: credit-20260517-001_console_20260517.json
+```
+
+### 控制台日志存放路径
+
+```
+aotutests-devtools/console-logs/{YYYY-MM-DD}/{日志文件名}
+```
+
+### 任务ID 命名规范
+
+```
+格式: {模块名缩写}-{日期}-{三位序号}
+示例:
+  credit-20260517-001    — 额度模块，2026-05-17 第 1 次
+  bill-20260517-002      — 票据模块，2026-05-17 第 2 次
+  auth-20260517-001      — 认证模块，2026-05-17 第 1 次
+```
+
+### 索引管理
+
+每次完成验证后，必须在 `aotutests-devtools/index.json` 中记录本次任务元数据：
+```powershell
+.\aotutests-devtools\manage-index.ps1 -Action add `
+  -TaskId "credit-20260517-001" `
+  -Module "credit" `
+  -TestType "regression" `
+  -ReportPath "reports/2026-05-17/credit_regression_20260517_v1.md" `
+  -ScreenshotDir "screenshots/2026-05-17/credit-20260517-001" `
+  -Status "pass"
+```
+
+### 定期清理
+
+每月执行一次清理，自动归档或删除过期内容：
+```powershell
+# 预览清理范围
+.\aotutests-devtools\cleanup-old-tests.ps1 -Preview -Archive
+
+# 归档模式（推荐，保留历史可回溯）
+.\aotutests-devtools\cleanup-old-tests.ps1 -RetentionDays 30 -Archive -Force
+
+# 直接删除模式
+.\aotutests-devtools\cleanup-old-tests.ps1 -RetentionDays 30 -Force
+```
