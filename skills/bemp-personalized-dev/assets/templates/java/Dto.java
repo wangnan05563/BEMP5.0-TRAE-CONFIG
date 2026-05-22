@@ -4,6 +4,7 @@ import com.hundsun.bemp.sm.service.[模块名].dto.[原Dto名]Dto;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -14,7 +15,10 @@ import java.util.List;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class {BANK_CLASS_PREFIX}[原Dto名]Dto extends [原Dto名]Dto {
+public class {BANK_CLASS_PREFIX}[原Dto名]Dto extends [原Dto名]Dto implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     /**
      * [字段描述]
      */

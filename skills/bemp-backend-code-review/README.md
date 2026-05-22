@@ -1,8 +1,8 @@
-# bemp-backend-code-review v2.7.0
+# bemp-backend-code-review v3.1.0
 
-BEMP 银行个性化后端代码审查技能。配置驱动，支持多银行切换，覆盖目录结构、注解、参数传递、安全性、性能等 14 个审查维度。
+BEMP 银行个性化后端代码审查技能。配置驱动，支持多银行切换，整合 java-code-review、concurrency-review、api-contract-review、architecture-review 四项技能及票据系统问题汇总，覆盖 22 个审查维度。
 
-> **v2.7.0 逻辑修复**：修复 SH DTO前缀检查逻辑、PS1 -Include参数失效、SH 补齐缺失检查、hook增量传参、JSON编码声明。
+> **v3.1.0 知识点整合**：整合票据系统知识点检查清单，新增维度22（BEMP项目规范），扩展维度7（@Autowired）、9（AOP日志）、13（Redis锁事务外/MVCC/死锁顺序）、15（toMap merge）、16（BigDecimal.divide/ThreadLocal/子票区间Long）、20（空判断防全表/mybatis jdbcType/updateByIdSelective）、21（分录配置/流水号/客户账号唯一性），自动扫描13→16项。
 
 ## 目录结构
 
@@ -31,24 +31,32 @@ bemp-backend-code-review/
 | **多银行切换** | 修改 `currentBank` 即可，审查规则不变 | 编辑 `config/bank-config.json` |
 | **版本化报告** | 按银行+时间戳归档，支持历史对比 | 审查完成后自动生成 |
 
-## 审查维度（14 项）
+## 审查维度（22 项）
 
 | # | 维度 | 核心规则 |
 |:--|:---|:---|
 | 1 | 目录与包结构 | 代码在 `{sourceDir}` 下，包路径 `{packagePath}.{module}.{layer}` |
 | 2 | 个性化类开发 | Service/Atom 加 `@CustomizedBean`，Controller 不加 |
-| 3 | Controller 规范 | `@RestController` + 路径以 `{urlPrefixes}` 开头 |
+| 3 | Controller 规范与API设计 | `@RestController`、HTTP动词语义、分页、DTO响应、错误格式 |
 | 4 | Service 规范 | `@CloudComponent` / `@CloudService` / `@CloudFunction` |
-| 5 | 参数传递 | 新功能→DTO 对象，兼容旧代码→BaseRequest，少用 @RequestBody |
+| 5 | 参数传递 | 新功能→DTO 对象，兼容旧代码→BaseRequest，禁止布尔参数，API输入校验 |
 | 6 | DTO 设计 | `{dtoPrefix}功能名Req/Resp` + `implements Serializable` |
-| 7 | 依赖注入 | `@CloudReference`(远程) / `@Resource`(本地) |
+| 7 | 依赖注入 | `@CloudReference`(远程) / `@Autowired`(本地，禁止`@Resource`) |
 | 8 | 服务调用 | 调用前设置所有必需字段（userNo、brchNo、legalNo等） |
-| 9 | 日志记录 | 四级日志，禁止记录敏感信息 |
-| 10 | 代码质量 | 中文注释、`BempRuntimeException`、空值边界处理 |
+| 9 | 日志记录与异常处理 | 四级日志、禁止吞异常、保留原始堆栈、自定义领域异常 |
+| 10 | 代码质量与Null安全 | 中文注释、链式调用判空、Optional正确使用、禁止返回null |
 | 11 | 安全性 | 参数化查询、敏感信息保护、权限校验 |
-| 12 | 性能 | N+1 查询检查、批量操作、资源管理 |
-| 13 | 事务与并发 | `@Transactional` 配置、线程安全、竞态条件 |
+| 12 | 性能与资源管理 | N+1查询、StringBuilder、正则预编译、try-with-resources |
+| 13 | 事务、并发与异步 | `@Transactional`、ConcurrentHashMap、@Async正确调用、CompletableFuture异常处理 |
 | 14 | 国际化与 Maven | API 路径一致性、Java 1.8 语法、pom.xml 版本 |
+| 15 | 集合与流 | 遍历中不修改、Stream合理用、不可变集合、防御性拷贝 |
+| 16 | Java惯用法 | equals/hashCode配对、toString无敏感信息、Builder模式 |
+| 17 | 测试建议 | null输入/空集合/边界值/异常分支/并发场景覆盖 |
+| 18 | API设计规范 | HTTP语义、版本化、向后兼容、URL名词、错误格式、分页 |
+| 19 | 架构与分层 | 包组织策略、无跨层调用、领域纯净性、无循环依赖、DTO边界转换 |
+| 20 | SQL与数据库专项 | 索引优化、SQL兼容性、拼接正确性、查询性能、分页排序规范、空判断防全表、mybatis jdbcType |
+| 21 | 票据业务专项 | 金额计算规则、保证金/扣款/利率、日终任务分页、流水号唯一性、分录配置、客户账号唯一性 |
+| 22 | BEMP项目规范 🆕 | @CloudComponent继承顺序、@Autowired(禁@Resource)、StringUtils lang3、PageInfo默认10、dataprovide排序、第三方依赖冲突 |
 
 ## 严重程度分级
 
@@ -120,7 +128,7 @@ pwsh .trae/skills/bemp-backend-code-review/scripts/auto-scan.ps1
 bash .trae/skills/bemp-backend-code-review/scripts/auto-scan.sh
 ```
 
-自动检查 7 项：`@CustomizedBean` 注解、请求路径前缀、`@RestController`、DTO Serializable、DTO 命名前缀、Controller 返回值类型。
+自动检查 16 项：`@CustomizedBean` 注解、请求路径前缀、`@RestController`、DTO Serializable、DTO 命名前缀、Controller 返回值类型、`e.printStackTrace()`、BigDecimal 比较方式、Integer/Long == 比较、时间格式 hh/HH、SQL 字符串拼接、硬编码机构号/产品代码、`@Resource`注入(应用`@Autowired`)、StringUtils lang3、Collectors.toMap merge。
 
 ### 2. 增量审查（迭代开发）
 
@@ -168,10 +176,10 @@ git diff --name-only HEAD~1 -- 'banks/ext-hnnxbank/**/*.java'
 
 | 文件 | 用途 | 加载方式 |
 |:---|:---|:---|
-| `SKILL.md` | 审查规则与流程定义（含 14 维度 + 附录 A/B） | 技能调用时自动加载 |
+| `SKILL.md` | 审查规则与流程定义（含 22 维度 + 附录 A/B） | 技能调用时自动加载 |
 | `config/bank-config.json` | 多银行参数配置 + 切换指南 | 脚本运行时读取 |
-| `scripts/auto-scan.ps1` | Windows 7 项阻塞级自动扫描 | 手动执行 |
-| `scripts/auto-scan.sh` | Unix/Linux/Mac 7 项阻塞级自动扫描 | 手动执行 |
+| `scripts/auto-scan.ps1` | Windows 16 项阻塞级自动扫描 | 手动执行 |
+| `scripts/auto-scan.sh` | Unix/Linux/Mac 16 项阻塞级自动扫描 | 手动执行 |
 | `templates/report-template.md` | 审查报告模板（含历史对比） | 审查输出时按需引用 |
 | `reports/` | 历史审查报告归档 | 首次审查时自动创建 |
 
@@ -205,6 +213,10 @@ git diff --name-only HEAD~1 -- 'banks/ext-hnnxbank/**/*.java'
 
 | 版本 | 日期 | 变更 |
 |:---|:---|:---|
+| v3.1.0 | 2026-05-22 | 知识点整合：整合票据系统知识点检查清单，新增维度22(BEMP项目规范)，扩展维度7/9/13/15/16/20/21，自动扫描13→16项，21→22维度 |
+| v3.0.0 | 2026-05-22 | 票据业务专项整合：整合票据系统问题分享汇总(2023.06-2026.05)，新增维度20(SQL与数据库专项)和维度21(票据业务专项)，扩展维度10(数值比较)、12(分页排序/批量插入/大文件)、13(大事务拆分/Redis锁/死锁)、16(时间格式/double精度)，自动扫描7→13项，19→21维度 |
+| v2.9.0 | 2026-05-22 | 多技能整合：融合concurrency-review(@Async/CompletableFuture/Executor)、api-contract-review(HTTP语义/分页/错误格式)、architecture-review(分层架构/领域纯净性/循环依赖)，17→19维度 |
+| v2.8.0 | 2026-05-22 | 整合 java-code-review 技能：新增Null Safety、异常处理、集合与流、Java惯用法、测试建议维度（14→17项），审查流程/判断标准同步增强，删除冗余审查示例节省token |
 | v2.7.0 | 2026-05-21 | 逻辑修复：SH DTO前缀检查(grep -v→basename)、PS1 -Include路径、SH补齐URL前缀+Controller返回值检查、hook增量传参、JSON -Encoding UTF8、版本号统一 |
 | v2.2.0 | 2026-05-16 | Token 优化：代码示例精简、脚本外置、占位符体系、去重合并（SKILL.md 缩减 76%） |
 | v2.1.0 | 2026-05-16 | 多银行可配置化：bank-config.json + 占位符体系 + 切换指南 |

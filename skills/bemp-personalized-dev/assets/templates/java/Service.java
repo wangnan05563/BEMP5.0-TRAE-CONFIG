@@ -1,22 +1,19 @@
 package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.impl.[模块名];
 
+import com.hundsun.bemp.fw.common.annotation.CustomizedBean;
 import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.BaseRequest;
 import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.[模块名].{BANK_CLASS_PREFIX}[服务名]Service;
 import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.[模块名].dto.{BANK_CLASS_PREFIX}[Dto名]Dto;
-import com.hundsun.bemp.fw.common.annotation.CustomizedBean;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * [功能描述]
+ * {BANK_NAME}[功能描述]个性化 Service 实现
+ * @CustomizedBean 确保 Spring 容器中覆盖产品化实现
  * @author [作者]
  * @date [日期]
  */
@@ -25,10 +22,6 @@ import java.util.List;
 public class {BANK_CLASS_PREFIX}[原Service名]Impl extends [原Service名]Impl implements {BANK_CLASS_PREFIX}[服务名]Service {
     private static final Logger LOGGER = LoggerFactory.getLogger({BANK_CLASS_PREFIX}[原Service名]Impl.class);
 
-    /**
-     * [方法描述]
-     * @param req 请求参数
-     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void [方法名](BaseRequest<{BANK_CLASS_PREFIX}[Dto名]Dto> req) {

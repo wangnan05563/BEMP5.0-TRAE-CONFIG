@@ -1,15 +1,12 @@
 package com.hundsun.bemp.{BANK_CODE}.biz.sm.controller.[模块名];
 
-import com.hundsun.bemp.fw.common.constant.CommonConst;
 import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.*;
 import com.hundsun.bemp.fw.controller.BaseServiceController;
 import com.hundsun.bemp.fw.controller.UserContext;
 import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.[模块名].{BANK_CLASS_PREFIX}[服务名]Service;
-import com.hundsun.bemp.sm.common.AuthConstant;
 import com.hundsun.jrescloud.rpc.annotation.CloudReference;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +14,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * [功能描述]
+ * {BANK_NAME}[功能描述]个性化 Controller
+ * 继承 BaseServiceController，与产品化 Controller 并存
  * @author [作者]
  * @date [日期]
  */

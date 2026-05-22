@@ -9,7 +9,7 @@
 **A**: 使用 `requestDto` 格式传递参数，而非 `extParam`。在 Vue 中使用 `this.$api.post()` 方法，参数放在 `requestDto` 字段中。
 
 ### Q3: 国际化键值如何命名？
-**A**: 遵循 `hnnxbank.[模块].[功能].[标签]` 的命名规范。按钮和标签必须国际化，placeholder 和提示信息保持硬编码。
+**A**: 遵循 `{BANK_CODE}.[模块].[功能].[标签]` 的命名规范。按钮和标签必须国际化，placeholder 和提示信息保持硬编码。
 
 ### Q4: 如何处理多种参数格式兼容？
 **A**: 在 Controller 中增强参数获取逻辑，兼容 `extParam`、`requestDto`、直接参数等多种格式：

@@ -2170,7 +2170,7 @@ get('/api/url', params).then(res => {
 
 #### A.6.2 请求路径规范
 
-**【强制】** 个性化接口路径必须以 `/hnnxbank` 开头：
+**【强制】** 个性化接口路径必须以 `/{BANK_CODE}` 开头：
 
 ```javascript
 // 正确

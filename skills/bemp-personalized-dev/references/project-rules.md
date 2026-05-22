@@ -1,5 +1,7 @@
 # BEMP 项目规则
 
+> **配置变量**：本文件中 `{BANK_CODE}` 默认为 `hnnxbank`，`{BANK_CLASS_PREFIX}` 默认为 `Hnnx`，`{BANK_NAME}` 默认为 `河南农信`。切换银行时仅需修改默认值。
+
 ## 版本约束
 - 【强制】Java 1.8 语法编码
 - 【强制】后端框架版本参考 `bom/import-bom/pom.xml`
@@ -23,6 +25,7 @@
 - 【强制】编码后 Maven 打包确保编译通过
 - 【推荐】使用 bemp-personalized-developer 智能体完成功能开发
 - 【强制】前端开发涉及 H-UI 组件使用时，必须先调用 `hui_doc` MCP 查询组件详细文档，包括属性、方法、事件、使用示例及最佳实践，禁止凭记忆或猜测使用组件 API
+- 【强制】完成代码修改后，必须添加必要的注释项，包括但不限于类注释（说明职责与作者）、方法注释（说明用途与关键参数）、字段注释（说明业务含义），确保代码可维护性
 
 ## 数据库脚本开发目录
 - 【强制】增量SQL脚本存放于 `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/` 目录下

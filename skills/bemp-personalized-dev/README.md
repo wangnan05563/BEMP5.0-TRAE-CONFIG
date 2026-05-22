@@ -4,6 +4,18 @@
 
 `bemp-personalized-dev` 是 BEMP 票据系统个性化开发的完整技能，涵盖前端（Vue）、后端（Java/Spring Boot）、数据库（MySQL）和 Adapter（消息通道）四大开发领域的编码规范、代码模板、参考文档和最佳实践。
 
+## 银行配置变量
+
+以下变量定义了当前个性化开发的银行信息，开发过程中所有路径、命名均引用这些变量：
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `{BANK_CODE}` | 银行编码，用于目录路径和包名 | `hnnxbank` |
+| `{BANK_CLASS_PREFIX}` | 个性化类名前缀（PascalCase） | `Hnnx` |
+| `{BANK_NAME}` | 银行中文名称，用于部署目录 | `河南农信` |
+
+> 切换银行时仅需修改上表默认值，所有文档中的路径和命名引用自动生效。
+
 ## 文档结构
 
 ```
@@ -55,7 +67,7 @@ bemp-personalized-dev/
 **文件位置**：`assets/guides/backend-guide.md`
 
 **包含内容**：
-- 工程规约（个性化开发目录 `banks/ext-hnnxbank`）
+- 工程规约（个性化开发目录 `banks/ext-{BANK_CODE}`）
 - 命名约定（包、类、方法、变量命名规范）
 - 应用分层规范（Controller → Service → Atom → DAO）
 - Service/DAO 分层职责与规范
@@ -125,7 +137,7 @@ bemp-personalized-dev/
 
 #### 后端开发
 
-1. 检查 `banks/ext-hnnxbank` 目录下是否有可复用的带 `@CustomizedBean` 注解的个性化类
+1. 检查 `banks/ext-{BANK_CODE}` 目录下是否有可复用的带 `@CustomizedBean` 注解的个性化类
 2. 如有则复用，如无则新增个性化类
 3. 参考 [backend-guide.md](assets/guides/backend-guide.md) 进行编码
 
