@@ -1,0 +1,40 @@
+{
+  "pass_score": 60,
+  "rules": [
+    {
+      "id": "missing_h1",
+      "check": "h1_count == 0",
+      "deduction": 20,
+      "level": "error",
+      "message": "缺失一级标题"
+    },
+    {
+      "id": "too_many_h1",
+      "check": "h1_count > 5",
+      "deduction": 5,
+      "level": "warning",
+      "message": "一级标题数量过多，可能结构不合理"
+    },
+    {
+      "id": "content_too_short",
+      "check": "total_chars < 1000",
+      "deduction": 10,
+      "level": "warning",
+      "message": "文档内容过短，可能存在内容丢失"
+    },
+    {
+      "id": "no_table",
+      "check": "table_count == 0",
+      "deduction": 0,
+      "level": "info",
+      "message": "文档中没有表格"
+    },
+    {
+      "id": "no_image",
+      "check": "image_count == 0",
+      "deduction": 0,
+      "level": "info",
+      "message": "文档中没有图片"
+    }
+  ]
+}

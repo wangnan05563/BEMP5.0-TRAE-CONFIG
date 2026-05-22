@@ -118,9 +118,9 @@ bemp-personalized-dev/
 
 #### 前端开发
 
-1. 检查 `frontend/src/views/bizViews/banks/hnnxbank` 目录下是否有可复用的个性化 Vue 文件
+1. 检查 `frontend/src/views/bizViews/banks/{BANK_CODE}` 目录下是否有可复用的个性化 Vue 文件
 2. 如有则复用，如无则新增 Vue 文件
-3. 在 `frontend/src/api/bank/hnnxbankIndex.js` 中维护路径映射关系
+3. 在 `frontend/src/api/bank/{BANK_CODE}Index.js` 中维护路径映射关系
 4. 参考 [frontend-guide.md](assets/guides/frontend-guide.md) 进行编码
 
 #### 后端开发

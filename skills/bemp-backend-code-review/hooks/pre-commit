@@ -1,0 +1,33 @@
+#!/bin/bash
+# BEMP Backend Pre-commit Hook v2.7.0
+# Install: copy to .git/hooks/pre-commit and chmod +x
+# Or:   git config core.hooksPath .trae/skills/bemp-backend-code-review/hooks
+
+STAGED_JAVA=$(git diff --cached --name-only --diff-filter=ACM | grep '\.java$' | grep '^banks/')
+
+if [ -z "$STAGED_JAVA" ]; then
+    exit 0
+fi
+
+echo "=== BEMP Backend Pre-commit Check ==="
+echo "Staged Java files: $(echo "$STAGED_JAVA" | wc -l)"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$SCRIPT_DIR/../scripts/auto-scan.sh" ]; then
+    bash "$SCRIPT_DIR/../scripts/auto-scan.sh" $STAGED_JAVA
+    RESULT=$?
+else
+    SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+    echo "[WARN] auto-scan.sh not found at $SKILL_DIR/scripts/, skipping auto-scan"
+    RESULT=0
+fi
+
+if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "[REJECT] Commit blocked: auto-scan found blocking issues."
+    echo "Fix the issues above, then re-stage and commit."
+    exit 1
+fi
+
+echo "[PASS] Pre-commit check passed."
+exit 0

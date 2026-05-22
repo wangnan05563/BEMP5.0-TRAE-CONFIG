@@ -14,6 +14,31 @@ triggers:
 
 本 Skill 专门用于个性化功能开发，遵循 BEMP 项目规范和个性化开发要求，提供标准化的开发流程和质量控制。
 
+## 银行配置变量
+
+以下变量定义了当前个性化开发的银行信息，开发过程中所有路径、命名均引用这些变量：
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `{BANK_CODE}` | 银行编码，用于目录路径和包名 | `hnnxbank` |
+| `{BANK_CLASS_PREFIX}` | 个性化类名前缀（PascalCase） | `Hnnx` |
+| `{BANK_NAME}` | 银行中文名称，用于部署目录 | `河南农信` |
+
+**使用规则**：
+- 本文档中所有路径、命名均使用 `{BANK_CODE}`、`{BANK_CLASS_PREFIX}`、`{BANK_NAME}` 占位
+- 切换银行时仅需修改上表默认值，所有引用自动生效
+- 目录匹配规则：所有包含 `/banks/{BANK_CODE}` 或 `/bank/{BANK_CODE}` 路径的目录均为个性化开发目录
+
+## 占位符约定
+
+本文档体系使用三类占位符，语义和作用域不同：
+
+| 占位符风格 | 语义 | 使用场景 | 示例 |
+|-----------|------|---------|------|
+| `{VARIABLE}` | 配置变量，运行时替换为银行实际值 | 文档路径、包名引用 | `{BANK_CODE}`, `{BANK_CLASS_PREFIX}` |
+| `[占位名]` | 代码占位符，开发者按需填充 | Java/Vue/MD 代码模板 | `[模块名]`, `[方法名]`, `[字段名]` |
+| `${VARIABLE}` | SQL 模板变量，遵循 SQL 模板规范 | .sql 脚本模板 | `${TABLE_NAME}`, `${TASK_NO}`, `${DATE}` |
+
 ## 文档结构
 
 ```
@@ -30,8 +55,6 @@ bemp-personalized-dev/
 │       │   ├── Controller.java       # Controller 模板
 │       │   ├── Service.java          # Service 模板
 │       │   └── Dto.java              # DTO 模板
-│       ├── vue/
-│       │   └── PageTemplate.vue      # 前端页面模板
 │       └── sql/
 │           ├── menu-dml.sql          # 菜单定制DML模板（先删除后新增）
 │           ├── param-dml.sql         # 业务参数DML模板（先删除后新增）
@@ -64,13 +87,13 @@ bemp-personalized-dev/
 
 1. **需求理解**
    - 仔细阅读用户需求，明确功能目标
-   - 确认需求是否符合河南农信个性化开发范围
+   - 确认需求是否符合{BANK_NAME}个性化开发范围
    - 识别是否有可复用的已有个性化代码
    - 明确国际化范围 (按钮/标签需要国际化，提示信息等保持硬编码)
 
 2. **规范检查**
-   - 检查 banks/ext-hnnxbank 目录下是否有可复用的带 @CustomizedBean 注解的个性化类
-   - 检查 frontend/src/views/bizViews/banks/hnnxbank 目录下是否有对应的个性化 Vue 文件
+   - 检查 banks/ext-{BANK_CODE} 目录下是否有可复用的带 @CustomizedBean 注解的个性化类
+   - 检查 frontend/src/views/bizViews/banks/{BANK_CODE} 目录下是否有对应的个性化 Vue 文件
    - 检查是否有同类功能的实现可供参考
 
 3. **参考分析**
@@ -99,10 +122,10 @@ bemp-personalized-dev/
 
 ### 第二阶段：开发实施
 
-1. **后端开发 (必须在 banks/ext-hnnxbank 目录下)**
+1. **后端开发 (必须在 banks/ext-{BANK_CODE} 目录下)**
    - **指南参考**: 先参考 [后端开发指南](assets/guides/backend-guide.md) 中的代码模板章节
    - 创建个性化 Controller，应继承 BaseController，不应添加@CustomizedBean 注解
-   - 命名规则:Hnnx[原类名]，与产品化 Controller 并存
+   - 命名规则:{BANK_CLASS_PREFIX}[原类名]，与产品化 Controller 并存
    - 使用 BaseRequest 作为请求参数类
    - 增强参数获取逻辑，兼容多种参数格式 (extParam、requestDto、直接参数等)
    - 添加必要的业务逻辑
@@ -111,15 +134,15 @@ bemp-personalized-dev/
    - **指南参考**: 先参考 [前端开发指南](assets/guides/frontend-guide.md) 中的代码模板章节
    - **HUI文档查询【前置步骤】**: 明确当前页面需要使用的 H-UI 组件列表，对每个组件调用 `hui_doc` MCP 获取详细文档，确认组件属性签名和使用约束
    - **个性化开发目录**:
-     - 页面文件：`frontend/src/views/bizViews/banks/hnnxbank`
-     - 组件文件：`frontend/src/components/bank/hnnxbank`
-     - 资源文件：`frontend/src/assets/hnnxbank`
-     - 工具文件：`frontend/src/utils/banks/hnnxbank`
-     - 静态资源：`frontend/static/bank/hnnxbank`
-   - **目录匹配规则**: 所有包含 `/banks/hnnxbank` 或 `/bank/hnnxbank` 路径的目录均为个性化开发目录
+     - 页面文件：`frontend/src/views/bizViews/banks/{BANK_CODE}`
+     - 组件文件：`frontend/src/components/bank/{BANK_CODE}`
+     - 资源文件：`frontend/src/assets/{BANK_CODE}`
+     - 工具文件：`frontend/src/utils/banks/{BANK_CODE}`
+     - 静态资源：`frontend/static/bank/{BANK_CODE}`
+   - **目录匹配规则**: 所有包含 `/banks/{BANK_CODE}` 或 `/bank/{BANK_CODE}` 路径的目录均为个性化开发目录
    - 检查是否有对应的个性化 Vue 文件，有则复用
    - 如无，则新增 Vue 文件，名称和目录结构与原产品化文件保持一致
-   - 在 frontend/src/api/bank/hnnxbankIndex.js 中维护路径映射关系
+   - 在 frontend/src/api/bank/{BANK_CODE}Index.js 中维护路径映射关系
    - UI 风格统一：参考现有组件的实现方式，保持风格一致
    - 参数传递：使用 requestDto 格式传递参数，而非 extParam
    - 国际化处理：先在 zh-CN.js 中添加国际化文本，再在 Vue 中使用 $t() 调用
@@ -165,28 +188,8 @@ bemp-personalized-dev/
    - 添加必要的校验逻辑
    - 保持 UI 风格与现有组件一致
 
-### 第三阶段：质量控制
-
-1. **SonarQube 代码扫描**
-   - 使用 SonarQube MCP 扫描新开发的代码
-   - 扫描范围:banks/ext-hnnxbank 目录下的所有新增和修改的代码
-   - 修复扫描发现的所有问题:
-     - 阻断性问题 (Blocker):必须立即修复
-     - 严重问题 (Critical):必须修复
-     - 重要问题 (Major):建议修复
-     - 次要问题 (Minor):可选修复
-   - 重新扫描确认问题已修复
-2. **代码审查**
-   - 后端调用 bemp-backend-code-review Skill
-   - 前端调用 bemp-frontend-code-review Skill
-   - 参考开发指南文档做代码审查
-3. **编译验证**
-   - 执行 Maven 打包确保编译通过
-   - 检查是否有编译错误或警告
-   - 确认修改的 class 文件已生成
-
-4. **功能验证**
-   - 验证功能是否按需求实现
-   - 检查异常提示是否准确
-   - 验证国际化是否生效 (按钮和标签已国际化)
-   - 验证 UI 风格与现有组件一致
+7. **安全调用检查【强制】**
+   - 检查所有外部接口调用是否已做空值/边界判断
+   - 检查是否存在未处理的异常分支
+   - 确认敏感数据未在日志中明文输出
+   - 验证权限校验逻辑是否完整

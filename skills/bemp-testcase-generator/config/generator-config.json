@@ -1,0 +1,67 @@
+{
+  "target": {
+    "base_url": "http://127.0.0.1:8091",
+    "backend_url": "http://127.0.0.1:8010",
+    "hash_route": "#/",
+    "login_path": "#/login"
+  },
+  "database": {
+    "type": "oracle",
+    "description": "通过 bemp-implementation-engineer 智能体调用 Oracle MCP 工具操作"
+  },
+  "priority": {
+    "P0": "核心资金流程，出错导致资金损失或业务中断",
+    "P1": "核心业务流程，出错影响业务连续性",
+    "P2": "辅助功能，出错影响用户体验",
+    "P3": "管理类功能，出错影响范围有限"
+  },
+  "risk_levels": {
+    "high": "可能导致资金损失、业务中断或数据不一致",
+    "medium": "可能导致业务流程异常但可恢复",
+    "low": "仅影响用户体验或数据展示"
+  },
+  "output": {
+    "root_dir": "aotutests-playwright",
+    "functional_map": "references/website-functional-map.md",
+    "priority_matrix": "references/test-priority-matrix.md",
+    "test_cases_dir": "test-cases",
+    "test_data_dir": "test-data"
+  },
+  "banks": {
+    "active_bank": "hnnxbank",
+    "hnnxbank": {
+      "name": "河南农信",
+      "url_prefix": "/hnnxbank/"
+    },
+    "huisbank": {
+      "name": "徽商银行",
+      "url_prefix": "/huisbank/"
+    }
+  },
+  "case_id_prefixes": {
+    "COMMON": "通用/登录",
+    "BRANCH": "机构管理",
+    "ROLE": "角色权限",
+    "CLEAR": "清算管理",
+    "CUSTSIGN": "企业信息报备",
+    "SIGNAUDIT": "企业信息报备复核",
+    "SIGNRECORD": "企业信息报备记录",
+    "CUSTCORP": "企业客户查询",
+    "CUSTACCT": "企业账号同步",
+    "APPROVAL": "审批与记账",
+    "PAYMENT": "支付管理",
+    "CREDITBATCH": "承兑行额度批次",
+    "CREDITINFO": "承兑行额度明细",
+    "CREDITRECHECK": "承兑行额度复核",
+    "TRUST": "场内-托管",
+    "MARKET": "场内-市场交易",
+    "ACCEPT": "场外-承兑",
+    "DISCOUNT": "场外-贴现",
+    "PLEDGE": "场外-质押",
+    "ADMIN": "机构管理员管理",
+    "INVOICE": "发票维护",
+    "CONTRACT": "合同发票管理",
+    "VOUCHER": "其他凭证管理",
+    "DISCPOST": "贴现发票后补"
+  }
+}

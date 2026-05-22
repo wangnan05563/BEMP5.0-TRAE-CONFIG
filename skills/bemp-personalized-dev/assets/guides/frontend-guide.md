@@ -68,13 +68,13 @@
 
 | 目录类型 | 路径 | 说明 |
 |---------|------|------|
-| 页面文件 | `frontend/src/views/bizViews/banks/hnnxbank` | Vue 页面组件 |
-| 组件文件 | `frontend/src/components/bank/hnnxbank` | 可复用组件 |
-| 资源文件 | `frontend/src/assets/hnnxbank` | 图片、样式等资源 |
-| 工具文件 | `frontend/src/utils/banks/hnnxbank` | 工具函数和类 |
-| 静态资源 | `frontend/static/bank/hnnxbank` | 静态文件 |
+| 页面文件 | `frontend/src/views/bizViews/banks/{BANK_CODE}` | Vue 页面组件 |
+| 组件文件 | `frontend/src/components/bank/{BANK_CODE}` | 可复用组件 |
+| 资源文件 | `frontend/src/assets/{BANK_CODE}` | 图片、样式等资源 |
+| 工具文件 | `frontend/src/utils/banks/{BANK_CODE}` | 工具函数和类 |
+| 静态资源 | `frontend/static/bank/{BANK_CODE}` | 静态文件 |
 
-**【目录匹配规则】** 所有包含 `/banks/hnnxbank` 或 `/bank/hnnxbank` 路径的目录均为个性化开发目录。
+**【目录匹配规则】** 所有包含 `/banks/{BANK_CODE}` 或 `/bank/{BANK_CODE}` 路径的目录均为个性化开发目录。
 
 ### 1.3 核心原则
 
@@ -727,11 +727,15 @@ export default {
 
 ```javascript
 formSearch() { // 触发表单查询数据，并渲染响应到列表中
-  this.$refs.datagrid.dataChange(1);
+  if (this.$refs.datagrid) {
+          this.$refs.datagrid.dataChange(1);
+        }
 },
 
 formSearchReset() { // 清空表单输入域数据
-  this.$refs.formItem.resetFields();
+  if (this.$refs.formItem) {
+          this.$refs.formItem.resetFields();
+        }
 },
 ```
 
@@ -966,12 +970,12 @@ export default {
    - 无需在 `components` 中注册，直接在模板中使用
 
 2. **创建个性化组件**：
-   - 如需新增组件，优先放在 `components/bank/hnnxbank/` 目录下（如果该目录有 `index.js`）
+   - 如需新增组件，优先放在 `components/bank/{BANK_CODE}/` 目录下（如果该目录有 `index.js`）
    - 或者在页面所在目录下创建，并使用局部注册
 
 3. **复用已有业务组件**：
-   - 检查 `src/views/bizViews/banks/hnnxbank/` 目录下是否已有类似实现
-   - 检查 `src/components/bank/hnnxbank/` 目录下是否有可复用的组件
+   - 检查 `src/views/bizViews/banks/{BANK_CODE}/` 目录下是否已有类似实现
+   - 检查 `src/components/bank/{BANK_CODE}/` 目录下是否有可复用的组件
 
 4. **避免重复开发**：
    - 同一功能不要在全局组件和局部组件中重复实现
@@ -1623,7 +1627,7 @@ getTreeHeight(isMax, msgRef) {
 <h-datagrid 
   :columns="columns"
   highlightRow
-  url="/hnnxbank/模块路径/查询方法"
+  url="/{BANK_CODE}/模块路径/查询方法"
   :bindForm="formItem"
   ref="datagrid">
   <div slot="toolbar" class="pull-left">
@@ -1668,8 +1672,8 @@ getTreeHeight(isMax, msgRef) {
 
 ### 10.2 国际化文件位置
 
-- 中文：`frontend/src/views/bizViews/banks/hnnxbank/locale/lang/zh-CN.js`
-- 英文：`frontend/src/views/bizViews/banks/hnnxbank/locale/lang/en-US.js`
+- 中文：`frontend/src/views/bizViews/banks/{BANK_CODE}/locale/lang/zh-CN.js`
+- 英文：`frontend/src/views/bizViews/banks/{BANK_CODE}/locale/lang/en-US.js`
 
 ### 10.3 使用方式
 
@@ -1849,20 +1853,20 @@ if (!this.copyRoleForm.targetBrchNo) {
 
 **【强制】** 所有前端代码仅允许在以下目录开发：
 
-- `frontend/src/views/bizViews/banks/hnnxbank`
-- `frontend/src/api/bank/hnnxbankIndex.js`
+- `frontend/src/views/bizViews/banks/{BANK_CODE}`
+- `frontend/src/api/bank/{BANK_CODE}Index.js`
 
 **【强制】** 禁止在其他目录开发前端代码
 
 ### 12.6 组件复用
 
-**【推荐】** 检查 `frontend/src/views/bizViews/banks/hnnxbank` 目录，若有产品化 vue 对应的个性化 vue 文件则复用
+**【推荐】** 检查 `frontend/src/views/bizViews/banks/{BANK_CODE}` 目录，若有产品化 vue 对应的个性化 vue 文件则复用
 
 **【推荐】** 无对应个性化 vue 文件时，新增 vue，名称和目录结构与原产品化文件一致
 
 ### 12.7 路径映射
 
-**【强制】** 路径映射在 `frontend/src/api/bank/hnnxbankIndex.js` 中维护
+**【强制】** 路径映射在 `frontend/src/api/bank/{BANK_CODE}Index.js` 中维护
 
 ---
 
@@ -2170,7 +2174,7 @@ get('/api/url', params).then(res => {
 
 ```javascript
 // 正确
-post('/hnnxbank/sm/auth/branch/query', data);
+post('/{BANK_CODE}/sm/auth/branch/query', data);
 
 // 错误
 post('/sm/auth/branch/query', data);
@@ -2189,7 +2193,7 @@ let req = {
   requestDto: data
 };
 
-post('/hnnxbank/xxx', req).then(res => {
+post('/{BANK_CODE}/xxx', req).then(res => {
   // 处理响应
 });
 ```
@@ -2199,7 +2203,7 @@ post('/hnnxbank/xxx', req).then(res => {
 **【强制】** 统一处理响应结果：
 
 ```javascript
-post('/hnnxbank/xxx', data).then(res => {
+post('/{BANK_CODE}/xxx', data).then(res => {
   if (res.success) {
     // 成功处理
     this.$Message.success(this.$t('m.i.common.success'));
@@ -2218,7 +2222,7 @@ post('/hnnxbank/xxx', data).then(res => {
 **【强制】** 必须对请求进行错误处理：
 
 ```javascript
-post('/hnnxbank/xxx', data)
+post('/{BANK_CODE}/xxx', data)
   .then(res => {
     // 成功处理
   })
@@ -2235,8 +2239,8 @@ post('/hnnxbank/xxx', data)
 
 ```javascript
 Promise.all([
-  post('/hnnxbank/api1', data1),
-  post('/hnnxbank/api2', data2)
+  post('/{BANK_CODE}/api1', data1),
+  post('/{BANK_CODE}/api2', data2)
 ]).then(([res1, res2]) => {
   // 处理两个请求的结果
 });
@@ -2381,10 +2385,8 @@ Promise.all([
             <h-form-item prop="queryField2" :label="$t('m.i.common.field2')">
               <h-input v-model="formItem.queryField2" :maxlength="60"></h-input>
             </h-form-item>
-            <h-form-item class="h-form-operate">
               <h-button type="primary" @click="handleSearch()">{{$t("m.i.common.search")}}</h-button>
               <h-button type="ghost" @click="resetSearch()">{{$t("m.i.common.reset")}}</h-button>
-            </h-form-item>
           </h-form>
         </h-panel>
       </div>
@@ -2392,7 +2394,7 @@ Promise.all([
       <!-- 数据表格 -->
       <h-datagrid :columns="columns"
                   highlightRow
-                  url="/hnnxbank/模块路径/查询方法"
+                  url="/{BANK_CODE}/模块路径/查询方法"
                   :bindForm="formItem"
                   ref="datagrid">
         <div slot="toolbar" class="pull-left">
@@ -2491,14 +2493,18 @@ Promise.all([
        * 搜索处理
        */
       handleSearch() {
-        this.$refs.datagrid.loadData();
+        if (this.$refs.datagrid) {
+          this.$refs.datagrid.loadData();
+        }
       },
       
       /**
        * 重置搜索
        */
       resetSearch() {
-        this.$refs.formItem.resetFields();
+        if (this.$refs.formItem) {
+          this.$refs.formItem.resetFields();
+        }
         this.handleSearch();
       },
       
@@ -2528,7 +2534,7 @@ Promise.all([
           title: this.$t('m.i.common.confirm'),
           content: this.$t('m.i.common.deleteConfirm'),
           onOk: () => {
-            post('/hnnxbank/模块路径/delete', { id: row.id }).then(res => {
+            post('/{BANK_CODE}/模块路径/delete', { id: row.id }).then(res => {
               if (res.success) {
                 this.$Message.success(this.$t('m.i.common.deleteSuccess'));
                 this.handleSearch();
@@ -2544,12 +2550,13 @@ Promise.all([
        * 表单提交
        */
       formSubmit() {
-        this.$refs.addOrEditForm.validate((valid) => {
+        if (this.$refs.addOrEditForm) {
+          this.$refs.addOrEditForm.validate((valid) => {
           if (valid) {
             this.submitFlag = true;
             const url = this.type === 'add' 
-              ? '/hnnxbank/模块路径/add' 
-              : '/hnnxbank/模块路径/modify';
+              ? '/{BANK_CODE}/模块路径/add' 
+              : '/{BANK_CODE}/模块路径/modify';
             
             post(url, this.addOrEditForm).then(res => {
               this.submitFlag = false;
@@ -2571,7 +2578,9 @@ Promise.all([
        */
       addOrEditWinClose() {
         this.addOrEditWin = false;
-        this.$refs.addOrEditForm.resetFields();
+        if (this.$refs.addOrEditForm) {
+          this.$refs.addOrEditForm.resetFields();
+        }
       }
     },
     
@@ -2597,13 +2606,13 @@ Promise.all([
   <div>
     <!-- 批量操作按钮 -->
     <h-button type="primary" @click="batchOperation()">
-      {{$t("hnnxbank.m.i.auth.batchOperation")}}
+      {{$t("{BANK_CODE}.m.i.auth.batchOperation")}}
     </h-button>
     
     <!-- 批量操作弹窗 -->
     <h-msg-box v-model="batchWin" :mask-closable="false" width="400" class="h-form-search-layer">
       <p slot="header">
-        <span>{{$t("hnnxbank.m.i.auth.batchOperation")}}</span>
+        <span>{{$t("{BANK_CODE}.m.i.auth.batchOperation")}}</span>
       </p>
       <div>
         <h-form :model="batchForm" :label-width="115" ref="batchForm" cols="1" class="h-form-search">
@@ -2664,10 +2673,11 @@ Promise.all([
        * 批量提交
        */
       batchSubmit() {
-        this.$refs.batchForm.validate((valid) => {
+        if (this.$refs.batchForm) {
+          this.$refs.batchForm.validate((valid) => {
           if (valid) {
             this.submitFlag = true;
-            post('/hnnxbank/模块路径/batchOperation', this.batchForm).then(res => {
+            post('/{BANK_CODE}/模块路径/batchOperation', this.batchForm).then(res => {
               this.submitFlag = false;
               if (res.success) {
                 this.$Message.success(this.$t('m.i.common.success'));
@@ -2686,7 +2696,9 @@ Promise.all([
        */
       batchWinClose() {
         this.batchWin = false;
-        this.$refs.batchForm.resetFields();
+        if (this.$refs.batchForm) {
+          this.$refs.batchForm.resetFields();
+        }
       }
     }
   };
@@ -2710,10 +2722,8 @@ Promise.all([
           <h-form-item prop="queryField2" :label="$t('m.i.common.field2')">
             <h-input v-model="formItem.queryField2" :maxlength="60"></h-input>
           </h-form-item>
-          <h-form-item class="h-form-operate">
             <h-button type="primary" @click="handleSearch()">{{$t("m.i.common.search")}}</h-button>
             <h-button type="ghost" @click="resetSearch()">{{$t("m.i.common.reset")}}</h-button>
-          </h-form-item>
         </h-form>
       </h-panel>
     </div>
@@ -2721,7 +2731,7 @@ Promise.all([
     <!-- 数据表格 -->
     <h-datagrid :columns="columns"
                 highlightRow
-                url="/hnnxbank/模块路径/查询方法"
+                url="/{BANK_CODE}/模块路径/查询方法"
                 :bindForm="formItem"
                 :onSelectChange="handleSelectClick"
                 :onCurrentChange="handleCurrentChange"
@@ -2781,14 +2791,18 @@ Promise.all([
        * 搜索处理
        */
       handleSearch() {
-        this.$refs.datagrid.loadData();
+        if (this.$refs.datagrid) {
+          this.$refs.datagrid.loadData();
+        }
       },
       
       /**
        * 重置搜索
        */
       resetSearch() {
-        this.$refs.formItem.resetFields();
+        if (this.$refs.formItem) {
+          this.$refs.formItem.resetFields();
+        }
         this.handleSearch();
       },
       
@@ -2912,10 +2926,11 @@ Promise.all([
        * 提交处理
        */
       submit() {
-        this.$refs.formItem.validate((valid) => {
+        if (this.$refs.formItem) {
+          this.$refs.formItem.validate((valid) => {
           if (valid) {
             this.submitFlag = true;
-            post('/hnnxbank/模块路径/submit', this.formItem).then(res => {
+            post('/{BANK_CODE}/模块路径/submit', this.formItem).then(res => {
               this.submitFlag = false;
               if (res.success) {
                 this.$Message.success(this.$t('m.i.common.success'));
@@ -2936,7 +2951,9 @@ Promise.all([
       close() {
         this.visible = false;
         this.formItem = {};
-        this.$refs.formItem.resetFields();
+        if (this.$refs.formItem) {
+          this.$refs.formItem.resetFields();
+        }
       }
     }
   };
@@ -2988,17 +3005,15 @@ Promise.all([
                 <h-form-item :label="$t('m.i.common.cpesBrchCode')" prop="cpesBrchCode">
                   <h-input v-model="formItem.cpesBrchCode" :maxlength="9"></h-input>
                 </h-form-item>
-                <h-form-item class="h-form-operate">
                   <h-button type="primary" @click="formSearch('1')">{{$t("m.i.common.search")}}</h-button>
                   <h-button type="ghost" @click="formSearchReset()">{{$t("m.i.common.reset")}}</h-button>
-                </h-form-item>
               </h-form>
             </h-panel>
           </div>
           
           <!-- 数据展示表格 -->
           <h-datagrid :columns="columns" highlightRow 
-                      url="/hnnxbank/模块路径/查询方法"
+                      url="/{BANK_CODE}/模块路径/查询方法"
                       :bindForm="formItem" 
                       :onSelectChange="handleSelectClick"
                       :onCurrentChange="handleCurrentChange" 
@@ -3066,7 +3081,9 @@ Promise.all([
        * 展开树
        */
       handleExpandTree(data) {
-        this.$refs.branchTree.expandAll();
+        if (this.$refs.branchTree) {
+          this.$refs.branchTree.expandAll();
+        }
         this.isExpandDisabled = true;
         this.isNotExpandDisabled = false;
       },
@@ -3075,7 +3092,9 @@ Promise.all([
        * 收起树
        */
       handleUnExpandTree(data) {
-        this.$refs.branchTree.expandAll(false);
+        if (this.$refs.branchTree) {
+          this.$refs.branchTree.expandAll(false);
+        }
         this.isExpandDisabled = false;
         this.isNotExpandDisabled = true;
       },
@@ -3098,14 +3117,18 @@ Promise.all([
        * 搜索处理
        */
       formSearch(type) {
-        this.$refs.datagrid.loadData();
+        if (this.$refs.datagrid) {
+          this.$refs.datagrid.loadData();
+        }
       },
       
       /**
        * 重置搜索
        */
       formSearchReset() {
-        this.$refs.formItem.resetFields();
+        if (this.$refs.formItem) {
+          this.$refs.formItem.resetFields();
+        }
         this.formSearch('1');
       },
       
@@ -3172,47 +3195,47 @@ import { post, on, off } from "@/api/bizApi/commonUtil";
 
 // 查询列表
 export function queryList(data) {
-  return post('/hnnxbank/模块路径/queryList', data);
+  return post('/{BANK_CODE}/模块路径/queryList', data);
 }
 
 // 新增
 export function add(data) {
-  return post('/hnnxbank/模块路径/add', data);
+  return post('/{BANK_CODE}/模块路径/add', data);
 }
 
 // 修改
 export function modify(data) {
-  return post('/hnnxbank/模块路径/modify', data);
+  return post('/{BANK_CODE}/模块路径/modify', data);
 }
 
 // 删除
 export function remove(data) {
-  return post('/hnnxbank/模块路径/remove', data);
+  return post('/{BANK_CODE}/模块路径/remove', data);
 }
 
 // 详情
 export function detail(id) {
-  return post('/hnnxbank/模块路径/detail', { id: id });
+  return post('/{BANK_CODE}/模块路径/detail', { id: id });
 }
 
 // 批量操作
 export function batchOperation(data) {
-  return post('/hnnxbank/模块路径/batchOperation', data);
+  return post('/{BANK_CODE}/模块路径/batchOperation', data);
 }
 
 // 导出
 export function exportData(data) {
-  return post('/hnnxbank/模块路径/export', data);
+  return post('/{BANK_CODE}/模块路径/export', data);
 }
 
 // 导入
 export function importData(data) {
-  return post('/hnnxbank/模块路径/import', data);
+  return post('/{BANK_CODE}/模块路径/import', data);
 }
 
 // 下载模板
 export function downloadTemplate() {
-  return post('/hnnxbank/模块路径/downloadTemplate', {}, { responseType: 'blob' });
+  return post('/{BANK_CODE}/模块路径/downloadTemplate', {}, { responseType: 'blob' });
 }
 ```
 

@@ -49,46 +49,39 @@
 | 500-1000ms | ${count_500_1000} | ${percent_500_1000}% |
 | >1000ms | ${count_1000_plus} | ${percent_1000_plus}% |
 
-## 5. 错误分析
+## 5. 趋势分析
 
-| 错误类型 | 数量 | 占比 |
-|---------|------|------|
-| ${error_type_1} | ${error_count_1} | ${error_percent_1}% |
-| ${error_type_2} | ${error_count_2} | ${error_percent_2}% |
-
-## 6. 趋势分析
-
-### 6.1 TPS 趋势
+### 5.1 TPS 趋势
 
 ```
 TPS 趋势图
 [此处插入图表]
 ```
 
-### 6.2 响应时间趋势
+### 5.2 响应时间趋势
 
 ```
 响应时间趋势图
 [此处插入图表]
 ```
 
-### 6.3 错误率趋势
+### 5.3 错误率趋势
 
 ```
 错误率趋势图
 [此处插入图表]
 ```
 
-## 7. 性能瓶颈分析
+## 6. 性能瓶颈分析
 
-### 7.1 已识别的瓶颈
+### 6.1 已识别的瓶颈
 
 | 瓶颈 | 描述 | 影响程度 |
 |------|------|---------|
 | ${bottleneck_1} | ${description_1} | ${impact_1} |
 | ${bottleneck_2} | ${description_2} | ${impact_2} |
 
-### 7.2 资源使用情况
+### 6.2 资源使用情况
 
 | 资源 | 平均值 | 峰值 | 阈值 |
 |------|--------|------|------|
@@ -97,13 +90,24 @@ TPS 趋势图
 | 磁盘 I/O | ${io_avg} MB/s | ${io_max} MB/s | ${io_threshold} MB/s |
 | 网络带宽 | ${net_avg} Mbps | ${net_max} Mbps | ${net_threshold} Mbps |
 
-## 8. 优化建议
+## 7. 优化建议
 
 | 优先级 | 建议 | 预期效果 |
 |--------|------|---------|
 | P0 | ${suggestion_1} | ${expected_effect_1} |
 | P1 | ${suggestion_2} | ${expected_effect_2} |
 | P2 | ${suggestion_3} | ${expected_effect_3} |
+
+## 8. 历史基线对比
+
+| 指标 | 本次值 | 上次值 | 变化 | 判定 |
+|------|--------|--------|------|------|
+| TPS | ${current_tps} | ${baseline_tps} | ${tps_change}% | ${tps_verdict} |
+| 平均响应时间 | ${current_avg_rt} ms | ${baseline_avg_rt} ms | ${avg_rt_change}% | ${avg_rt_verdict} |
+| P95 响应时间 | ${current_p95} ms | ${baseline_p95} ms | ${p95_change}% | ${p95_verdict} |
+| 错误率 | ${current_error_rate}% | ${baseline_error_rate}% | ${error_rate_change}% | ${error_rate_verdict} |
+
+趋势判定规则：TPS变化>±10%或响应时间变化>±20%标记为**显著变化**，错误率上升>0.1%标记为**需关注**。
 
 ## 9. 结论
 

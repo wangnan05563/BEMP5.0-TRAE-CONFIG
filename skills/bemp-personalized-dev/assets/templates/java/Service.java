@@ -1,9 +1,11 @@
-package com.hundsun.bemp.hnnxbank.biz.sm.service.impl.[模块名];
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.impl.[模块名];
 
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.BaseRequest;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.[模块名].Hnnx[服务名]Service;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.[模块名].dto.Hnnx[Dto名]Dto;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.[模块名].{BANK_CLASS_PREFIX}[服务名]Service;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.[模块名].dto.{BANK_CLASS_PREFIX}[Dto名]Dto;
+import com.hundsun.bemp.fw.common.annotation.CustomizedBean;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -18,9 +20,10 @@ import java.util.List;
  * @author [作者]
  * @date [日期]
  */
+@CustomizedBean
 @CloudComponent
-public class Hnnx[原Service名]Impl extends [原Service名]Impl implements Hnnx[服务名]Service {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Hnnx[原Service名]Impl.class);
+public class {BANK_CLASS_PREFIX}[原Service名]Impl extends [原Service名]Impl implements {BANK_CLASS_PREFIX}[服务名]Service {
+    private static final Logger LOGGER = LoggerFactory.getLogger({BANK_CLASS_PREFIX}[原Service名]Impl.class);
 
     /**
      * [方法描述]
@@ -28,11 +31,11 @@ public class Hnnx[原Service名]Impl extends [原Service名]Impl implements Hnnx
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void [方法名](BaseRequest<Hnnx[Dto名]Dto> req) {
-        Hnnx[Dto名]Dto dto = req.getRequestDto();
+    public void [方法名](BaseRequest<{BANK_CLASS_PREFIX}[Dto名]Dto> req) {
+        {BANK_CLASS_PREFIX}[Dto名]Dto dto = req.getRequestDto();
 
         if (dto == null) {
-            throw new BempRuntimeException("请求参数不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "请求参数不能为空");
         }
 
         LOGGER.info("开始执行[方法名]操作，参数：{}", dto);

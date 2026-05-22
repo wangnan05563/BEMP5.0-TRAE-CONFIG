@@ -1,8 +1,8 @@
-# bemp-backend-code-review v2.2.0
+# bemp-backend-code-review v2.7.0
 
 BEMP 银行个性化后端代码审查技能。配置驱动，支持多银行切换，覆盖目录结构、注解、参数传递、安全性、性能等 14 个审查维度。
 
-> **v2.2.0 Token 优化**：代码示例精简、脚本外置、占位符体系 + 配置分离，SKILL.md 缩减 76% 同时保持功能完整。
+> **v2.7.0 逻辑修复**：修复 SH DTO前缀检查逻辑、PS1 -Include参数失效、SH 补齐缺失检查、hook增量传参、JSON编码声明。
 
 ## 目录结构
 
@@ -205,6 +205,7 @@ git diff --name-only HEAD~1 -- 'banks/ext-hnnxbank/**/*.java'
 
 | 版本 | 日期 | 变更 |
 |:---|:---|:---|
+| v2.7.0 | 2026-05-21 | 逻辑修复：SH DTO前缀检查(grep -v→basename)、PS1 -Include路径、SH补齐URL前缀+Controller返回值检查、hook增量传参、JSON -Encoding UTF8、版本号统一 |
 | v2.2.0 | 2026-05-16 | Token 优化：代码示例精简、脚本外置、占位符体系、去重合并（SKILL.md 缩减 76%） |
 | v2.1.0 | 2026-05-16 | 多银行可配置化：bank-config.json + 占位符体系 + 切换指南 |
 | v2.0.0 | 2026-05-16 | 结构重组 14 维度；新增安全性/性能/事务并发；自动扫描脚本；增量审查 |

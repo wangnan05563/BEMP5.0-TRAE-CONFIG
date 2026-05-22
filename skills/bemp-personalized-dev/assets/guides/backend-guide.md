@@ -44,7 +44,7 @@
 ### 1.3 核心原则
 
 - **增量开发**：继承产品化类，不修改产品化代码
-- **目录隔离**：个性化代码必须在 `banks/ext-hnnxbank` 目录下
+- **目录隔离**：个性化代码必须在 `banks/ext-{BANK_CODE}` 目录下
 - **向后兼容**：保持与产品化代码的兼容性
 - **规范编码**：遵循统一的编码规范和命名规则
 
@@ -114,7 +114,7 @@ com.hundsun.bemp.be.market
 
 | 类型 | 命名规则 | 示例 |
 |------|---------|------|
-| 基础包 | `com.hundsun.bemp.hnnxbank.biz` | `com.hundsun.bemp.hnnxbank.biz.sm` |
+| 基础包 | `com.hundsun.bemp.{BANK_CODE}.biz` | `com.hundsun.bemp.{BANK_CODE}.biz.sm` |
 | 子包 | 模块名 | `controller`、`service`、`service/impl`、`service/dto`、`dao` |
 
 ### 3.2 类命名
@@ -195,13 +195,14 @@ com.hundsun.bemp.be.market
 #### 4.1.1 Controller 基本结构
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.controller.role;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.controller.role;
 
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.*;
 import com.hundsun.bemp.fw.controller.BaseServiceController;
 import com.hundsun.bemp.fw.controller.UserContext;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.HnnxRoleService;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.HnnxRoleService;
 import com.hundsun.bemp.sm.common.AuthConstant;
 import com.hundsun.jrescloud.rpc.annotation.CloudReference;
 import org.apache.commons.lang3.StringUtils;
@@ -241,12 +242,14 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
 #### 4.1.2 ServiceImpl 基本结构
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.service.impl.role;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.impl.role;
 
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.BaseRequest;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.HnnxRoleService;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.dto.HnnxRoleDto;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.HnnxRoleService;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.dto.HnnxRoleDto;
+import com.hundsun.bemp.fw.common.annotation.CustomizedBean;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -261,6 +264,7 @@ import java.util.List;
  * @author [作者]
  * @date [日期]
  */
+@CustomizedBean
 @CloudComponent
 public class HnnxRoleServiceImpl implements HnnxRoleService {
     private static final Logger LOGGER = LoggerFactory.getLogger(HnnxRoleServiceImpl.class);
@@ -617,13 +621,13 @@ logger.error("场景简要描述_" + e.getMessage(), e);
 
 ### 10.1 个性化开发目录
 
-**【强制】** 所有后端代码仅允许在 `banks/ext-hnnxbank` 目录开发
+**【强制】** 所有后端代码仅允许在 `banks/ext-{BANK_CODE}` 目录开发
 
 **【强制】** 禁止在其他目录开发后端代码
 
 ### 10.2 个性化类开发
 
-**【强制】** 检查 `banks/ext-hnnxbank` 目录，若有带 `@CustomizedBean` 注解的个性化类，在其基础上新增或复写功能
+**【强制】** 检查 `banks/ext-{BANK_CODE}` 目录，若有带 `@CustomizedBean` 注解的个性化类，在其基础上新增或复写功能
 
 **【强制】** `@CustomizedBean` 注解仅用于标注 Service/Atom 等业务层实现类的个性化类
 
@@ -770,7 +774,7 @@ private String configValue;
 File file = new File("/data/bemp/not-exist-file.txt");  // 文件不存在
 
 // 类引用
-import com.hundsun.bemp.hnnxbank.biz.DeletedClass;  // 类已被删除
+import com.hundsun.bemp.{BANK_CODE}.biz.DeletedClass;  // 类已被删除
 ```
 
 #### 13.2.3 循环引用（Circular Reference）
@@ -1095,7 +1099,7 @@ mvn dependency:tree -Dverbose | grep "cycles"
 - 方法内使用的变量不要定义为类变量
 - For 循环内使用的不要定义在 for 循环以外
 
-### 15.2 防止 NPE
+### 17.2 防止 NPE
 
 **【推荐】** 防止 NPE，是程序员的基本修养，注意 NPE 产生的场景：
 
@@ -1106,19 +1110,19 @@ mvn dependency:tree -Dverbose | grep "cycles"
 5. 对于 Session 中获取的数据，建议 NPE 检查
 6. 级联调用 `obj.getA().getB().getC()`，一连串调用，易产生 NPE
 
-### 15.3 代码复用
+### 17.3 代码复用
 
 **【参考】** 避免出现重复的代码（Don't Repeat Yourself），即 DRY 原则
 
-### 15.4 国际化
+### 17.4 国际化
 
 **【强制】** 所有面向用户的文本必须使用国际化
 
-### 15.5 菜单鉴权
+### 17.5 菜单鉴权
 
 **【强制】** 菜单鉴权遵循系统权限规范
 
-### 15.6 日终规范
+### 17.6 日终规范
 
 **【强制】** 日终任务遵循以下规范：
 
@@ -1510,14 +1514,15 @@ if (condition) {
 ## 1. Controller 模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.controller.role;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.controller.role;
 
 import com.hundsun.bemp.fw.common.constant.CommonConst;
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.*;
 import com.hundsun.bemp.fw.controller.BaseServiceController;
 import com.hundsun.bemp.fw.controller.UserContext;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.HnnxRoleService;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.HnnxRoleService;
 import com.hundsun.bemp.sm.common.AuthConstant;
 import com.hundsun.bemp.sm.common.RoleConstants;
 import com.hundsun.bemp.sm.service.role.RoleService;
@@ -1566,7 +1571,7 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
     public CommonResp addBranchRole(BaseRequest req, RoleDto requestDto) {
         // 0. 输入参数非空校验（防御性编程，提前拦截非法请求）
         if (requestDto == null) {
-            throw new BempRuntimeException("请求参数不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "请求参数不能为空");
         }
 
         // 1. 获取当前用户信息
@@ -1577,7 +1582,7 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
         // 2. 机构角色复核模式检查
         String roleCheckMode = getParamValue(userInfo.getLegalNo(), RoleConstants.ROLE_BIND_CHECK_MODE,
                 CommonConst.LOGIC_NO);
-        LOGGER.info("当前复核模式：" + roleCheckMode + "(1-双岗需复核，0-单岗无需复核);当前执行操作：新增机构角色[" + requestDto.getRoleName() + "]");
+        LOGGER.info("当前复核模式：{}(1-双岗需复核，0-单岗无需复核);当前执行操作：新增机构角色[{}]", roleCheckMode, requestDto.getRoleName());
 
         if (CommonConst.LOGIC_YES.equals(roleCheckMode)) {
             // 双岗模式：写入复核表
@@ -1603,10 +1608,10 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
     public CommonResp updateBranchRole(BaseRequest req, RoleDto requestDto) {
         // 0. 输入参数非空校验
         if (requestDto == null) {
-            throw new BempRuntimeException("请求参数不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "请求参数不能为空");
         }
         if (StringUtils.isBlank(requestDto.getId())) {
-            throw new BempRuntimeException("角色ID不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "角色ID不能为空");
         }
 
         // 1. 获取当前用户信息
@@ -1622,7 +1627,7 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
         // 2. 机构角色复核模式检查
         String roleCheckMode = getParamValue(role.getLegalNo(), RoleConstants.ROLE_BIND_CHECK_MODE,
                 CommonConst.LOGIC_NO);
-        LOGGER.info("当前复核模式：" + roleCheckMode + "(1-双岗需复核，0-单岗无需复核);当前执行操作：修改机构角色[" + requestDto.getRoleName() + "]");
+        LOGGER.info("当前复核模式：{}(1-双岗需复核，0-单岗无需复核);当前执行操作：修改机构角色[{}]", roleCheckMode, requestDto.getRoleName());
 
         if (CommonConst.LOGIC_YES.equals(roleCheckMode)) {
             // 双岗模式：写入复核表
@@ -1655,13 +1660,13 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
     public CommonResp copyAssignBranchRole(BaseRequest<HnnxRoleDto> req, HnnxRoleDto roleDto) {
         // 0. 输入参数非空校验（防御性编程，提前拦截非法请求）
         if (roleDto == null) {
-            throw new BempRuntimeException("请求参数不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "请求参数不能为空");
         }
         if (StringUtils.isBlank(roleDto.getBrchNo())) {
-            throw new BempRuntimeException("源机构号不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "源机构号不能为空");
         }
         if (roleDto.getTargetBrchNos() == null || roleDto.getTargetBrchNos().isEmpty()) {
-            throw new BempRuntimeException("目标机构号列表不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "目标机构号列表不能为空");
         }
 
         // 1. 获取当前用户信息
@@ -1671,7 +1676,7 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
         // 2. 用户类型校验（只有总行和市办用户可以执行此操作）
         if (!AuthConstant.S_TWO.equals(userInfo.getUserType())
                 && !AuthConstant.S_FOUR.equals(userInfo.getUserType())) {
-            throw new BempRuntimeException("无权限执行批量复制操作");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "无权限执行批量复制操作");
         }
 
         // 3. 设置操作员信息
@@ -1681,7 +1686,7 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
         // 4. 检查机构绑定复核模式参数
         String branchCheckMode = BranchHisServiceUtil.getParamValue(legalNo, BranchConst.BRANCH_BIND_CHECK_MODE,
                 CommonConst.LOGIC_NO);
-        LOGGER.info("当前复核模式：" + branchCheckMode + "(1-双岗需复核，0-单岗无需复核);当前执行操作：批量复制机构角色分配");
+        LOGGER.info("当前复核模式：{}(1-双岗需复核，0-单岗无需复核);当前执行操作：批量复制机构角色分配", branchCheckMode);
 
         if (CommonConst.LOGIC_YES.equals(branchCheckMode)) {
             // 双岗模式：写入复核表
@@ -1723,14 +1728,15 @@ public class HnnxBankBranchRoleController extends BaseServiceController {
 ## 2. Service 模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.service.impl.role;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.impl.role;
 
 import com.github.pagehelper.Page;
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.*;
 import com.hundsun.bemp.fw.controller.UserContext;
-import com.hundsun.bemp.hnnxbank.biz.sm.dao.role.HnnxRoleDao;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.HnnxRoleService;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.dao.role.HnnxRoleDao;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.HnnxRoleService;
 import com.hundsun.bemp.sm.common.AuthConstant;
 import com.hundsun.bemp.sm.common.constant.exception.RoleExceptionCodeConstant;
 import com.hundsun.bemp.sm.common.util.StringUtils;
@@ -1741,9 +1747,10 @@ import com.hundsun.bemp.sm.dao.role.BranchRoleDao;
 import com.hundsun.bemp.sm.dao.role.RoleDao;
 import com.hundsun.bemp.sm.dao.role.entity.*;
 import com.hundsun.bemp.sm.service.branch.dto.QryBranchDto;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.dto.HnnxRoleDto;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.dto.HnnxRoleDto;
 import com.hundsun.bemp.sm.service.role.dto.*;
 import com.hundsun.bemp.sm.service.role.request.QueryRoleDto;
+import com.hundsun.bemp.fw.common.annotation.CustomizedBean;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
 import com.hundsun.jrescloud.rpc.annotation.CloudFunction;
 import com.hundsun.jrescloud.rpc.annotation.CloudReference;
@@ -1762,6 +1769,7 @@ import java.util.Set;
  * @author [作者姓名]
  * @date [创建日期]
  */
+@CustomizedBean
 @CloudComponent
 public class HnnxRoleServiceImpl implements HnnxRoleService {
     private static final Logger LOGGER = LoggerFactory.getLogger(HnnxRoleServiceImpl.class);
@@ -1811,7 +1819,7 @@ public class HnnxRoleServiceImpl implements HnnxRoleService {
      * @return 提示信息
      */
     @Override
-    public String chekcDistributeBranchRole(BaseRequest<RoleDto> baseRequest){
+    public String checkDistributeBranchRole(BaseRequest<RoleDto> baseRequest){
         UserInfo userInfo = UserContext.get();
         String branchNo = baseRequest.getRequestDto().getBrchNo();
         
@@ -1864,10 +1872,10 @@ public class HnnxRoleServiceImpl implements HnnxRoleService {
 
         // 参数校验
         if (StringUtils.isBlank(sourceBrchNo)) {
-            throw new BempRuntimeException("源机构号不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "源机构号不能为空");
         }
         if (targetBrchNos == null || targetBrchNos.isEmpty()) {
-            throw new BempRuntimeException("目标机构号列表不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "目标机构号列表不能为空");
         }
 
         LOGGER.info("开始批量复制角色分配，源机构号：{}，目标机构数量：{}", sourceBrchNo, targetBrchNos.size());
@@ -1998,7 +2006,7 @@ public class HnnxRoleServiceImpl implements HnnxRoleService {
 ## 3. DTO 模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.service.role.dto;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.dto;
 
 import com.hundsun.bemp.sm.service.role.dto.RoleDto;
 import lombok.Data;
@@ -2042,7 +2050,7 @@ public class HnnxRoleDto extends RoleDto {
 ## 4. DAO 模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.dao.role;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.dao.role;
 
 import com.hundsun.bemp.sm.dao.role.entity.Role;
 import com.hundsun.bemp.sm.service.role.request.QueryRoleDto;
@@ -2084,7 +2092,7 @@ public interface HnnxRoleDao {
 ## 5. 异常处理模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.common.exception;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.common.exception;
 
 /**
  * 河南农信业务异常常量
@@ -2130,12 +2138,13 @@ public class HnnxBankExceptionCodeConstant {
 ## 6. 事务处理模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.service.impl;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.impl;
 
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.BaseRequest;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.HnnxService;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.dto.HnnxDto;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.HnnxService;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.dto.HnnxDto;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -2167,7 +2176,7 @@ public class HnnxServiceImpl implements HnnxService {
         
         // 参数校验
         if (dto == null) {
-            throw new BempRuntimeException("请求参数不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "请求参数不能为空");
         }
         
         LOGGER.info("开始执行批量操作，参数：{}", dto);
@@ -2185,7 +2194,7 @@ public class HnnxServiceImpl implements HnnxService {
             LOGGER.info("批量操作完成");
         } catch (Exception e) {
             LOGGER.error("批量操作失败", e);
-            throw new BempRuntimeException("批量操作失败，请稍后重试");
+            throw new BempRuntimeException(CommonErrorNoConst.BIZ_FAIL, "批量操作失败，请稍后重试");
         }
     }
 
@@ -2223,12 +2232,13 @@ public class HnnxServiceImpl implements HnnxService {
 ## 7. 日志处理模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.service.impl;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.impl;
 
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.BaseRequest;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.HnnxService;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.dto.HnnxDto;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.HnnxService;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.dto.HnnxDto;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -2263,10 +2273,10 @@ public class HnnxLogServiceImpl implements HnnxService {
 
         // 参数校验
         if (StringUtils.isBlank(sourceBrchNo)) {
-            throw new BempRuntimeException("源机构号不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "源机构号不能为空");
         }
         if (targetBrchNos == null || targetBrchNos.isEmpty()) {
-            throw new BempRuntimeException("目标机构号列表不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "目标机构号列表不能为空");
         }
 
         // INFO 级别：关键业务流程、重要状态变化
@@ -2299,7 +2309,7 @@ public class HnnxLogServiceImpl implements HnnxService {
             for (Long roleId : rolesToRemove) {
                 String roleName = getRoleNameById(roleId);
                 if (checkRoleUsedByUser(targetBrchNo, roleId)) {
-                    throw new BempRuntimeException("角色【" + roleName + "】为机构下用户使用不能去除与当前机构的关系");
+                    throw new BempRuntimeException(CommonErrorNoConst.BIZ_FAIL, "角色【" + roleName + "】为机构下用户使用不能去除与当前机构的关系");
                 }
                 LOGGER.debug("角色【{}】未被机构【{}】的用户使用", roleName, targetBrchNo);
             }
@@ -2408,13 +2418,14 @@ public class HnnxLogServiceImpl implements HnnxService {
 ## 8. 测试用例模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.service.impl.role;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.service.impl.role;
 
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.BaseRequest;
-import com.hundsun.bemp.hnnxbank.biz.sm.dao.role.HnnxRoleDao;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.HnnxRoleService;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.role.dto.HnnxRoleDto;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.dao.role.HnnxRoleDao;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.HnnxRoleService;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.dto.HnnxRoleDto;
 import com.hundsun.bemp.sm.dao.role.BranchRoleDao;
 import com.hundsun.bemp.sm.dao.role.RoleDao;
 import com.hundsun.bemp.sm.dao.role.entity.BranchRole;

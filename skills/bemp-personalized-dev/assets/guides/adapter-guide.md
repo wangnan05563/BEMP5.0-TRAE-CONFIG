@@ -34,8 +34,8 @@
 ### 1.2 目录结构
 
 ```
-banks/ext-hnnxbank/hnnxbank-adapter-as/
-└── src/main/java/com/hundsun/bemp/hnnxbank/adapter/msg/
+banks/ext-{BANK_CODE}/{BANK_CODE}-adapter-as/
+└── src/main/java/com/hundsun/bemp/{BANK_CODE}/adapter/msg/
     ├── client/                    # 客户端 (主动调用外部系统)
     │   ├── approve/              # 审批系统相关
     │   ├── auth/                 # 认证相关
@@ -308,17 +308,17 @@ adapter.mq.password=mqm
 
 ```java
 // Client 端
-package com.hundsun.bemp.hnnxbank.adapter.msg.client.[业务系统];
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.client.[业务系统];
 
 // Server 端
-package com.hundsun.bemp.hnnxbank.adapter.msg.server.[业务系统];
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.server.[业务系统];
 ```
 
 **示例:**
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.client.core;
-package com.hundsun.bemp.hnnxbank.adapter.msg.server.ebank;
-package com.hundsun.bemp.hnnxbank.adapter.msg.server.credit;
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.client.core;
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.server.ebank;
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.server.credit;
 ```
 
 ### 4.3 Bean 命名规范
@@ -813,12 +813,12 @@ info.put("controlFlagName", XmlUtil.getNodeValue(outTbl, "memo"));
 ### 1.1 基础模板 (调用外部系统)
 
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.client.[业务系统];
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.client.[业务系统];
 
 import java.util.List;
 import java.util.Map;
 
-import com.hundsun.bemp.hnnxbank.adapter.msg.common.CommomQueryService;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.common.CommomQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -835,9 +835,9 @@ import com.hundsun.bemp.adapter.msg.xml.XmlNode;
 import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.util.DateTimeUtil;
-import com.hundsun.bemp.hnnxbank.adapter.msg.common.mq.request.CommonReq;
-import com.hundsun.bemp.hnnxbank.adapter.msg.util.HeadUtils;
-import com.hundsun.bemp.hnnxbank.adapter.msg.util.XmlUtil;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.common.mq.request.CommonReq;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.util.HeadUtils;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.util.XmlUtil;
 
 import spc.webos.endpoint.ESB2;
 
@@ -959,7 +959,7 @@ public class [交易码]MessageConverter extends AbstractGenericMessageRequestRe
 ### 1.2 签名服务模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.client.sign;
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.client.sign;
 
 import com.alibaba.fastjson.JSONObject;
 import com.hundsun.bemp.adapter.msg.generic.AbstractGenericMessageRequestReplyConverter;
@@ -972,8 +972,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
 import static com.tass.sign.TassSignService.putInstance;
@@ -1017,7 +1016,7 @@ public class [交易码]MessageConverter extends AbstractGenericMessageRequestRe
         // 2. 生成签名时间
         String signTime = null;
         Date signDate = new Date();
-        DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+        DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         signTime = df.format(signDate);
         
         // 3. 连接加签服务器
@@ -1072,7 +1071,7 @@ public class [交易码]MessageConverter extends AbstractGenericMessageRequestRe
 ### 2.1 基础模板 (接收外部系统)
 
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.server.[业务系统];
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.server.[业务系统];
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -1083,9 +1082,9 @@ import com.hundsun.bemp.adapter.msg.xml.XmlNode;
 import com.hundsun.bemp.fw.common.cache.BempCacheUtils;
 import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
-import com.hundsun.bemp.hnnxbank.adapter.msg.common.CommomQueryService;
-import com.hundsun.bemp.hnnxbank.adapter.msg.util.HeadUtils;
-import com.hundsun.bemp.hnnxbank.adapter.msg.util.XmlUtil;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.common.CommomQueryService;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.util.HeadUtils;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.util.XmlUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1166,7 +1165,7 @@ public class [交易码]MessageConverter extends AbstractMessageApplyResponseCon
 ### 2.2 带校验的模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.server.[业务系统];
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.server.[业务系统];
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -1177,7 +1176,7 @@ import com.hundsun.bemp.adapter.msg.xml.XmlNode;
 import com.hundsun.bemp.fw.common.cache.BempCacheUtils;
 import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
-import com.hundsun.bemp.hnnxbank.adapter.msg.util.XmlUtil;
+import com.hundsun.bemp.{BANK_CODE}.adapter.msg.util.XmlUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.Message;
@@ -1252,7 +1251,7 @@ public class [交易码]MessageConverter extends AbstractMessageApplyResponseCon
 ### 3.1 自定义工具类模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.util;
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.util;
 
 import com.hundsun.bemp.adapter.msg.xml.XmlNode;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
@@ -1296,12 +1295,12 @@ public class [工具类名称] {
         
         if (null != xmlNode) {
             if (null == xmlNode.getSubNode(label) || StringUtils.isBlank(xmlNode.getSubNode(label).getText())) {
-                throw new BempRuntimeException("000003", label + "不能为空");
+                throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, label + "不能为空");
             } else {
                 node = xmlNode.getSubNode(label);
             }
         } else {
-            throw new BempRuntimeException("000003", "XmlNode 不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "XmlNode 不能为空");
         }
         
         return node;
@@ -1314,7 +1313,7 @@ public class [工具类名称] {
 ### 4.1 Client 端测试模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.client.[业务系统];
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.client.[业务系统];
 
 import com.alibaba.fastjson.JSONObject;
 import com.hundsun.bemp.fw.common.test.BaseTest;
@@ -1368,7 +1367,7 @@ public class [交易码]MessageConverterTest extends BaseTest {
 ### 4.2 Server 端测试模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.adapter.msg.server.[业务系统];
+package com.hundsun.bemp.{BANK_CODE}.adapter.msg.server.[业务系统];
 
 import com.alibaba.fastjson.JSONObject;
 import com.hundsun.bemp.fw.common.test.BaseTest;

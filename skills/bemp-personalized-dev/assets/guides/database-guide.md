@@ -478,7 +478,7 @@ WHERE u.ID = ur.USER_ID
 所有 DAO 接口必须继承 BaseDao:
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.sm.dao.role;
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.dao.role;
 
 import com.hundsun.bemp.fw.dao.base.BaseDao;
 import com.hundsun.bemp.sm.dao.role.entity.Role;
@@ -513,7 +513,7 @@ public interface HnnxRoleDao extends BaseDao<Role, RoleExample, Long> {
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.hundsun.bemp.hnnxbank.biz.sm.dao.role.HnnxRoleDao">
+<mapper namespace="com.hundsun.bemp.{BANK_CODE}.biz.sm.dao.role.HnnxRoleDao">
     
     <!-- 结果映射 -->
     <resultMap id="BaseResultMap" type="com.hundsun.bemp.sm.dao.role.entity.Role">
@@ -767,8 +767,8 @@ WHERE DICT_TYPE = 'OLD_TYPE';
 | 序号 | 中文名称 | 字段 | 长度 | 备注 |
 |------|---------|------|------|------|
 | 1 | 主键ID | ID | NUMBER(16,0) | 物理主键 |
-| 2 | 创建时间 | CREATE_TIME | TIMESTAMP | 记录创建时间 |
-| 3 | 修改时间 | UPDATE_TIME | TIMESTAMP | 记录最后修改时间 |
+| 2 | 创建时间 | CREATE_TIME | NUMBER(17,0) | 记录创建时间（Long时间戳） |
+| 3 | 修改时间 | UPDATE_TIME | NUMBER(17,0) | 记录最后修改时间（Long时间戳） |
 | 4 | 保留字段1 | RESERVE1 | VARCHAR2(250) | 个性化开发使用 |
 | 5 | 保留字段2 | RESERVE2 | VARCHAR2(250) | 个性化开发使用 |
 | 6 | 保留字段3 | RESERVE3 | VARCHAR2(250) | 个性化开发使用 |
@@ -1578,7 +1578,7 @@ WHERE LEGAL_NO = #{legalNo}
 ### 3.1 基础 DAO 模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.[module].dao.[entity];
+package com.hundsun.bemp.{BANK_CODE}.biz.[module].dao.[entity];
 
 import com.hundsun.bemp.fw.dao.base.BaseDao;
 import com.hundsun.bemp.[module].dao.[entity].entity.[Entity];
@@ -1626,7 +1626,7 @@ public interface [Entity]Dao extends BaseDao<[Entity], [Entity]Example, Long> {
 ### 3.2 扩展 DAO 模板
 
 ```java
-package com.hundsun.bemp.hnnxbank.biz.[module].dao.[entity];
+package com.hundsun.bemp.{BANK_CODE}.biz.[module].dao.[entity];
 
 import com.hundsun.bemp.fw.dao.base.BaseDao;
 import com.hundsun.bemp.[module].dao.[entity].entity.[Entity];
@@ -1684,7 +1684,7 @@ public interface Hnnx[Entity]Dao extends BaseDao<[Entity], [Entity]Example, Long
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.hundsun.bemp.hnnxbank.biz.[module].dao.[entity].[Entity]Dao">
+<mapper namespace="com.hundsun.bemp.{BANK_CODE}.biz.[module].dao.[entity].[Entity]Dao">
     
     <!-- 结果映射 -->
     <resultMap id="BaseResultMap" type="[EntityFullClassPath]">
@@ -1766,7 +1766,7 @@ public interface Hnnx[Entity]Dao extends BaseDao<[Entity], [Entity]Example, Long
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.hundsun.bemp.hnnxbank.biz.[module].dao.[entity].Hnnx[Entity]Dao">
+<mapper namespace="com.hundsun.bemp.{BANK_CODE}.biz.[module].dao.[entity].Hnnx[Entity]Dao">
     
     <!-- 继承基础 ResultMap -->
     <resultMap id="HnnxResultMap" type="[EntityFullClassPath]" extends="BaseResultMap">

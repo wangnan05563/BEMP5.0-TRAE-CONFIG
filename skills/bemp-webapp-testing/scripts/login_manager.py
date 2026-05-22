@@ -131,9 +131,16 @@ class LoginManager:
         password_sel = selectors.get('login_password', 'input[placeholder*="密码"]')
         login_btn_sel = selectors.get('login_button', 'button:has-text("登录")')
 
-        page.fill(username_sel, username)
-        page.fill(password_sel, password)
-        page.click(login_btn_sel)
+        page.locator(username_sel).wait_for(state="visible", timeout=10000)
+        page.locator(username_sel).fill(username)
+
+        pwd_input = page.locator("input[name='tempPassword']")
+        if pwd_input.is_visible(timeout=2000):
+            pwd_input.fill(password)
+        else:
+            page.locator(password_sel).fill(password)
+
+        page.locator(login_btn_sel).last.click()
         page.wait_for_timeout(2000)
 
         try:
@@ -304,6 +311,13 @@ class LoginManager:
             except Exception:
                 pass
             self._playwright = None
+
+    @property
+    def base_url(self):
+        return self._base_url
+
+    def is_session_valid(self, page):
+        return self._is_page_session_valid(page)
 
     def navigate_to(self, page_path, role='default'):
         page = self.get_page(role)

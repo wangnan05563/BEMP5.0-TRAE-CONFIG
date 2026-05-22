@@ -3,8 +3,8 @@ name: "bemp-backend-code-review"
 description: "审查BEMP银行个性化后端代码是否符合项目规范，含代码结构、注解、参数传递、安全性、性能等检查。支持多银行配置切换。"
 whenToUse: "需要审查BEMP工程各银行个性化后端代码是否符合项目规范"
 triggers: "代码/规范/code 走查/审查/审核/把关/review"
-version: "2.2.0"
-updated: "2026-05-16"
+version: "2.7.0"
+updated: "2026-05-21"
 config: "config/bank-config.json"
 scripts: "scripts/auto-scan.ps1"
 template: "templates/report-template.md"
@@ -194,7 +194,7 @@ public class HnnxXxxReq implements Serializable {
 
 ## 审查报告
 
-使用模板 `templates/report-template.md`，关键字段：审查版本v2.2.0、审查模式、目标银行 `{bankName}({bankCode})`、文件数、时间戳、与上次对比(🆕新增/✅已修复/⚠️仍存在)、四级问题汇总、审查结论。
+使用模板 `templates/report-template.md`，关键字段：审查版本v2.7.0、审查模式、目标银行 `{bankName}({bankCode})`、文件数、时间戳、与上次对比(🆕新增/✅已修复/⚠️仍存在)、四级问题汇总、审查结论。
 
 报告保存路径：`.trae/skills/bemp-backend-code-review/reports/{bankCode}_YYYY-MM-DD_HHmmss_[full|incremental]_report.md`
 

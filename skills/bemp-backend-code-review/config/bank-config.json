@@ -1,7 +1,7 @@
 {
     "description": "BEMP后端代码审查 - 银行个性化配置参数。切换银行时修改此文件即可，无需修改SKILL.md。",
-    "version": "1.0.0",
-    "lastUpdate": "2026-05-16",
+    "version": "2.7.0",
+    "lastUpdate": "2026-05-21",
 
     "currentBank": "hnnxbank",
 

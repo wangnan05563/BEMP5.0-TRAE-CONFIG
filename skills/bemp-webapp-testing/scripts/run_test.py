@@ -20,11 +20,15 @@ import sys
 from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..', '..'))
 
 sys.path.insert(0, os.path.dirname(__file__))
 from health_check import run_health_check, load_config, get_bank_config, validate_config
 from login_manager import LoginManager, LoginError
+from common import (
+    get_selector, capture_errors, capture_requests,
+    filter_critical_errors, filter_personalized_urls,
+    resolve_output_path, update_index, PROJECT_ROOT
+)
 
 
 def ensure_playwright():
@@ -34,40 +38,6 @@ def ensure_playwright():
     except ImportError:
         print("[ERROR] Playwright not installed. Run: pip install playwright && playwright install chromium")
         return False
-
-
-def get_selector(config, name, **kwargs):
-    selectors = config.get('selectors', {})
-    selector = selectors.get(name, '')
-    for key, value in kwargs.items():
-        selector = selector.replace('{' + key + '}', str(value))
-    return selector
-
-
-def capture_errors(page):
-    js_errors = []
-    def on_console(msg):
-        if msg.type == 'error':
-            js_errors.append(msg.text)
-    page.on("console", on_console)
-    return js_errors
-
-
-def capture_requests(page):
-    api_requests = []
-    def on_request(request):
-        api_requests.append({'url': request.url, 'method': request.method})
-    page.on("request", on_request)
-    return api_requests
-
-
-def filter_critical_errors(js_errors, config):
-    critical_patterns = config.get('error_filters', {}).get('critical_errors', ['TypeError', 'ReferenceError'])
-    return [e for e in js_errors if any(p in e for p in critical_patterns)]
-
-
-def filter_personalized_urls(api_requests, url_prefix):
-    return [r for r in api_requests if url_prefix in r['url']]
 
 
 def run_tests(test_module, config, bank_id, screenshot_dir, headless=True, role='default'):
@@ -87,11 +57,10 @@ def run_tests(test_module, config, bank_id, screenshot_dir, headless=True, role=
 
     with sync_playwright() as p:
         launch_opts = config.get('test', {}).get('browser', {}).get('launch_options', {})
-        browser = p.chromium.launch(**{
-            k: v for k, v in launch_opts.items() if k in ('headless', 'channel', 'args')
-        })
+        filtered_opts = {k: v for k, v in launch_opts.items() if k in ('headless', 'channel', 'args')}
         if not headless:
-            browser = p.chromium.launch(headless=False)
+            filtered_opts['headless'] = False
+        browser = p.chromium.launch(**filtered_opts)
 
         mgr = LoginManager(config, bank_id=bank_id, browser=browser, playwright_instance=p)
 
@@ -131,7 +100,7 @@ def run_tests(test_module, config, bank_id, screenshot_dir, headless=True, role=
 
             print(f"[STEP {idx}] Testing: {page_name} ({page_path})")
 
-            if not mgr._is_page_session_valid(page):
+            if not mgr.is_session_valid(page):
                 print(f"  [WARN] Session expired, refreshing...")
                 try:
                     page = mgr.refresh_session(role)
@@ -151,7 +120,7 @@ def run_tests(test_module, config, bank_id, screenshot_dir, headless=True, role=
             js_errors.clear()
             api_requests.clear()
 
-            page.goto(f"{mgr._base_url}{page_path}")
+            page.goto(f"{mgr.base_url}{page_path}")
             page.wait_for_load_state('networkidle')
             page.wait_for_timeout(1000)
 
@@ -226,13 +195,6 @@ def get_test_pages(bank_pages, test_module):
             filtered[key] = page_info
 
     return filtered
-
-
-def resolve_output_path(relative_path):
-    """将配置中的相对路径解析为项目根目录下的绝对路径"""
-    if os.path.isabs(relative_path):
-        return relative_path
-    return os.path.normpath(os.path.join(PROJECT_ROOT, relative_path))
 
 
 def generate_report(results, output_dir, bank_id):
@@ -451,40 +413,13 @@ def main():
             test_results.append(r)
 
     report_file = generate_report(results, output_dir, bank_id)
-    update_index(report_file, bank_id, args.test, meta)
+    update_index(report_file, bank_id, args.test, meta, config)
 
     if meta:
         print(f"\n[TOKEN] Login count: {meta['login_count']}, Pages: {meta['pages_tested']}, Saving: {meta['token_saving_pct']}%")
 
     fail_count = sum(1 for r in test_results if r['status'] == 'FAIL')
     sys.exit(1 if fail_count > 0 else 0)
-
-
-def update_index(report_path, bank_id, test_mode, meta):
-    index_path = resolve_output_path('aotutests-playwright/index.json')
-    existing = {}
-    if os.path.exists(index_path):
-        try:
-            with open(index_path, 'r', encoding='utf-8') as f:
-                existing = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
-    if 'entries' not in existing:
-        existing['entries'] = []
-    entry = {
-        "file": os.path.relpath(report_path, PROJECT_ROOT).replace('\\', '/'),
-        "bank_id": bank_id,
-        "mode": test_mode,
-        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        "pages_tested": meta.get('pages_tested', 0) if meta else 0,
-        "login_count": meta.get('login_count', 0) if meta else 0
-    }
-    existing['entries'].append(entry)
-    existing['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    existing['total_entries'] = len(existing['entries'])
-    os.makedirs(os.path.dirname(index_path), exist_ok=True)
-    with open(index_path, 'w', encoding='utf-8') as f:
-        json.dump(existing, f, indent=2, ensure_ascii=False)
 
 
 if __name__ == '__main__':

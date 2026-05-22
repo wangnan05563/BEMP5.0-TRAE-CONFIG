@@ -1,11 +1,12 @@
-package com.hundsun.bemp.hnnxbank.biz.sm.controller.[模块名];
+package com.hundsun.bemp.{BANK_CODE}.biz.sm.controller.[模块名];
 
 import com.hundsun.bemp.fw.common.constant.CommonConst;
+import com.hundsun.bemp.fw.common.constant.CommonErrorNoConst;
 import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.*;
 import com.hundsun.bemp.fw.controller.BaseServiceController;
 import com.hundsun.bemp.fw.controller.UserContext;
-import com.hundsun.bemp.hnnxbank.biz.sm.service.[模块名].Hnnx[服务名]Service;
+import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.[模块名].{BANK_CLASS_PREFIX}[服务名]Service;
 import com.hundsun.bemp.sm.common.AuthConstant;
 import com.hundsun.jrescloud.rpc.annotation.CloudReference;
 import org.apache.commons.lang3.StringUtils;
@@ -21,12 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
  * @date [日期]
  */
 @RestController()
-@RequestMapping("/hnnx/")
-public class Hnnx[原Controller名]Controller extends BaseServiceController {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Hnnx[原Controller名]Controller.class);
+@RequestMapping("/{BANK_CODE}/")
+public class {BANK_CLASS_PREFIX}[原Controller名]Controller extends BaseServiceController {
+    private static final Logger LOGGER = LoggerFactory.getLogger({BANK_CLASS_PREFIX}[原Controller名]Controller.class);
 
     @CloudReference
-    private Hnnx[服务名]Service hnnx[服务名]Service;
+    private {BANK_CLASS_PREFIX}[服务名]Service {BANK_CODE}[服务名]Service;
 
     /**
      * [方法描述]
@@ -38,7 +39,7 @@ public class Hnnx[原Controller名]Controller extends BaseServiceController {
     @ResponseBody
     public CommonResp [方法名](BaseRequest<[Dto名]Dto> req, [Dto名]Dto [Dto名]Dto) {
         if ([Dto名]Dto == null) {
-            throw new BempRuntimeException("请求参数不能为空");
+            throw new BempRuntimeException(CommonErrorNoConst.VALID_FAIL, "请求参数不能为空");
         }
 
         UserInfo userInfo = UserContext.get();
@@ -47,7 +48,7 @@ public class Hnnx[原Controller名]Controller extends BaseServiceController {
         [Dto名]Dto.setLegalNo(legalNo);
         req.setRequestDto([Dto名]Dto);
 
-        hnnx[服务名]Service.[方法名](req);
+        {BANK_CODE}[服务名]Service.[方法名](req);
 
         return resultCommonResp(true, "操作成功");
     }

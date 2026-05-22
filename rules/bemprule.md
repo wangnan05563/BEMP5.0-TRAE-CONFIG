@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 # 通用强制准则
 - 所有开发任务优先遵循代码复用原则
