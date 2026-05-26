@@ -82,16 +82,35 @@ async function generateDocument(options) {
         throw new BempDocError(ERROR_CODES.INVALID_PARAMS, `不支持的文档类型: ${options.type}，支持: ${VALID_TYPES.join(', ')}`);
     }
 
+    let requirementContent = null;
+    if (options.requirementPath) {
+        const reqPath = path.isAbsolute(options.requirementPath)
+            ? options.requirementPath
+            : path.resolve(process.cwd(), options.requirementPath);
+        if (fs.existsSync(reqPath)) {
+            requirementContent = fs.readFileSync(reqPath, 'utf-8');
+        }
+    }
+
     if (options.format === 'excel') {
         const { ExcelTestCaseGenerator } = require('./lib/excel-testcase-generator');
         const excelGen = new ExcelTestCaseGenerator({
             projectRoot: paths.projectRoot
         });
 
+        let testCasesForExcel;
+        if (requirementContent) {
+            const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
+            const analyzer = new RequirementAnalyzer();
+            const analysis = analyzer.analyzeForTestCase(requirementContent, moduleName);
+            testCasesForExcel = analysis.testCases;
+        }
+
         const excelParams = {
             moduleName,
             templatePath: options.templatePath || undefined,
-            requirementPath: options.requirementPath || undefined,
+            requirementPath: testCasesForExcel ? undefined : (options.requirementPath || undefined),
+            testCases: testCasesForExcel || undefined,
             configPath: options.configPath || undefined,
             outputPath: options.outputPath || undefined
         };
@@ -124,20 +143,30 @@ async function generateDocument(options) {
     const typeLabels = { design: '详细设计文档', testcase: '测试用例', testreport: '测试报告' };
     const typeLabel = typeLabels[options.type] || '文档';
 
+    let templateData = null;
+    if (requirementContent && options.type === 'design') {
+        const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
+        const analyzer = new RequirementAnalyzer();
+        templateData = analyzer.analyzeForDesign(requirementContent, moduleName);
+    } else if (requirementContent && options.type === 'testcase') {
+        const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
+        const analyzer = new RequirementAnalyzer();
+        templateData = analyzer.analyzeForTestCase(requirementContent, moduleName);
+    } else if (options.templatePath) {
+        templateData = loadTemplateData(options.templatePath);
+    } else {
+        templateData = getDefaultTemplateData(options.type);
+    }
+
     let outputPath;
 
     if (options.format === 'md') {
         const defaultOutput = path.join(paths.outputDir, `${moduleName}-${typeLabel}-${date}.md`);
         outputPath = options.outputPath || defaultOutput;
-        builder.generateMarkdown(moduleName, outputPath, options.type);
+        builder.generateMarkdown(moduleName, outputPath, options.type, templateData);
     } else {
         const defaultOutput = path.join(paths.outputDir, `${moduleName}-${typeLabel}-${date}.docx`);
         outputPath = options.outputPath || defaultOutput;
-
-        let templateData = null;
-        if (options.templatePath) {
-            templateData = loadTemplateData(options.templatePath);
-        }
 
         switch (options.type) {
             case 'design':
@@ -196,6 +225,23 @@ function loadTemplateData(templatePath) {
         return JSON.parse(fs.readFileSync(resolvedPath, 'utf-8'));
     } catch (e) {
         throw new BempDocError(ERROR_CODES.TEMPLATE_NOT_FOUND, `模板文件解析失败: ${e.message}`);
+    }
+}
+
+// 当用户未指定 --template 时，根据文档类型自动加载 skill 内置模板
+const DEFAULT_TEMPLATE_MAP = {
+    design: path.join(__dirname, 'assets', '详细设计文档模板.json'),
+    testcase: path.join(__dirname, 'assets', '测试用例模板.json'),
+    testreport: path.join(__dirname, 'assets', '测试报告模板.json')
+};
+
+function getDefaultTemplateData(type) {
+    const templatePath = DEFAULT_TEMPLATE_MAP[type];
+    if (!templatePath || !fs.existsSync(templatePath)) return null;
+    try {
+        return JSON.parse(fs.readFileSync(templatePath, 'utf-8'));
+    } catch (e) {
+        return null;
     }
 }
 

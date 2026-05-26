@@ -68,6 +68,8 @@ aotutests-devtools/                       项目根目录下的统一输出目�
 
 确认服务可达（配置见 [config](config/bemptest-config.json)）：
 
+> **地址必须使用 127.0.0.1，禁止使用 localhost**：Windows 环境下 localhost 可能因 DNS 解析或 IPv6 优先导致连接超时
+
 | 服务 | 端口 | 检查方式 |
 |------|------|---------|
 | 后端 | 8010 | `navigate_page` → `http://127.0.0.1:8010/bemp-served/` |
@@ -161,6 +163,17 @@ aotutests-devtools/                       项目根目录下的统一输出目�
 | 6 | networkidle = 完成 | 每次操作后等待异步完毕 |
 | 7 | 菜单点击优先URL | Vue 懒加载路由需菜单触发注册 |
 | 8 | 选择后等500ms | DataGrid checkbox → currentSelectList 同步延迟 |
+
+---
+
+## 测试结束清理规范
+
+**【强制】** 测试验证全部完成后，必须执行以下清理操作：
+
+1. **关闭浏览器页面**：调用 `close_page` 关闭当前测试页面，释放 Chrome DevTools 连接
+2. **确认清理完成**：通过 `list_pages` 确认无残留页面
+
+> 不关闭页面会导致：Chrome 进程持续占用内存、DevTools 连接未释放、后续测试可能因端口冲突失败
 
 ---
 

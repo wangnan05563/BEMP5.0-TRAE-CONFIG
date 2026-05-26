@@ -1,10 +1,10 @@
-﻿---
+﻿﻿---
 name: "bemp-git-maven-automation"
 description: "自动同步工作空间中的Git仓库并执行Maven构建，支持Banks个性化工程增量编译。"
 whenToUse: "当用户需要更新 所有/全部/全量/增量 仓库代码/编译项目/maven构建/构建时调用"
 triggers: 
   - "同步/编译 代码/仓库/项目"
-  - "全量/增量/maven构建/编译"
+  - "全量/增量/maven构建/编译/打包"
   - "git 同步/拉取/pull/fetch/抓取"
 ---
 
@@ -14,8 +14,9 @@ triggers:
 
 | 配置项 | 说明 |
 |--------|------|
+| PROJECT_ROOT | 项目根目录（留空自动推断） |
 | BUILD_TYPE | full=全量 / incremental=增量 |
-| BANKS_BUILD_DIRS | Banks子目录（逗号分隔，空=全部） |
+| BANKS_BUILD_DIRS | Banks子目录（逗号分隔，留空自动发现ext-*） |
 | BANKS_BUILD_DEPENDENCIES | 是否构建依赖模块 |
 | MAVEN_OPTS | Maven JVM 参数 |
 | SKIP_DIRS | 跳过的目录 |
@@ -26,51 +27,33 @@ triggers:
 | BUILD_ORDER | 构建顺序（逗号分隔） |
 | GIT_RETRY_COUNT | Git操作重试次数 |
 | ENABLE_BUILD_REPORT | true=详细报告 / false=精简输出 |
+| BUILD_LOG_LEVEL | verbose=全部 / normal=关键行 / quiet=仅摘要 |
+| SKIP_CLEAN_ON_LOCK | target被锁定时自动跳过clean |
 
-## 执行步骤
+## 执行命令
 
-### 1. 加载配置与预检查
+根据用户意图选择对应的 Mode 执行**一条命令**，无需分步执行：
 
-```powershell
-$env:BEMP_SKILL_ROOT="D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-git-maven-automation"; . "$env:BEMP_SKILL_ROOT\scripts\config-reader.ps1"; $c=Get-BuildConfig; if(!$c){exit 1}; $e=Test-BuildConfig $c; if($e){Write-Error($e -join "`n");exit 1}else{$c|ConvertTo-Json -Compress}
-```
+| 用户意图 | Mode | 命令 |
+|---------|------|------|
+| 同步代码 | sync | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode sync` |
+| 增量打包/增量编译 | incremental | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode incremental` |
+| 全量打包/全量编译 | full | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode full` |
+| 同步代码并增量打包 | incremental | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode incremental` |
+| 同步代码并全量打包 | full | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode full` |
 
-```powershell
-$gitCmd=Find-GitCmd; Test-EnvPrerequisites $c $gitCmd
-```
+**【强制】** 必须使用 `run-build.ps1` 统一入口，禁止手动分步调用或直接执行 `mvn` 命令，否则增量构建逻辑不会生效。
 
-### 2. 发现Git仓库
+## 增量构建逻辑
 
-```powershell
-$repoList=Find-GitRepos $c $gitCmd
-```
+`-Mode incremental` 时的完整判断流程：
 
-### 3. 同步Git仓库
-
-```powershell
-$syncResults=Sync-GitRepos $c $gitCmd $repoList
-```
-
-- 自动处理：stash保护→fetch重试→pull重试→diff过滤→stash恢复
-- 幂等性：检测残留stash自动恢复
-- CONFLICT_ACTION=stop 时冲突即停止
-
-### 4. Maven构建
-
-**仅同步模式**：用户说"同步代码"→ 跳过本步骤
-
-```powershell
-Invoke-MavenBuild $c $syncResults
-```
-
-- BUILD_TYPE=incremental 时仅构建 syncResults 中标记为 "src" 的模块
-- Banks 特殊处理：仅在 BANKS_BUILD_DIRS 子目录下执行，BANKS_BUILD_DEPENDENCIES=true 加 `-am`
-- 构建成功输出 `模块名|SUCCESS`，失败输出最后20行错误 + `模块名|FAILED`
-
-### 5. 构建报告
-- **ENABLE_BUILD_REPORT=true**：汇总成功/失败/跳过模块数、构建耗时，失败时分析错误并提供建议
-- **ENABLE_BUILD_REPORT=false**：仅输出 `构建完成: X/Y 成功`
-- **仅同步模式**：输出 `同步完成: N 个仓库, X 个有变更`
+1. Git同步：fetch → pull → 对比 beforeHash/afterHash
+2. 变更检测：`git diff --name-only` 获取变更文件，按 `SKIP_BUILD_EXTENSIONS` 过滤
+3. 本地修改：`git status --porcelain` 中的源码文件也标记为需要构建
+4. 模块筛选：仅构建有源码变更的 BUILD_ORDER 模块
+5. 跳过clean：增量模式执行 `mvn install`（不clean），保留已有编译产物
+6. 无变更跳过：所有模块均无源码变更时，输出提示并跳过构建
 
 ## 错误处理
 
@@ -82,9 +65,15 @@ Invoke-MavenBuild $c $syncResults
 | stash残留 | 执行前自动检测并 pop |
 | Maven内存不足 | 调大 MAVEN_OPTS -Xmx 重试 |
 | 构建中断 | 重新执行即可 |
+| target目录锁定 | SKIP_CLEAN_ON_LOCK=true 时自动跳过clean阶段 |
+| 终端乱码 | 自动追加 -Dfile.encoding=UTF-8 等JVM参数 + [Console]::OutputEncoding=UTF8 |
+| Git中文路径 | diff 时使用 -c core.quotepath=false 避免转义 |
 | 环境不满足 | 预检查阶段停止 |
 | git不在PATH | Find-GitCmd 自动搜索常见路径 |
 
 ## 版本
 
-v4.4.0: Token优化 — 命令逻辑封装为PS函数、Maven输出截断、SKILL.md精简、配置表去默认值列、仓库列表动态获取、REPORT模式精简输出
+v5.0.0: 统一入口 — 新增run-build.ps1一条命令完成全流程、本地未提交源码修改也触发增量构建、增量变更摘要输出
+v4.7.1: 编码修复 — Maven JVM强制UTF-8输出(-Dfile.encoding等)、[Console]::OutputEncoding=UTF8、git diff中文路径(core.quotepath=false)、增量跳过提示优化
+v4.7.0: 增量构建修复 — beforeHash/afterHash替代HEAD@{1}、增量模式跳过clean、流式日志输出(BUILD_LOG_LEVEL)、target锁定自动跳过clean(SKIP_CLEAN_ON_LOCK)、模块耗时统计与颜色标记
+v4.6.0: 路径通用化 — 移除所有绝对路径硬编码、SKILL.md动态推断skillRoot、config-reader.ps1从$PWD搜索、新增PROJECT_ROOT配置项

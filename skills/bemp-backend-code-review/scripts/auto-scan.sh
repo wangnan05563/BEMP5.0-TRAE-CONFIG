@@ -68,13 +68,13 @@ echo "源码目录: $SOURCE_DIR"
 [[ -n "$INCREMENTAL_FILES" ]] && echo "增量模式: $(echo "$INCREMENTAL_FILES" | wc -w | tr -d ' ') 个文件"
 echo ""
 
-echo "[1/16] 检查 @CustomizedBean 注解..."
+echo "[1/16] 检查 @CustomizedBean 注解(extends产品实现类)..."
 while IFS= read -r f; do
     [[ -z "$f" || ! -f "$f" ]] && continue
     basename_f=$(basename "$f")
     if [[ "$basename_f" == *ServiceImpl.java || "$basename_f" == *AtomImpl.java ]]; then
-        if ! grep -q '@CustomizedBean' "$f"; then
-            echo "  [BLOCK] 缺 @CustomizedBean: $(relpath "$f")"
+        if grep -qE '\bextends\b' "$f" && ! grep -q '@CustomizedBean' "$f"; then
+            echo "  [BLOCK] extends产品实现类缺 @CustomizedBean: $(relpath "$f")"
             ISSUE_COUNT=$((ISSUE_COUNT + 1))
         fi
     fi

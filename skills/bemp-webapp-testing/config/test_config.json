@@ -182,15 +182,11 @@
         "channel": "chrome",
         "headless": true,
         "args": ["--start-maximized", "--disable-gpu"]
-      },
-      "viewport": {
-        "width": 1024,
-        "height": 768
       }
     },
     "viewport": {
-        "width": 1024,
-        "height": 768
+      "width": 1024,
+      "height": 768
     }
   },
   "error_filters": {

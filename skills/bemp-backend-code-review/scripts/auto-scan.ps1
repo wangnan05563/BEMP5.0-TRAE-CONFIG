@@ -20,12 +20,13 @@ function Get-RelPath($fullPath) {
 Write-Host "========== BEMP 后端代码预检 ($($BANK.bankName)) ==========" -ForegroundColor Cyan
 Write-Host "源码目录: $SOURCE_DIR`n" -ForegroundColor Gray
 
-# 检查1：Service/Atom 类是否缺少 @CustomizedBean
-Write-Host "[1/16] 检查 @CustomizedBean 注解..." -ForegroundColor Yellow
+# 检查1：extends产品实现类的Service/Atom是否缺少 @CustomizedBean
+# 仅implements个性化接口的不需要@CustomizedBean，只需@CloudComponent
+Write-Host "[1/16] 检查 @CustomizedBean 注解(extends产品实现类)..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $content = Get-Content $_.FullName -Raw -Encoding UTF8
-    if ($_.Name -match "(ServiceImpl|AtomImpl).java$" -and $content -notmatch "@CustomizedBean") {
-        Write-Host "  [BLOCK] 缺 @CustomizedBean: $(Get-RelPath $_.FullName)" -ForegroundColor Red
+    if ($_.Name -match "(ServiceImpl|AtomImpl).java$" -and $content -match '\bextends\b' -and $content -notmatch "@CustomizedBean") {
+        Write-Host "  [BLOCK] extends产品实现类缺 @CustomizedBean: $(Get-RelPath $_.FullName)" -ForegroundColor Red
         $ISSUE_COUNT++
     }
 }

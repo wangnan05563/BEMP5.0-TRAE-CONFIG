@@ -104,7 +104,9 @@ param(
     [string]$ConfigPath = "$PSScriptRoot\..\config\config.json",
     [string]$Service = "",
     [switch]$Status,
-    [switch]$ForceRestart
+    [switch]$ForceRestart,
+    [switch]$QuickStart,
+    [switch]$AutoRestart
 )
 ```
 
@@ -331,14 +333,32 @@ triggers:
 2. **服务启动后，不要在该终端执行其他命令**
 3. **使用 `-Status` 参数时，使用独立的终端**
 
-### 7.2 推荐启动顺序
+### 7.2 启动分组与依赖关系
 
 ```
-后端：Redis (6379) → ZooKeeper (2181) → SpringBoot (8010) 
-前端：Frontend (8091)
+┌─ 基础设施层（并行启动） ─────────────┐
+│  终端1: Redis (6379)                   │
+│  终端2: ZooKeeper (2181)               │
+└────────────────────────────────────────┘
+         ↓ (SpringBoot 依赖 Redis + ZK 就绪)
+┌─ 应用层（并行启动，无需等待彼此） ────┐
+│  终端3: SpringBoot 后端 (8010)         │
+│  终端4: Frontend 前端 (8091)           │
+└────────────────────────────────────────┘
 ```
 
-### 7.3 命令示例
+**依赖说明**：
+- Redis 和 ZooKeeper 之间无依赖，可并行启动
+- SpringBoot 依赖 Redis 和 ZooKeeper 就绪，需等待基础设施层启动完成
+- Frontend 与后端无启动依赖，可与 SpringBoot 并行启动
+
+### 7.3 推荐启动方式
+
+**全量并行启动（推荐）**：同时启动4个终端，基础设施层先就绪后应用层自动连接
+
+**分层启动（稳妥）**：先启动基础设施层，确认就绪后再并行启动应用层
+
+### 7.4 命令示例
 
 ```powershell
 # 查看状态
@@ -383,6 +403,7 @@ triggers:
 | 版本 | 日期 | 更新内容 |
 |------|------|----------|
 | v5.9.0 | 2026-04-17 | 新增终端窗口标题自动设置功能 |
+| v5.10.0 | 2026-05-25 | 新增 -AutoRestart 智能重启参数，启动前检测服务状态 |
 | v5.7.0 | 2026-04-17 | 添加终端使用警告和最佳实践指导 |
 | v5.6.0 | 2026-04-17 | 移除 Maven 直接启动方式，保留 F5 Debug 模式 |
 | v5.5.0 | 2026-04-17 | 重大变更：SpringBoot 改为 Trae IDE Debug 模式 |

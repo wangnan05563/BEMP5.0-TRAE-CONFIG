@@ -23,8 +23,66 @@ triggers:
 ## 核心规则（必须遵守）
 
 1. **每个服务必须在独立的 IDE 终端中启动**，服务运行后不要在该终端执行其他命令
-2. **推荐启动顺序**：Redis → ZooKeeper → SpringBoot → Frontend
+2. **并行启动**：前端与后端无启动依赖，应同时启动以节省等待时间
 3. **状态检查使用独立终端**
+4. **启动前必须检测**：启动任何服务前，必须先检测该服务是否已在运行。若已运行且用户未要求重启，则跳过启动并报告状态
+5. **重启即强制**：当用户要求"重启"或"重新启动"时，等价于 `-ForceRestart`，自动停止旧进程后重新启动
+
+## 启动分组与依赖关系
+
+```
+┌─ 基础设施层（并行启动） ─────────────┐
+│  终端1: Redis (6379)                   │
+│  终端2: ZooKeeper (2181)               │
+└────────────────────────────────────────┘
+         ↓ (SpringBoot 依赖 Redis + ZK 就绪)
+┌─ 应用层（并行启动，无需等待彼此） ────┐
+│  终端3: SpringBoot 后端 (8010)         │
+│  终端4: Frontend 前端 (8091)           │
+└────────────────────────────────────────┘
+```
+
+**依赖说明**：
+- Redis 和 ZooKeeper 之间无依赖，可并行启动
+- SpringBoot 依赖 Redis 和 ZooKeeper 就绪，需等待基础设施层启动完成
+- Frontend 与后端无启动依赖，可与 SpringBoot 并行启动
+
+## 推荐启动方式
+
+### 方式一：全量并行启动（推荐，节省约50%等待时间）
+
+同时启动4个终端，基础设施层先就绪后应用层自动连接：
+
+```powershell
+# 终端1: Redis
+.\start-bemp-env.ps1 -Service redis
+
+# 终端2: ZooKeeper（与Redis同时启动）
+.\start-bemp-env.ps1 -Service zookeeper
+
+# 终端3: SpringBoot（Redis/ZK启动后立即启动）
+.\start-bemp-env.ps1 -Service springboot -QuickStart
+
+# 终端4: Frontend（与SpringBoot同时启动）
+.\start-bemp-env.ps1 -Service frontend -QuickStart
+```
+
+### 方式二：分层启动（稳妥，适合首次启动）
+
+先启动基础设施层，确认就绪后再启动应用层：
+
+```powershell
+# 第一步：基础设施层（并行）
+.\start-bemp-env.ps1 -Service redis        # 终端1
+.\start-bemp-env.ps1 -Service zookeeper     # 终端2
+
+# 第二步：确认基础设施就绪
+.\start-bemp-env.ps1 -Status
+
+# 第三步：应用层（并行）
+.\start-bemp-env.ps1 -Service springboot -QuickStart   # 终端3
+.\start-bemp-env.ps1 -Service frontend -QuickStart      # 终端4
+```
 
 ## 命令模板
 
@@ -52,6 +110,7 @@ triggers:
 | `-Status` | 全部 | 查看所有服务运行状态 |
 | `-QuickStart` | springboot, frontend | 跳过编译/依赖检查，直接启动 |
 | `-ForceRestart` | 全部 | 强制停止占用端口的进程后重启 |
+| `-AutoRestart` | 全部 | 智能模式：检测服务是否运行，运行中则自动停止后重启，未运行则正常启动 |
 
 ## 配置文件
 

@@ -6,7 +6,7 @@
     作为MySQL MCP的备选方案，支持大数据量脚本执行
 .PARAMETER SqlFile
     要执行的SQL脚本文件路径
-.PARAMETER Host
+.PARAMETER DbHost
     MySQL数据库主机地址
 .PARAMETER Port
     MySQL数据库端口（默认3306）
@@ -20,10 +20,14 @@
     字符集（默认utf8mb4）
 .PARAMETER OutputDir
     输出目录（默认为脚本同目录下的output）
-.PARAMETER DryRun
-    仅检查语法，不实际执行
+.PARAMETER Timeout
+    执行超时秒数（默认300）
+.PARAMETER ConfigFile
+    db-config.json路径，自动读取连接参数（DbHost/Port/Database/Username/Password）
 .EXAMPLE
-    .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -Host "127.0.0.1" -Database "bemp_hnnx" -Username "root" -Password "123456"
+    .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "127.0.0.1" -Database "bemp_hnnx" -Username "root" -Password "123456"
+.EXAMPLE
+    .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-db-operator\config\db-config.json"
 #>
 
 param(
@@ -31,7 +35,7 @@ param(
     [string]$SqlFile,
 
     [Parameter(Mandatory=$false)]
-    [string]$Host = "127.0.0.1",
+    [string]$DbHost = "127.0.0.1",
 
     [Parameter(Mandatory=$false)]
     [int]$Port = 3306,
@@ -52,10 +56,29 @@ param(
     [string]$OutputDir = "",
 
     [Parameter(Mandatory=$false)]
-    [switch]$DryRun = $false
+    [int]$Timeout = 300,
+
+    [Parameter(Mandatory=$false)]
+    [string]$ConfigFile = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not [string]::IsNullOrEmpty($ConfigFile)) {
+    if (-not (Test-Path $ConfigFile)) {
+        Write-Host "[ERROR] 配置文件不存在: $ConfigFile" -ForegroundColor Red
+        exit 1
+    }
+    $config = Get-Content $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    $mysqlCfg = $config.mysql
+    if ($mysqlCfg) {
+        if ($DbHost -eq "127.0.0.1" -and $mysqlCfg.host) { $DbHost = $mysqlCfg.host }
+        if ($Port -eq 3306 -and $mysqlCfg.port) { $Port = $mysqlCfg.port }
+        if ($Database -eq "bemp_hnnx" -and $mysqlCfg.database) { $Database = $mysqlCfg.database }
+        if ($Username -eq "root" -and $mysqlCfg.username) { $Username = $mysqlCfg.username }
+        if ($Password -eq "123456" -and $mysqlCfg.password) { $Password = $mysqlCfg.password }
+    }
+}
 
 function Set-TerminalEncoding {
     chcp 65001 > $null 2>&1
@@ -121,7 +144,7 @@ $wrappedContent = $encodingSetupSql + $sqlContent
 Set-Content -Path $wrappedSqlFile -Value $wrappedContent -Encoding UTF8
 
 $mysqlArgs = @(
-    "-h", $Host,
+    "-h", $DbHost,
     "-P", $Port,
     "-u", $Username,
     "-p$Password",
@@ -131,35 +154,36 @@ $mysqlArgs = @(
     "--show-warnings"
 )
 
-if ($DryRun) {
-    $mysqlArgs += "--dry-run"
-}
-
 Write-Log -Level "INFO" -Message "========================================="
 Write-Log -Level "INFO" -Message "MySQL CLI 执行"
-Write-Log -Level "INFO" -Message "  数据库: ${Host}:${Port}/${Database}"
+Write-Log -Level "INFO" -Message "  数据库: ${DbHost}:${Port}/${Database}"
 Write-Log -Level "INFO" -Message "  用户: $Username"
 Write-Log -Level "INFO" -Message "  字符集: $Charset"
 Write-Log -Level "INFO" -Message "  SQL文件: $SqlFile"
-if ($DryRun) {
-    Write-Log -Level "WARN" -Message "  模式: DRY RUN（仅检查语法）"
-}
+Write-Log -Level "INFO" -Message "  超时: ${Timeout}s"
 Write-Log -Level "INFO" -Message "========================================="
 
 $startTime = Get-Date
 
 try {
     $process = Start-Process -FilePath "mysql" `
-        -ArgumentList ($mysqlArgs + @("-e", "source $wrappedSqlFile")) `
+        -ArgumentList ($mysqlArgs + @("-e", "source `"$wrappedSqlFile`"")) `
         -NoNewWindow -Wait -PassThru `
         -RedirectStandardOutput $resultFile `
         -RedirectStandardError $errorFile
+
+    $exited = $process.WaitForExit($Timeout * 1000)
+    if (-not $exited) {
+        $process.Kill()
+        Write-Log -Level "ERROR" -Message "mysql执行超时（${Timeout}s），已终止进程"
+        exit 1
+    }
 
     $exitCode = $process.ExitCode
 }
 catch {
     try {
-        Get-Content $wrappedSqlFile -Raw | & mysql @mysqlArgs 2>&1 | Out-File $resultFile -Encoding UTF8
+        Get-Content $wrappedSqlFile -Raw -Encoding UTF8 | & mysql @mysqlArgs 2>&1 | Out-File $resultFile -Encoding UTF8
         $exitCode = $LASTEXITCODE
     }
     catch {
@@ -169,7 +193,7 @@ catch {
 }
 finally {
     if (Test-Path $wrappedSqlFile) {
-        Remove-Item $wrappedSqlFile -Force
+        Remove-Item $wrappedSqlFile -Force -ErrorAction SilentlyContinue
     }
 }
 

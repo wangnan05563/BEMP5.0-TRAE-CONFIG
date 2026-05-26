@@ -1,6 +1,7 @@
 {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "数据库版本兼容性矩阵 - 定义支持的数据库版本及其特性兼容性",
-    "version": "1.0.0",
+    "version": "2.3.1",
     "lastUpdate": "2026-05-16",
     "oracle": {
         "supportedVersions": ["11g", "12c", "19c", "21c"],

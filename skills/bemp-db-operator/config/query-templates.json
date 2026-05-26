@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "BEMP常用查询模板 - Oracle/MySQL双数据库查询模板集合",
+    "version": "1.0.0",
+    "lastUpdate": "2026-05-24",
+    "common": {
+        "description": "Oracle/MySQL通用查询模板（语法完全相同）",
+        "templates": [
+            {"name": "countRows", "description": "统计表行数", "sql": "SELECT COUNT(*) FROM {TABLE_NAME};"},
+            {"name": "describe", "description": "查看表结构", "sql": "DESCRIBE {TABLE_NAME};"},
+            {"name": "queryAuthority", "description": "查询权限表", "sql": "SELECT ID, AUTH_NAME, AUTH_TYPE, PARENT_ID, URL FROM TM_AUTHORITY WHERE ID IN ({ID_LIST}) ORDER BY ID;"},
+            {"name": "queryBusinessParam", "description": "查询业务参数表", "sql": "SELECT PARAM_KEY, PARAM_NAME, PARAM_VALUE FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY LIKE '{PREFIX}%';"},
+            {"name": "countWithCondition", "description": "条件统计行数", "sql": "SELECT COUNT(*) FROM {TABLE_NAME} WHERE {CONDITION};"}
+        ]
+    },
+    "oracle": {
+        "description": "Oracle特有查询模板",
+        "templates": [
+            {"name": "describeColumns", "description": "查看表字段详情", "sql": "SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, NULLABLE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = UPPER('{TABLE_NAME}') ORDER BY COLUMN_ID;"},
+            {"name": "timeRangeNumberType", "description": "时间范围查询(NUMBER类型时间字段)", "sql": "SELECT * FROM {TABLE_NAME} WHERE TO_DATE(TO_CHAR({TIME_FIELD}), 'YYYYMMDDHH24MISSFF') >= SYSDATE - {DAYS} ORDER BY {TIME_FIELD} DESC;"},
+            {"name": "timeRangeDateType", "description": "时间范围查询(DATE/TIMESTAMP类型时间字段)", "sql": "SELECT * FROM {TABLE_NAME} WHERE {TIME_FIELD} >= SYSDATE - {DAYS} ORDER BY {TIME_FIELD} DESC;"}
+        ]
+    },
+    "mysql": {
+        "description": "MySQL特有查询模板",
+        "templates": [
+            {"name": "describeColumns", "description": "查看表字段详情", "sql": "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '{DATABASE}' AND TABLE_NAME = '{TABLE_NAME}' ORDER BY ORDINAL_POSITION;"},
+            {"name": "timeRange", "description": "时间范围查询", "sql": "SELECT * FROM {TABLE_NAME} WHERE {TIME_FIELD} >= DATE_SUB(NOW(), INTERVAL {DAYS} DAY) ORDER BY {TIME_FIELD} DESC;"}
+        ]
+    },
+    "notes": [
+        "{TABLE_NAME}、{CONDITION}、{ID_LIST}、{PREFIX}、{DATABASE}、{TIME_FIELD}、{DAYS}为占位符，使用时替换为实际值",
+        "BEMP系统中时间字段可能存储为NUMBER类型(格式YYYYMMDDHH24MISSFF)，Oracle需根据字段类型选择对应模板",
+        "可通过 USER_TAB_COLUMNS(Oracle) 或 INFORMATION_SCHEMA.COLUMNS(MySQL) 查看字段数据类型"
+    ]
+}

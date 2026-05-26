@@ -1,7 +1,8 @@
 {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "BEMP数据库连接配置 - 河南农信开发环境（支持Oracle和MySQL）",
-    "version": "2.3.0",
-    "lastUpdate": "2026-05-16",
+    "version": "2.4.0",
+    "lastUpdate": "2026-05-24",
     "defaultDbType": "oracle",
     "defaultEnvironment": "dev",
     "autoDetection": {
@@ -107,20 +108,20 @@
                 "executeSql": "mcp_MySQL_execute_sql"
             },
             "permissionTemplates": {
-                "description": "MySQL用户权限配置模板，建议为MCP创建专用数据库用户",
+                "description": "MySQL用户权限配置模板，建议为MCP创建专用数据库用户。{ipRange}替换为实际IP段（如10.20.%）",
                 "readOnly": {
                     "description": "只读用户 - 仅支持SELECT查询",
-                    "sql": "CREATE USER 'bemp_readonly'@'%' IDENTIFIED BY '{password}'; GRANT SELECT ON bemp_hnnx.* TO 'bemp_readonly'@'%'; FLUSH PRIVILEGES;"
+                    "sql": "CREATE USER 'bemp_readonly'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT SELECT ON bemp_hnnx.* TO 'bemp_readonly'@'{ipRange}'; FLUSH PRIVILEGES;"
                 },
                 "readWrite": {
                     "description": "读写用户 - 支持SELECT/INSERT/UPDATE/DELETE",
-                    "sql": "CREATE USER 'bemp_readwrite'@'%' IDENTIFIED BY '{password}'; GRANT SELECT, INSERT, UPDATE, DELETE ON bemp_hnnx.* TO 'bemp_readwrite'@'%'; FLUSH PRIVILEGES;"
+                    "sql": "CREATE USER 'bemp_readwrite'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT SELECT, INSERT, UPDATE, DELETE ON bemp_hnnx.* TO 'bemp_readwrite'@'{ipRange}'; FLUSH PRIVILEGES;"
                 },
                 "fullAccess": {
                     "description": "完全访问用户 - 支持所有操作（含DDL），仅开发环境使用",
-                    "sql": "CREATE USER 'bemp_full'@'%' IDENTIFIED BY '{password}'; GRANT ALL PRIVILEGES ON bemp_hnnx.* TO 'bemp_full'@'%'; FLUSH PRIVILEGES;"
+                    "sql": "CREATE USER 'bemp_full'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT ALL PRIVILEGES ON bemp_hnnx.* TO 'bemp_full'@'{ipRange}'; FLUSH PRIVILEGES;"
                 },
-                "recommendation": "生产环境建议使用readOnly用户，开发/测试环境可使用readWrite用户，fullAccess用户仅限本地开发环境"
+                "recommendation": "生产环境建议使用readOnly用户，开发/测试环境可使用readWrite用户，fullAccess用户仅限本地开发环境。{ipRange}示例：10.20.% 或 localhost"
             }
         }
     },
@@ -176,5 +177,43 @@
         "MySQL MCP的execute_sql支持DDL/DML/SELECT全类型操作",
         "Oracle MCP的execute_query仅支持SELECT语句",
         "建议为MySQL MCP配置专用数据库用户，参照permissionTemplates"
-    ]
+    ],
+    "agentToolMapping": {
+        "description": "智能体-工具可用性映射，用于降级策略判断。主智能体可能缺少Oracle MCP工具，需委托子智能体执行",
+        "lastVerified": "2026-05-24",
+        "agents": {
+            "main_agent": {
+                "description": "主智能体（对话入口）",
+                "oracleMcpAvailable": false,
+                "mysqlMcpAvailable": true,
+                "availableTools": ["mcp_MySQL_execute_sql"],
+                "unavailableTools": ["mcp_oracle-mcp_list_schemas", "mcp_oracle-mcp_list_tables", "mcp_oracle-mcp_describe_table", "mcp_oracle-mcp_execute_query"]
+            },
+            "bemp-implementation-engineer": {
+                "description": "BEMP实施工程师（拥有Oracle MCP和MySQL MCP）",
+                "oracleMcpAvailable": true,
+                "mysqlMcpAvailable": true,
+                "availableTools": ["mcp_oracle-mcp_list_schemas", "mcp_oracle-mcp_list_tables", "mcp_oracle-mcp_describe_table", "mcp_oracle-mcp_execute_query", "mcp_MySQL_execute_sql"],
+                "unavailableTools": []
+            },
+            "bemp-personalized-developer": {
+                "description": "BEMP个性化开发工程师",
+                "oracleMcpAvailable": false,
+                "mysqlMcpAvailable": true,
+                "availableTools": ["mcp_MySQL_execute_sql"],
+                "unavailableTools": ["mcp_oracle-mcp_list_schemas", "mcp_oracle-mcp_list_tables", "mcp_oracle-mcp_describe_table", "mcp_oracle-mcp_execute_query"]
+            }
+        },
+        "degradationStrategy": {
+            "description": "MCP工具不可用时的降级策略",
+            "levels": [
+                {"level": 0, "action": "主智能体直接调用MCP工具", "condition": "工具在主智能体可用列表中"},
+                {"level": 1, "action": "委托bemp-implementation-engineer子智能体执行", "condition": "主智能体缺少Oracle MCP工具"},
+                {"level": 2, "action": "降级到命令行工具（sqlplus/mysql CLI）", "condition": "子智能体也不可用"},
+                {"level": 3, "action": "报错终止，提示用户安装必要工具", "condition": "命令行工具未安装"}
+            ],
+            "oracleDelegationTarget": "bemp-implementation-engineer",
+            "note": "当主智能体调用MCP工具返回'not available in given tool list'时，不要反复尝试不同命名变体，应立即委托子智能体"
+        }
+    }
 }

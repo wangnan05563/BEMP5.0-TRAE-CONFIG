@@ -14,8 +14,8 @@
 | **Git 仓库发现** | 递归扫描项目根目录，自动发现所有 `.git` 仓库，排除 `node_modules/target` 等无关目录 |
 | **批量 Git 同步** | 逐个仓库 fetch → pull，含重试机制（网络抖动自动恢复）、冲突策略处理 |
 | **本地修改保护** | pull 前自动 `git stash` 暂存未提交修改，构建后 `git stash pop` 恢复 |
-| **增量变更过滤** | 对比 pull 前后 commit hash，按 `SKIP_BUILD_EXTENSIONS` 过滤文档类变更，仅源码变更触发构建 |
-| **Maven 智能构建** | 全量/增量两种模式，按 BUILD_ORDER 依赖顺序构建；Banks 工程支持子目录选择 + `-am` 自动依赖 |
+| **增量变更过滤** | 对比 pull 前后 commit hash + 本地未提交修改，按 `SKIP_BUILD_EXTENSIONS` 过滤文档类变更，仅源码变更触发构建 |
+| **Maven 智能构建** | 全量/增量两种模式，按 BUILD_ORDER 依赖顺序构建；增量模式跳过clean保留编译产物；Banks 工程支持子目录选择 + `-am` 自动依赖 |
 | **构建报告** | 详细模式汇总成功/失败/跳过模块与耗时；精简模式仅输出一行摘要 |
 | **配置驱动** | 12 项配置项统一在 `config.properties` 管理，环境变量可覆盖 |
 
@@ -23,12 +23,13 @@
 
 ```
 bemp-git-maven-automation/
-├── SKILL.md                              # 技能规范 — 完整执行步骤与错误处理
+├── SKILL.md                              # 技能规范 — 执行命令与错误处理
 ├── README.md                             # 使用说明（本文件）
 ├── config/
 │   └── config.properties                 # 统一配置文件（构建参数、Git 策略、构建顺序）
 └── scripts/
-    └── config-reader.ps1                 # 配置读取/验证工具（AI 一行命令加载，无需手动读取）
+    ├── run-build.ps1                     # 统一入口脚本（一条命令完成全流程）
+    └── config-reader.ps1                 # 配置读取/验证/同步/构建函数库
 ```
 
 ## 快速开始
@@ -47,21 +48,24 @@ BUILD_TYPE=incremental
 
 ### 2. 使用
 
-**方式 A — 自然语言描述**（推荐）：
+**一条命令完成全流程**（推荐）：
 
-> "同步代码"
-> "全量编译项目"
-> "增量构建"
+```powershell
+# 仅同步代码
+& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode sync
 
-技能自动完成：环境预检 → 发现仓库 → 同步 Git → Maven 构建 → 构建报告。
+# 增量打包（默认）
+& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode incremental
 
-**方式 B — 指定场景**：
+# 全量打包
+& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode full
+```
 
-| 指令 | 效果 |
-|------|------|
-| `同步代码` | 仅同步所有 Git 仓库，不构建 |
-| `全量构建` / `完整编译` | BUILD_TYPE=full，构建全部模块 |
-| `增量构建` / `增量编译` | 仅构建有源码变更的模块 |
+**自然语言描述**：
+
+> "同步代码" → sync
+> "增量打包" / "增量编译" → incremental
+> "全量打包" / "全量编译" → full
 
 ## 执行流程
 
@@ -115,8 +119,8 @@ git stash pop                  ← 恢复本地修改
 
 | BUILD_TYPE | 触发条件 | 行为 |
 |------------|---------|------|
-| `full` | 始终 | 按 BUILD_ORDER 构建所有模块 |
-| `incremental` | 仅源码变更的仓库 | 跳过无变更和仅文档变更的模块 |
+| `full` | 始终 | 按 BUILD_ORDER 构建所有模块，执行 `mvn clean install` |
+| `incremental` | 仅源码变更的仓库 | 跳过无变更和仅文档变更的模块，执行 `mvn install`（不clean） |
 
 ### 构建顺序
 
@@ -142,6 +146,8 @@ Banks 工程特殊处理：
 | `BUILD_ORDER` | `bom,framework,adapter,banks,served` | Maven 构建顺序 |
 | `GIT_RETRY_COUNT` | `3` | Git 操作失败重试次数 |
 | `ENABLE_BUILD_REPORT` | `true` | `true`=详细报告 / `false`=精简输出 |
+| `BUILD_LOG_LEVEL` | `normal` | `verbose`=全部 / `normal`=关键行 / `quiet`=仅摘要 |
+| `SKIP_CLEAN_ON_LOCK` | `true` | target被锁定时自动跳过clean |
 
 > 环境变量可覆盖同名配置项，例如 `$env:BUILD_TYPE="full"` 临时切换全量构建。
 
@@ -153,7 +159,7 @@ Banks 工程特殊处理：
 |------|------|------|
 | 只改了 `README.md` | 全部文件被过滤 | 跳过构建（仅文档变更） |
 | 改了 `UserController.java` + `README.md` | `.md` 被过滤，`.java` 保留 | 触发构建 |
-| 改了 `application.properties` | `.properties` 被过滤 | 跳过构建（默认配置） |
+| 改了 `pom.xml` | `.xml` 不在过滤列表 | 触发构建 |
 
 ## 错误处理
 
@@ -225,6 +231,9 @@ Banks 工程特殊处理：
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| **v5.0.0** | 2026-05 | 统一入口 — 新增run-build.ps1一条命令完成全流程、本地未提交源码修改也触发增量构建、增量变更摘要输出 |
+| **v4.7.1** | 2026-05 | 编码修复 — Maven JVM强制UTF-8输出、[Console]::OutputEncoding=UTF8、git diff中文路径(core.quotepath=false)、增量跳过提示优化 |
+| **v4.7.0** | 2026-05 | 增量构建修复 — beforeHash/afterHash替代HEAD@{1}、增量模式跳过clean、流式日志(BUILD_LOG_LEVEL)、target锁定自动跳过clean(SKIP_CLEAN_ON_LOCK)、模块耗时与颜色标记 |
 | **v4.2.0** | 2026-05 | Token 友好优化 — 配置加载改为一行命令免读脚本；`ENABLE_BUILD_REPORT` 控制输出详细度 |
 | **v4.1.0** | 2026-05 | 鲁棒性增强 — Git 重试机制、增量文件过滤、环境预检查、stash 保护、`BUILD_ORDER` 配置化 |
 | **v4.0.0** | 2026-05 | 全面简化重构 — 单配置文件、项目根目录自动检测、配置验证机制、SKILL.md 指导执行范式 |

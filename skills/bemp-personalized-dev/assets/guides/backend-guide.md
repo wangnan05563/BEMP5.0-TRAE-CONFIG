@@ -249,27 +249,25 @@ import com.hundsun.bemp.fw.common.exception.BempRuntimeException;
 import com.hundsun.bemp.fw.common.pojo.BaseRequest;
 import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.HnnxRoleService;
 import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.dto.HnnxRoleDto;
-import com.hundsun.bemp.fw.common.annotation.CustomizedBean;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.Resource;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 
 /**
- * 角色服务实现
+ * 角色服务实现（仅implements个性化接口，无需@CustomizedBean）
  * @author [作者]
  * @date [日期]
  */
-@CustomizedBean
 @CloudComponent
 public class HnnxRoleServiceImpl implements HnnxRoleService {
     private static final Logger LOGGER = LoggerFactory.getLogger(HnnxRoleServiceImpl.class);
 
-    @Resource
+    @Autowired
     private RoleDao roleDao;
 
     /**
@@ -629,9 +627,11 @@ logger.error("场景简要描述_" + e.getMessage(), e);
 
 **【强制】** 检查 `banks/ext-{BANK_CODE}` 目录，若有带 `@CustomizedBean` 注解的个性化类，在其基础上新增或复写功能
 
-**【强制】** `@CustomizedBean` 注解仅用于标注 Service/Atom 等业务层实现类的个性化类
+**【强制】** `@CustomizedBean` 注解仅用于标注 **extends 产品实现类** 的 Service/Atom 个性化类（替换产品化Bean）
 
-**【强制】** 无复用个性化类时，新增类并添加 `@CustomizedBean` 注解
+**【强制】** 仅 **implements 个性化接口** 的 Service/Atom 不需要 `@CustomizedBean`，只需 `@CloudComponent`（新建Bean）
+
+**【强制】** 无复用个性化类时：extends产品实现类则添加 `@CustomizedBean`；仅implements个性化接口则不加
 
 **【强制】** 类名规则：原有类名加 {BANK_CLASS_PREFIX}Bank 并继承原有类
 
@@ -1750,40 +1750,38 @@ import com.hundsun.bemp.sm.service.branch.dto.QryBranchDto;
 import com.hundsun.bemp.{BANK_CODE}.biz.sm.service.role.dto.HnnxRoleDto;
 import com.hundsun.bemp.sm.service.role.dto.*;
 import com.hundsun.bemp.sm.service.role.request.QueryRoleDto;
-import com.hundsun.bemp.fw.common.annotation.CustomizedBean;
 import com.hundsun.jrescloud.rpc.annotation.CloudComponent;
 import com.hundsun.jrescloud.rpc.annotation.CloudFunction;
 import com.hundsun.jrescloud.rpc.annotation.CloudReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * 角色服务实现
+ * 角色服务实现（仅implements个性化接口，无需@CustomizedBean）
  * @author [作者姓名]
  * @date [创建日期]
  */
-@CustomizedBean
 @CloudComponent
 public class HnnxRoleServiceImpl implements HnnxRoleService {
     private static final Logger LOGGER = LoggerFactory.getLogger(HnnxRoleServiceImpl.class);
 
-    @Resource
+    @Autowired
     private RoleDao roleDao;
     
-    @Resource
+    @Autowired
     private LegalPersonVirtualDao legalPersonVirtualDao;
     
-    @Resource
+    @Autowired
     private HnnxRoleDao hnnxRoleDao;
     
-    @Resource
+    @Autowired
     private BranchRoleDao branchRoleDao;
 
     /**

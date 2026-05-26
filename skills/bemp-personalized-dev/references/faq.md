@@ -3,7 +3,9 @@
 ## 常见问题
 
 ### Q1: 个性化 Controller 是否需要 @CustomizedBean 注解？
-**A**: 不需要。Controller 使用 Hnnx 前缀命名，与产品化 Controller 并存，无需 @CustomizedBean 注解。Service 实现类需要 @CloudComponent 注解。
+**A**: 不需要。Controller 使用 Hnnx 前缀命名，与产品化 Controller 并存，无需 @CustomizedBean 注解。Service 实现类分两种情况：
+- **extends 产品实现类**：需要 `@CustomizedBean` + `@CloudComponent`（替换产品化Bean）
+- **仅 implements 个性化接口**：只需 `@CloudComponent`（新建Bean，无需替换产品化Bean）
 
 ### Q2: 前端参数传递用 extParam 还是 requestDto？
 **A**: 使用 `requestDto` 格式传递参数，而非 `extParam`。在 Vue 中使用 `this.$api.post()` 方法，参数放在 `requestDto` 字段中。

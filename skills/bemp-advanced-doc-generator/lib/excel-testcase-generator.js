@@ -123,6 +123,8 @@ class ExcelTestCaseGenerator {
 
         this._validateColumnMapping(fieldToColumn, testCases[0]);
 
+        this._clearTemplateDataRows(ws, dataStartRow);
+
         for (let idx = 0; idx < testCases.length; idx++) {
             const tc = testCases[idx];
             const row = dataStartRow + idx;
@@ -135,6 +137,26 @@ class ExcelTestCaseGenerator {
             }
 
             if (styles.rowHeight) ws.getRow(row).height = styles.rowHeight;
+        }
+    }
+
+    _clearTemplateDataRows(ws, dataStartRow) {
+        const maxRow = ws.rowCount;
+        for (let rowNum = dataStartRow; rowNum <= maxRow; rowNum++) {
+            const row = ws.getRow(rowNum);
+            let hasData = false;
+            row.eachCell({ includeEmpty: false }, (cell) => {
+                if (cell.value !== null && cell.value !== undefined && String(cell.value).trim() !== '') {
+                    hasData = true;
+                }
+            });
+            if (hasData) {
+                row.eachCell({ includeEmpty: true }, (cell) => {
+                    cell.value = null;
+                });
+            } else {
+                break;
+            }
         }
     }
 

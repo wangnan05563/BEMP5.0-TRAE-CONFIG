@@ -71,7 +71,7 @@ bemp-personalized-dev/
 - 命名约定（包、类、方法、变量命名规范）
 - 应用分层规范（Controller → Service → Atom → DAO）
 - Service/DAO 分层职责与规范
-- `@CustomizedBean` 注解使用规则（Service/Atom 层需要，Controller 不需要）
+- `@CustomizedBean` 注解使用规则（extends产品实现类的Service/Atom需要，仅implements个性化接口不需要，Controller不需要）
 - 日志规约（级别选择、内容规范）
 - 无效引用控制规范
 - 事务管理规范

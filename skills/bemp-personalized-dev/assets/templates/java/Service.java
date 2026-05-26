@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * {BANK_NAME}[功能描述]个性化 Service 实现
- * @CustomizedBean 确保 Spring 容器中覆盖产品化实现
+ * extends产品实现类，需@CustomizedBean替换产品化Bean
  * @author [作者]
  * @date [日期]
  */

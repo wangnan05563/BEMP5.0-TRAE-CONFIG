@@ -273,7 +273,7 @@ class DocumentBuilder {
         return outputPath;
     }
 
-    generateMarkdown(moduleName, outputPath, type = 'design') {
+    generateMarkdown(moduleName, outputPath, type = 'design', templateData = null) {
         const date = new Date().toLocaleDateString('zh-CN');
         const typeLabel = { design: '详细设计文档', testcase: '测试用例', testreport: '测试报告' }[type] || '详细设计文档';
 
@@ -287,7 +287,9 @@ class DocumentBuilder {
         md += `| --- | --- | --- | --- | --- |\n`;
         md += `| V1.0 | | 初始版本 | | ${date} |\n\n`;
 
-        if (type === 'design') {
+        if (templateData && templateData.chapters && templateData.chapters.length > 0) {
+            md += this._renderChaptersToMarkdown(templateData.chapters);
+        } else if (type === 'design') {
             md += this._getDesignMarkdownTemplate();
         } else if (type === 'testcase') {
             md += this._getTestCaseMarkdownTemplate();
@@ -301,6 +303,54 @@ class DocumentBuilder {
         }
         fs.writeFileSync(outputPath, md, 'utf-8');
         return outputPath;
+    }
+
+    _renderChaptersToMarkdown(chapters) {
+        let md = '';
+        for (const chapter of chapters) {
+            md += `${chapter.title}\n\n`;
+            if (chapter.sections) {
+                for (const section of chapter.sections) {
+                    md += `${section.title}\n\n`;
+                    md += this._renderContentToMarkdown(section.content);
+                    md += '\n';
+                }
+            }
+            if (chapter.bodyTexts) {
+                for (const text of chapter.bodyTexts) {
+                    md += `${text}\n\n`;
+                }
+            }
+            if (chapter.tables) {
+                for (const table of chapter.tables) {
+                    md += this._renderTableToMarkdown(table.headers, table.rows);
+                    md += '\n';
+                }
+            }
+        }
+        return md;
+    }
+
+    _renderContentToMarkdown(content) {
+        if (!content) return '(待补充)\n';
+        if (typeof content === 'string') return `${content}\n`;
+        let md = '';
+        if (content.description) md += `${content.description}\n\n`;
+        if (content.placeholder) md += `${content.placeholder}\n\n`;
+        if (content.headers && content.rows) {
+            md += this._renderTableToMarkdown(content.headers, content.rows);
+        }
+        return md;
+    }
+
+    _renderTableToMarkdown(headers, rows) {
+        let md = '';
+        md += `| ${headers.join(' | ')} |\n`;
+        md += `| ${headers.map(() => '---').join(' | ')} |\n`;
+        for (const row of rows) {
+            md += `| ${row.map(c => String(c || '')).join(' | ')} |\n`;
+        }
+        return md;
     }
 
     _renderChapter(chapter) {

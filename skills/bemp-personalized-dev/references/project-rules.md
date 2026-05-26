@@ -9,7 +9,7 @@
 - 【强制】新增字段名称优先使用已定义的 Dto 类中的字段名称
 
 ## 个性化开发规则
-- 【强制】后端代码在 `banks/ext-{BANK_CODE}` 目录下，使用 `@CustomizedBean` 注解
+- 【强制】后端代码在 `banks/ext-{BANK_CODE}` 目录下，extends产品实现类的Service/Atom使用 `@CustomizedBean` 注解；仅implements个性化接口的不需要，只需 `@CloudComponent`
 - 【强制】前端代码在以下个性化目录下开发：
   - 页面文件：`frontend/src/views/bizViews/banks/{BANK_CODE}`
   - 组件文件：`frontend/src/components/bank/{BANK_CODE}`

@@ -6,7 +6,8 @@ param(
     [string]$Service = "",
     [switch]$Status,
     [switch]$ForceRestart,
-    [switch]$QuickStart
+    [switch]$QuickStart,
+    [switch]$AutoRestart
 )
 
 $originalLocation = Get-Location
@@ -165,12 +166,12 @@ function Start-RedisService {
     }
     $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
     
-    if ($isRunning -and -not $ForceRestart) {
+    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
         Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
     
-    if ($ForceRestart) {
+    if ($ForceRestart -or $AutoRestart) {
         foreach ($port in $checkPorts) {
             Stop-ServiceByPort -port $port -serviceName $serviceName
         }
@@ -226,12 +227,12 @@ function Start-ZooKeeperService {
     }
     $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
     
-    if ($isRunning -and -not $ForceRestart) {
+    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
         Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
     
-    if ($ForceRestart) {
+    if ($ForceRestart -or $AutoRestart) {
         foreach ($port in $checkPorts) {
             Stop-ServiceByPort -port $port -serviceName $serviceName
         }
@@ -306,7 +307,7 @@ function Start-SpringBootService {
     }
     $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
 
-    if ($isRunning -and -not $ForceRestart) {
+    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
         Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
@@ -321,7 +322,7 @@ function Start-SpringBootService {
         }
     }
     
-    if ($conflicts.Count -gt 0 -and -not $ForceRestart) {
+    if ($conflicts.Count -gt 0 -and -not $ForceRestart -and -not $AutoRestart) {
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Red
         Write-Host "  [!] PORT CONFLICT DETECTED" -ForegroundColor Red
@@ -338,7 +339,7 @@ function Start-SpringBootService {
         return $false
     }
 
-    if ($ForceRestart) {
+    if ($ForceRestart -or $AutoRestart) {
         foreach ($port in $checkPorts) {
             Stop-ServiceByPort -port $port -serviceName $serviceName
         }
@@ -619,12 +620,12 @@ function Start-FrontendService {
     }
     $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
     
-    if ($isRunning -and -not $ForceRestart) {
+    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
         Write-Success "$serviceName is running (ports: $portsText)"
         return $true
     }
     
-    if ($ForceRestart) {
+    if ($ForceRestart -or $AutoRestart) {
         foreach ($port in $checkPorts) {
             Stop-ServiceByPort -port $port -serviceName $serviceName
         }
@@ -864,7 +865,7 @@ Show-Status -config $config
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  每个服务需在独立终端启动，详见 SKILL.md" -ForegroundColor Yellow
-Write-Host "  命令: .\start-bemp-env.ps1 -Service <redis|zookeeper|springboot|frontend> [-QuickStart] [-ForceRestart]" -ForegroundColor White
+Write-Host "  命令: .\start-bemp-env.ps1 -Service <redis|zookeeper|springboot|frontend> [-QuickStart] [-ForceRestart] [-AutoRestart]" -ForegroundColor White
 Write-Host "  状态: .\start-bemp-env.ps1 -Status" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor Cyan
 

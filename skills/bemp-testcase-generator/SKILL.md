@@ -16,21 +16,25 @@ triggers:
 
 ## 技能职责
 
-本技能**负责测试用例编写**，测试执行由 `bemp-webapp-testing` 技能负责。两者解耦，由智能体编排流程：
+本技能**负责测试用例编写**，测试执行由 `bemp-webapp-testing` 技能负责。共享资源（功能地图、优先级矩阵、测试标准、用例文档、用例索引）由 `bemp-test-common` 统一管理：
 
 ```
-bemp-testcase-generator（用例编写） → bemp-webapp-testing（用例执行）
+bemp-test-common（共享资源：用例文档 + 参考指南 + 用例索引）
+    ├── bemp-testcase-generator（用例编写，引用 common 资源）
+    └── bemp-webapp-testing（用例执行，引用 common 资源）
 ```
 
 - **需要编写用例** → 调用本技能
 - **需要执行测试** → 调用 `bemp-webapp-testing`
+- **需要查阅共享资源** → 调用 `bemp-test-common`
 
 ## 按需加载机制
 
-本技能采用六级加载架构，避免一次性加载全部参考文档：
+本技能采用七级加载架构，避免一次性加载全部参考文档。Level 0 为来自 `bemp-test-common` 的共享资源：
 
 | 级别 | 内容 | 加载时机 | 文件 |
 |------|------|----------|------|
+| Level 0 | 共享资源（功能地图/优先级矩阵/测试标准/数据管理） | 按需加载 | bemp-test-common/references/*.md |
 | Level 1 | SKILL.md | 始终加载 | 本文件 |
 | Level 2 | 指令映射表 | 按需加载 | references/instruction-mapping.md |
 | Level 3 | 通用测试用例模板 | 按需加载 | references/general-test-cases.md |
@@ -44,6 +48,8 @@ bemp-testcase-generator（用例编写） → bemp-webapp-testing（用例执行
 用户提出需求
     ↓
 读取 SKILL.md（Level 1）
+    ↓
+需要功能地图/优先级矩阵/测试标准/数据管理？ → 加载 bemp-test-common/references/（Level 0）
     ↓
 匹配 instruction-mapping.md（Level 2）→ 确定需要加载的测试类型
     ↓
@@ -69,13 +75,14 @@ bemp-testcase-generator（用例编写） → bemp-webapp-testing（用例执行
 **输入**：`config/generator-config.json` → `target.base_url`
 
 1. 启动浏览器，访问 `{base_url}/{hash_route}`
-2. 登录系统（复用 bemp-webapp-testing 的 LoginManager）
+2. 登录系统（⚠️ 前置步骤：须先通过智能体调度 `bemp-webapp-testing` 的 LoginManager 完成登录，再继续遍历菜单）
 3. 遍历主菜单 + 子菜单，记录页面路由
 4. 每个页面：截图 + 提取关键元素（选择器/功能描述）
 5. 记录页面间跳转关系和状态流转
 6. 输出功能地图 MD 文件（按 `assets/templates/functional-map.md` 模板）
 
-> 已有功能地图：`references/website-functional-map.md`（6子系统 285+ 页面），可直接复用
+> 已有功能地图：`bemp-test-common/references/website-functional-map.md`（6子系统 285+ 页面），可直接复用
+> 判断条件：当 common 中已有功能地图且距上次生成不足 30 天、页面结构无重大变更时直接复用；否则重新生成。
 
 ### 第二步：测试范围与优先级矩阵构建
 
@@ -85,7 +92,8 @@ bemp-testcase-generator（用例编写） → bemp-webapp-testing（用例执行
 2. 风险点评估：识别高风险区域（输入边界、状态改变、权限校验等）
 3. 输出优先级矩阵 MD 文件（按 `assets/templates/priority-matrix.md` 模板）
 
-> 已有优先级矩阵：`references/test-priority-matrix.md`，可直接复用
+> 已有优先级矩阵：`bemp-test-common/references/test-priority-matrix.md`，可直接复用
+> 判断条件：当功能地图未重新生成（即页面结构未变）时直接复用；功能地图重新生成后必须同步重建优先级矩阵。
 
 **优先级定义**：
 
@@ -129,7 +137,7 @@ bemp-testcase-generator（用例编写） → bemp-webapp-testing（用例执行
 5. 输出测试数据 MD 文件（按 `assets/templates/test-data.md` 模板）
 
 > 通过 `bemp-implementation-engineer` 智能体调用 Oracle MCP / MySQL MCP 工具
-> 数据库操作指南见 `references/test-data-management.md`
+> 数据库操作指南见 `bemp-test-common/references/test-data-management.md`
 
 ## 目录结构
 
@@ -137,58 +145,20 @@ bemp-testcase-generator（用例编写） → bemp-webapp-testing（用例执行
 bemp-testcase-generator/
 ├── SKILL.md                          本文件
 ├── README.md                         开发者入口文档
-├── test-index.json                   用例索引：25 条目/207+ 用例 ↔ 脚本双向映射
 ├── config/
 │   └── generator-config.json         配置（目标地址/优先级/输出路径/银行/编号前缀）
 ├── scripts/
 │   ├── generate_functional_map.py    功能地图生成指令
 │   ├── generate_test_cases.py        测试用例生成指令
 │   └── prepare_test_data.py          测试数据准备指令
-├── references/
+├── references/                       本技能独有参考文档
 │   ├── instruction-mapping.md        指令映射表：关键词→测试类型/组件映射
 │   ├── general-test-cases.md         通用测试用例模板（11种测试类型，300+模板）
 │   ├── component-test.md             组件测试设计方法（10种组件 + BEMP特有组件）
 │   ├── output-examples.md            输出示例（含接口测试专用格式）
 │   ├── review-report-template.md     审查报告模板（评分标准+检查清单）
 │   ├── methodology.md                五步方法论完整说明
-│   ├── case-id-rules.md              用例编号与模块缩写对照表
-│   ├── website-functional-map.md     功能地图：6子系统 285+ 页面清单、路由映射
-│   ├── test-priority-matrix.md       优先级矩阵：P0-P3 分级、高风险场景
-│   ├── testing-standards.md          用例编写标准、BEMP 特有验证点
-│   └── test-data-management.md       Oracle MCP 测试数据准备流程、核心表结构
-├── test-cases/                       用例文档（按 common/sm/bm/be/ce 子系统）
-│   ├── common/                       通用/登录
-│   │   ├── login.md                  登录基础功能
-│   │   └── login-session.md          登录与会话管理
-│   ├── sm/                           系统管理
-│   │   ├── branch/                   机构管理
-│   │   │   ├── branch.md             机构管理
-│   │   │   ├── simple-branch.md      简版机构
-│   │   │   └── branch-batch-import.md 机构批量导入
-│   │   ├── clearing/clearing.md      清算管理
-│   │   └── role-permission.md        角色权限
-│   ├── bm/                           业务管理
-│   │   ├── approval/approval-accounting.md  审批与记账
-│   │   ├── contract/contract-invoice.md     合同发票
-│   │   ├── credit/credit-management.md      承兑行额度管理
-│   │   ├── cust/                     客户管理
-│   │   │   ├── custCorp.md           企业客户查询
-│   │   │   ├── custAcct.md           企业账号同步
-│   │   │   └── cust-optimize.md      客户管理优化
-│   │   ├── payment/payment.md        支付管理
-│   │   └── sign/                     企业报备
-│   │       ├── custCorpSign.md       企业信息报备
-│   │       ├── custCorpSignAudit.md  报备复核
-│   │       └── custCorpSignRecord.md 报备记录
-│   ├── be/                           场内交易
-│   │   ├── market/                   市场交易
-│   │   │   ├── market.md             市场交易
-│   │   │   └── market-optimize.md    市场交易优化
-│   │   └── trust/trust.md            托管业务
-│   └── ce/                           场外交易
-│       ├── acceptance/acceptance.md  承兑业务
-│       ├── discount/discount.md      贴现业务
-│       └── pledge/pledge.md          质押业务
+│   └── case-id-rules.md              用例编号与模块缩写对照表
 └── assets/templates/
     ├── functional-map.md             功能地图模板
     ├── priority-matrix.md            优先级矩阵模板
@@ -197,9 +167,17 @@ bemp-testcase-generator/
     └── test-data.md                  测试数据文档模板
 ```
 
+> 以下资源已迁移至 `bemp-test-common/`，由 common 统一管理：
+> - `references/website-functional-map.md` → `bemp-test-common/references/website-functional-map.md`
+> - `references/test-priority-matrix.md` → `bemp-test-common/references/test-priority-matrix.md`
+> - `references/testing-standards.md` → `bemp-test-common/references/testing-standards.md`
+> - `references/test-data-management.md` → `bemp-test-common/references/test-data-management.md`
+> - `test-cases/` → `bemp-test-common/test-cases/`
+> - `test-index.json` → `bemp-test-common/test-index.json`
+
 ## BEMP 特有验证点
 
-所有用例须包含以下验证维度（详见 `references/testing-standards.md`）：
+所有用例须包含以下验证维度（详见 `bemp-test-common/references/testing-standards.md`）：
 
 1. **个性化路径**：API 请求使用当前银行 `url_prefix` 前缀
 2. **组件覆盖**：个性化组件正确覆盖产品化组件
@@ -211,34 +189,36 @@ bemp-testcase-generator/
 
 | 产出物 | 路径 | 格式 |
 |:---|:---|:---|
-| 功能地图 | `references/website-functional-map.md` | MD（按模板） |
-| 优先级矩阵 | `references/test-priority-matrix.md` | MD（按模板） |
-| P0 用例 | `test-cases/{子系统}/{模块}.md` | MD（按模板） |
+| 功能地图 | `bemp-test-common/references/website-functional-map.md` | MD（按模板） |
+| 优先级矩阵 | `bemp-test-common/references/test-priority-matrix.md` | MD（按模板） |
+| P0 用例 | `bemp-test-common/test-cases/{子系统}/{模块}.md` | MD（按模板） |
 | 扩展用例 | 追加到对应模块 MD 文件 | MD |
-| 测试数据 | `test-data/{模块}-test-data.md` | MD（按模板） |
-| 用例索引 | `test-index.json` | JSON |
+| 测试数据 | `bemp-test-common/test-data/{模块}-test-data.md` | MD（按模板） |
+| 用例索引 | `bemp-test-common/test-index.json` | JSON |
 | 审查报告 | 按需生成 | MD（按 review-report-template.md） |
 
 ## 已有测试用例基准
 
 | 子系统 | 文件 | 用例数 | 覆盖 |
 |:---|:---|:---|:---|
-| 通用 | test-cases/common/login-session.md | 21 | 密码登录、强制登录、会话管理 |
-| 系统管理 | test-cases/sm/role-permission.md | 12 | 角色分配、机构业务权限 |
-| 系统管理 | test-cases/sm/clearing/clearing.md | 17 | 清算明细、排队管理、结算同步 |
-| 系统管理 | test-cases/sm/branch/ | - | 机构管理、简版机构 |
-| 业务管理 | test-cases/bm/approval/approval-accounting.md | 21 | 审批路线、分录配置、科目维护 |
-| 业务管理 | test-cases/bm/payment/payment.md | 13 | 支付申请、支付复核 |
-| 业务管理 | test-cases/bm/cust/ | - | 企业客户查询、账号同步 |
-| 业务管理 | test-cases/bm/sign/ | - | 企业报备、复核、记录查询 |
-| 业务管理 | test-cases/bm/credit/credit-management.md | 81 | 承兑行额度管理完整流程 |
-| 场内交易 | test-cases/be/trust/trust.md | 32 | 提示付款、质押/解质押 |
-| 场内交易 | test-cases/be/market/market.md | 32 | 买入、卖出、再贴现、回购、返售 |
-| 场外交易 | test-cases/ce/acceptance/acceptance.md | 25 | 电票签发、承兑记账、付款登记、到期扣款 |
-| 场外交易 | test-cases/ce/discount/discount.md | 19 | 贴现申请、贴现记账、计息复核 |
-| 场外交易 | test-cases/ce/pledge/pledge.md | 15 | 提示付款、质押、解质押 |
+| 通用 | bemp-test-common/test-cases/common/login-session.md | 21 | 密码登录、强制登录、会话管理 |
+| 系统管理 | bemp-test-common/test-cases/sm/role-permission.md | 12 | 角色分配、机构业务权限 |
+| 系统管理 | bemp-test-common/test-cases/sm/clearing/clearing.md | 17 | 清算明细、排队管理、结算同步 |
+| 系统管理 | bemp-test-common/test-cases/sm/branch/ | - | 机构管理、简版机构 |
+| 业务管理 | bemp-test-common/test-cases/bm/approval/approval-accounting.md | 21 | 审批路线、分录配置、科目维护 |
+| 业务管理 | bemp-test-common/test-cases/bm/payment/payment.md | 13 | 支付申请、支付复核 |
+| 业务管理 | bemp-test-common/test-cases/bm/cust/ | - | 企业客户查询、账号同步 |
+| 业务管理 | bemp-test-common/test-cases/bm/sign/ | - | 企业报备、复核、记录查询 |
+| 业务管理 | bemp-test-common/test-cases/bm/credit/credit-management.md | 81 | 承兑行额度管理完整流程 |
+| 场内交易 | bemp-test-common/test-cases/be/trust/trust.md | 32 | 提示付款、质押/解质押 |
+| 场内交易 | bemp-test-common/test-cases/be/market/market.md | 32 | 买入、卖出、再贴现、回购、返售 |
+| 场外交易 | bemp-test-common/test-cases/ce/acceptance/acceptance.md | 25 | 电票签发、承兑记账、付款登记、到期扣款 |
+| 场外交易 | bemp-test-common/test-cases/ce/discount/discount.md | 19 | 贴现申请、贴现记账、计息复核 |
+| 场外交易 | bemp-test-common/test-cases/ce/pledge/pledge.md | 15 | 提示付款、质押、解质押 |
 
-> 详细索引（脚本覆盖/缺失标注）见 `test-index.json` | P0 用例合计约 207 条 | 25 条目
+> 详细索引（脚本覆盖/缺失标注）见 `bemp-test-common/test-index.json` | 用例合计约 288 条 | 25 条目
+>
+> 注：上表为概要视图，部分目录行（如 `bm/cust/`、`bm/sign/`）包含多个用例文件。完整条目以 test-index.json 为准。
 
 ## 配置说明
 
@@ -254,10 +234,13 @@ bemp-testcase-generator/
 | `banks` | 多银行配置（active_bank + 各银行 url_prefix） |
 | `case_id_prefixes` | 24 个模块缩写与编号规则 |
 
+> ⚠️ **银行环境同步**：`generator-config.json` 与 `bemp-webapp-testing/config/test_config.json` 各自维护 `active_bank` 字段。编写用例前应读取 `test_config.json` 确认当前测试环境的 `active_bank`，确保生成的用例与执行环境一致。切换银行时两个配置需同步更新。
+
 ## 关联技能
 
 | 技能 | 关系 |
 |:---|:---|
+| `bemp-test-common` | 共享资源层：提供功能地图、优先级矩阵、测试标准、用例文档、用例索引 |
 | `bemp-webapp-testing` | 用例执行验证；提供 LoginManager、组件交互参考 |
 | `bemp-implementation-engineer` | Oracle/MySQL MCP 数据库操作 |
 | `bemp-personalized-developer` | 功能开发 → 用例编写环节 |

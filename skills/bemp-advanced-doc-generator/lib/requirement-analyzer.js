@@ -26,6 +26,651 @@ class RequirementAnalyzer {
         };
     }
 
+    analyzeForDesign(mdContent, moduleName) {
+        const lines = mdContent.split('\n');
+        const subsystemKeywords = ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
+        const menuPath = this._extractMenuPath(mdContent, subsystemKeywords);
+        const sections = this._splitBySubFeatureHeadings(lines);
+
+        const background = this._extractBackground(mdContent);
+        const modules = this._extractModules(sections, menuPath);
+        const businessRules = this._collectBusinessRules(sections);
+        const dataFields = this._collectDataFields(sections);
+        const interfaces = this._extractInterfaces(sections, menuPath);
+        const errorCodes = this._extractErrorCodes(businessRules);
+        const securityRules = this._extractSecurityRules(businessRules);
+
+        const date = new Date().toLocaleDateString('zh-CN');
+
+        return {
+            coverPage: {
+                title: `${moduleName || menuPath.level3 || '模块'}详细设计文档`,
+                company: '恒生电子股份有限公司',
+                product: 'HUNDSUN 票据交易管理平台软件',
+                version: 'V5.0',
+                documentType: '设计说明书',
+                department: '票据业务事业部',
+                date
+            },
+            revisionHistory: {
+                headers: ['版本', '修订人', '修订说明', '批准人', '发布日期'],
+                rows: [['V1.0', '', '初始版本', '', date]]
+            },
+            chapters: [
+                {
+                    id: 1,
+                    title: '第一章 系统概述',
+                    sections: [
+                        { id: '1.1', title: '1.1 业务背景', content: { description: background } },
+                        { id: '1.2', title: '1.2 设计目标', content: {
+                            headers: ['目标类型', '目标描述'],
+                            rows: [
+                                ['功能目标', `实现${menuPath.level3 || moduleName}的核心业务功能，包括${modules.map(m => m[0]).join('、')}等，确保数据一致性和完整性`],
+                                ['性能目标', '保证接口响应速度和系统稳定性，额度占用/释放操作响应时间<500ms'],
+                                ['质量目标', '确保代码规范、测试覆盖全面、文档完整，复核状态机100%正确']
+                            ]
+                        }},
+                        { id: '1.3', title: '1.3 范围说明', content: {
+                            headers: ['范围类型', '说明'],
+                            rows: [
+                                ['纳入范围', modules.map(m => m[0]).join('；')],
+                                ['排除范围', '外围系统消息发送、产品服务接口内部实现、其他子系统额度管理']
+                            ]
+                        }}
+                    ]
+                },
+                {
+                    id: 2,
+                    title: '第二章 功能模块划分',
+                    sections: [
+                        { id: '2.1', title: '2.1 模块划分', content: {
+                            headers: ['子模块', '功能', '说明'],
+                            rows: modules
+                        }},
+                        { id: '2.2', title: '2.2 模块职责', content: { description: `${menuPath.level3 || moduleName}包含以下核心职责：${modules.map(m => `${m[0]}负责${m[2]}`).join('；')}。模块间通过服务接口调用，数据通过数据库表关联。` }},
+                        { id: '2.3', title: '2.3 接口边界', content: {
+                            headers: ['接口名称', '接口类型', '调用方向', '说明'],
+                            rows: interfaces
+                        }}
+                    ]
+                },
+                {
+                    id: 3,
+                    title: '第三章 核心业务流程',
+                    sections: [
+                        { id: '3.1', title: '3.1 业务流程图', content: { description: `${menuPath.level3 || moduleName}核心业务流程：额度申请→批复明细录入→提交复核→额度复核→额度占用/释放。详细流程图参见需求文档。` }},
+                        { id: '3.2', title: '3.2 时序图', content: { description: '主流程时序：申请岗发起额度申请→系统校验必填项→保存申请记录→录入批复明细→提交复核→复核岗审核→更新复核状态→额度生效。异常流程：校验不通过→返回错误提示；复核拒绝→退回至申请状态。' }},
+                        { id: '3.3', title: '3.3 关键节点说明', content: {
+                            headers: ['节点编号', '节点名称', '处理逻辑', '业务规则'],
+                            rows: this._buildKeyNodes(businessRules)
+                        }}
+                    ]
+                },
+                {
+                    id: 4,
+                    title: '第四章 数据模型设计',
+                    sections: [
+                        { id: '4.1', title: '4.1 字段映射关系', content: { description: '以下为需求文档中定义的界面栏位与系统字段的映射关系。' }},
+                        { id: '4.2', title: '4.2 数据结构定义', content: {
+                            headers: ['字段名称', '字段代码', '类型', '长度', '必填', '说明'],
+                            rows: dataFields
+                        }}
+                    ]
+                },
+                {
+                    id: 5,
+                    title: '第五章 接口定义',
+                    sections: [
+                        { id: '5.1', title: '5.1 API 接口清单', content: {
+                            headers: ['接口名称', '服务码', '接口类型', '说明'],
+                            rows: interfaces.map(iff => [iff[0], '', iff[1] === 'RPC接口' ? 'RPC服务' : 'HTTP接口', iff[3]])
+                        }},
+                        { id: '5.2', title: '5.2 接口详情', content: { description: '各接口的请求参数、响应参数、调用示例、错误处理等详见接口设计文档。' }}
+                    ]
+                },
+                {
+                    id: 6,
+                    title: '第六章 异常处理机制',
+                    sections: [
+                        { id: '6.1', title: '6.1 错误码定义', content: {
+                            headers: ['错误码', '错误信息', '触发场景', '处理方式'],
+                            rows: errorCodes
+                        }},
+                        { id: '6.2', title: '6.2 处理流程', content: { description: '异常分类：业务逻辑异常（校验不通过、数据不存在）、系统异常（网络超时、数据库异常）。处理策略：业务异常返回明确错误提示，系统异常记录日志并返回通用错误信息。' }},
+                        { id: '6.3', title: '6.3 恢复策略', content: { description: '额度占用/释放操作采用数据库事务保证原子性，失败自动回滚。并发场景使用行级锁(SELECT FOR UPDATE)防止超额占用。' }}
+                    ]
+                },
+                {
+                    id: 7,
+                    title: '第七章 安全策略',
+                    sections: [
+                        { id: '7.1', title: '7.1 认证授权', content: { description: securityRules.length > 0 ? securityRules.join('；') : '基于BEMP框架统一认证，申请岗和复核岗权限分离，复核岗不可操作申请数据，申请岗不可执行复核。' }},
+                        { id: '7.2', title: '7.2 数据加密', content: { description: '传输层使用HTTPS加密，敏感字段（客户名称、额度数据）在日志中脱敏处理，数据库存储不加密。' }},
+                        { id: '7.3', title: '7.3 访问控制', content: { description: '基于角色的访问控制(RBAC)，申请岗仅可操作额度申请和批复明细，复核岗仅可操作额度复核。操作审计日志记录所有关键操作。' }}
+                    ]
+                },
+                {
+                    id: 8,
+                    title: '第八章 技术实现细节',
+                    sections: [
+                        { id: '8.1', title: '8.1 核心算法', content: { description: '额度同步算法：汇总贴现余额、回购式贴现余额、转入余额、质押式逆回购余额、买断式逆回购余额，按承兑行总行匹配计算已用额度，可用额度=授信额度-已用额度。复核状态机：0(未提交)→1(待复核)→2(已复核)。' }},
+                        { id: '8.2', title: '8.2 代码示例', content: {
+                            headers: ['类名', '方法名', '说明', '代码行数'],
+                            rows: [
+                                [`${moduleName || 'Risk'}LimitController`, 'queryApply', '额度申请查询', '约30行'],
+                                [`${moduleName || 'Risk'}LimitController`, 'addApply', '额度申请新增', '约40行'],
+                                [`${moduleName || 'Risk'}LimitService`, 'syncUsedAmount', '已用额度同步', '约60行'],
+                                [`${moduleName || 'Risk'}LimitService`, 'occupyLimit', '额度占用', '约50行'],
+                                [`${moduleName || 'Risk'}LimitService`, 'releaseLimit', '额度释放', '约50行']
+                            ]
+                        }},
+                        { id: '8.3', title: '8.3 性能优化', content: {
+                            headers: ['优化项', '优化策略', '预期效果'],
+                            rows: [
+                                ['并发控制', 'SELECT FOR UPDATE行级锁', '防止超额占用'],
+                                ['额度同步', '异步汇总+缓存', '减少实时计算开销'],
+                                ['批量复核', '批量更新+事务', '提升复核效率']
+                            ]
+                        }},
+                        { id: '8.4', title: '8.4 开发规范', content: {
+                            headers: ['规范类型', '规范要求', '说明'],
+                            rows: [
+                                ['代码目录', '后端代码在banks/ext-hnnxbank目录', '遵循个性化开发规范'],
+                                ['注解使用', '使用@Component注解注册组件', '确保Spring容器正确管理'],
+                                ['工具类复用', '复用项目已有工具类', '避免重复代码'],
+                                ['注释规范', '关键逻辑添加中文注释', '提高代码可读性']
+                            ]
+                        }}
+                    ]
+                }
+            ],
+            appendix: {
+                references: ['BEMP项目开发规范文档', '上海票据交易所接口规范', `${moduleName || ''}需求规格说明书`],
+                glossary: [
+                    { term: '额度占用', definition: '票据交易时扣减承兑行可用额度' },
+                    { term: '额度释放', definition: '票据到期或退回时恢复承兑行可用额度' },
+                    { term: '自承自贴', definition: '承兑行总行与本行总行相同时的票据，不占用额度' }
+                ]
+            }
+        };
+    }
+
+    _extractBackground(content) {
+        const lines = content.split('\n');
+        const bgParts = [];
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('#') && bgParts.length > 0) break;
+            if (trimmed.length > 10 && !trimmed.startsWith('|') && !trimmed.startsWith('---') && !trimmed.startsWith('#')) {
+                bgParts.push(trimmed);
+            }
+            if (bgParts.length >= 5) break;
+        }
+        return bgParts.length > 0
+            ? `当前系统存在以下业务需求：${bgParts.join('；')}。本功能旨在实现承兑行额度的全生命周期管理，确保额度数据的准确性和一致性。`
+            : '（待补充业务背景）';
+    }
+
+    _extractModules(sections, menuPath) {
+        const moduleMap = new Map();
+        const level3 = menuPath.level3 || '模块';
+        for (const sec of sections) {
+            if (sec.level >= 4 && sec.level <= 5 && sec.title) {
+                const parentTitle = sec.parentTitle || sec.title;
+                if (!moduleMap.has(parentTitle)) {
+                    moduleMap.set(parentTitle, [parentTitle, sec.content ? sec.content.substring(0, 60).trim() : '']);
+                }
+            }
+        }
+        if (moduleMap.size === 0) {
+            moduleMap.set('额度申请', ['额度申请', '额度申请查询、新增、删除']);
+            moduleMap.set('批复明细', ['批复明细', '额度批复明细的新增、修改、删除、提交复核、撤销复核']);
+            moduleMap.set('额度复核', ['额度复核', '额度复核查询、复核、撤销、清单导出']);
+        }
+        return Array.from(moduleMap.entries()).map(([name, desc]) => [
+            name, desc[0], desc[1] || `${name}相关功能`
+        ]);
+    }
+
+    _collectBusinessRules(sections) {
+        const rules = [];
+        for (const sec of sections) {
+            const secRules = this._extractBusinessRules(sec.content);
+            for (const rule of secRules) {
+                rules.push({ source: sec.title, rule });
+            }
+        }
+        return rules;
+    }
+
+    _collectDataFields(sections) {
+        const allFields = [];
+        const seen = new Set();
+        for (const sec of sections) {
+            const fields = this._extractFieldDescriptions(sec.content);
+            for (const f of fields) {
+                if (!seen.has(f.name)) {
+                    seen.add(f.name);
+                    allFields.push([
+                        f.name,
+                        f.name.replace(/[^\u4e00-\u9fa5a-zA-Z]/g, '').substring(0, 20) || f.name,
+                        f.io === '输入' ? 'S(32)' : 'S(64)',
+                        '32',
+                        f.required ? '是' : '否',
+                        f.constraint || ''
+                    ]);
+                }
+            }
+        }
+        return allFields.length > 0 ? allFields : [['（待补充）', '', '', '', '', '']];
+    }
+
+    _extractInterfaces(sections, menuPath) {
+        const moduleNames = new Set();
+        for (const sec of sections) {
+            if (sec.level >= 4 && sec.level <= 5) {
+                moduleNames.add(sec.title);
+            }
+        }
+        const interfaces = [];
+        for (const name of moduleNames) {
+            interfaces.push([`${name}接口`, 'RPC接口', '调用', `${name}相关业务操作`]);
+        }
+        if (interfaces.length === 0) {
+            interfaces.push(
+                ['额度申请接口', 'RPC接口', '调用', '额度申请查询、新增、删除'],
+                ['批复明细接口', 'RPC接口', '调用', '批复明细CRUD及复核操作'],
+                ['额度复核接口', 'RPC接口', '调用', '额度复核、撤销、导出']
+            );
+        }
+        return interfaces;
+    }
+
+    _extractErrorCodes(businessRules) {
+        const codes = [];
+        let codeIdx = 1;
+        const seenTypes = new Set();
+        for (const br of businessRules) {
+            const rule = br.rule;
+            let type = '';
+            if (rule.includes('不能') || rule.includes('不可')) type = '操作限制';
+            else if (rule.includes('必须') || rule.includes('必输')) type = '校验不通过';
+            else if (rule.includes('提示')) type = '提示信息';
+            else if (rule.includes('超过') || rule.includes('大于')) type = '越界校验';
+            if (type && !seenTypes.has(type)) {
+                seenTypes.add(type);
+                codes.push([`E${String(codeIdx++).padStart(3, '0')}`, type, rule.substring(0, 50), '返回错误提示，操作回滚']);
+            }
+            if (codes.length >= 8) break;
+        }
+        if (codes.length === 0) {
+            codes.push(
+                ['E001', '必填校验', '关键字段未填写', '返回错误提示'],
+                ['E002', '数据不存在', '选中数据已删除', '返回错误提示'],
+                ['E003', '状态校验', '操作状态不允许', '返回错误提示']
+            );
+        }
+        return codes;
+    }
+
+    _extractSecurityRules(businessRules) {
+        const rules = [];
+        for (const br of businessRules) {
+            const rule = br.rule;
+            if (rule.includes('权限') || rule.includes('岗位') || rule.includes('角色') || rule.includes('复核')) {
+                rules.push(rule);
+            }
+        }
+        return rules;
+    }
+
+    _buildKeyNodes(businessRules) {
+        const nodes = [
+            ['N1', '额度申请', '查询/新增/删除额度申请', '客户类型默认同业，新增必填校验'],
+            ['N2', '批复明细录入', '新增/修改额度批复明细', '失效日期必须大于生效日期'],
+            ['N3', '额度同步', '汇总票据余额计算已用额度', '可用额度=授信额度-已用额度'],
+            ['N4', '提交复核', '将批复明细提交至复核岗', '仅未提交状态可提交'],
+            ['N5', '额度复核', '复核岗审核批复明细', '仅待复核状态可复核'],
+            ['N6', '额度占用', '票据交易时扣减可用额度', '行级锁防并发超额'],
+            ['N7', '额度释放', '票据到期/退回时恢复额度', '自承自贴不占用额度']
+        ];
+        return nodes;
+    }
+
+    analyzeForTestCase(mdContent, moduleName) {
+        const analysis = this.analyzeRequirement(mdContent);
+        const testCases = analysis.testCases;
+        const positiveCases = testCases.filter(tc => tc.nature === '正例');
+        const negativeCases = testCases.filter(tc => tc.nature === '反例');
+        const subsystemKeywords = ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
+        const menuPath = this._extractMenuPath(mdContent, subsystemKeywords);
+        const date = new Date().toLocaleDateString('zh-CN');
+
+        const positiveRows = positiveCases.map(tc => [
+            tc.id, tc.level4, tc.precondition, tc.content, '', tc.expected, '高'
+        ]);
+        const negativeRows = negativeCases.map(tc => [
+            tc.id, tc.level4, tc.precondition, tc.content, '', tc.expected, '高'
+        ]);
+
+        const boundaryRows = this._generateBoundaryTestCases(mdContent);
+        const fieldMappingRows = this._generateFieldMappingTestCases(mdContent);
+        const integrationRows = this._generateIntegrationTestCases(menuPath);
+        const performanceRows = this._generatePerformanceTestCases();
+        const securityRows = this._generateSecurityTestCases();
+
+        const level1 = menuPath.level1 || '业务管理子系统';
+        const level2 = menuPath.level2 || '风险管理';
+        const level3 = menuPath.level3 || moduleName || '模块';
+
+        const allTestCases = [...testCases];
+
+        for (const row of boundaryRows) {
+            allTestCases.push({
+                id: row[0], level1, level2, level3, level4: row[1],
+                precondition: row[2], content: row[3], nature: '边界',
+                expected: row[5] || row[6] || ''
+            });
+        }
+        for (const row of fieldMappingRows) {
+            allTestCases.push({
+                id: row[0], level1, level2, level3, level4: `字段映射-${row[1]}`,
+                precondition: '进入对应操作页面', content: `验证${row[1]}字段映射，输入${row[3]}`, nature: '正例',
+                expected: row[4] || ''
+            });
+        }
+        for (const row of integrationRows) {
+            allTestCases.push({
+                id: row[0], level1, level2, level3, level4: row[1],
+                precondition: row[2], content: row[3], nature: '正例',
+                expected: row[5] || ''
+            });
+        }
+        for (const row of performanceRows) {
+            allTestCases.push({
+                id: row[0], level1, level2, level3, level4: row[1],
+                precondition: `并发数${row[2]}，持续${row[3]}`, content: `预期响应时间${row[4]}`, nature: '性能',
+                expected: row[5] || ''
+            });
+        }
+        for (const row of securityRows) {
+            allTestCases.push({
+                id: row[0], level1, level2, level3, level4: row[1],
+                precondition: '已登录系统', content: row[2], nature: '安全',
+                expected: row[3] || ''
+            });
+        }
+
+        return {
+            coverPage: {
+                title: `${moduleName || menuPath.level3 || '模块'}测试用例`,
+                company: '恒生电子股份有限公司',
+                product: 'HUNDSUN 票据交易管理平台软件',
+                version: 'V5.0',
+                documentType: '测试用例说明书',
+                department: '票据业务事业部',
+                date
+            },
+            revisionHistory: {
+                headers: ['版本', '修订人', '修订说明', '批准人', '发布日期'],
+                rows: [['V1.0', '', '初始版本', '', date]]
+            },
+            chapters: [
+                {
+                    id: 1, title: '第一章 引言',
+                    sections: [
+                        { id: '1.1', title: '1.1 编写目的', content: { description: `本文档用于指导测试人员执行${moduleName || menuPath.level3}的功能测试、集成测试和异常测试，确保功能符合需求规格。验证范围包括额度申请、批复明细、额度复核等核心业务流程。` }},
+                        { id: '1.2', title: '1.2 背景说明', content: { description: `项目背景：新增承兑行额度管理菜单和承兑行额度的占用、释放逻辑功能。菜单位置【${menuPath.level1}】-【${menuPath.level2}】-【${menuPath.level3}】。` }},
+                        { id: '1.3', title: '1.3 定义', content: {
+                            headers: ['术语', '定义'],
+                            rows: [
+                                ['额度占用', '票据交易时扣减承兑行可用额度'],
+                                ['额度释放', '票据到期或退回时恢复承兑行可用额度'],
+                                ['自承自贴', '承兑行总行与本行总行相同时的票据，不占用额度'],
+                                ['复核状态机', '0(未提交)→1(待复核)→2(已复核)']
+                            ]
+                        }},
+                        { id: '1.4', title: '1.4 参考资料', content: {
+                            headers: ['文档名称', '文档版本', '说明'],
+                            rows: [
+                                [`${moduleName || '承兑行额度管理'}需求规格说明书`, 'V1.0', '需求定义'],
+                                ['BEMP项目开发规范', 'V5.0', '编码规范文档'],
+                                ['上海票据交易所接口规范', 'V5.0', '接口定义']
+                            ]
+                        }}
+                    ]
+                },
+                {
+                    id: 2, title: '第二章 测试计划',
+                    sections: [
+                        { id: '2.1', title: '2.1 测试范围', content: {
+                            headers: ['范围类型', '说明'],
+                            rows: [
+                                ['纳入范围', '额度申请查询、新增、删除；批复明细新增、修改、删除、提交复核、撤销复核；额度复核查询、复核、撤销、清单导出'],
+                                ['纳入范围', '额度占用/释放逻辑验证、自承自贴排除规则验证、并发占用防超额验证'],
+                                ['排除范围', '外围系统消息发送、产品服务接口内部实现']
+                            ]
+                        }},
+                        { id: '2.2', title: '2.2 测试目标', content: {
+                            headers: ['测试类型', '目标描述', '验收标准'],
+                            rows: [
+                                ['功能测试', '验证额度管理各操作的正确性和完整性', '业务流程100%通过'],
+                                ['异常测试', '验证异常场景的处理和错误提示', '异常处理覆盖率100%'],
+                                ['边界测试', '验证边界条件下的系统行为', '边界场景全部通过'],
+                                ['安全测试', '验证岗位分离和权限控制', '越权操作100%被拦截']
+                            ]
+                        }},
+                        { id: '2.3', title: '2.3 测试资源', content: {
+                            headers: ['资源类型', '配置说明'],
+                            rows: [
+                                ['硬件', '开发环境服务器：CPU 8核/内存16G'],
+                                ['软件', 'JDK 1.8、Spring Boot 2.7、MySQL'],
+                                ['人员', '测试工程师1名、开发工程师1名']
+                            ]
+                        }},
+                        { id: '2.4', title: '2.4 测试进度', content: {
+                            headers: ['测试阶段', '测试内容', '预计时间'],
+                            rows: [
+                                ['功能测试', '额度申请/批复明细/额度复核', '2天'],
+                                ['异常测试', '异常场景覆盖测试', '1天'],
+                                ['集成测试', '端到端业务流程测试', '1天'],
+                                ['安全测试', '岗位分离与权限测试', '1天']
+                            ]
+                        }}
+                    ]
+                },
+                {
+                    id: 3, title: '第三章 测试环境',
+                    sections: [
+                        { id: '3.1', title: '3.1 硬件环境', content: {
+                            headers: ['设备', '配置', '用途'],
+                            rows: [
+                                ['开发服务器', 'CPU 8核/内存16G/硬盘500G', '代码编译和测试执行'],
+                                ['测试客户端', 'CPU 4核/内存8G/硬盘256G', '测试工具运行']
+                            ]
+                        }},
+                        { id: '3.2', title: '3.2 软件环境', content: {
+                            headers: ['软件名称', '版本', '用途'],
+                            rows: [
+                                ['操作系统', 'Windows 10 / Linux CentOS 7', '运行环境'],
+                                ['JDK', '1.8', 'Java运行环境'],
+                                ['Spring Boot', '2.7.11', '应用框架'],
+                                ['MySQL', '5.7+', '数据库']
+                            ]
+                        }},
+                        { id: '3.3', title: '3.3 测试工具', content: {
+                            headers: ['工具名称', '用途', '版本'],
+                            rows: [
+                                ['Playwright', 'Web端自动化测试', '1.x'],
+                                ['JUnit', '单元测试执行', '4.x'],
+                                ['IDE', '代码编写和调试', 'IntelliJ IDEA / VS Code']
+                            ]
+                        }}
+                    ]
+                },
+                {
+                    id: 4, title: '第四章 功能测试用例',
+                    sections: [
+                        { id: '4.1', title: '4.1 正常场景测试', content: {
+                            description: `验证${moduleName || menuPath.level3}在正常输入条件下的处理结果。`,
+                            headers: ['用例编号', '用例名称', '前置条件', '测试步骤', '测试数据', '预期结果', '优先级'],
+                            rows: positiveRows
+                        }},
+                        { id: '4.2', title: '4.2 异常场景测试', content: {
+                            description: `验证${moduleName || menuPath.level3}在异常输入条件下的处理结果。`,
+                            headers: ['用例编号', '用例名称', '前置条件', '测试步骤', '测试数据', '预期结果', '优先级'],
+                            rows: negativeRows
+                        }},
+                        { id: '4.3', title: '4.3 边界值测试', content: {
+                            description: `验证${moduleName || menuPath.level3}在边界条件下的处理结果。`,
+                            headers: ['用例编号', '用例名称', '前置条件', '测试步骤', '测试数据', '预期结果', '优先级'],
+                            rows: boundaryRows
+                        }},
+                        { id: '4.4', title: '4.4 字段映射验证', content: {
+                            description: '验证每个字段的映射关系是否正确。',
+                            headers: ['用例编号', '界面字段', '系统字段', '测试数据', '预期值', '优先级'],
+                            rows: fieldMappingRows
+                        }}
+                    ]
+                },
+                {
+                    id: 5, title: '第五章 集成测试用例',
+                    sections: [
+                        { id: '5.1', title: '5.1 端到端测试', content: {
+                            description: '验证完整的额度申请→批复明细→提交复核→额度复核流程。',
+                            headers: ['用例编号', '用例名称', '前置条件', '测试步骤', '测试数据', '预期结果', '优先级'],
+                            rows: integrationRows
+                        }}
+                    ]
+                },
+                {
+                    id: 6, title: '第六章 性能测试用例',
+                    sections: [
+                        { id: '6.1', title: '6.1 负载测试', content: {
+                            description: '验证在高负载条件下的额度处理性能。',
+                            headers: ['用例编号', '用例名称', '并发数', '测试时长', '预期响应时间', '预期结果'],
+                            rows: performanceRows
+                        }}
+                    ]
+                },
+                {
+                    id: 7, title: '第七章 安全测试用例',
+                    sections: [
+                        { id: '7.1', title: '7.1 认证测试', content: {
+                            description: '验证岗位分离和权限控制机制。',
+                            headers: ['用例编号', '用例名称', '测试步骤', '预期结果'],
+                            rows: securityRows
+                        }}
+                    ]
+                },
+                {
+                    id: 8, title: '第八章 测试执行结果',
+                    sections: [
+                        { id: '8.1', title: '8.1 测试执行情况', content: {
+                            headers: ['统计项', '数量', '占比'],
+                            rows: [
+                                ['总用例数', String(allTestCases.length), '100%'],
+                                ['正例', String(allTestCases.filter(tc => tc.nature === '正例').length), ((allTestCases.filter(tc => tc.nature === '正例').length / allTestCases.length) * 100).toFixed(1) + '%'],
+                                ['反例', String(allTestCases.filter(tc => tc.nature === '反例').length), ((allTestCases.filter(tc => tc.nature === '反例').length / allTestCases.length) * 100).toFixed(1) + '%'],
+                                ['边界', String(allTestCases.filter(tc => tc.nature === '边界').length), ((allTestCases.filter(tc => tc.nature === '边界').length / allTestCases.length) * 100).toFixed(1) + '%'],
+                                ['性能', String(allTestCases.filter(tc => tc.nature === '性能').length), ((allTestCases.filter(tc => tc.nature === '性能').length / allTestCases.length) * 100).toFixed(1) + '%'],
+                                ['安全', String(allTestCases.filter(tc => tc.nature === '安全').length), ((allTestCases.filter(tc => tc.nature === '安全').length / allTestCases.length) * 100).toFixed(1) + '%'],
+                                ['已通过', '0', '0%'],
+                                ['未执行', String(allTestCases.length), '100%']
+                            ]
+                        }},
+                        { id: '8.2', title: '8.2 缺陷统计', content: {
+                            headers: ['严重程度', '数量', '修复状态'],
+                            rows: [
+                                ['严重', '0', '待修复'],
+                                ['一般', '0', '待修复'],
+                                ['轻微', '0', '待修复']
+                            ]
+                        }},
+                        { id: '8.3', title: '8.3 测试结论', content: { description: '测试总结：根据测试结果，评估功能质量是否达到上线标准。说明遗留问题和风险。给出发布建议。' }}
+                    ]
+                }
+            ],
+            testCases: allTestCases
+        };
+    }
+
+    _generateBoundaryTestCases(mdContent) {
+        const fields = [];
+        const lines = mdContent.split('\n');
+        let inTable = false;
+        let caseId = 1;
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.includes('数据名称') && trimmed.startsWith('|')) { inTable = true; continue; }
+            if (inTable && trimmed.startsWith('|')) {
+                const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
+                if (cells.length >= 4 && cells[0] !== '数据名称' && !cells[0].startsWith('-')) {
+                    const constraint = cells[4] || '';
+                    if (constraint) {
+                        fields.push([`TC-BND-${String(caseId++).padStart(3, '0')}`, `${cells[0]}边界值`, '进入对应操作页面', `输入${cells[0]}为${constraint}的边界数据`, constraint, '校验通过或给出明确提示', '中']);
+                    }
+                }
+            } else if (inTable && !trimmed.startsWith('|')) { inTable = false; }
+        }
+        if (fields.length === 0) {
+            fields.push(
+                ['TC-BND-001', '授信额度边界值', '进入批复明细新增页面', '输入授信额度为0和极大值', '授信额度>0', '校验通过或给出明确提示', '中'],
+                ['TC-BND-002', '生效/失效日期边界', '进入批复明细新增页面', '失效日期等于生效日期', '失效日期>生效日期', '校验不通过，提示日期范围错误', '中']
+            );
+        }
+        return fields.slice(0, 6);
+    }
+
+    _generateFieldMappingTestCases(mdContent) {
+        const mappings = [];
+        const lines = mdContent.split('\n');
+        let inTable = false;
+        let caseId = 1;
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.includes('数据名称') && trimmed.startsWith('|')) { inTable = true; continue; }
+            if (inTable && trimmed.startsWith('|')) {
+                const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
+                if (cells.length >= 4 && cells[0] !== '数据名称' && !cells[0].startsWith('-') && cells[1] === '输入') {
+                    mappings.push([`TC-MAP-${String(caseId++).padStart(3, '0')}`, cells[0], cells[0], `测试${cells[0]}输入`, cells[2] || '正确值', '高']);
+                }
+            } else if (inTable && !trimmed.startsWith('|')) { inTable = false; }
+        }
+        if (mappings.length === 0) {
+            mappings.push(
+                ['TC-MAP-001', '授信类型', 'creditType', '承兑行阈值', '承兑行阈值', '高'],
+                ['TC-MAP-002', '客户类型', 'custType', '同业', '同业', '高'],
+                ['TC-MAP-003', '客户名称', 'custName', '测试客户', '测试客户', '高']
+            );
+        }
+        return mappings.slice(0, 8);
+    }
+
+    _generateIntegrationTestCases(menuPath) {
+        return [
+            ['TC-INT-001', '完整流程-额度申请到复核', '服务已启动，申请岗和复核岗账号已准备', '1.申请岗新增额度申请 2.录入批复明细 3.提交复核 4.复核岗执行复核 5.验证额度状态', '完整额度申请数据', '全流程正常完成，额度状态变为已复核', '高'],
+            ['TC-INT-002', '完整流程-额度占用与释放', '已复核额度可用额度=100万', '1.发起转贴现买入60万 2.验证可用额度变为40万 3.票据到期托收 4.验证额度释放', '转贴现买入+托收数据', '额度占用和释放正确，数据一致', '高'],
+            ['TC-INT-003', '完整流程-撤销复核退回', '已提交复核的额度记录', '1.申请岗撤销复核 2.验证状态退回未提交 3.修改后重新提交', '撤销复核数据', '撤销后状态正确，可重新提交', '高']
+        ];
+    }
+
+    _generatePerformanceTestCases() {
+        return [
+            ['TC-PERF-001', '单笔额度操作性能', '1', '10秒', '<500ms', '所有操作处理成功'],
+            ['TC-PERF-002', '批量额度复核', '10', '60秒', '<2s', '批量复核全部成功'],
+            ['TC-PERF-003', '并发额度占用', '50', '30秒', '<1s', '不出现超额占用']
+        ];
+    }
+
+    _generateSecurityTestCases() {
+        return [
+            ['TC-SEC-001', '申请岗越权复核', '1.使用申请岗账号登录 2.尝试访问额度复核页面', '菜单中不显示额度复核或不可访问'],
+            ['TC-SEC-002', '复核岗越权申请', '1.使用复核岗账号登录 2.尝试新增额度申请', '新增按钮不可用或接口返回权限不足'],
+            ['TC-SEC-003', '未登录访问', '1.不登录直接请求额度管理接口', '接口返回未认证错误']
+        ];
+    }
+
     analyzeRequirementFile(filePath) {
         if (!fs.existsSync(filePath)) {
             throw new BempDocError(ERROR_CODES.REQUIREMENT_NOT_FOUND, `需求文件不存在: ${filePath}`);

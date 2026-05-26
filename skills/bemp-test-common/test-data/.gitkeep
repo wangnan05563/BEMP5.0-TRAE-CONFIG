@@ -1,0 +1,5 @@
+此目录存放 BEMP 测试体系生成的测试数据文件。
+
+文件命名规则：`{模块}-test-data.md`，如 `credit-test-data.md`、`acceptance-test-data.md`。
+
+由 `bemp-testcase-generator` 第五步生成，通过 `bemp-implementation-engineer` 智能体调用 Oracle/MySQL MCP 准备数据。

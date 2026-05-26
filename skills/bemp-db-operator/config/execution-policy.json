@@ -1,7 +1,8 @@
 {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "SQL执行策略配置 - 控制执行行为、超时、回退等策略（支持Oracle和MySQL）",
-    "version": "2.3.0",
-    "lastUpdate": "2026-05-16",
+    "version": "2.4.0",
+    "lastUpdate": "2026-05-24",
     "execution": {
         "oracle": {
             "ddlTimeout": 60,
@@ -10,7 +11,6 @@
             "maxRetries": 3,
             "retryInterval": 5,
             "autoCommit": false,
-            "dryRun": false,
             "affectRowLimit": 10000,
             "statementSeparator": ";",
             "skipEmptyLines": true,
@@ -42,12 +42,6 @@
                 "applicableTo": ["DML"],
                 "notApplicableTo": ["DDL", "SELECT"],
                 "note": "DDL语句在MySQL中会隐式提交，无法被ROLLBACK回滚"
-            },
-            "transactionControl": {
-                "enabled": false,
-                "startTransaction": "START TRANSACTION",
-                "commit": "COMMIT",
-                "rollback": "ROLLBACK"
             }
         }
     },
@@ -66,8 +60,7 @@
         "description": "数据库版本检测策略 - 连接建立后自动检测数据库版本，用于特性兼容性判断",
         "enabled": true,
         "oracleVersionQuery": "SELECT BANNER AS version FROM V$VERSION WHERE ROWNUM = 1",
-        "mysqlVersionQuery": "SELECT VERSION() AS version",
-        "mysqlSqlModeQuery": "SELECT @@sql_mode AS sql_mode",
+        "mysqlVersionQuery": "SELECT VERSION() AS version, @@sql_mode AS sql_mode",
         "warnOnUnsupportedVersion": true,
         "blockOnIncompatibleFeature": true,
         "note": "版本检测结果用于与version-compat.json中的兼容性矩阵比对，自动调整可用特性"
@@ -77,7 +70,6 @@
         "enabled": true,
         "maxBatchSize": 20,
         "stopOnFailure": true,
-        "continueOnFailure": false,
         "executionOrder": ["ddl", "dml", "config"],
         "safeModeForBatch": true,
         "generateBatchReport": true,
@@ -206,7 +198,62 @@
         "logToFile": false,
         "logFilePath": "logs/db-operator/",
         "includeDbType": true,
-        "logKeepAlive": true
+        "logKeepAlive": true,
+        "logFormat": {
+            "description": "日志格式模板 - {timestamp} {dbType} {operationType} 等为占位符",
+            "execution": "[{timestamp}] [{dbType}] [执行] [{scriptFile}] [{status}] [影响{affectedRows}行] [耗时{duration}ms]",
+            "verification": "[{timestamp}] [{dbType}] [复核] [{verifySql}] [预期:{expected}] [实际:{actual}] [{match}]",
+            "rollback": "[{timestamp}] [{dbType}] [回退] [{rollbackMethod}] [{status}] [回退{affectedRows}行]",
+            "keepAlive": "[{timestamp}] [{dbType}] [保活] [{checkSql}] [连接状态:{connectionStatus}]"
+        }
+    },
+    "mysqlErrorCodes": {
+        "description": "MySQL异常错误码映射 - 用于步骤8异常处理",
+        "constraintErrors": [
+            {"code": 1062, "name": "ER_DUP_ENTRY", "description": "主键冲突/唯一约束违反", "safeModeAction": "ROLLBACK", "normalModeAction": "停止执行"},
+            {"code": 1451, "name": "ER_ROW_IS_REFERENCED", "description": "外键约束-子记录存在", "safeModeAction": "ROLLBACK", "normalModeAction": "停止执行"},
+            {"code": 1452, "name": "ER_NO_REFERENCED_ROW", "description": "外键约束-父记录不存在", "safeModeAction": "ROLLBACK", "normalModeAction": "停止执行"}
+        ],
+        "schemaErrors": [
+            {"code": 1054, "name": "ER_BAD_FIELD_ERROR", "description": "字段不存在", "safeModeAction": "ROLLBACK", "normalModeAction": "停止执行"},
+            {"code": 1146, "name": "ER_NO_SUCH_TABLE", "description": "表不存在", "safeModeAction": "ROLLBACK", "normalModeAction": "停止执行"}
+        ],
+        "connectionErrors": [
+            {"code": 2006, "name": "CR_SERVER_GONE_ERROR", "description": "服务器已断开", "action": "自动重连后重试当前SQL"},
+            {"code": 2013, "name": "CR_SERVER_LOST", "description": "查询过程中连接丢失", "action": "自动重连后重试当前SQL"},
+            {"code": 1040, "name": "ER_CON_COUNT_ERROR", "description": "连接数过多", "action": "等待后重连"}
+        ]
+    },
+    "dataExport": {
+        "description": "数据导出配置 - S11场景",
+        "formats": [
+            {"name": "md", "extension": ".md", "description": "数据报告、文档交付", "features": "含表结构+数据+说明，适合人工阅读"},
+            {"name": "csv", "extension": ".csv", "description": "数据分析、Excel导入", "features": "纯数据格式，适合程序处理"},
+            {"name": "json", "extension": ".json", "description": "程序集成、API对接", "features": "结构化数据，适合自动化流程"}
+        ],
+        "pagination": {
+            "noPaginationThreshold": 1000,
+            "paginationThreshold": 10000,
+            "pageSize": 1000,
+            "cliExportThreshold": 10000,
+            "note": "超过cliExportThreshold行时建议使用export-db-data.ps1命令行导出"
+        },
+        "timeRangeQueries": {
+            "oracle_number_type": "SELECT * FROM {TABLE_NAME} WHERE TO_DATE(TO_CHAR({TIME_FIELD}), 'YYYYMMDDHH24MISSFF') >= SYSDATE - {DAYS} ORDER BY {TIME_FIELD} DESC",
+            "oracle_date_type": "SELECT * FROM {TABLE_NAME} WHERE {TIME_FIELD} >= SYSDATE - {DAYS} ORDER BY {TIME_FIELD} DESC",
+            "mysql": "SELECT * FROM {TABLE_NAME} WHERE {TIME_FIELD} >= DATE_SUB(NOW(), INTERVAL {DAYS} DAY) ORDER BY {TIME_FIELD} DESC",
+            "note": "BEMP系统中时间字段可能存储为NUMBER类型(格式YYYYMMDDHH24MISSFF)，需先确认字段类型再选择正确的查询模板"
+        }
+    },
+    "connectionFailure": {
+        "description": "连接失败处理策略 - 步骤2连接验证失败时使用",
+        "strategies": [
+            {"failureType": "网络超时", "oracleAction": "检查网络连通性", "mysqlAction": "检查网络连通性"},
+            {"failureType": "认证失败", "oracleAction": "检查用户名密码", "mysqlAction": "检查用户名密码"},
+            {"failureType": "服务不可用", "oracleAction": "检查Oracle服务状态", "mysqlAction": "检查MySQL服务状态"},
+            {"failureType": "Schema/DB不存在", "oracleAction": "检查Schema名称", "mysqlAction": "检查数据库名称"},
+            {"failureType": "连接断开", "oracleAction": "重连后重试", "mysqlAction": "自动重连（见步骤10）"}
+        ]
     },
     "levelDescriptions": {
         "statement": "单语句回退 - 仅回退失败的SQL语句",

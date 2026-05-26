@@ -277,3 +277,38 @@ SELECT VALUE FROM NLS_SESSION_PARAMETERS WHERE PARAMETER = 'NLS_DATE_FORMAT';
 | DML操作 | SQL*Plus（execute-oracle-sql.ps1） | MySQL MCP（安全模式） |
 | DDL操作 | SQL*Plus（execute-oracle-sql.ps1） | MySQL MCP |
 | 大数据量脚本 | SQL*Plus | MySQL CLI（execute-mysql-sql.ps1） |
+
+---
+
+## 5. 连接保活与自动重连
+
+> **注意**：连接保活由MCP服务端管理，AI无需手动实现计时器。AI只需在遇到连接断开错误时，按下方重连流程处理。
+
+长时间操作（超过MySQL `wait_timeout`）可能导致连接断开。
+
+> 完整配置详见 `config/execution-policy.json` → `connectionKeepAlive`。关键字段：enabled=true, intervalSeconds=300, checkSql="SELECT 1", maxReconnectAttempts=3
+
+### 5.1 保活执行流程
+
+```
+1. 操作开始时记录最后活动时间
+2. 每次MCP调用前检查距上次活动的时间间隔
+3. 如间隔 > intervalSeconds：
+   a. 执行保活检查SQL
+   b. 成功 → 更新活动时间，继续操作
+   c. 失败 → 进入重连流程
+4. 重连流程：
+   a. 等待 reconnectIntervalSeconds 秒
+   b. 重新执行连接验证
+   c. 成功 → 更新活动时间，继续操作
+   d. 失败 → 重试，最多 maxReconnectAttempts 次
+   e. 仍失败 → 报错终止
+```
+
+### 5.2 MySQL 连接断开自动恢复
+
+| 错误码 | 说明 | 恢复策略 |
+|--------|------|---------|
+| 2006 | CR_SERVER_GONE_ERROR | 自动重连后重试当前SQL |
+| 2013 | CR_SERVER_LOST | 自动重连后重试当前SQL |
+| 1040 | ER_CON_COUNT_ERROR | 等待后重连 |

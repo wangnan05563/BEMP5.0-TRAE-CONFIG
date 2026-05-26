@@ -21,11 +21,11 @@
     "low": "仅影响用户体验或数据展示"
   },
   "output": {
-    "root_dir": "aotutests-playwright",
-    "functional_map": "references/website-functional-map.md",
-    "priority_matrix": "references/test-priority-matrix.md",
-    "test_cases_dir": "test-cases",
-    "test_data_dir": "test-data"
+    "root_dir": "bemp-test-common",
+    "functional_map": "bemp-test-common/references/website-functional-map.md",
+    "priority_matrix": "bemp-test-common/references/test-priority-matrix.md",
+    "test_cases_dir": "bemp-test-common/test-cases",
+    "test_data_dir": "bemp-test-common/test-data"
   },
   "banks": {
     "active_bank": "hnnxbank",

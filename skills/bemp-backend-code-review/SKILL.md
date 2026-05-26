@@ -44,9 +44,14 @@ template: "templates/report-template.md"
 - 【强制】代码必须在 `{sourceDir}` 下，包路径 `{packagePath}.{module}.{layer}`
 
 ### 2. 个性化类开发
-- 【强制】Service/Atom 实现类加 `@CustomizedBean`
+- 【强制】**extends** 产品实现类的 Service/Atom 加 `@CustomizedBean`（替换产品Bean）
+- 【强制】**仅 implements** 个性化接口的 Service/Atom 不加 `@CustomizedBean`，只需 `@CloudComponent`
 - 【强制】类名加 `{classPrefix}` 前缀，如 `HnnxBankRebuyBillAtomImpl extends RebuyBillAtomImpl`
 - 【强制】Controller 不加 `@CustomizedBean`，应继承 BaseController
+
+**判断规则**：
+- `extends XxxImpl` → 加 `@CustomizedBean` + `@CloudComponent`（替换产品化Bean）
+- `implements XxxService`（仅实现接口）→ 仅 `@CloudComponent`（新建Bean，无需替换）
 
 ### 3. Controller 规范
 
@@ -311,7 +316,7 @@ public class HnnxXxxReq implements Serializable {
 
 执行 `pwsh .trae/skills/bemp-backend-code-review/scripts/auto-scan.ps1` 自动检查以下阻塞项：
 
-1. Service/Atom 类是否缺少 `@CustomizedBean`
+1. Service/Atom（extends产品实现类）是否缺少 `@CustomizedBean`
 2. Controller 是否误加 `@CustomizedBean`
 3. 请求映射路径是否以配置的 URL 前缀开头
 4. Controller 是否缺少 `@RestController`
@@ -334,7 +339,7 @@ public class HnnxXxxReq implements Serializable {
 
 ### 阶段1：前置检查
 - 文件位置 `{sourceDir}` ✓ → 包结构 `{packagePath}.{module}.{layer}` ✓ → 类名前缀 `{classPrefix}` ✓
-- `@CustomizedBean`(Service/Atom) / `@RestController`(Controller) / `@CloudReference`(依赖注入)
+- `@CustomizedBean`(Service/Atom extends产品实现类) / `@RestController`(Controller) / `@CloudReference`(依赖注入)
 - 路径以 `{urlPrefixes}` 开头 ✓ → DTO 实现 `Serializable` ✓ → DTO 前缀 `{dtoPrefix}` ✓
 
 ### 阶段2：代码规范
@@ -366,7 +371,7 @@ public class HnnxXxxReq implements Serializable {
 | 🟠阻塞(必须修复) | 🟠严重(强烈建议) | 🟡警告(建议) |
 |-----------------|-----------------|-------------|
 | 文件不在 `{sourceDir}` | 服务调用缺必需字段 | 格式化不规范 |
-| Service/Atom缺 `@CustomizedBean` | 未查看服务方法实现 | 变量命名不规范 |
+| Service/Atom缺 `@CustomizedBean`(extends产品实现类时) | 未查看服务方法实现 | 变量命名不规范 |
 | Controller加 `@CustomizedBean` | 缺中文注释 | 冗余代码 |
 | 路径不以 `{urlPrefixes}` 开头 | 异常处理不完善(吞异常/丢堆栈) | 注释不清晰 |
 | DTO缺getter/setter | 空指针风险(链式调用未判空) | DTO未实现Serializable |
@@ -398,7 +403,7 @@ public class HnnxXxxReq implements Serializable {
 
 ## 重要提醒
 
-1. 【强制】Service/Atom加 `@CustomizedBean`；Controller不加、继承BaseController
+1. 【强制】Service/Atom extends产品实现类加 `@CustomizedBean`；仅implements个性化接口不加，用 `@CloudComponent`；Controller不加、继承BaseController
 2. 【推荐】新功能参数用DTO对象，兼容旧代码用BaseRequest（见第5节）
 3. 【强制】代码在 `{sourceDir}` 下；DTO前缀 `{dtoPrefix}`；编译通过
 4. 【强制】提交前执行 `auto-scan.ps1`；完成后调用本技能走查

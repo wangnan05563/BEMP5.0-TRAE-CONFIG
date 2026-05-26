@@ -6,7 +6,7 @@
     支持单文件执行，自动设置NLS_LANG环境变量
 .PARAMETER SqlFile
     要执行的SQL脚本文件路径
-.PARAMETER Host
+.PARAMETER DbHost
     Oracle数据库主机地址
 .PARAMETER Port
     Oracle数据库端口（默认1521）
@@ -20,8 +20,14 @@
     目标Schema名称
 .PARAMETER OutputDir
     输出目录（默认为脚本同目录下的output）
+.PARAMETER Timeout
+    执行超时秒数（默认300）
+.PARAMETER ConfigFile
+    db-config.json路径，自动读取连接参数（DbHost/Port/ServiceName/Username/Password/Schema）
 .EXAMPLE
-    .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -Host "10.20.18.177" -ServiceName "orcl" -Username "bemp_hnnx" -Password "123456" -Schema "BEMP_HNNX"
+    .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "10.20.18.177" -ServiceName "orcl" -Username "bemp_hnnx" -Password "123456" -Schema "BEMP_HNNX"
+.EXAMPLE
+    .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-db-operator\config\db-config.json"
 #>
 
 param(
@@ -29,7 +35,7 @@ param(
     [string]$SqlFile,
 
     [Parameter(Mandatory=$false)]
-    [string]$Host = "10.20.18.177",
+    [string]$DbHost = "10.20.18.177",
 
     [Parameter(Mandatory=$false)]
     [int]$Port = 1521,
@@ -47,10 +53,33 @@ param(
     [string]$Schema = "BEMP_HNNX",
 
     [Parameter(Mandatory=$false)]
-    [string]$OutputDir = ""
+    [string]$OutputDir = "",
+
+    [Parameter(Mandatory=$false)]
+    [int]$Timeout = 300,
+
+    [Parameter(Mandatory=$false)]
+    [string]$ConfigFile = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not [string]::IsNullOrEmpty($ConfigFile)) {
+    if (-not (Test-Path $ConfigFile)) {
+        Write-Host "[ERROR] 配置文件不存在: $ConfigFile" -ForegroundColor Red
+        exit 1
+    }
+    $config = Get-Content $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    $oracleCfg = $config.oracle
+    if ($oracleCfg) {
+        if ($DbHost -eq "10.20.18.177" -and $oracleCfg.host) { $DbHost = $oracleCfg.host }
+        if ($Port -eq 1521 -and $oracleCfg.port) { $Port = $oracleCfg.port }
+        if ($ServiceName -eq "orcl" -and $oracleCfg.serviceName) { $ServiceName = $oracleCfg.serviceName }
+        if ($Username -eq "bemp_hnnx" -and $oracleCfg.username) { $Username = $oracleCfg.username }
+        if ($Password -eq "123456" -and $oracleCfg.password) { $Password = $oracleCfg.password }
+        if ($Schema -eq "BEMP_HNNX" -and $oracleCfg.schema) { $Schema = $oracleCfg.schema }
+    }
+}
 
 function Set-TerminalEncoding {
     chcp 65001 > $null 2>&1
@@ -111,18 +140,16 @@ if (-not $sqlplusPath) {
 $env:NLS_LANG = "AMERICAN_AMERICA.AL32UTF8"
 $env:NLS_DATE_FORMAT = "YYYY-MM-DD HH24:MI:SS"
 
-$connectStr = "$Username/$Password@${Host}:${Port}/${ServiceName}"
+$connectStr = "$Username/$Password@${DbHost}:${Port}/${ServiceName}"
 
 $wrappedSqlFile = Join-Path $OutputDir "_wrapped_$sqlFileName"
 $wrappedContent = @"
--- Auto-generated wrapper for encoding and error handling
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
 ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF';
 ALTER SESSION SET NLS_DATE_LANGUAGE = 'AMERICAN';
 ALTER SESSION SET NLS_LANGUAGE = 'AMERICAN';
 ALTER SESSION SET CURRENT_SCHEMA = $Schema;
 
--- Original SQL content
 $sqlContent
 
 EXIT;
@@ -132,10 +159,11 @@ Set-Content -Path $wrappedSqlFile -Value $wrappedContent -Encoding UTF8
 
 Write-Log -Level "INFO" -Message "========================================="
 Write-Log -Level "INFO" -Message "Oracle SQL*Plus 执行"
-Write-Log -Level "INFO" -Message "  数据库: ${Host}:${Port}/${ServiceName}"
+Write-Log -Level "INFO" -Message "  数据库: ${DbHost}:${Port}/${ServiceName}"
 Write-Log -Level "INFO" -Message "  Schema: $Schema"
 Write-Log -Level "INFO" -Message "  SQL文件: $SqlFile"
 Write-Log -Level "INFO" -Message "  NLS_LANG: $env:NLS_LANG"
+Write-Log -Level "INFO" -Message "  超时: ${Timeout}s"
 Write-Log -Level "INFO" -Message "========================================="
 
 $startTime = Get-Date
@@ -147,6 +175,13 @@ try {
         -RedirectStandardOutput $resultFile `
         -RedirectStandardError $errorFile
 
+    $exited = $process.WaitForExit($Timeout * 1000)
+    if (-not $exited) {
+        $process.Kill()
+        Write-Log -Level "ERROR" -Message "sqlplus执行超时（${Timeout}s），已终止进程"
+        exit 1
+    }
+
     $exitCode = $process.ExitCode
 }
 catch {
@@ -155,7 +190,7 @@ catch {
 }
 finally {
     if (Test-Path $wrappedSqlFile) {
-        Remove-Item $wrappedSqlFile -Force
+        Remove-Item $wrappedSqlFile -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -175,9 +210,9 @@ if (Test-Path $errorFile) {
 $hasError = $false
 $errorList = @()
 
-if ($resultContent -match "ORA-\d{5}") {
+if ($resultContent -match "(ORA|TNS)-\d{5}") {
     $hasError = $true
-    $matches = [regex]::Matches($resultContent, "ORA-\d{5}[:\s].*")
+    $matches = [regex]::Matches($resultContent, "(ORA|TNS)-\d{5}[:\s].*")
     foreach ($m in $matches) {
         $errorList += $m.Value.Trim()
     }
