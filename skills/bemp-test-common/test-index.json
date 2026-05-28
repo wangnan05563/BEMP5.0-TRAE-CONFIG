@@ -348,14 +348,14 @@
       "subsystem": "adapter",
       "feature": "ECIF广播机构客户合并 (PICE070701)",
       "priority": "P0",
-      "case_count": 9,
+      "case_count": 11,
       "scripts": [],
-      "description": "ECIF机构客户合并XML报文解析(fromMessage)/响应组装(toMessage)/服务码映射，9条用例含P0:4 P1:5；Java单元测试：PICE070701MessageConverterTest"
+      "description": "ECIF机构客户合并XML报文解析(fromMessage)/响应组装(toMessage)/服务码映射，11条用例含P0:4 P1:7；Java单元测试：PICE070701MessageConverterTest"
     }
   ],
   "summary": {
     "total_cases": 32,
-    "total_estimated_count": 401,
+    "total_estimated_count": 403,
     "by_subsystem": {
       "common": 2,
       "sm": 5,

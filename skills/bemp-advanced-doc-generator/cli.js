@@ -25,6 +25,8 @@ function parseArgs(args) {
                 options.requirementPath = args[++i]; break;
             case '--config': case '-c':
                 options.configPath = args[++i]; break;
+            case '--profile': case '-p':
+                options.profilePath = args[++i]; break;
             case '--visualization': case '-v':
                 options.visualization = true; break;
             case '--json':
@@ -62,6 +64,7 @@ BEMP 文档生成器 v2.0
   -r, --requirement <路径> 需求文档路径 (用于testcase类型)
   --template <路径>        模板文件路径
   -c, --config <路径>      配置文件路径
+  -p, --profile <路径>     业务模块配置文件路径（JSON）
   --json                   JSON结构化输出（含自动验证结果）
   -v, --visualization      生成可视化文档
   -h, --help               显示帮助信息
@@ -92,6 +95,20 @@ async function generateDocument(options) {
         }
     }
 
+    const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
+    let profile = null;
+    if (options.profilePath) {
+        const profilePath = path.isAbsolute(options.profilePath)
+            ? options.profilePath
+            : path.resolve(process.cwd(), options.profilePath);
+        if (fs.existsSync(profilePath)) {
+            try { profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8')); } catch (e) {}
+        }
+    }
+    if (!profile) {
+        profile = RequirementAnalyzer.loadProfile(moduleName) || {};
+    }
+
     if (options.format === 'excel') {
         const { ExcelTestCaseGenerator } = require('./lib/excel-testcase-generator');
         const excelGen = new ExcelTestCaseGenerator({
@@ -100,8 +117,7 @@ async function generateDocument(options) {
 
         let testCasesForExcel;
         if (requirementContent) {
-            const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
-            const analyzer = new RequirementAnalyzer();
+            const analyzer = new RequirementAnalyzer({ profile });
             const analysis = analyzer.analyzeForTestCase(requirementContent, moduleName);
             testCasesForExcel = analysis.testCases;
         }
@@ -137,7 +153,7 @@ async function generateDocument(options) {
     }
 
     const { DocumentBuilder } = require('./lib/doc-builder');
-    const builder = new DocumentBuilder();
+    const builder = new DocumentBuilder({ profile });
 
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const typeLabels = { design: '详细设计文档', testcase: '测试用例', testreport: '测试报告' };
@@ -145,12 +161,10 @@ async function generateDocument(options) {
 
     let templateData = null;
     if (requirementContent && options.type === 'design') {
-        const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
-        const analyzer = new RequirementAnalyzer();
+        const analyzer = new RequirementAnalyzer({ profile });
         templateData = analyzer.analyzeForDesign(requirementContent, moduleName);
     } else if (requirementContent && options.type === 'testcase') {
-        const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
-        const analyzer = new RequirementAnalyzer();
+        const analyzer = new RequirementAnalyzer({ profile });
         templateData = analyzer.analyzeForTestCase(requirementContent, moduleName);
     } else if (options.templatePath) {
         templateData = loadTemplateData(options.templatePath);

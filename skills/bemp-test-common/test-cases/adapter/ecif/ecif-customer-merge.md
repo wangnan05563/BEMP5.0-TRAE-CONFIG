@@ -186,6 +186,37 @@ transaction
 
 ---
 
+### TC-ECIFMRG-004b：fromMessage异常-body节点存在但request节点缺失
+
+| 字段 | 内容 |
+|------|------|
+| 用例编号 | TC-ECIFMRG-004b |
+| 用例名称 | fromMessage异常处理-body节点存在但request子节点缺失导致NullPointerException |
+| 优先级 | P1 |
+| 所属模块 | ECIF客户合并 |
+| 测试类型 | 单元测试（异常测试） |
+| 银行环境 | hnnxbank |
+| 跨模块可执行性 | 独立可执行 |
+
+**前置条件**：
+- 测试环境已配置JUnit测试框架
+- 准备body节点存在但无request子节点的异常XML报文
+
+**测试步骤**：
+
+| 步骤 | 操作 | 预期结果 |
+|------|------|----------|
+| 1 | 构造XML报文：根节点下body子节点存在，但body内部无request子节点 | body存在但request缺失 |
+| 2 | 调用fromMessage(message)方法 | 抛出NullPointerException（body.getSubNode("request")返回null，后续访问导致NPE） |
+
+**验证点**：
+- [ ] 捕获到NullPointerException
+- [ ] 不是body缺失导致的NPE，而是request节点缺失导致的
+
+**预期结果**：当body节点存在但内部无request子节点时，fromMessage方法抛出NullPointerException。**测试假设**：当前实现未对request节点做null防护。
+
+---
+
 ### TC-ECIFMRG-005：toMessage响应组装-正常retData数组
 
 | 字段 | 内容 |
@@ -330,6 +361,42 @@ transaction
 
 ---
 
+### TC-ECIFMRG-010：fromMessage边界-mOrgCust节点存在但无文本子节点
+
+| 字段 | 内容 |
+|------|------|
+| 用例编号 | TC-ECIFMRG-010 |
+| 用例名称 | fromMessage边界测试-mOrgCust节点存在但无文本子节点 |
+| 优先级 | P1 |
+| 所属模块 | ECIF客户合并 |
+| 测试类型 | 单元测试（边界测试） |
+| 银行环境 | hnnxbank |
+| 跨模块可执行性 | 独立可执行 |
+
+**前置条件**：
+- 测试环境已配置JUnit测试框架
+- 准备XML报文：body/request下mOrgCust节点存在但无任何子节点
+
+**测试步骤**：
+
+| 步骤 | 操作 | 预期结果 |
+|------|------|----------|
+| 1 | 构造XML报文：mOrgCust元素节点存在（非null），但内部无custSubtype/lrCertNo/custNmcn/lrName子节点 | mOrgCust节点为空元素 |
+| 2 | 调用fromMessage(message)方法 | 方法正常返回，无异常抛出 |
+| 3 | 验证certType/certNo/custName/mrgdCustName字段 | 四个字段均为null（子节点不存在导致） |
+| 4 | 验证其他字段 | operType/custNo/mrgdCustNo正常解析 |
+
+**验证点**：
+- [ ] mOrgCust.getSubNode("custSubtype")等均返回null
+- [ ] XmlUtil.getNodeValue内部null检查生效，返回null
+- [ ] certType/certNo/custName/mrgdCustName均为null
+- [ ] 其他业务字段正常解析
+- [ ] 方法不抛出NullPointerException
+
+**预期结果**：当mOrgCust节点存在（非null）但内部无文本子节点时，XmlUtil.getNodeValue内部null检查生效，对应字段设为null，方法正常执行不抛异常。
+
+---
+
 ## P1 集成测试
 
 ### TC-ECIFMRG-009：端到端客户合并流程-集成测试
@@ -380,10 +447,11 @@ transaction
 | 类型 | 数量 | P0 | P1 |
 |------|------|-----|-----|
 | 单元测试（正常流程） | 5 | 2 | 3 |
-| 单元测试（异常流程） | 1 | 1 | 0 |
+| 单元测试（异常流程） | 2 | 1 | 1 |
+| 单元测试（边界测试） | 1 | 0 | 1 |
 | 单元测试（服务映射） | 2 | 1 | 1 |
 | 集成测试 | 1 | 0 | 1 |
-| **总计** | **9** | **4** | **5** |
+| **总计** | **11** | **4** | **7** |
 
 ---
 
@@ -398,11 +466,13 @@ transaction
 
 | 测试方法 | 对应用例 | 测试内容 |
 |---------|---------|---------|
-| testFromMessageFullFields | TC-ECIFMRG-001 | 完整XML解析，全字段映射验证 |
+| testFromMessageFullFields | TC-ECIFMRG-001 | 完整XML解析，全字段映射验证（含Header全部7字段） |
 | testFromMessageWithoutMOrgCust | TC-ECIFMRG-002 | mOrgCust子节点缺失 |
 | testFromMessageWithoutMOrgCertInfo | TC-ECIFMRG-003 | mOrgCertInfo子节点缺失 |
-| testFromMessageMissingBody | TC-ECIFMRG-004 | body节点缺失异常 |
-| testToMessageWithRetData | TC-ECIFMRG-005 | 正常retData数组响应 |
-| testToMessageWithEmptyRetData | TC-ECIFMRG-006 | 空retData数组响应 |
-| testToMessageWithNullRetData | TC-ECIFMRG-007 | null retData响应 |
+| testFromMessageMissingBody | TC-ECIFMRG-004 | body节点缺失异常（try-catch精确验证） |
+| testFromMessageBodyExistsButRequestMissing | TC-ECIFMRG-004b | body存在但request缺失异常 |
+| testFromMessageMOrgCustWithoutTextChildren | TC-ECIFMRG-010 | mOrgCust存在但无文本子节点（边界） |
+| testToMessageWithRetData | TC-ECIFMRG-005 | 正常retData数组响应（深度XML解析验证） |
+| testToMessageWithEmptyRetData | TC-ECIFMRG-006 | 空retData数组响应（验证无list节点） |
+| testToMessageWithNullRetData | TC-ECIFMRG-007 | null retData响应（验证null检查生效） |
 | testGetFunctionIdMapping | TC-ECIFMRG-008 | 服务码映射验证 |

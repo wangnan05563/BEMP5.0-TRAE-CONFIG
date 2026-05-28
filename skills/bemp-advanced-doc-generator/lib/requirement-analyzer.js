@@ -3,11 +3,48 @@ const path = require('path');
 const { BempDocError, ERROR_CODES } = require('../config/default');
 
 class RequirementAnalyzer {
+    static loadProfile(moduleName) {
+        const configDir = path.join(__dirname, '..', 'config', 'modules');
+        if (!fs.existsSync(configDir)) return RequirementAnalyzer._loadDefaultProfile();
+        const cleanName = moduleName ? moduleName.replace(/[\\/:*?"<>|]/g, '_') : '';
+        let candidates = [
+            cleanName ? path.join(configDir, `${cleanName}.json`) : null,
+            path.join(configDir, 'default-profile.json')
+        ].filter(Boolean);
+        if (cleanName) {
+            try {
+                const existingFiles = fs.readdirSync(configDir).filter(f => f.endsWith('.json') && f !== 'default-profile.json');
+                for (const file of existingFiles) {
+                    const fileBase = file.replace('.json', '');
+                    if (cleanName.includes(fileBase) || fileBase.includes(cleanName)) {
+                        candidates.unshift(path.join(configDir, file));
+                        break;
+                    }
+                }
+            } catch (e) { /* fuzzy match failed, use exact candidates */ }
+        }
+        for (const candidate of candidates) {
+            if (fs.existsSync(candidate)) {
+                try {
+                    return JSON.parse(fs.readFileSync(candidate, 'utf-8'));
+                } catch (e) { /* continue to next candidate */ }
+            }
+        }
+        return RequirementAnalyzer._loadDefaultProfile();
+    }
+    static _loadDefaultProfile() {
+        const defaultPath = path.join(__dirname, '..', 'config', 'modules', 'default-profile.json');
+        if (fs.existsSync(defaultPath)) {
+            try { return JSON.parse(fs.readFileSync(defaultPath, 'utf-8')); } catch (e) {}
+        }
+        return null;
+    }
+
     constructor(options = {}) {
         this.options = {
-            defaultModuleHierarchy: ['系统管理子系统', '业务管理子系统', '场内交易子系统'],
             ...options
         };
+        this.profile = options.profile || RequirementAnalyzer._loadDefaultProfile() || {};
     }
 
     analyzeRequirement(mdContent) {
@@ -60,7 +97,11 @@ class RequirementAnalyzer {
     analyzeForDesign(mdContent, moduleName) {
         const filteredContent = this._filterByModule(mdContent, moduleName);
         const lines = filteredContent.split('\n');
-        const subsystemKeywords = ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
+        const prof = this.profile;
+        const company = prof.company || {};
+        const secRules = prof.securityRules || {};
+        const targets = prof.designTargets || {};
+        const subsystemKeywords = prof.subsystemKeywords || ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
         const menuPath = this._extractMenuPath(filteredContent, subsystemKeywords);
         const sections = this._splitBySubFeatureHeadings(lines);
 
@@ -77,11 +118,11 @@ class RequirementAnalyzer {
         return {
             coverPage: {
                 title: `${moduleName || menuPath.level3 || '模块'}详细设计文档`,
-                company: '恒生电子股份有限公司',
-                product: 'HUNDSUN 票据交易管理平台软件',
-                version: 'V5.0',
+                company: company.name || '恒生电子股份有限公司',
+                product: company.product || '票据交易管理平台软件',
+                version: company.version || 'V5.0',
                 documentType: '设计说明书',
-                department: '票据业务事业部',
+                department: company.department || '票据业务事业部',
                 date
             },
             revisionHistory: {
@@ -98,15 +139,15 @@ class RequirementAnalyzer {
                             headers: ['目标类型', '目标描述'],
                             rows: [
                                 ['功能目标', `实现${menuPath.level3 || moduleName}的核心业务功能，包括${modules.map(m => m[0]).join('、')}等，确保数据一致性和完整性`],
-                                ['性能目标', '保证接口响应速度和系统稳定性，核心操作响应时间<500ms'],
-                                ['质量目标', '确保代码规范、测试覆盖全面、文档完整，业务规则100%正确执行']
+                                ['性能目标', `保证接口响应速度和系统稳定性，${targets.performance || '核心操作响应时间<500ms'}`],
+                                ['质量目标', `确保代码规范、测试覆盖全面、文档完整，${targets.quality || '业务规则100%正确执行'}`]
                             ]
                         }},
                         { id: '1.3', title: '1.3 范围说明', content: {
                             headers: ['范围类型', '说明'],
                             rows: [
                                 ['纳入范围', modules.map(m => m[0]).join('；')],
-                                ['排除范围', '外围系统消息发送、产品服务接口内部实现、其他子系统额度管理']
+                                ['排除范围', prof.excludedScope || '外围系统消息发送、产品服务接口内部实现、其他子系统额度管理']
                             ]
                         }}
                     ]
@@ -176,9 +217,9 @@ class RequirementAnalyzer {
                     id: 7,
                     title: '第七章 安全策略',
                     sections: [
-                        { id: '7.1', title: '7.1 认证授权', content: { description: securityRules.length > 0 ? securityRules.join('；') : '基于BEMP框架统一认证，申请岗和复核岗权限分离，复核岗不可操作申请数据，申请岗不可执行复核。' }},
-                        { id: '7.2', title: '7.2 数据加密', content: { description: '传输层使用HTTPS加密，敏感字段（客户名称、额度数据）在日志中脱敏处理，数据库存储不加密。' }},
-                        { id: '7.3', title: '7.3 访问控制', content: { description: '基于角色的访问控制(RBAC)，申请岗仅可操作额度申请和批复明细，复核岗仅可操作额度复核。操作审计日志记录所有关键操作。' }}
+                        { id: '7.1', title: '7.1 认证授权', content: { description: securityRules.length > 0 ? securityRules.join('；') : (secRules.defaultRule || '基于BEMP框架统一认证，申请岗和复核岗权限分离，复核岗不可操作申请数据，申请岗不可执行复核。') }},
+                        { id: '7.2', title: '7.2 数据加密', content: { description: `传输层使用HTTPS加密，敏感字段（${secRules.sensitiveFields || '客户名称、额度数据'}）在日志中脱敏处理，数据库存储不加密。` }},
+                        { id: '7.3', title: '7.3 访问控制', content: { description: securityRules.length > 0 ? securityRules.join('；') : (secRules.roleAccessRule || '基于角色的访问控制(RBAC)，申请岗仅可操作额度申请和批复明细，复核岗仅可操作额度复核。操作审计日志记录所有关键操作。') }}
                     ]
                 },
                 {
@@ -196,18 +237,23 @@ class RequirementAnalyzer {
                         }},
                         { id: '8.4', title: '8.4 开发规范', content: {
                             headers: ['规范类型', '规范要求', '说明'],
-                            rows: [
+                            rows: (prof.devSpecs || [
                                 ['代码目录', '后端代码在banks/ext-hnnxbank目录', '遵循个性化开发规范'],
                                 ['注解使用', '使用@Component注解注册组件', '确保Spring容器正确管理'],
                                 ['工具类复用', '复用项目已有工具类', '避免重复代码'],
                                 ['注释规范', '关键逻辑添加中文注释', '提高代码可读性']
-                            ]
+                            ]).map(row => {
+                                if (typeof row[1] === 'string' && row[1].includes('${codeDir}')) {
+                                    return [row[0], row[1].replace('${codeDir}', prof.codeDir || 'banks/ext-hnnxbank'), row[2]];
+                                }
+                                return row;
+                            })
                         }}
                     ]
                 }
             ],
             appendix: {
-                references: ['BEMP项目开发规范文档', '上海票据交易所接口规范', `${moduleName || ''}需求规格说明书`],
+                references: [...(prof.references || ['BEMP项目开发规范文档', '上海票据交易所接口规范']), `${moduleName || ''}需求规格说明书`],
                 glossary: this._buildGlossary(menuPath, moduleName, businessRules)
             }
         };
@@ -242,9 +288,12 @@ class RequirementAnalyzer {
             }
         }
         if (moduleMap.size === 0) {
-            moduleMap.set('额度申请', ['额度申请', '额度申请查询、新增、删除']);
-            moduleMap.set('批复明细', ['批复明细', '额度批复明细的新增、修改、删除、提交复核、撤销复核']);
-            moduleMap.set('额度复核', ['额度复核', '额度复核查询、复核、撤销、清单导出']);
+            const defaults = this.profile.defaultModules || [
+                ['额度申请', '额度申请查询、新增、删除'],
+                ['批复明细', '额度批复明细的新增、修改、删除、提交复核、撤销复核'],
+                ['额度复核', '额度复核查询、复核、撤销、清单导出']
+            ];
+            for (const dm of defaults) moduleMap.set(dm[0], [dm[0], dm[1] || '']);
         }
         return Array.from(moduleMap.entries()).map(([name, desc]) => [
             name, desc[0], desc[1] || `${name}相关功能`
@@ -296,11 +345,12 @@ class RequirementAnalyzer {
             interfaces.push([`${name}接口`, 'RPC接口', '调用', `${name}相关业务操作`]);
         }
         if (interfaces.length === 0) {
-            interfaces.push(
+            const defs = this.profile.defaultInterfaces || [
                 ['额度申请接口', 'RPC接口', '调用', '额度申请查询、新增、删除'],
                 ['批复明细接口', 'RPC接口', '调用', '批复明细CRUD及复核操作'],
                 ['额度复核接口', 'RPC接口', '调用', '额度复核、撤销、导出']
-            );
+            ];
+            for (const d of defs) interfaces.push(d);
         }
         return interfaces;
     }
@@ -323,11 +373,12 @@ class RequirementAnalyzer {
             if (codes.length >= 8) break;
         }
         if (codes.length === 0) {
-            codes.push(
+            const defs = this.profile.defaultErrorCodes || [
                 ['E001', '必填校验', '关键字段未填写', '返回错误提示'],
                 ['E002', '数据不存在', '选中数据已删除', '返回错误提示'],
                 ['E003', '状态校验', '操作状态不允许', '返回错误提示']
-            );
+            ];
+            for (const d of defs) codes.push(d);
         }
         return codes;
     }
@@ -358,13 +409,14 @@ class RequirementAnalyzer {
             if (nodes.length >= 7) break;
         }
         if (nodes.length === 0) {
-            nodes.push(
+            const defs = this.profile.defaultKeyNodes || [
                 ['N1', '数据查询', '查询列表数据', '查询条件校验'],
                 ['N2', '数据新增', '新增业务数据', '必填项校验'],
                 ['N3', '数据修改', '修改业务数据', '数据存在性校验'],
                 ['N4', '数据删除', '删除业务数据', '关联性校验'],
                 ['N5', '提交审批', '提交数据至审批流程', '状态校验']
-            );
+            ];
+            for (const d of defs) nodes.push(d);
         }
         return nodes;
     }
@@ -375,9 +427,11 @@ class RequirementAnalyzer {
         const testCases = analysis.testCases;
         const positiveCases = testCases.filter(tc => tc.nature === '正例');
         const negativeCases = testCases.filter(tc => tc.nature === '反例');
-        const subsystemKeywords = ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
-        const menuPath = this._extractMenuPath(filteredContent, subsystemKeywords);
+        const tcProf = this.profile;
+        const tcSubsystemKeywords = tcProf.subsystemKeywords || ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
+        const menuPath = this._extractMenuPath(filteredContent, tcSubsystemKeywords);
         const date = new Date().toLocaleDateString('zh-CN');
+        const tcCompany = tcProf.company || {};
 
         const positiveRows = positiveCases.map(tc => [
             tc.id, tc.level4, tc.precondition, tc.content, '', tc.expected, '高'
@@ -392,8 +446,8 @@ class RequirementAnalyzer {
         const performanceRows = this._generatePerformanceTestCases(menuPath);
         const securityRows = this._generateSecurityTestCases(menuPath);
 
-        const level1 = menuPath.level1 || '业务管理子系统';
-        const level2 = menuPath.level2 || '风险管理';
+        const level1 = menuPath.level1 || tcProf.defaultMenuLevel1 || '业务管理子系统';
+        const level2 = menuPath.level2 || tcProf.defaultMenuLevel2 || '风险管理';
         const level3 = menuPath.level3 || moduleName || '模块';
 
         const allTestCases = [...testCases];
@@ -437,11 +491,11 @@ class RequirementAnalyzer {
         return {
             coverPage: {
                 title: `${moduleName || menuPath.level3 || '模块'}测试用例`,
-                company: '恒生电子股份有限公司',
-                product: 'HUNDSUN 票据交易管理平台软件',
-                version: 'V5.0',
+                company: tcCompany.name || '恒生电子股份有限公司',
+                product: tcCompany.product || '票据交易管理平台软件',
+                version: tcCompany.version || 'V5.0',
                 documentType: '测试用例说明书',
-                department: '票据业务事业部',
+                department: tcCompany.department || '票据业务事业部',
                 date
             },
             revisionHistory: {
@@ -461,9 +515,9 @@ class RequirementAnalyzer {
                         { id: '1.4', title: '1.4 参考资料', content: {
                             headers: ['文档名称', '文档版本', '说明'],
                             rows: [
-                                [`${moduleName || '承兑行额度管理'}需求规格说明书`, 'V1.0', '需求定义'],
+                                [`${moduleName || (tcProf.testCoverPage && tcProf.testCoverPage.refDocumentName) || '需求规格说明书'}`, 'V1.0', '需求定义'],
                                 ['BEMP项目开发规范', 'V5.0', '编码规范文档'],
-                                ['上海票据交易所接口规范', 'V5.0', '接口定义']
+                                [(tcProf.references && tcProf.references[1]) || '上海票据交易所接口规范', 'V5.0', '接口定义']
                             ]
                         }}
                     ]
@@ -482,7 +536,7 @@ class RequirementAnalyzer {
                         { id: '2.2', title: '2.2 测试目标', content: {
                             headers: ['测试类型', '目标描述', '验收标准'],
                             rows: [
-                                ['功能测试', '验证额度管理各操作的正确性和完整性', '业务流程100%通过'],
+                                ['功能测试', (tcProf.testScope && tcProf.testScope.funcTarget) || `验证${level3}各操作的正确性和完整性`, (tcProf.testScope && tcProf.testScope.funcAccept) || '业务流程100%通过'],
                                 ['异常测试', '验证异常场景的处理和错误提示', '异常处理覆盖率100%'],
                                 ['边界测试', '验证边界条件下的系统行为', '边界场景全部通过'],
                                 ['安全测试', '验证岗位分离和权限控制', '越权操作100%被拦截']
@@ -490,7 +544,7 @@ class RequirementAnalyzer {
                         }},
                         { id: '2.3', title: '2.3 测试资源', content: {
                             headers: ['资源类型', '配置说明'],
-                            rows: [
+                            rows: tcProf.testResources || [
                                 ['硬件', '开发环境服务器：CPU 8核/内存16G'],
                                 ['软件', 'JDK 1.8、Spring Boot 2.7、MySQL'],
                                 ['人员', '测试工程师1名、开发工程师1名']
@@ -499,7 +553,7 @@ class RequirementAnalyzer {
                         { id: '2.4', title: '2.4 测试进度', content: {
                             headers: ['测试阶段', '测试内容', '预计时间'],
                             rows: [
-                                ['功能测试', '额度申请/批复明细/额度复核', '2天'],
+                                ['功能测试', (tcProf.testScope && tcProf.testScope.schedulePhases) || `${level3}功能测试`, '2天'],
                                 ['异常测试', '异常场景覆盖测试', '1天'],
                                 ['集成测试', '端到端业务流程测试', '1天'],
                                 ['安全测试', '岗位分离与权限测试', '1天']
@@ -512,14 +566,14 @@ class RequirementAnalyzer {
                     sections: [
                         { id: '3.1', title: '3.1 硬件环境', content: {
                             headers: ['设备', '配置', '用途'],
-                            rows: [
+                            rows: tcProf.testEnvHardware || [
                                 ['开发服务器', 'CPU 8核/内存16G/硬盘500G', '代码编译和测试执行'],
                                 ['测试客户端', 'CPU 4核/内存8G/硬盘256G', '测试工具运行']
                             ]
                         }},
                         { id: '3.2', title: '3.2 软件环境', content: {
                             headers: ['软件名称', '版本', '用途'],
-                            rows: [
+                            rows: tcProf.testEnvSoftware || [
                                 ['操作系统', 'Windows 10 / Linux CentOS 7', '运行环境'],
                                 ['JDK', '1.8', 'Java运行环境'],
                                 ['Spring Boot', '2.7.11', '应用框架'],
@@ -528,7 +582,7 @@ class RequirementAnalyzer {
                         }},
                         { id: '3.3', title: '3.3 测试工具', content: {
                             headers: ['工具名称', '用途', '版本'],
-                            rows: [
+                            rows: tcProf.testTools || [
                                 ['Playwright', 'Web端自动化测试', '1.x'],
                                 ['JUnit', '单元测试执行', '4.x'],
                                 ['IDE', '代码编写和调试', 'IntelliJ IDEA / VS Code']
@@ -565,7 +619,7 @@ class RequirementAnalyzer {
                     id: 5, title: '第五章 集成测试用例',
                     sections: [
                         { id: '5.1', title: '5.1 端到端测试', content: {
-                            description: '验证完整的额度申请→批复明细→提交复核→额度复核流程。',
+                            description: tcProf.integrationTestDesc || `验证${level3}的完整业务流程。`,
                             headers: ['用例编号', '用例名称', '前置条件', '测试步骤', '测试数据', '预期结果', '优先级'],
                             rows: integrationRows
                         }}
@@ -575,7 +629,7 @@ class RequirementAnalyzer {
                     id: 6, title: '第六章 性能测试用例',
                     sections: [
                         { id: '6.1', title: '6.1 负载测试', content: {
-                            description: '验证在高负载条件下的额度处理性能。',
+                            description: tcProf.perfTestDesc || `验证在负载条件下的${level3}处理性能。`,
                             headers: ['用例编号', '用例名称', '并发数', '测试时长', '预期响应时间', '预期结果'],
                             rows: performanceRows
                         }}
@@ -585,7 +639,7 @@ class RequirementAnalyzer {
                     id: 7, title: '第七章 安全测试用例',
                     sections: [
                         { id: '7.1', title: '7.1 认证测试', content: {
-                            description: '验证岗位分离和权限控制机制。',
+                            description: tcProf.securityTestDesc || '验证岗位分离和权限控制机制。',
                             headers: ['用例编号', '用例名称', '测试步骤', '预期结果'],
                             rows: securityRows
                         }}
@@ -642,10 +696,10 @@ class RequirementAnalyzer {
             } else if (inTable && !trimmed.startsWith('|')) { inTable = false; }
         }
         if (fields.length === 0) {
-            fields.push(
-                ['TC-BND-001', '授信额度边界值', '进入批复明细新增页面', '输入授信额度为0和极大值', '授信额度>0', '校验通过或给出明确提示', '中'],
-                ['TC-BND-002', '生效/失效日期边界', '进入批复明细新增页面', '失效日期等于生效日期', '失效日期>生效日期', '校验不通过，提示日期范围错误', '中']
-            );
+            const fallback = this.profile.boundaryFallback || [
+                ['TC-BND-001', '数据边界值测试', '进入对应操作页面', '输入边界值数据', '边界校验通过或提示', '校验通过或给出明确提示', '中']
+            ];
+            for (const fb of fallback) fields.push(fb);
         }
         return fields.slice(0, 6);
     }
@@ -666,11 +720,10 @@ class RequirementAnalyzer {
             } else if (inTable && !trimmed.startsWith('|')) { inTable = false; }
         }
         if (mappings.length === 0) {
-            mappings.push(
-                ['TC-MAP-001', '授信类型', 'creditType', '承兑行阈值', '承兑行阈值', '高'],
-                ['TC-MAP-002', '客户类型', 'custType', '同业', '同业', '高'],
-                ['TC-MAP-003', '客户名称', 'custName', '测试客户', '测试客户', '高']
-            );
+            const fallback = this.profile.fieldMappingFallback || [
+                ['TC-MAP-001', '核心字段映射', 'coreField', '测试值', '正确值', '高']
+            ];
+            for (const fb of fallback) mappings.push(fb);
         }
         return mappings.slice(0, 8);
     }
@@ -713,7 +766,7 @@ class RequirementAnalyzer {
     _extractTestPoints(content) {
         const testPoints = [];
         const lines = content.split('\n');
-        const subsystemKeywords = ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
+        const subsystemKeywords = this.profile.subsystemKeywords || ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
         const menuPath = this._extractMenuPath(content, subsystemKeywords);
         const level1 = menuPath.level1;
         const level2 = menuPath.level2;
@@ -740,7 +793,7 @@ class RequirementAnalyzer {
         const subsystems = refs.filter(ref => subsystemKeywords.includes(ref));
         const modules = refs.filter(ref => !subsystemKeywords.includes(ref));
         return {
-            level1: subsystems[0] || '系统管理子系统',
+            level1: subsystems[0] || this.profile.defaultMenuLevel1 || '系统管理子系统',
             level2: modules[0] || '',
             level3: modules[1] || modules[0] || ''
         };
@@ -1010,7 +1063,7 @@ class RequirementAnalyzer {
     }
 
     _generatePrecondition(tp) {
-        const subsystemMap = {
+        const subsystemMap = this.profile.subsystemMap || {
             '系统管理子系统': '系统管理子系统',
             '业务管理子系统': '业务管理子系统',
             '场内交易子系统': '场内交易子系统',

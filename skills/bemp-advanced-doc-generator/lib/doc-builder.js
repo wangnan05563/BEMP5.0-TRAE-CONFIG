@@ -13,8 +13,9 @@ const {
 } = require('../config/default');
 
 class DocumentBuilder {
-    constructor() {
+    constructor(options = {}) {
         this.outputDir = paths.outputDir;
+        this.profile = options.profile || {};
     }
 
     heading1(text) {
@@ -278,9 +279,12 @@ class DocumentBuilder {
         const typeLabel = { design: '详细设计文档', testcase: '测试用例', testreport: '测试报告' }[type] || '详细设计文档';
 
         let md = `# ${moduleName}${typeLabel}\n\n`;
-        md += `**公司**: 恒生电子股份有限公司\n`;
-        md += `**产品**: HUNDSUN 票据交易管理平台软件\n`;
-        md += `**版本**: V5.0\n`;
+        const company = (templateData && templateData.coverPage && templateData.coverPage.company) || (this.profile.company && this.profile.company.name) || '恒生电子股份有限公司';
+        const product = (templateData && templateData.coverPage && templateData.coverPage.product) || (this.profile.company && this.profile.company.product) || '票据交易管理平台软件';
+        const version = (templateData && templateData.coverPage && templateData.coverPage.version) || (this.profile.company && this.profile.company.version) || 'V5.0';
+        md += `**公司**: ${company}\n`;
+        md += `**产品**: ${product}\n`;
+        md += `**版本**: ${version}\n`;
         md += `**日期**: ${date}\n\n`;
         md += `## 文档修改记录\n\n`;
         md += `| 版本 | 修订人 | 修订说明 | 批准人 | 发布日期 |\n`;
@@ -392,14 +396,15 @@ class DocumentBuilder {
 
     _getDefaultTemplateData(moduleName, type) {
         const typeLabels = { design: '设计说明书', testcase: '测试用例说明书', testreport: '测试报告' };
+        const company = this.profile.company || {};
         return {
             coverPage: {
                 title: `${moduleName}${typeLabels[type] || '详细设计文档'}`,
-                company: '恒生电子股份有限公司',
-                product: 'HUNDSUN 票据交易管理平台软件',
-                version: 'V5.0',
+                company: company.name || '恒生电子股份有限公司',
+                product: company.product || '票据交易管理平台软件',
+                version: company.version || 'V5.0',
                 documentType: typeLabels[type] || '',
-                department: '票据业务事业部',
+                department: company.department || '票据业务事业部',
                 date: new Date().toLocaleDateString('zh-CN')
             },
             revisionHistory: {
