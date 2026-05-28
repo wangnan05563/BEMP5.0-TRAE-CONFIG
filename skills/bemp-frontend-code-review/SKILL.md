@@ -64,6 +64,13 @@ node .trae/skills/bemp-frontend-code-review/scripts/check-all.js --bank=jinzbank
 
 ### 8. UI组件
 - 使用项目统一h_ui组件库，布局符合设计规范
+- 【强制】h-typefield 设置 readonly/disabled 时必须用 h-form-item 包裹，禁止直接在 h-typefield 上同时使用 :label 和 readonly（readonly 不会传递到内部 input）
+  ```vue
+  <!-- 错误 -->
+  <h-typefield :label="$t('key')" v-model="val" readonly></h-typefield>
+  <!-- 正确 -->
+  <h-form-item :label="$t('key')" prop="field"><h-typefield v-model="val" readonly></h-typefield></h-form-item>
+  ```
 
 ### 9. 路由
 - router/index.js正确注册，路径与 `{bankName}Index.js` 映射一致，meta信息正确

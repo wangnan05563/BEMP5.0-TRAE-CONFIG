@@ -4,22 +4,29 @@
     "accounts": [
       {
         "role": "default",
-        "username": "PLACEHOLDER",
-        "password": "PLACEHOLDER",
-        "description": "河南农信 - 默认用户",
+        "username": "wangnan02",
+        "password": "abc@123",
+        "description": "河南农信 - 普通柜员账号",
         "scope": "self_and_sub"
       },
       {
         "role": "admin",
-        "username": "PLACEHOLDER",
-        "password": "PLACEHOLDER",
-        "description": "河南农信 - 系统管理员",
+        "username": "mllzs01",
+        "password": "888888",
+        "description": "河南农信 - 法人管理员账号",
         "scope": "all"
+      },
+      {
+        "role": "branch_admin",
+        "username": "wangnan01",
+        "password": "abc@123",
+        "description": "河南农信 - 机构管理员账号，用于机构管理、权限分配等管理功能测试",
+        "scope": "branch_all"
       },
       {
         "role": "branch_teller",
         "username": "sjl03",
-        "password": "PLACEHOLDER",
+        "password": "888888",
         "description": "河南农信 - 分行柜员（机构号233301），用于数据隔离对比测试",
         "scope": "self_and_sub",
         "user_type": 3,

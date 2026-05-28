@@ -34,7 +34,7 @@
       "route_index": "hnnxbankIndex.js",
       "login": {
         "default": {
-          "username": "wangnan01",
+          "username": "wangnan02",
           "password": "abc@123",
           "description": "普通柜员账号"
         },
@@ -42,6 +42,11 @@
           "username": "mllzs01",
           "password": "888888",
           "description": "法人管理员账号"
+        },
+        "branch_admin": {
+          "username": "wangnan01",
+          "password": "abc@123",
+          "description": "机构管理员账号，用于机构管理、权限分配等管理功能测试"
         }
       },
       "pages": {
@@ -304,6 +309,14 @@
         "glob": "**/*.vue",
         "severity": "P1",
         "note": "检查resetFields调用前是否有ref存在性判断"
+      },
+      "F-07": {
+        "name": "h-typefield readonly属性传递检查",
+        "pattern": "<h-typefield[^>]*:label[^>]*readonly",
+        "glob": "**/*.vue",
+        "expected_matches": 0,
+        "severity": "P0",
+        "fix": "将h-typefield包裹在h-form-item中，label移至h-form-item，确保readonly传递到内部input"
       }
     },
     "backend": {

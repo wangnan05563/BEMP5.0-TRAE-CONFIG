@@ -28,6 +28,7 @@
 | CONTRACT | 合同发票管理 | TC-CONTRACT-001 |
 | VOUCHER | 其他凭证管理 | TC-VOUCHER-001 |
 | DISCPOST | 贴现发票后补 | TC-DISCPOST-001 |
+| ECIFMRG | ECIF客户合并 | TC-ECIFMRG-001 |
 
 ## 编号分配规则
 

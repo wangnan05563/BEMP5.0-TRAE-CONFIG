@@ -62,6 +62,7 @@
     "INVOICE": "发票维护",
     "CONTRACT": "合同发票管理",
     "VOUCHER": "其他凭证管理",
-    "DISCPOST": "贴现发票后补"
+    "DISCPOST": "贴现发票后补",
+    "ECIFMRG": "ECIF客户合并"
   }
 }

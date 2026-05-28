@@ -331,20 +331,41 @@
       "case_count": 22,
       "scripts": [],
       "description": "是否简单机构字段(6)、同步账号递归查找(3)、企业信息报备4菜单查询范围限制(12)、历史数据默认值(1)"
+    },
+    {
+      "id": "TC-MARKET-003",
+      "file": "bemp-test-common/test-cases/be/market/repo-accounting-logic.md",
+      "subsystem": "be",
+      "feature": "修改票据回购的记账逻辑",
+      "priority": "P0",
+      "case_count": 21,
+      "scripts": [],
+      "description": "质押式正回购回购金额只读(3)、质押式逆回购校验(3)、边界回归(3)、安全(1)、联动(2)、BEMP验证(3)、接口测试(6)"
+    },
+    {
+      "id": "TC-ECIFMRG-001",
+      "file": "bemp-test-common/test-cases/adapter/ecif/ecif-customer-merge.md",
+      "subsystem": "adapter",
+      "feature": "ECIF广播机构客户合并 (PICE070701)",
+      "priority": "P0",
+      "case_count": 9,
+      "scripts": [],
+      "description": "ECIF机构客户合并XML报文解析(fromMessage)/响应组装(toMessage)/服务码映射，9条用例含P0:4 P1:5；Java单元测试：PICE070701MessageConverterTest"
     }
   ],
   "summary": {
-    "total_cases": 30,
-    "total_estimated_count": 371,
+    "total_cases": 32,
+    "total_estimated_count": 401,
     "by_subsystem": {
       "common": 2,
       "sm": 5,
       "bm": 17,
-      "be": 3,
-      "ce": 3
+      "be": 4,
+      "ce": 3,
+      "adapter": 1
     },
     "by_priority": {
-      "P0": 20,
+      "P0": 22,
       "P1": 9,
       "P2": 2,
       "P3": 0,
@@ -359,7 +380,7 @@
     "uncovered_cases": [
       "TC-BRANCH-003", "TC-ROLE-001", "TC-CLEAR-001", "TC-CUSTCORP-002",
       "TC-APPROVAL-001", "TC-CONTRACT-001", "TC-PAYMENT-001",
-      "TC-TRUST-001", "TC-MARKET-001", "TC-MARKET-002",
+      "TC-TRUST-001", "TC-MARKET-001", "TC-MARKET-002", "TC-MARKET-003",
       "TC-ACCEPT-001", "TC-DISCOUNT-001", "TC-PLEDGE-001",
       "TC-BRANCH-010", "TC-ROLE-010", "TC-CUSTCORP-010", "TC-BRANCH-020"
     ],

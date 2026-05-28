@@ -20,6 +20,11 @@ triggers: "生成/交付/编制/撰写 md/word/excel 详细设计/详细设计/�
 
 "生成详细设计文档"、"生成测试用例"、"生成测试报告"、"生成Excel测试用例"、"SIT测试用例"、"需求分析生成用例"
 
+## 调用规范（强制）
+本技能属于BEMP流程"输出交付文档"阶段，必须通过 `document-delivery-engineer` 智能体调用，禁止直接调用Skill工具。
+- 正确调用方式：使用Task工具，subagent_type="document-delivery-engineer"
+- 错误调用方式：直接使用Skill工具调用bemp-advanced-doc-generator
+
 ## 执行命令
 
 ```bash

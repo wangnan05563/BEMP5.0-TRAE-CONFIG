@@ -26,13 +26,45 @@ class RequirementAnalyzer {
         };
     }
 
-    analyzeForDesign(mdContent, moduleName) {
+    _filterByModule(mdContent, moduleName) {
+        if (!moduleName) return mdContent;
         const lines = mdContent.split('\n');
+        const moduleStartIdx = [];
+        for (let i = 0; i < lines.length; i++) {
+            const match = lines[i].match(/^###\s+(.+)/);
+            if (match) moduleStartIdx.push({ idx: i, title: match[1].trim() });
+        }
+        let targetIdx = -1;
+        for (const item of moduleStartIdx) {
+            if (item.title.includes(moduleName) || moduleName.includes(item.title)) {
+                targetIdx = item.idx;
+                break;
+            }
+        }
+        if (targetIdx === -1) {
+            for (const item of moduleStartIdx) {
+                const simplified = item.title.replace(/[（）()\s]/g, '');
+                const simplifiedModule = moduleName.replace(/[（）()\s]/g, '');
+                if (simplified.includes(simplifiedModule) || simplifiedModule.includes(simplified)) {
+                    targetIdx = item.idx;
+                    break;
+                }
+            }
+        }
+        if (targetIdx === -1) return mdContent;
+        const nextIdx = moduleStartIdx.find(item => item.idx > targetIdx);
+        const endIdx = nextIdx ? nextIdx.idx : lines.length;
+        return lines.slice(targetIdx, endIdx).join('\n');
+    }
+
+    analyzeForDesign(mdContent, moduleName) {
+        const filteredContent = this._filterByModule(mdContent, moduleName);
+        const lines = filteredContent.split('\n');
         const subsystemKeywords = ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
-        const menuPath = this._extractMenuPath(mdContent, subsystemKeywords);
+        const menuPath = this._extractMenuPath(filteredContent, subsystemKeywords);
         const sections = this._splitBySubFeatureHeadings(lines);
 
-        const background = this._extractBackground(mdContent);
+        const background = this._extractBackground(filteredContent, moduleName);
         const modules = this._extractModules(sections, menuPath);
         const businessRules = this._collectBusinessRules(sections);
         const dataFields = this._collectDataFields(sections);
@@ -66,8 +98,8 @@ class RequirementAnalyzer {
                             headers: ['目标类型', '目标描述'],
                             rows: [
                                 ['功能目标', `实现${menuPath.level3 || moduleName}的核心业务功能，包括${modules.map(m => m[0]).join('、')}等，确保数据一致性和完整性`],
-                                ['性能目标', '保证接口响应速度和系统稳定性，额度占用/释放操作响应时间<500ms'],
-                                ['质量目标', '确保代码规范、测试覆盖全面、文档完整，复核状态机100%正确']
+                                ['性能目标', '保证接口响应速度和系统稳定性，核心操作响应时间<500ms'],
+                                ['质量目标', '确保代码规范、测试覆盖全面、文档完整，业务规则100%正确执行']
                             ]
                         }},
                         { id: '1.3', title: '1.3 范围说明', content: {
@@ -98,8 +130,8 @@ class RequirementAnalyzer {
                     id: 3,
                     title: '第三章 核心业务流程',
                     sections: [
-                        { id: '3.1', title: '3.1 业务流程图', content: { description: `${menuPath.level3 || moduleName}核心业务流程：额度申请→批复明细录入→提交复核→额度复核→额度占用/释放。详细流程图参见需求文档。` }},
-                        { id: '3.2', title: '3.2 时序图', content: { description: '主流程时序：申请岗发起额度申请→系统校验必填项→保存申请记录→录入批复明细→提交复核→复核岗审核→更新复核状态→额度生效。异常流程：校验不通过→返回错误提示；复核拒绝→退回至申请状态。' }},
+                        { id: '3.1', title: '3.1 业务流程图', content: { description: `${menuPath.level3 || moduleName}核心业务流程：数据查询→数据录入→数据校验→数据提交→结果确认。详细流程图参见需求文档。` }},
+                        { id: '3.2', title: '3.2 时序图', content: { description: `主流程时序：用户发起操作→系统校验必填项→保存数据→返回操作结果。异常流程：校验不通过→返回错误提示；操作失败→回滚数据。` }},
                         { id: '3.3', title: '3.3 关键节点说明', content: {
                             headers: ['节点编号', '节点名称', '处理逻辑', '业务规则'],
                             rows: this._buildKeyNodes(businessRules)
@@ -137,7 +169,7 @@ class RequirementAnalyzer {
                             rows: errorCodes
                         }},
                         { id: '6.2', title: '6.2 处理流程', content: { description: '异常分类：业务逻辑异常（校验不通过、数据不存在）、系统异常（网络超时、数据库异常）。处理策略：业务异常返回明确错误提示，系统异常记录日志并返回通用错误信息。' }},
-                        { id: '6.3', title: '6.3 恢复策略', content: { description: '额度占用/释放操作采用数据库事务保证原子性，失败自动回滚。并发场景使用行级锁(SELECT FOR UPDATE)防止超额占用。' }}
+                        { id: '6.3', title: '6.3 恢复策略', content: { description: '数据操作采用数据库事务保证原子性，失败自动回滚。并发场景使用行级锁(SELECT FOR UPDATE)防止数据不一致。' }},
                     ]
                 },
                 {
@@ -153,24 +185,14 @@ class RequirementAnalyzer {
                     id: 8,
                     title: '第八章 技术实现细节',
                     sections: [
-                        { id: '8.1', title: '8.1 核心算法', content: { description: '额度同步算法：汇总贴现余额、回购式贴现余额、转入余额、质押式逆回购余额、买断式逆回购余额，按承兑行总行匹配计算已用额度，可用额度=授信额度-已用额度。复核状态机：0(未提交)→1(待复核)→2(已复核)。' }},
+                        { id: '8.1', title: '8.1 核心算法', content: { description: `${moduleName || menuPath.level3 || '模块'}核心业务处理逻辑：基于需求文档中的业务规则实现数据校验、状态流转和业务处理。数据操作采用数据库事务保证原子性，失败自动回滚。` }},
                         { id: '8.2', title: '8.2 代码示例', content: {
                             headers: ['类名', '方法名', '说明', '代码行数'],
-                            rows: [
-                                [`${moduleName || 'Risk'}LimitController`, 'queryApply', '额度申请查询', '约30行'],
-                                [`${moduleName || 'Risk'}LimitController`, 'addApply', '额度申请新增', '约40行'],
-                                [`${moduleName || 'Risk'}LimitService`, 'syncUsedAmount', '已用额度同步', '约60行'],
-                                [`${moduleName || 'Risk'}LimitService`, 'occupyLimit', '额度占用', '约50行'],
-                                [`${moduleName || 'Risk'}LimitService`, 'releaseLimit', '额度释放', '约50行']
-                            ]
+                            rows: this._buildCodeExamples(sections, moduleName)
                         }},
                         { id: '8.3', title: '8.3 性能优化', content: {
                             headers: ['优化项', '优化策略', '预期效果'],
-                            rows: [
-                                ['并发控制', 'SELECT FOR UPDATE行级锁', '防止超额占用'],
-                                ['额度同步', '异步汇总+缓存', '减少实时计算开销'],
-                                ['批量复核', '批量更新+事务', '提升复核效率']
-                            ]
+                            rows: this._buildPerformanceOptRows(sections, moduleName)
                         }},
                         { id: '8.4', title: '8.4 开发规范', content: {
                             headers: ['规范类型', '规范要求', '说明'],
@@ -186,16 +208,12 @@ class RequirementAnalyzer {
             ],
             appendix: {
                 references: ['BEMP项目开发规范文档', '上海票据交易所接口规范', `${moduleName || ''}需求规格说明书`],
-                glossary: [
-                    { term: '额度占用', definition: '票据交易时扣减承兑行可用额度' },
-                    { term: '额度释放', definition: '票据到期或退回时恢复承兑行可用额度' },
-                    { term: '自承自贴', definition: '承兑行总行与本行总行相同时的票据，不占用额度' }
-                ]
+                glossary: this._buildGlossary(menuPath, moduleName, businessRules)
             }
         };
     }
 
-    _extractBackground(content) {
+    _extractBackground(content, moduleName) {
         const lines = content.split('\n');
         const bgParts = [];
         for (const line of lines) {
@@ -206,8 +224,9 @@ class RequirementAnalyzer {
             }
             if (bgParts.length >= 5) break;
         }
+        const moduleLabel = moduleName || '本';
         return bgParts.length > 0
-            ? `当前系统存在以下业务需求：${bgParts.join('；')}。本功能旨在实现承兑行额度的全生命周期管理，确保额度数据的准确性和一致性。`
+            ? `当前系统存在以下业务需求：${bgParts.join('；')}。${moduleLabel}功能旨在解决上述业务需求，确保数据一致性和完整性。`
             : '（待补充业务背景）';
     }
 
@@ -325,25 +344,39 @@ class RequirementAnalyzer {
     }
 
     _buildKeyNodes(businessRules) {
-        const nodes = [
-            ['N1', '额度申请', '查询/新增/删除额度申请', '客户类型默认同业，新增必填校验'],
-            ['N2', '批复明细录入', '新增/修改额度批复明细', '失效日期必须大于生效日期'],
-            ['N3', '额度同步', '汇总票据余额计算已用额度', '可用额度=授信额度-已用额度'],
-            ['N4', '提交复核', '将批复明细提交至复核岗', '仅未提交状态可提交'],
-            ['N5', '额度复核', '复核岗审核批复明细', '仅待复核状态可复核'],
-            ['N6', '额度占用', '票据交易时扣减可用额度', '行级锁防并发超额'],
-            ['N7', '额度释放', '票据到期/退回时恢复额度', '自承自贴不占用额度']
-        ];
+        const nodes = [];
+        let idx = 1;
+        const seenNames = new Set();
+        for (const br of businessRules) {
+            const source = br.source || '';
+            if (!seenNames.has(source) && source.length > 0) {
+                seenNames.add(source);
+                const ruleSummary = br.rule ? br.rule.substring(0, 40) : '';
+                nodes.push([`N${idx}`, source, `${source}相关业务处理`, ruleSummary]);
+                idx++;
+            }
+            if (nodes.length >= 7) break;
+        }
+        if (nodes.length === 0) {
+            nodes.push(
+                ['N1', '数据查询', '查询列表数据', '查询条件校验'],
+                ['N2', '数据新增', '新增业务数据', '必填项校验'],
+                ['N3', '数据修改', '修改业务数据', '数据存在性校验'],
+                ['N4', '数据删除', '删除业务数据', '关联性校验'],
+                ['N5', '提交审批', '提交数据至审批流程', '状态校验']
+            );
+        }
         return nodes;
     }
 
     analyzeForTestCase(mdContent, moduleName) {
-        const analysis = this.analyzeRequirement(mdContent);
+        const filteredContent = this._filterByModule(mdContent, moduleName);
+        const analysis = this.analyzeRequirement(filteredContent);
         const testCases = analysis.testCases;
         const positiveCases = testCases.filter(tc => tc.nature === '正例');
         const negativeCases = testCases.filter(tc => tc.nature === '反例');
         const subsystemKeywords = ['系统管理子系统', '业务管理子系统', '场内交易子系统', '场内业务子系统'];
-        const menuPath = this._extractMenuPath(mdContent, subsystemKeywords);
+        const menuPath = this._extractMenuPath(filteredContent, subsystemKeywords);
         const date = new Date().toLocaleDateString('zh-CN');
 
         const positiveRows = positiveCases.map(tc => [
@@ -353,11 +386,11 @@ class RequirementAnalyzer {
             tc.id, tc.level4, tc.precondition, tc.content, '', tc.expected, '高'
         ]);
 
-        const boundaryRows = this._generateBoundaryTestCases(mdContent);
-        const fieldMappingRows = this._generateFieldMappingTestCases(mdContent);
+        const boundaryRows = this._generateBoundaryTestCases(filteredContent);
+        const fieldMappingRows = this._generateFieldMappingTestCases(filteredContent);
         const integrationRows = this._generateIntegrationTestCases(menuPath);
-        const performanceRows = this._generatePerformanceTestCases();
-        const securityRows = this._generateSecurityTestCases();
+        const performanceRows = this._generatePerformanceTestCases(menuPath);
+        const securityRows = this._generateSecurityTestCases(menuPath);
 
         const level1 = menuPath.level1 || '业务管理子系统';
         const level2 = menuPath.level2 || '风险管理';
@@ -419,16 +452,11 @@ class RequirementAnalyzer {
                 {
                     id: 1, title: '第一章 引言',
                     sections: [
-                        { id: '1.1', title: '1.1 编写目的', content: { description: `本文档用于指导测试人员执行${moduleName || menuPath.level3}的功能测试、集成测试和异常测试，确保功能符合需求规格。验证范围包括额度申请、批复明细、额度复核等核心业务流程。` }},
-                        { id: '1.2', title: '1.2 背景说明', content: { description: `项目背景：新增承兑行额度管理菜单和承兑行额度的占用、释放逻辑功能。菜单位置【${menuPath.level1}】-【${menuPath.level2}】-【${menuPath.level3}】。` }},
+                        { id: '1.1', title: '1.1 编写目的', content: { description: `本文档用于指导测试人员执行${moduleName || menuPath.level3}的功能测试、集成测试和异常测试，确保功能符合需求规格。` }},
+                        { id: '1.2', title: '1.2 背景说明', content: { description: `项目背景：${moduleName || menuPath.level3}功能优化。菜单位置【${menuPath.level1}】-【${menuPath.level2}】-【${menuPath.level3}】。` }},
                         { id: '1.3', title: '1.3 定义', content: {
                             headers: ['术语', '定义'],
-                            rows: [
-                                ['额度占用', '票据交易时扣减承兑行可用额度'],
-                                ['额度释放', '票据到期或退回时恢复承兑行可用额度'],
-                                ['自承自贴', '承兑行总行与本行总行相同时的票据，不占用额度'],
-                                ['复核状态机', '0(未提交)→1(待复核)→2(已复核)']
-                            ]
+                            rows: this._buildGlossaryRows(menuPath, moduleName)
                         }},
                         { id: '1.4', title: '1.4 参考资料', content: {
                             headers: ['文档名称', '文档版本', '说明'],
@@ -446,8 +474,8 @@ class RequirementAnalyzer {
                         { id: '2.1', title: '2.1 测试范围', content: {
                             headers: ['范围类型', '说明'],
                             rows: [
-                                ['纳入范围', '额度申请查询、新增、删除；批复明细新增、修改、删除、提交复核、撤销复核；额度复核查询、复核、撤销、清单导出'],
-                                ['纳入范围', '额度占用/释放逻辑验证、自承自贴排除规则验证、并发占用防超额验证'],
+                                ['纳入范围', `${moduleName || menuPath.level3}各功能模块的正常流程、异常流程、边界条件验证`],
+                                ['纳入范围', '数据校验、权限控制、状态流转等业务规则验证'],
                                 ['排除范围', '外围系统消息发送、产品服务接口内部实现']
                             ]
                         }},
@@ -648,26 +676,29 @@ class RequirementAnalyzer {
     }
 
     _generateIntegrationTestCases(menuPath) {
+        const moduleLabel = menuPath.level3 || '模块';
         return [
-            ['TC-INT-001', '完整流程-额度申请到复核', '服务已启动，申请岗和复核岗账号已准备', '1.申请岗新增额度申请 2.录入批复明细 3.提交复核 4.复核岗执行复核 5.验证额度状态', '完整额度申请数据', '全流程正常完成，额度状态变为已复核', '高'],
-            ['TC-INT-002', '完整流程-额度占用与释放', '已复核额度可用额度=100万', '1.发起转贴现买入60万 2.验证可用额度变为40万 3.票据到期托收 4.验证额度释放', '转贴现买入+托收数据', '额度占用和释放正确，数据一致', '高'],
-            ['TC-INT-003', '完整流程-撤销复核退回', '已提交复核的额度记录', '1.申请岗撤销复核 2.验证状态退回未提交 3.修改后重新提交', '撤销复核数据', '撤销后状态正确，可重新提交', '高']
+            ['TC-INT-001', `完整流程-${moduleLabel}操作`, '服务已启动，相关账号已准备', `1.进入${moduleLabel}页面 2.执行新增操作 3.提交数据 4.验证数据保存正确`, '完整业务数据', '全流程正常完成，数据状态正确', '高'],
+            ['TC-INT-002', `完整流程-数据修改与查询`, '已有业务数据', `1.查询已有数据 2.修改数据 3.保存 4.重新查询验证修改生效`, '修改数据', '修改后数据正确保存，查询结果一致', '高'],
+            ['TC-INT-003', `完整流程-数据删除与恢复验证`, '已有可删除数据', `1.选中数据执行删除 2.确认删除 3.查询验证数据已删除`, '删除数据', '删除成功，数据不再显示', '高']
         ];
     }
 
-    _generatePerformanceTestCases() {
+    _generatePerformanceTestCases(menuPath) {
+        const moduleLabel = menuPath.level3 || '模块';
         return [
-            ['TC-PERF-001', '单笔额度操作性能', '1', '10秒', '<500ms', '所有操作处理成功'],
-            ['TC-PERF-002', '批量额度复核', '10', '60秒', '<2s', '批量复核全部成功'],
-            ['TC-PERF-003', '并发额度占用', '50', '30秒', '<1s', '不出现超额占用']
+            ['TC-PERF-001', `单笔${moduleLabel}操作性能`, '1', '10秒', '<500ms', '所有操作处理成功'],
+            ['TC-PERF-002', `批量${moduleLabel}操作`, '10', '60秒', '<2s', '批量操作全部成功'],
+            ['TC-PERF-003', `并发${moduleLabel}操作`, '50', '30秒', '<1s', '不出现数据不一致']
         ];
     }
 
-    _generateSecurityTestCases() {
+    _generateSecurityTestCases(menuPath) {
+        const moduleLabel = menuPath.level3 || '模块';
         return [
-            ['TC-SEC-001', '申请岗越权复核', '1.使用申请岗账号登录 2.尝试访问额度复核页面', '菜单中不显示额度复核或不可访问'],
-            ['TC-SEC-002', '复核岗越权申请', '1.使用复核岗账号登录 2.尝试新增额度申请', '新增按钮不可用或接口返回权限不足'],
-            ['TC-SEC-003', '未登录访问', '1.不登录直接请求额度管理接口', '接口返回未认证错误']
+            ['TC-SEC-001', '低权限用户越权操作', `1.使用低权限账号登录 2.尝试访问${moduleLabel}高权限功能`, '菜单中不显示或不可访问'],
+            ['TC-SEC-002', '跨角色越权操作', `1.使用非本模块角色账号登录 2.尝试执行${moduleLabel}操作`, '操作按钮不可用或接口返回权限不足'],
+            ['TC-SEC-003', '未登录访问', `1.不登录直接请求${moduleLabel}接口`, '接口返回未认证错误']
         ];
     }
 
@@ -998,6 +1029,81 @@ class RequirementAnalyzer {
 
     _generatePositiveExpected(tp) {
         return `${tp.level4}操作成功，数据正确保存并刷新显示`;
+    }
+
+    _buildCodeExamples(sections, moduleName) {
+        const examples = [];
+        const moduleLabel = moduleName || 'Module';
+        const seenOps = new Set();
+        for (const sec of sections) {
+            if (sec.level >= 4 && sec.level <= 5 && sec.title) {
+                const opName = sec.title;
+                if (!seenOps.has(opName)) {
+                    seenOps.add(opName);
+                    examples.push([`${moduleLabel}Controller`, `query${opName}`, `${opName}查询`, '约30行']);
+                    examples.push([`${moduleLabel}Controller`, `save${opName}`, `${opName}保存`, '约40行']);
+                }
+            }
+            if (examples.length >= 5) break;
+        }
+        if (examples.length === 0) {
+            examples.push(
+                [`${moduleLabel}Controller`, 'queryList', '列表查询', '约30行'],
+                [`${moduleLabel}Controller`, 'saveData', '数据保存', '约40行'],
+                [`${moduleLabel}Service`, 'processBusiness', '业务处理', '约60行']
+            );
+        }
+        return examples;
+    }
+
+    _buildPerformanceOptRows(sections, moduleName) {
+        const rows = [];
+        const moduleLabel = moduleName || '模块';
+        const hasBatch = sections.some(sec => sec.content && (sec.content.includes('批量') || sec.title.includes('批量')));
+        const hasQuery = sections.some(sec => sec.content && (sec.content.includes('查询') || sec.title.includes('查询') || sec.title.includes('列表')));
+        rows.push(['接口响应', '索引优化+分页查询', '列表查询响应<500ms']);
+        if (hasBatch) {
+            rows.push(['批量操作', '批量处理+事务', '提升批量操作效率']);
+        }
+        if (hasQuery) {
+            rows.push(['数据查询', '缓存热点数据', '减少重复查询开销']);
+        }
+        rows.push(['并发控制', '行级锁/乐观锁', '防止数据不一致']);
+        return rows;
+    }
+
+    _buildGlossary(menuPath, moduleName, businessRules) {
+        const glossary = [];
+        const moduleLabel = moduleName || menuPath.level3 || '模块';
+        glossary.push({ term: moduleLabel, definition: `${moduleLabel}相关业务功能` });
+        const keywords = new Set();
+        for (const br of businessRules) {
+            const rule = br.rule || '';
+            if (rule.includes('复核') && !keywords.has('复核')) {
+                keywords.add('复核');
+                glossary.push({ term: '复核', definition: '对操作数据进行二次审核确认' });
+            }
+            if (rule.includes('批量导入') && !keywords.has('批量导入')) {
+                keywords.add('批量导入');
+                glossary.push({ term: '批量导入', definition: '通过Excel文件批量导入数据' });
+            }
+            if (rule.includes('额度') && !keywords.has('额度')) {
+                keywords.add('额度');
+                glossary.push({ term: '额度', definition: '授信额度，用于控制风险敞口' });
+            }
+            if (glossary.length >= 5) break;
+        }
+        return glossary;
+    }
+
+    _buildGlossaryRows(menuPath, moduleName) {
+        const rows = [];
+        const moduleLabel = moduleName || menuPath.level3 || '模块';
+        rows.push([moduleLabel, `${moduleLabel}相关业务功能`]);
+        rows.push(['批量导入', '通过Excel文件批量导入数据']);
+        rows.push(['必填校验', '关键字段未填写时阻止操作']);
+        rows.push(['数据校验', '对输入数据进行格式和规则验证']);
+        return rows;
     }
 
     _generateNegativeCase(tp, validationType, caseId) {

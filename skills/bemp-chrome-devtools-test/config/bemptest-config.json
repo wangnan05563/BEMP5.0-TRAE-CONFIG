@@ -12,8 +12,9 @@
   },
 
   "accounts": {
-    "default_teller": { "username": "填入柜员用户名", "password": "填入柜员密码" },
-    "admin": { "username": "填入管理员用户名", "password": "填入管理员密码" },
+    "default_teller": { "username": "wangnan02", "password": "abc@123", "description": "普通柜员账号" },
+    "admin": { "username": "mllzs01", "password": "888888", "description": "法人管理员账号" },
+    "branch_admin": { "username": "wangnan01", "password": "abc@123", "description": "机构管理员账号，用于机构管理、权限分配等管理功能测试" },
     "branch_teller_sjl03": {
       "userNo": "sjl03",
       "password": "888888",

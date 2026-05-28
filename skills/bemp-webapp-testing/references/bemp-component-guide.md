@@ -200,6 +200,17 @@ page.wait_for_timeout(500)
 - document.execCommand('insertText') 不触发 Vue v-model，导致提交时值仍为空
 - 格式化显示值和实际绑定值可能不同（显示1,000,000.00，绑定1000000.00）
 - 修改后需触发 input 和 change 事件确保 Vue 数据同步
+- **readonly 属性传递规则（重要）**：h-typefield 直接使用 `:label` 属性时，`readonly` 不会传递到内部 input 元素。必须用 `h-form-item` 包裹并将 label 移至 `h-form-item`，readonly 才能生效
+  ```vue
+  <!-- 错误：readonly 不生效 -->
+  <h-typefield :label="$t('key')" v-model="formItem.field" readonly></h-typefield>
+  
+  <!-- 正确：readonly 生效 -->
+  <h-form-item :label="$t('key')" prop="field" class="h-form-three">
+    <h-typefield v-model="formItem.field" readonly></h-typefield>
+  </h-form-item>
+  ```
+  此规则同样适用于 `disabled` 等需要传递到内部 input 的属性
 
 ### h-input（输入框）
 

@@ -274,6 +274,42 @@ h-typefield是HUI的金额输入组件，使用`document.execCommand('insertText
 
 ---
 
+## 陷阱9.5：h-typefield readonly属性不生效（P0 级影响）
+
+**现象**：
+h-typefield 设置 `readonly` 属性后，金额输入框仍然可以编辑，readonly 未生效。
+
+**根因**：
+h-typefield 直接使用 `:label` 属性时，`readonly` 不会传递到内部 input 元素。HUI 组件库的 h-typefield 在同时设置 `:label` 和 `readonly` 时，`:label` 的渲染逻辑会覆盖 readonly 的传递。
+
+**标准解决方案**：
+将 h-typefield 包裹在 h-form-item 中，label 移至 h-form-item：
+
+```vue
+<!-- 错误：readonly 不生效 -->
+<h-typefield :label="$t('m.i.be.buyBackTotalAmt')" v-model="formItem.buyBackTotalAmt" readonly></h-typefield>
+
+<!-- 正确：readonly 生效 -->
+<h-form-item :label="$t('m.i.be.buyBackTotalAmt')" prop="buyBackTotalAmt" class="h-form-three">
+  <h-typefield v-model="formItem.buyBackTotalAmt" readonly></h-typefield>
+</h-form-item>
+```
+
+**验证方法**：
+```javascript
+// Chrome DevTools 验证 readonly 是否生效
+(() => {
+  const input = document.querySelector('.h-typefield input[readonly]');
+  if (input) return 'readonly 已生效';
+  const typefieldInputs = document.querySelectorAll('.h-typefield input');
+  return `找到 ${typefieldInputs.length} 个 typefield input，均无 readonly 属性`;
+})()
+```
+
+**适用范围**：此规则同样适用于 `disabled` 等需要传递到内部 input 的属性。
+
+---
+
 ## 陷阱10：checkbox选择后currentSelectList未同步（P1 级影响）
 
 **现象**：
