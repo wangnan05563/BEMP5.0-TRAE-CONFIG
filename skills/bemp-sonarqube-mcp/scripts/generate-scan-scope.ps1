@@ -1,22 +1,58 @@
 # BEMP SonarQube 扫描范围生成脚本
 # 用途：根据功能模块关键词，生成需要扫描的文件清单
-# 使用：.\generate-scan-scope.ps1 -Keyword "credit" -ModulePath "banks/ext-hnnxbank"
+# 使用：.\generate-scan-scope.ps1 -Keyword "credit" -ModulePath "banks/${ENV:BANK_PROJECT_DIR}"
 
 param(
     [Parameter(Mandatory=$true)]
     [string]$Keyword,
     
     [Parameter(Mandatory=$false)]
-    [string]$ModulePath = "banks\ext-hnnxbank",
+    [string]$ModulePath = "",
     
     [Parameter(Mandatory=$false)]
-    [string]$BasePath = "d:\code\QJ\BEMP5.0DEV"
+    [string]$BasePath = ""
 )
+
+$sharedConfigPath = Join-Path $PSScriptRoot "..\..\_shared\env-config.json"
+$sharedConfig = $null
+if (Test-Path $sharedConfigPath) {
+    $sharedConfig = Get-Content $sharedConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+
+if ([string]::IsNullOrEmpty($ModulePath)) {
+    $scanConfigPath = Join-Path $PSScriptRoot "..\config\scan_config.json"
+    if (Test-Path $scanConfigPath) {
+        $scanConfig = Get-Content $scanConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $ModulePath = $scanConfig.project.base_path -replace '/', '\'
+    } else {
+        if ($sharedConfig -and $sharedConfig.bank.projectDir) {
+            $ModulePath = "banks\$($sharedConfig.bank.projectDir)"
+        }
+        if ([string]::IsNullOrEmpty($ModulePath)) {
+            $ModulePath = "banks\ext-hnnxbank"
+        }
+    }
+}
+
+if ([string]::IsNullOrEmpty($BasePath)) {
+    $BasePath = [Environment]::GetEnvironmentVariable("BEMP_WORKSPACE_ROOT")
+    if ([string]::IsNullOrEmpty($BasePath) -and $sharedConfig) {
+        $BasePath = $sharedConfig.environmentDefaults.BEMP_WORKSPACE_ROOT
+    }
+    if ([string]::IsNullOrEmpty($BasePath)) {
+        $BasePath = "d:\code\QJ\BEMP5.0DEV"
+    }
+}
 
 Write-Host "=== BEMP SonarQube 扫描范围生成 ===" -ForegroundColor Cyan
 Write-Host "关键词: $Keyword" -ForegroundColor Yellow
 Write-Host "模块路径: $ModulePath" -ForegroundColor Yellow
 Write-Host ""
+
+$sonarProjectKey = "bemp-ext-hnnxbank"
+if ($sharedConfig -and $sharedConfig.bank.sonarProjectKey) {
+    $sonarProjectKey = $sharedConfig.bank.sonarProjectKey
+}
 
 $searchPath = Join-Path $BasePath $ModulePath
 
@@ -66,6 +102,6 @@ Write-Host "SonarQube MCP 文件路径格式（用于 files 参数）：" -Foreg
 
 foreach ($file in $javaFiles) {
     $relativePath = $file.FullName.Replace($BasePath + "\", "").Replace("\", "/")
-    $sonarPath = "bemp-ext-hnnxbank:$relativePath"
+    $sonarPath = "${sonarProjectKey}:$relativePath"
     Write-Host "  $sonarPath" -ForegroundColor White
 }

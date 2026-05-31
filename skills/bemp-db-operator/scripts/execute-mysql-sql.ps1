@@ -35,19 +35,19 @@ param(
     [string]$SqlFile,
 
     [Parameter(Mandatory=$false)]
-    [string]$DbHost = "127.0.0.1",
+    [string]$DbHost = "",
 
     [Parameter(Mandatory=$false)]
     [int]$Port = 3306,
 
     [Parameter(Mandatory=$false)]
-    [string]$Database = "bemp_hnnx",
+    [string]$Database = "",
 
     [Parameter(Mandatory=$false)]
-    [string]$Username = "root",
+    [string]$Username = "",
 
     [Parameter(Mandatory=$false)]
-    [string]$Password = "123456",
+    [string]$Password = "",
 
     [Parameter(Mandatory=$false)]
     [string]$Charset = "utf8mb4",
@@ -59,24 +59,34 @@ param(
     [int]$Timeout = 300,
 
     [Parameter(Mandatory=$false)]
-    [string]$ConfigFile = ""
+    [string]$ConfigFile = "",
+
+    [Parameter(Mandatory=$false)]
+    [string]$Environment = "dev"
 )
 
 $ErrorActionPreference = "Stop"
 
+if ([string]::IsNullOrEmpty($ConfigFile)) {
+    $autoConfig = Join-Path $PSScriptRoot "..\config\db-config.json"
+    if (Test-Path $autoConfig) { $ConfigFile = $autoConfig }
+}
+
+. (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
+
 if (-not [string]::IsNullOrEmpty($ConfigFile)) {
     if (-not (Test-Path $ConfigFile)) {
-        Write-Host "[ERROR] 配置文件不存在: $ConfigFile" -ForegroundColor Red
+        Write-Host "[ERROR] Config file not found: $ConfigFile" -ForegroundColor Red
         exit 1
     }
     $config = Get-Content $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    $mysqlCfg = $config.mysql
+    $mysqlCfg = $config.databases.mysql.environments.$Environment
     if ($mysqlCfg) {
-        if ($DbHost -eq "127.0.0.1" -and $mysqlCfg.host) { $DbHost = $mysqlCfg.host }
+        if ([string]::IsNullOrEmpty($DbHost) -and $mysqlCfg.host) { $DbHost = Resolve-EnvPlaceholder $mysqlCfg.host }
         if ($Port -eq 3306 -and $mysqlCfg.port) { $Port = $mysqlCfg.port }
-        if ($Database -eq "bemp_hnnx" -and $mysqlCfg.database) { $Database = $mysqlCfg.database }
-        if ($Username -eq "root" -and $mysqlCfg.username) { $Username = $mysqlCfg.username }
-        if ($Password -eq "123456" -and $mysqlCfg.password) { $Password = $mysqlCfg.password }
+        if ([string]::IsNullOrEmpty($Database) -and $mysqlCfg.database) { $Database = Resolve-EnvPlaceholder $mysqlCfg.database }
+        if ([string]::IsNullOrEmpty($Username) -and $mysqlCfg.username) { $Username = Resolve-EnvPlaceholder $mysqlCfg.username }
+        if ([string]::IsNullOrEmpty($Password) -and $mysqlCfg.password) { $Password = Resolve-EnvPlaceholder $mysqlCfg.password }
     }
 }
 

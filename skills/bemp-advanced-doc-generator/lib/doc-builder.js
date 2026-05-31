@@ -215,7 +215,10 @@ class DocumentBuilder {
     }
 
     async generateDesignDocument(moduleName, outputPath, templateData) {
-        const data = templateData || this._getDefaultTemplateData(moduleName, 'design');
+        const data = this._resolvePlaceholders(
+            templateData || this._getDefaultTemplateData(moduleName, 'design'),
+            { moduleName, currentDate: new Date().toLocaleDateString('zh-CN') }
+        );
         const children = [];
         children.push(...this.createCoverPage(data.coverPage));
         children.push(...this.createRevisionHistory(data.revisionHistory?.rows));
@@ -235,7 +238,10 @@ class DocumentBuilder {
     }
 
     async generateTestCaseDocument(moduleName, outputPath, templateData) {
-        const data = templateData || this._getDefaultTemplateData(moduleName, 'testcase');
+        const data = this._resolvePlaceholders(
+            templateData || this._getDefaultTemplateData(moduleName, 'testcase'),
+            { moduleName, currentDate: new Date().toLocaleDateString('zh-CN') }
+        );
         const children = [];
         children.push(...this.createCoverPage(data.coverPage));
         children.push(...this.createRevisionHistory(data.revisionHistory?.rows));
@@ -255,7 +261,10 @@ class DocumentBuilder {
     }
 
     async generateTestReportDocument(moduleName, outputPath, templateData) {
-        const data = templateData || this._getDefaultTemplateData(moduleName, 'testreport');
+        const data = this._resolvePlaceholders(
+            templateData || this._getDefaultTemplateData(moduleName, 'testreport'),
+            { moduleName, currentDate: new Date().toLocaleDateString('zh-CN') }
+        );
         const children = [];
         children.push(...this.createCoverPage(data.coverPage));
         children.push(...this.createRevisionHistory(data.revisionHistory?.rows));
@@ -392,6 +401,27 @@ class DocumentBuilder {
             children.push(this.createTable(content.headers, content.rows, content.colWidths));
         }
         return children;
+    }
+
+    _resolvePlaceholders(data, vars) {
+        if (typeof data === 'string') {
+            let result = data;
+            Object.entries(vars).forEach(([key, value]) => {
+                result = result.replace(new RegExp(`\\$\\{${key}\\}`, 'g'), value || '');
+            });
+            return result;
+        }
+        if (Array.isArray(data)) {
+            return data.map(item => this._resolvePlaceholders(item, vars));
+        }
+        if (typeof data === 'object' && data !== null) {
+            const resolved = {};
+            Object.entries(data).forEach(([key, value]) => {
+                resolved[key] = this._resolvePlaceholders(value, vars);
+            });
+            return resolved;
+        }
+        return data;
     }
 
     _getDefaultTemplateData(moduleName, type) {

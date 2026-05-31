@@ -1,31 +1,32 @@
 {
+  "_envConfigNote": "路径使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析。未设置时回退到 _shared/env-config.json 的 environmentDefaults",
   "globalPaths": {
-    "workspaceRoot": "d:\\code\\QJ\\BEMP5.0DEV",
-    "banksProjectPath": "d:\\code\\QJ\\BEMP5.0DEV\\banks\\ext-hnnxbank",
-    "frontendProjectPath": "d:\\code\\QJ\\BEMP5.0DEV\\frontend",
-    "traePath": "F:\\Program Files\\Trae CN\\Trae CN.exe",
-    "javaHome": "D:\\code\\Java\\jdk1.8.0_341",
-    "nodePath": "D:\\code\\nodejs14\\node.exe",
-    "mavenPath": "D:\\code\\apache-maven-3.6.3\\bin\\mvn.cmd"
+    "workspaceRoot": "${ENV:BEMP_WORKSPACE_ROOT}",
+    "banksProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}",
+    "frontendProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\frontend",
+    "traePath": "${ENV:TRAE_PATH}",
+    "javaHome": "${ENV:JAVA_HOME}",
+    "nodePath": "${ENV:NODE_PATH}",
+    "mavenPath": "${ENV:MAVEN_PATH}"
   },
   "services": {
     "redis": {
       "enabled": true,
       "name": "Redis",
-      "executable": "D:\\code\\Redis-x64-5.0.14.1\\redis-server.exe",
+      "executable": "${ENV:REDIS_EXE}",
       "port": 6379
     },
     "zookeeper": {
       "enabled": true,
       "name": "ZooKeeper",
-      "executable": "D:\\code\\apache-zookeeper-3.8.3-bin\\bin\\zkServer.cmd",
+      "executable": "${ENV:ZOOKEEPER_EXE}",
       "port": 2181
     },
     "springboot": {
       "enabled": true,
       "name": "SpringBoot",
       "mainClass": "com.hundsun.bemp.BempServedAppStarter",
-      "modulePath": "hnnxbank-served-deploy",
+      "modulePath": "${ENV:BANK_MODULE_PREFIX}served-deploy",
       "warFile": "bemp-served.war",
       "port": 8010,
       "debugPort": 5005,

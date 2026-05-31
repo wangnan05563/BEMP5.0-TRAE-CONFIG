@@ -1,14 +1,26 @@
 # ========== BEMP 后端代码阻塞级问题自动扫描 v3.1.0 ==========
 # 银行参数从 config/bank-config.json 读取，切换银行时修改 currentBank 即可
 
-$CONFIG = Get-Content ".trae/skills/bemp-backend-code-review/config/bank-config.json" -Encoding UTF8 | ConvertFrom-Json
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
+$ConfigSearchPaths = @(
+    (Join-Path $PSScriptRoot "..\config\bank-config.json"),
+    (Join-Path $ProjectRoot ".trae\skills\bemp-backend-code-review\config\bank-config.json")
+)
+$ConfigPath = ""
+foreach ($p in $ConfigSearchPaths) {
+    if (Test-Path $p) { $ConfigPath = $p; break }
+}
+if ([string]::IsNullOrEmpty($ConfigPath)) {
+    Write-Host "[ERROR] bank-config.json not found. Searched: $($ConfigSearchPaths -join ', ')" -ForegroundColor Red
+    exit 1
+}
+$CONFIG = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $BANK = $CONFIG.banks.($CONFIG.currentBank)
-$SOURCE_DIR = $BANK.sourceDir
-$DTO_SRC_DIR = $BANK.dtoSourceDir
+$SOURCE_DIR = if ([System.IO.Path]::IsPathRooted($BANK.sourceDir)) { $BANK.sourceDir } else { Join-Path $ProjectRoot $BANK.sourceDir }
+$DTO_SRC_DIR = if ([System.IO.Path]::IsPathRooted($BANK.dtoSourceDir)) { $BANK.dtoSourceDir } else { Join-Path $ProjectRoot $BANK.dtoSourceDir }
 $DTO_PREFIX = $BANK.dtoPrefix
 $URL_PREFIXES = $BANK.urlPrefixes
 $ISSUE_COUNT = 0
-$ProjectRoot = (Get-Location).Path
 
 function Get-RelPath($fullPath) {
     if ($fullPath -like "$ProjectRoot*") {

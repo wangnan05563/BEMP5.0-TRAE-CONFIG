@@ -16,10 +16,14 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.join(SCRIPT_DIR, '..')
 
+sys.path.insert(0, SCRIPT_DIR)
+from common import resolve_config_placeholders
+
 
 def load_config(config_path):
     with open(config_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        config = json.load(f)
+    return resolve_config_placeholders(config)
 
 
 def generate_data_instructions(config, module, db_type):

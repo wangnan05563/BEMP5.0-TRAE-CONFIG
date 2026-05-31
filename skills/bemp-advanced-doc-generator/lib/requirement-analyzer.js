@@ -2,6 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const { BempDocError, ERROR_CODES } = require('../config/default');
 
+function getDefaultCodeDir() {
+    try {
+        const envConfigPath = path.join(__dirname, '..', '..', '_shared', 'env-config.json');
+        if (fs.existsSync(envConfigPath)) {
+            const envConfig = JSON.parse(fs.readFileSync(envConfigPath, 'utf-8'));
+            const bankDir = envConfig.bank && envConfig.bank.projectDir;
+            if (bankDir) return `banks/${bankDir}`;
+        }
+    } catch (e) { /* fallthrough */ }
+    return 'banks/ext-hnnxbank';
+}
+
 class RequirementAnalyzer {
     static loadProfile(moduleName) {
         const configDir = path.join(__dirname, '..', 'config', 'modules');
@@ -238,13 +250,13 @@ class RequirementAnalyzer {
                         { id: '8.4', title: '8.4 开发规范', content: {
                             headers: ['规范类型', '规范要求', '说明'],
                             rows: (prof.devSpecs || [
-                                ['代码目录', '后端代码在banks/ext-hnnxbank目录', '遵循个性化开发规范'],
+                                ['代码目录', `后端代码在${getDefaultCodeDir()}目录`, '遵循个性化开发规范'],
                                 ['注解使用', '使用@Component注解注册组件', '确保Spring容器正确管理'],
                                 ['工具类复用', '复用项目已有工具类', '避免重复代码'],
                                 ['注释规范', '关键逻辑添加中文注释', '提高代码可读性']
                             ]).map(row => {
                                 if (typeof row[1] === 'string' && row[1].includes('${codeDir}')) {
-                                    return [row[0], row[1].replace('${codeDir}', prof.codeDir || 'banks/ext-hnnxbank'), row[2]];
+                                    return [row[0], row[1].replace('${codeDir}', prof.codeDir || getDefaultCodeDir()), row[2]];
                                 }
                                 return row;
                             })

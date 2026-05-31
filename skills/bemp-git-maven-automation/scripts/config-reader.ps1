@@ -27,8 +27,11 @@ function Get-BuildConfig {
         $skillRoot = Split-Path -Parent $script:ScriptRoot
     }
     if (!$skillRoot) {
-        $candidate = Join-Path $PWD ".trae\skills\bemp-git-maven-automation"
-        if (Test-Path $candidate) { $skillRoot = (Resolve-Path $candidate).Path }
+        $projectRoot = if ($script:ScriptRoot) { (Resolve-Path (Join-Path $script:ScriptRoot "..\..\..")).Path } else { $null }
+        if ($projectRoot) {
+            $candidate = Join-Path $projectRoot ".trae\skills\bemp-git-maven-automation"
+            if (Test-Path $candidate) { $skillRoot = (Resolve-Path $candidate).Path }
+        }
     }
     if (!$skillRoot) {
         Write-Error "Cannot determine skill root. Set BEMP_SKILL_ROOT env or run from project root."; return $null
@@ -39,9 +42,18 @@ function Get-BuildConfig {
 
     $env:BEMP_SKILL_ROOT = $skillRoot
 
+    $banksDirDefault = "ext-hnnxbank"
+    $sharedConfigPath = Join-Path $skillRoot "..\_shared\env-config.json"
+    if (Test-Path $sharedConfigPath) {
+        $sharedConfig = Get-Content $sharedConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($sharedConfig.bank.projectDir) {
+            $banksDirDefault = $sharedConfig.bank.projectDir
+        }
+    }
+
     $defaultPairs = @(
         "BUILD_TYPE=incremental",
-        "BANKS_BUILD_DIRS=ext-hnnxbank",
+        "BANKS_BUILD_DIRS=$banksDirDefault",
         "BANKS_BUILD_DEPENDENCIES=true",
         "MAVEN_OPTS=-Xmx2048m -XX:MaxMetaspaceSize=512m",
         "SKIP_DIRS=node_modules,target,.idea,log,logs",
@@ -140,7 +152,7 @@ function Get-AvailableBanks {
 
 function Find-GitCmd {
     $savedEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-    foreach ($p in @("git", (Get-Command git -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source), "C:\Program Files\Git\cmd\git.exe")) {
+    foreach ($p in @("git", (Get-Command git -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source), "$([Environment]::GetEnvironmentVariable('GIT_PATH'))")) {
         if ($p -and (Get-Command $p -ErrorAction SilentlyContinue)) { $ErrorActionPreference = $savedEAP; return $p }
     }
     $ErrorActionPreference = $savedEAP; return $null

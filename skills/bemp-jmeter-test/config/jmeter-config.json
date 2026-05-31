@@ -1,0 +1,83 @@
+{
+    "_envConfigNote": "Paths use ${ENV:VAR_NAME} placeholders, resolved at runtime from env vars. Falls back to _shared/env-config.json environmentDefaults",
+    "jmeter": {
+        "path": "${ENV:JMETER_PATH}",
+        "java_home": "${ENV:JAVA_HOME_SONAR}",
+        "jvm_args": ["-Xms512m", "-Xmx2048m", "-XX:MaxMetaspaceSize=256m"]
+    },
+    "test_defaults": {
+        "threads": 100,
+        "ramp_up": 10,
+        "duration": 300,
+        "loop_count": -1,
+        "connect_timeout": 5000,
+        "response_timeout": 30000
+    },
+    "environments": {
+        "dev": {
+            "host": "dev.example.com",
+            "port": 8080,
+            "protocol": "http",
+            "description": "dev env"
+        },
+        "staging": {
+            "host": "staging.example.com",
+            "port": 8081,
+            "protocol": "https",
+            "description": "staging env"
+        },
+        "prod-like": {
+            "host": "perf.example.com",
+            "port": 443,
+            "protocol": "https",
+            "description": "prod-like env"
+        }
+    },
+    "test_presets": {
+        "smoke": { "threads": 10, "ramp_up": 5, "duration": 60, "description": "smoke test" },
+        "baseline": { "threads": 50, "ramp_up": 10, "duration": 300, "description": "baseline test" },
+        "load": { "threads": 100, "ramp_up": 30, "duration": 600, "description": "load test" },
+        "stress": { "threads": 200, "ramp_up": 60, "duration": 900, "description": "stress test" },
+        "endurance": { "threads": 150, "ramp_up": 60, "duration": 3600, "description": "endurance test" },
+        "spike": { "threads": 500, "ramp_up": 5, "duration": 120, "description": "spike test" }
+    },
+    "safety": {
+        "production_blacklist": [
+            "*.prod.example.com",
+            "*.production.example.com",
+            "api.example.com",
+            "10\\.0\\..*"
+        ],
+        "allowed_targets": []
+    },
+    "report": {
+        "format": ["html", "markdown"],
+        "output_dir": "output/reports",
+        "include_charts": true,
+        "charts": ["tps_trend", "response_time_distribution", "error_rate_pie", "latency_histogram"],
+        "baseline": {
+            "enabled": true,
+            "storage_dir": "output/baselines",
+            "compare_recent": 5
+        }
+    },
+    "results": {
+        "output_dir": "output/results",
+        "format": "csv",
+        "keep_count": 10
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/jmeter.log",
+        "verbose": false
+    },
+    "distributed": {
+        "enabled": false,
+        "slaves": ["${ENV:JMETER_SLAVE_1}", "${ENV:JMETER_SLAVE_2}", "${ENV:JMETER_SLAVE_3}"]
+    },
+    "assertions": {
+        "response_code": "200",
+        "response_time": 5000,
+        "response_content": "$.success=true"
+    }
+}

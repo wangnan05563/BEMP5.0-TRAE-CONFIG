@@ -8,6 +8,13 @@
             "style_detail": "XmlDocument/XmlNode解析XML报文，HeadUtils封装报文头",
             "base_class": "AbstractMessageApplyResponseConverter",
             "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "ext_service_code_patterns_by_channel": {
+                "ecif": "ECIF.{tx_code}0.01",
+                "credit": "EBBS.{service_code}.01",
+                "bup": "BUP.000{service_code}0.01",
+                "cms": "CMS.000{service_code}0.01",
+                "jyt": "JYT.{service_code}0.01"
+            },
             "interceptor_class": "MqMessageInterceptor",
             "modules": {
                 "ecif": {

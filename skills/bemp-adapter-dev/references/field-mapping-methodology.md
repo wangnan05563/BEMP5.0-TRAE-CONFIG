@@ -161,3 +161,22 @@ for (int i = 0; i < reqInfoList.size(); i++) {
 - [ ] Header字段位置正确处理（XML模式）
 - [ ] 字段映射注释已标注外围字段名（接口文档原文）
 - [ ] 多银行差异已在注释中标注（如适用）
+- [ ] ECIF渠道Header覆盖已实现（tellerNo→reqUserNo, orgCode→reqBrchNo）
+- [ ] ECIF渠道isCust字段从报文提取，未固定为"1"
+- [ ] ECIF数组字段取值策略已确认（取首条/取主证件标志）
+
+## 渠道特殊映射规则（新增）
+
+### ECIF渠道
+| 规则 | 说明 | 代码模式 |
+|------|------|---------|
+| Header覆盖 | tellerNo/orgCode在request节点而非ebbsHdrReq | sysHeadToJson后手动覆盖Header |
+| operType映射 | isCust字段映射为operType | `XmlUtil.getNodeValue(requestNode, "isCust")` |
+| 数组取首条 | mOrgCertInfo数组取第一条 | `mOrgCertInfos.get(0)` |
+| 服务码格式 | ECIF.{交易码}0.01 | 交易码后补0 |
+
+### 信贷渠道
+| 规则 | 说明 | 代码模式 |
+|------|------|---------|
+| Header无需覆盖 | tellerNo/orgCode在ebbsHdrReq中 | sysHeadToJson自动提取 |
+| 服务码格式 | EBBS.{服务码}.01 | 标准格式 |

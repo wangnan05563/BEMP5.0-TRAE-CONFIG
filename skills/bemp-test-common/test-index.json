@@ -298,9 +298,9 @@
       "subsystem": "bm",
       "feature": "机构管理和管理员管理功能优化",
       "priority": "P1",
-      "case_count": 16,
+      "case_count": 27,
       "scripts": [],
-      "description": "机构批量导入(10)、管理员批量导入(6)，含校验规则、模版下载、导入失败回滚"
+      "description": "机构批量导入(15)、管理员批量导入(6)、密码参数配置(2)、边界与异常补充(4)，含校验规则、模版下载、导入失败回滚、密码有效期/错误次数配置"
     },
     {
       "id": "TC-ROLE-010",
@@ -355,7 +355,7 @@
   ],
   "summary": {
     "total_cases": 32,
-    "total_estimated_count": 403,
+    "total_estimated_count": 414,
     "by_subsystem": {
       "common": 2,
       "sm": 5,

@@ -35,7 +35,7 @@ param(
     [string]$SqlFile,
 
     [Parameter(Mandatory=$false)]
-    [string]$DbHost = "10.20.18.177",
+    [string]$DbHost = "",
 
     [Parameter(Mandatory=$false)]
     [int]$Port = 1521,
@@ -44,13 +44,13 @@ param(
     [string]$ServiceName = "orcl",
 
     [Parameter(Mandatory=$false)]
-    [string]$Username = "bemp_hnnx",
+    [string]$Username = "",
 
     [Parameter(Mandatory=$false)]
-    [string]$Password = "123456",
+    [string]$Password = "",
 
     [Parameter(Mandatory=$false)]
-    [string]$Schema = "BEMP_HNNX",
+    [string]$Schema = "",
 
     [Parameter(Mandatory=$false)]
     [string]$OutputDir = "",
@@ -59,25 +59,35 @@ param(
     [int]$Timeout = 300,
 
     [Parameter(Mandatory=$false)]
-    [string]$ConfigFile = ""
+    [string]$ConfigFile = "",
+
+    [Parameter(Mandatory=$false)]
+    [string]$Environment = "dev"
 )
 
 $ErrorActionPreference = "Stop"
 
+if ([string]::IsNullOrEmpty($ConfigFile)) {
+    $autoConfig = Join-Path $PSScriptRoot "..\config\db-config.json"
+    if (Test-Path $autoConfig) { $ConfigFile = $autoConfig }
+}
+
+. (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
+
 if (-not [string]::IsNullOrEmpty($ConfigFile)) {
     if (-not (Test-Path $ConfigFile)) {
-        Write-Host "[ERROR] 配置文件不存在: $ConfigFile" -ForegroundColor Red
+        Write-Host "[ERROR] Config file not found: $ConfigFile" -ForegroundColor Red
         exit 1
     }
     $config = Get-Content $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    $oracleCfg = $config.oracle
+    $oracleCfg = $config.databases.oracle.environments.$Environment
     if ($oracleCfg) {
-        if ($DbHost -eq "10.20.18.177" -and $oracleCfg.host) { $DbHost = $oracleCfg.host }
+        if ([string]::IsNullOrEmpty($DbHost) -and $oracleCfg.host) { $DbHost = Resolve-EnvPlaceholder $oracleCfg.host }
         if ($Port -eq 1521 -and $oracleCfg.port) { $Port = $oracleCfg.port }
         if ($ServiceName -eq "orcl" -and $oracleCfg.serviceName) { $ServiceName = $oracleCfg.serviceName }
-        if ($Username -eq "bemp_hnnx" -and $oracleCfg.username) { $Username = $oracleCfg.username }
-        if ($Password -eq "123456" -and $oracleCfg.password) { $Password = $oracleCfg.password }
-        if ($Schema -eq "BEMP_HNNX" -and $oracleCfg.schema) { $Schema = $oracleCfg.schema }
+        if ([string]::IsNullOrEmpty($Username) -and $oracleCfg.username) { $Username = Resolve-EnvPlaceholder $oracleCfg.username }
+        if ([string]::IsNullOrEmpty($Password) -and $oracleCfg.password) { $Password = Resolve-EnvPlaceholder $oracleCfg.password }
+        if ([string]::IsNullOrEmpty($Schema) -and $oracleCfg.schema) { $Schema = Resolve-EnvPlaceholder $oracleCfg.schema }
     }
 }
 

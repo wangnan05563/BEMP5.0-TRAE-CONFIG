@@ -35,7 +35,7 @@ param(
     [string]$TableName,
 
     [Parameter(Mandatory=$false)]
-    [string]$Schema = "BEMP_HNNX",
+    [string]$Schema = "",
 
     [Parameter(Mandatory=$false)]
     [ValidateSet("oracle", "mysql")]
@@ -61,48 +61,48 @@ param(
     [int]$MaxRows = 10000,
 
     [Parameter(Mandatory=$false)]
-    [string]$ConfigFile = ""
+    [string]$ConfigFile = "",
+
+    [Parameter(Mandatory=$false)]
+    [string]$Environment = "dev"
 )
 
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
+
+if ([string]::IsNullOrEmpty($ConfigFile)) {
+    $autoConfig = Join-Path $PSScriptRoot "..\config\db-config.json"
+    if (Test-Path $autoConfig) { $ConfigFile = $autoConfig }
+}
+
 if (-not [string]::IsNullOrEmpty($ConfigFile)) {
     if (-not (Test-Path $ConfigFile)) {
-        Write-Host "[ERROR] 配置文件不存在: $ConfigFile" -ForegroundColor Red
+        Write-Host "[ERROR] Config file not found: $ConfigFile" -ForegroundColor Red
         exit 1
     }
     $config = Get-Content $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
     $dbCfg = $config.databases.$DbType
     if ($dbCfg) {
-        $envCfg = $dbCfg.environments.dev
+        $envCfg = $dbCfg.environments.$Environment
         if ($envCfg) {
-            $Script:DbHost = $envCfg.host
+            $Script:DbHost = Resolve-EnvPlaceholder $envCfg.host
             $Script:Port = $envCfg.port
-            $Script:Username = $envCfg.username
-            $Script:Password = $envCfg.password
+            $Script:Username = Resolve-EnvPlaceholder $envCfg.username
+            $Script:Password = Resolve-EnvPlaceholder $envCfg.password
             if ($DbType -eq "oracle") {
                 $Script:ServiceName = $envCfg.serviceName
-                if (-not $Schema -and $envCfg.schema) { $Schema = $envCfg.schema }
+                if (-not $Schema -and $envCfg.schema) { $Schema = Resolve-EnvPlaceholder $envCfg.schema }
             } else {
-                $Script:Database = $envCfg.database
-                if (-not $Schema -and $envCfg.database) { $Schema = $envCfg.database }
+                $Script:Database = Resolve-EnvPlaceholder $envCfg.database
+                if (-not $Schema -and $envCfg.database) { $Schema = Resolve-EnvPlaceholder $envCfg.database }
             }
         }
     }
 } else {
-    if ($DbType -eq "oracle") {
-        $Script:DbHost = "10.20.18.177"
-        $Script:Port = 1521
-        $Script:ServiceName = "orcl"
-        $Script:Username = "bemp_hnnx"
-        $Script:Password = "123456"
-    } else {
-        $Script:DbHost = "127.0.0.1"
-        $Script:Port = 3306
-        $Script:Database = "bemp_hnnx"
-        $Script:Username = "root"
-        $Script:Password = "123456"
-    }
+    Write-Host "[ERROR] No config file specified and default not found" -ForegroundColor Red
+    Write-Host "Please specify config file via -ConfigFile parameter" -ForegroundColor Yellow
+    exit 1
 }
 
 function Set-TerminalEncoding {

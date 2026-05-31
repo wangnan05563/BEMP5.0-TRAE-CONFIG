@@ -17,10 +17,14 @@ from datetime import datetime
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.join(SCRIPT_DIR, '..')
 
+sys.path.insert(0, SCRIPT_DIR)
+from common import resolve_config_placeholders
+
 
 def load_config(config_path):
     with open(config_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        config = json.load(f)
+    return resolve_config_placeholders(config)
 
 
 def load_template(template_name):
@@ -37,6 +41,18 @@ def get_case_prefix(module, config):
         if module.upper() in prefix or module.lower() in name.lower():
             return prefix
     return module.upper()
+
+
+def _get_default_bank_code():
+    """从 _shared/env-config.json 读取默认银行编码，失败时回退到 'hnnxbank'"""
+    env_config_path = os.path.join(SKILL_DIR, '..', '_shared', 'env-config.json')
+    if os.path.exists(env_config_path):
+        try:
+            with open(env_config_path, 'r', encoding='utf-8') as f:
+                return json.load(f).get('bank', {}).get('code', 'hnnxbank')
+        except (json.JSONDecodeError, IOError):
+            pass
+    return 'hnnxbank'
 
 
 def generate_cases(config, module, priority, bank_id):
@@ -82,7 +98,7 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
-    bank_id = args.bank or config.get('banks', {}).get('active_bank', 'hnnxbank')
+    bank_id = args.bank or config.get('banks', {}).get('active_bank', _get_default_bank_code())
 
     result = generate_cases(config, args.module, args.priority, bank_id)
     print(json.dumps(result, indent=2, ensure_ascii=False))

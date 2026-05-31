@@ -25,7 +25,7 @@ from login_manager import LoginManager, LoginError
 from common import (
     PROJECT_ROOT, get_output_root, take_screenshot, update_index,
     get_screenshot_dir, get_report_dir, wait_for_network_idle,
-    safe_click, dismiss_all_modals
+    safe_click, dismiss_all_modals, get_default_host, get_default_port
 )
 
 STATUS_MAP = {
@@ -49,9 +49,9 @@ EXPORT_TEMPLATE_NAME = "acceptBankCreditGrantReCheckExport"
 def run_accept_bank_credit_test(config, bank_config, bank_id):
     """执行承兑行额度管理自动化测试，所有银行特定信息从配置读取"""
     url_prefix = bank_config.get('url_prefix', '/hnnxbank/')
-    host = config.get('host', '127.0.0.1')
-    frontend_port = config.get('services', {}).get('frontend', {}).get('port', 8091)
-    backend_port = config.get('services', {}).get('backend_api', {}).get('port', 8010)
+    host = config.get('host', get_default_host())
+    frontend_port = config.get('services', {}).get('frontend', {}).get('port', get_default_port('BEMP_FRONTEND_PORT', 8091))
+    backend_port = config.get('services', {}).get('backend_api', {}).get('port', get_default_port('BEMP_BACKEND_PORT', 8010))
 
     BASE_URL = f"http://{host}:{frontend_port}"
     BACKEND_URL = f"http://{host}:{backend_port}"

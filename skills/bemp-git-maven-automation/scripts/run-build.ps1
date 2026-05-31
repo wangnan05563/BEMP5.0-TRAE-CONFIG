@@ -24,8 +24,11 @@ if (!$skillRoot -and $PSScriptRoot) {
     $skillRoot = Split-Path -Parent $PSScriptRoot
 }
 if (!$skillRoot) {
-    $candidate = Join-Path $PWD ".trae\skills\bemp-git-maven-automation"
-    if (Test-Path $candidate) { $skillRoot = (Resolve-Path $candidate).Path }
+    $projectRoot = if ($PSScriptRoot) { (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path } else { $null }
+    if ($projectRoot) {
+        $candidate = Join-Path $projectRoot ".trae\skills\bemp-git-maven-automation"
+        if (Test-Path $candidate) { $skillRoot = (Resolve-Path $candidate).Path }
+    }
 }
 if (!$skillRoot) {
     Write-Error "Cannot determine skill root. Run from project root or set BEMP_SKILL_ROOT."

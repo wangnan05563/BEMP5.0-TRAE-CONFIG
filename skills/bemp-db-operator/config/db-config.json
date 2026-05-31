@@ -27,14 +27,14 @@
             "environments": {
                 "dev": {
                     "label": "开发环境",
-                    "host": "10.20.18.177",
+                    "host": "${ENV:ORACLE_HOST}",
                     "port": 1521,
                     "serviceName": "orcl",
-                    "username": "bemp_hnnx",
-                    "password": "123456",
-                    "schema": "BEMP_HNNX",
+                    "username": "${ENV:ORACLE_USERNAME}",
+                    "password": "${ENV:ORACLE_PASSWORD}",
+                    "schema": "${ENV:ORACLE_SCHEMA}",
                     "bankName": "河南农信",
-                    "dsn": "oracle://bemp_hnnx:123456@10.20.18.177:1521/orcl"
+                    "dsn": "${ENV:ORACLE_DSN}"
                 },
                 "test": {
                     "label": "测试环境",
@@ -72,14 +72,14 @@
             "environments": {
                 "dev": {
                     "label": "开发环境",
-                    "host": "127.0.0.1",
+                    "host": "${ENV:MYSQL_HOST}",
                     "port": 3306,
-                    "database": "bemp_hnnx",
-                    "username": "root",
-                    "password": "123456",
+                    "database": "${ENV:MYSQL_DATABASE}",
+                    "username": "${ENV:MYSQL_USERNAME}",
+                    "password": "${ENV:MYSQL_PASSWORD}",
                     "charset": "utf8mb4",
                     "bankName": "河南农信",
-                    "dsn": "mysql://root:123456@127.0.0.1:3306/bemp_hnnx"
+                    "dsn": "${ENV:MYSQL_DSN}"
                 },
                 "test": {
                     "label": "测试环境",
@@ -111,15 +111,15 @@
                 "description": "MySQL用户权限配置模板，建议为MCP创建专用数据库用户。{ipRange}替换为实际IP段（如10.20.%）",
                 "readOnly": {
                     "description": "只读用户 - 仅支持SELECT查询",
-                    "sql": "CREATE USER 'bemp_readonly'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT SELECT ON bemp_hnnx.* TO 'bemp_readonly'@'{ipRange}'; FLUSH PRIVILEGES;"
+                    "sql": "CREATE USER 'bemp_readonly'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT SELECT ON ${ENV:BANK_DB_NAME}.* TO 'bemp_readonly'@'{ipRange}'; FLUSH PRIVILEGES;"
                 },
                 "readWrite": {
                     "description": "读写用户 - 支持SELECT/INSERT/UPDATE/DELETE",
-                    "sql": "CREATE USER 'bemp_readwrite'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT SELECT, INSERT, UPDATE, DELETE ON bemp_hnnx.* TO 'bemp_readwrite'@'{ipRange}'; FLUSH PRIVILEGES;"
+                    "sql": "CREATE USER 'bemp_readwrite'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT SELECT, INSERT, UPDATE, DELETE ON ${ENV:BANK_DB_NAME}.* TO 'bemp_readwrite'@'{ipRange}'; FLUSH PRIVILEGES;"
                 },
                 "fullAccess": {
                     "description": "完全访问用户 - 支持所有操作（含DDL），仅开发环境使用",
-                    "sql": "CREATE USER 'bemp_full'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT ALL PRIVILEGES ON bemp_hnnx.* TO 'bemp_full'@'{ipRange}'; FLUSH PRIVILEGES;"
+                    "sql": "CREATE USER 'bemp_full'@'{ipRange}' IDENTIFIED BY '{password}'; GRANT ALL PRIVILEGES ON ${ENV:BANK_DB_NAME}.* TO 'bemp_full'@'{ipRange}'; FLUSH PRIVILEGES;"
                 },
                 "recommendation": "生产环境建议使用readOnly用户，开发/测试环境可使用readWrite用户，fullAccess用户仅限本地开发环境。{ipRange}示例：10.20.% 或 localhost"
             }
@@ -168,6 +168,7 @@
         }
     },
     "notes": [
+        "密码等敏感信息使用 ${ENV:VAR_NAME} 占位符，运行时通过环境变量解析。未设置环境变量时，回退到 _shared/env-config.json 中的 environmentDefaults",
         "本文件中的连接参数仅为记录用途，实际连接由MCP服务端配置管理",
         "修改实际连接参数请编辑 mcpConfigRef.path 指向的MCP配置文件",
         "生产环境密码不得明文存储，应使用加密方式",

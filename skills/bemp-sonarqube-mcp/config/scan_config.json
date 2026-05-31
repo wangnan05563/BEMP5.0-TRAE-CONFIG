@@ -1,15 +1,17 @@
 {
+  "_envConfigNote": "路径使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析",
+  "_bankConfigNote": "project.key/name/base_path 的实际值由 _shared/env-config.json 的 bank 节统一管理，此处仅为默认值",
   "project": {
     "key": "bemp-ext-hnnxbank",
-    "name": "BEMP Henan Rural Credit Personalized Extension",
+    "name": "BEMP Ext HNNXBank",
     "base_path": "banks/ext-hnnxbank"
   },
   "sonarqube_server": {
-    "java_home": "D:\\code\\Java\\jdk-25.0.1",
-    "install_path": "D:\\code\\sonar\\sonarqube-26.1.0.118079",
+    "java_home": "${ENV:JAVA_HOME_SONAR}",
+    "install_path": "${ENV:SONARQUBE_HOME}",
     "start_script": "bin\\windows-x86-64\\StartSonar.bat",
     "port": 9000,
-    "host": "http://localhost:9000",
+    "host": "http://localhost:${ENV:SONARQUBE_PORT}",
     "startup_timeout_seconds": 120,
     "health_check_interval_seconds": 5,
     "health_check_endpoint": "/api/system/status"

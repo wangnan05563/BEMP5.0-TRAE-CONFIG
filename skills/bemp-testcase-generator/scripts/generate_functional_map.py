@@ -16,16 +16,20 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.join(SCRIPT_DIR, '..')
 
+sys.path.insert(0, SCRIPT_DIR)
+from common import resolve_config_placeholders
+
 
 def load_config(config_path):
     with open(config_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        config = json.load(f)
+    return resolve_config_placeholders(config)
 
 
 def generate_map(config):
     """输出 Playwright MCP 探索指令序列，供 AI Agent 执行"""
     target = config.get('target', {})
-    base_url = target.get('base_url', 'http://127.0.0.1:8091')
+    base_url = target.get('base_url', '')
     hash_route = target.get('hash_route', '#/')
     login_path = target.get('login_path', '#/login')
 

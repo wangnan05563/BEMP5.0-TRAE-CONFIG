@@ -18,11 +18,16 @@ import os
 import argparse
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(__file__))
+
+from common import resolve_config_placeholders, get_default_host
+
 
 def load_config(config_path):
     config_file = os.path.join(os.path.dirname(__file__), config_path)
     with open(config_file, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        config = json.load(f)
+    return resolve_config_placeholders(config)
 
 
 def validate_config(config):
@@ -116,7 +121,7 @@ def check_http(url, timeout=5):
 def run_health_check(config):
     results = {}
     services = config.get('services', {})
-    host = config.get('host', '127.0.0.1')
+    host = config.get('host', get_default_host())
 
     print("=" * 50)
     print("  BEMP Service Health Check")
@@ -186,17 +191,22 @@ def main():
     except FileNotFoundError:
         print(f"Config file not found: {args.config}")
         print("Using default configuration...")
+        from common import _load_env_defaults
+        defaults = _load_env_defaults()
+        fallback_host = os.environ.get('BEMP_HOST', defaults.get('BEMP_HOST', '127.0.0.1'))
+        fallback_frontend_port = int(os.environ.get('BEMP_FRONTEND_PORT', defaults.get('BEMP_FRONTEND_PORT', '8091')))
+        fallback_backend_port = int(os.environ.get('BEMP_BACKEND_PORT', defaults.get('BEMP_BACKEND_PORT', '8010')))
         config = {
-            "host": "127.0.0.1",
+            "host": fallback_host,
             "services": {
                 "backend_api": {
-                    "port": 8010,
-                    "health_url": "http://127.0.0.1:8010/bemp-served/",
+                    "port": fallback_backend_port,
+                    "health_url": f"http://{fallback_host}:{fallback_backend_port}/bemp-served/",
                     "required": True
                 },
                 "frontend": {
-                    "port": 8091,
-                    "health_url": "http://127.0.0.1:8091/",
+                    "port": fallback_frontend_port,
+                    "health_url": f"http://{fallback_host}:{fallback_frontend_port}/",
                     "required": True
                 },
                 "redis": {

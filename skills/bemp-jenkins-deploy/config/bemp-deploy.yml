@@ -1,4 +1,7 @@
 # BEMP 部署配置参考 | v6.0.0
+# 路径使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析
+# 未设置时回退到 _shared/env-config.json 的 environmentDefaults
+# 银行相关配置由 _shared/env-config.json 的 bank 节统一管理
 # 仅作参考文档，不参与运行时加载。修改配置请直接编辑 Jenkinsfile 的 environment 块。
 
 # ==================== 后端 (Jenkinsfile-served) ====================
@@ -13,46 +16,46 @@ git:
   GIT_RETRY_COUNT: "3"
 
 maven:
-  JAVA_HOME_BUILD: "D:/code/Java/jdk1.8.0_341"
-  MAVEN_HOME: "D:/code/apache-maven-3.6.3"
-  MAVEN_SETTINGS: "D:/code/apache-maven-3.6.3/conf/settings-Artifactory.xml"
+  JAVA_HOME_BUILD: "${ENV:JAVA_HOME}"
+  MAVEN_HOME: "${ENV:MAVEN_HOME}"
+  MAVEN_SETTINGS: "${ENV:MAVEN_SETTINGS}"
   POM_PATH: "pom.xml"
 
 sonar:
-  JAVA_HOME_SONAR: "D:/code/Java/jdk-25.0.1"
-  SONAR_SCANNER_HOME: "D:/code/sonar/sonar-scanner-8.0.1.36819"
-  SONAR_SERVER_URL: "http://localhost:9000"
-  SONAR_PROJECT_KEY: "bemp-ext-hnnxbank"
-  SONAR_PROJECT_NAME: "BEMP Ext HNNXBank"
+  JAVA_HOME_SONAR: "${ENV:JAVA_HOME_SONAR}"
+  SONAR_SCANNER_HOME: "${ENV:SONAR_SCANNER_HOME}"
+  SONAR_SERVER_URL: "http://localhost:${ENV:SONARQUBE_PORT}"
+  SONAR_PROJECT_KEY: "${ENV:BANK_SONAR_PROJECT_KEY}"
+  SONAR_PROJECT_NAME: "${ENV:BANK_SONAR_PROJECT_NAME}"
   SONAR_TOKEN: "credentials('bemp-sonar-token')"
-  SONAR_SOURCES: "hnnxbank-served-deploy/src/main/java,hnnxbank-served-core/src/main/java,hnnxbank-served-facade/src/main/java"
-  SONAR_JAVA_BINARIES: "hnnxbank-served-deploy/target/classes,hnnxbank-served-core/target/classes,hnnxbank-served-facade/target/classes"
-  SONAR_JAVA_LIBRARIES: "hnnxbank-served-deploy/target/lib"
+  SONAR_SOURCES: "${ENV:BANK_MODULE_PREFIX}served-deploy/src/main/java,${ENV:BANK_MODULE_PREFIX}served-core/src/main/java,${ENV:BANK_MODULE_PREFIX}served-facade/src/main/java"
+  SONAR_JAVA_BINARIES: "${ENV:BANK_MODULE_PREFIX}served-deploy/target/classes,${ENV:BANK_MODULE_PREFIX}served-core/target/classes,${ENV:BANK_MODULE_PREFIX}served-facade/target/classes"
+  SONAR_JAVA_LIBRARIES: "${ENV:BANK_MODULE_PREFIX}served-deploy/target/lib"
   SONAR_EXCLUSIONS: "**/test/**,**/generated/**,**/*.xml"
 
 deploy:
-  CURRENT_WAR: "D:/code/QJ/bempDeploy/bemp-served"
-  SOURCE_WAR: "hnnxbank-served-deploy/target/bemp-served"
-  TARGET_DIR: "D:/code/QJ/bempDeploy"
-  BACKUP_DIR: "D:/code/QJ/bempDeploy/backup"
+  CURRENT_WAR: "${ENV:BEMP_DEPLOY_DIR}/bemp-served"
+  SOURCE_WAR: "${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served"
+  TARGET_DIR: "${ENV:BEMP_DEPLOY_DIR}"
+  BACKUP_DIR: "${ENV:BEMP_DEPLOY_DIR}/backup"
   MAX_BACKUPS: "3"
 
 config_replace:
-  CONFIG_REPLACE_WORKSPACE: "D:/code/QJ/BEMP5.0DEV/banks/ext-hnnxbank"
-  CONFIG_REPLACE_TARGET_DIR: "D:/code/QJ/bempDeploy/bemp-served/WEB-INF/classes"
+  CONFIG_REPLACE_WORKSPACE: "${ENV:BEMP_WORKSPACE_ROOT}/banks/${ENV:BANK_PROJECT_DIR}"
+  CONFIG_REPLACE_TARGET_DIR: "${ENV:BEMP_DEPLOY_DIR}/bemp-served/WEB-INF/classes"
   CONFIG_REPLACE_FILES: "application.properties"
 
 services:
   redis:
-    REDIS_EXE: "D:/code/Redis-x64-5.0.14.1/redis-server.exe"
+    REDIS_EXE: "${ENV:REDIS_EXE}"
     REDIS_PORT: "6379"
     REDIS_TIMEOUT: "30"
   zookeeper:
-    ZOOKEEPER_EXE: "D:/code/apache-zookeeper-3.8.3-bin/bin/zkServer.cmd"
+    ZOOKEEPER_EXE: "${ENV:ZOOKEEPER_EXE}"
     ZOOKEEPER_PORT: "2181"
     ZOOKEEPER_TIMEOUT: "60"
   bemp_served:
-    BEMP_SERVED_HOME: "D:/code/QJ/bempDeploy/bemp-served/WEB-INF/classes"
+    BEMP_SERVED_HOME: "${ENV:BEMP_DEPLOY_DIR}/bemp-served/WEB-INF/classes"
     BEMP_SERVED_PORT: "8010"
     HEALTH_CHECK_URL: "http://localhost:8010/bemp-served/health"
     BEMP_SERVED_TIMEOUT: "600"
@@ -62,25 +65,25 @@ services:
 
 frontend:
   node:
-    NODE_HOME: "D:/code/nodejs14"
-    NODE_EXE: "D:/code/nodejs14/node.exe"
+    NODE_HOME: "${ENV:NODE_HOME}"
+    NODE_EXE: "${ENV:NODE_PATH}"
     WORK_DIR: "."
   deploy:
-    CURRENT_WAR: "D:/code/nginx-1.12.2/html/bemp-web"
+    CURRENT_WAR: "${ENV:NGINX_HOME}/html/bemp-web"
     SOURCE_WAR: "bemp-web"
-    TARGET_DIR: "D:/code/nginx-1.12.2/html"
-    BACKUP_DIR: "D:/code/nginx-1.12.2/html/backup"
+    TARGET_DIR: "${ENV:NGINX_HOME}/html"
+    BACKUP_DIR: "${ENV:NGINX_HOME}/html/backup"
     MAX_BACKUPS: "3"
   nginx:
-    NGINX_EXE: "D:/code/nginx-1.12.2/nginx.exe"
-    NGINX_HOME: "D:/code/nginx-1.12.2"
+    NGINX_EXE: "${ENV:NGINX_HOME}/nginx.exe"
+    NGINX_HOME: "${ENV:NGINX_HOME}"
     NGINX_PORT: "8091"
     NGINX_TIMEOUT: "60"
     HEALTH_CHECK_URL: "http://localhost:8091"
   sonar:
-    JAVA_HOME_SONAR: "D:/code/Java/jdk-25.0.1"
-    SONAR_SCANNER_HOME: "D:/code/sonar/sonar-scanner-8.0.1.6346-windows-x64"
-    SONAR_SERVER_URL: "http://localhost:9000"
+    JAVA_HOME_SONAR: "${ENV:JAVA_HOME_SONAR}"
+    SONAR_SCANNER_HOME: "${ENV:SONAR_SCANNER_HOME_FRONTEND}"
+    SONAR_SERVER_URL: "http://localhost:${ENV:SONARQUBE_PORT}"
     SONAR_PROJECT_KEY: "bemp-frontend"
     SONAR_PROJECT_NAME: "BEMP Frontend"
     SONAR_TOKEN: "credentials('bemp-sonar-token')"

@@ -12,7 +12,7 @@
 Write-Warning "本脚本已废弃，请使用新版: aotutests-devtools/organize-screenshots.ps1"
 
 param(
-    [string]$SourceDir = "d:\code\QJ\BEMP5.0DEV\screenshots",
+    [string]$SourceDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..\..")) "aotutests-devtools\screenshots\_incoming"),
     [string]$ArchiveBase = "",
     [string]$Prefix = ""
 )

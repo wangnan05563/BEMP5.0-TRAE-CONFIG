@@ -12,6 +12,8 @@ param(
 
 $originalLocation = Get-Location
 
+. (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
+
 function Set-ConsoleEncoding {
     try {
         chcp 65001 > $null 2>&1
@@ -150,7 +152,7 @@ function Start-RedisService {
     $serviceName = $config.name
     
     # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - Redis (6379)"
+    Set-TerminalTitle "BEMP - Redis ($($config.port))"
     
     Show-TerminalWarning
     
@@ -197,7 +199,7 @@ function Start-RedisService {
     Set-Location $redisDir
     
     # Re-set terminal title before process starts
-    Set-TerminalTitle "BEMP - Redis (6379)"
+    Set-TerminalTitle "BEMP - Redis ($($config.port))"
     
     & ".\$redisExeName"
     
@@ -211,7 +213,7 @@ function Start-ZooKeeperService {
     $serviceName = $config.name
 
     # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - ZooKeeper (2181)"
+    Set-TerminalTitle "BEMP - ZooKeeper ($($config.port))"
     
     Show-TerminalWarning
 
@@ -260,7 +262,7 @@ function Start-ZooKeeperService {
     $env:JAVA_TOOL_OPTIONS = "-Dfile.encoding=UTF-8"
     
     # Re-set terminal title before process starts
-    Set-TerminalTitle "BEMP - ZooKeeper (2181)"
+    Set-TerminalTitle "BEMP - ZooKeeper ($($config.port))"
     
     & ".\$zkExeName"
     
@@ -291,7 +293,7 @@ function Start-SpringBootService {
     $mavenCommand = $config.mavenCommand
 
     # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - SpringBoot (8010)"
+    Set-TerminalTitle "BEMP - SpringBoot ($($config.port))"
     
     Show-TerminalWarning
 
@@ -397,7 +399,7 @@ function Start-SpringBootService {
         Write-Host ""
         
         # Re-set terminal title after Maven (Maven may override it)
-        Set-TerminalTitle "BEMP - SpringBoot (8010)"
+        Set-TerminalTitle "BEMP - SpringBoot ($($config.port))"
     }
 
     # Step 3: Check if WAR file exists after compilation
@@ -576,7 +578,7 @@ function Start-SpringBootInTerminal {
     Write-Host ""
 
     # Re-set terminal title before Java process starts
-    Set-TerminalTitle "BEMP - SpringBoot (8010)"
+    Set-TerminalTitle "BEMP - SpringBoot ($($config.port))"
 
     # Start Java process in foreground (like ZooKeeper)
     & $javaExe $javaArgs
@@ -594,7 +596,7 @@ function Start-FrontendService {
     $nodeMemoryLimit = $config.nodeMemoryLimit
 
     # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - Frontend (8091)"
+    Set-TerminalTitle "BEMP - Frontend ($($config.port))"
     
     Show-TerminalWarning
 
@@ -730,7 +732,7 @@ function Start-FrontendService {
     
     # Start frontend service
     # Re-set terminal title before process starts
-    Set-TerminalTitle "BEMP - Frontend (8091)"
+    Set-TerminalTitle "BEMP - Frontend ($($config.port))"
     
     # 显式设置 NODE_ENV，确保 webpack-dev-server 使用正确的环境
     $env:NODE_ENV = "development"
@@ -809,7 +811,8 @@ if (-not (Test-Path $ConfigPath)) {
     Write-Error "Config not found: $ConfigPath"
     exit 1
 }
-$config = Get-Content $ConfigPath | ConvertFrom-Json
+$config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$config = Resolve-AllConfigPlaceholders $config
 Write-Success "Config loaded"
 
 if ($Status) {

@@ -5,28 +5,28 @@
       {
         "role": "default",
         "username": "wangnan02",
-        "password": "abc@123",
+        "password": "${ENV:BEMP_TEST_PASSWORD}",
         "description": "河南农信 - 普通柜员账号",
         "scope": "self_and_sub"
       },
       {
         "role": "admin",
         "username": "mllzs01",
-        "password": "888888",
+        "password": "${ENV:BEMP_TEST_PASSWORD}",
         "description": "河南农信 - 法人管理员账号",
         "scope": "all"
       },
       {
         "role": "branch_admin",
         "username": "wangnan01",
-        "password": "abc@123",
+        "password": "${ENV:BEMP_TEST_PASSWORD}",
         "description": "河南农信 - 机构管理员账号，用于机构管理、权限分配等管理功能测试",
         "scope": "branch_all"
       },
       {
         "role": "branch_teller",
         "username": "sjl03",
-        "password": "888888",
+        "password": "${ENV:BEMP_TEST_PASSWORD}",
         "description": "河南农信 - 分行柜员（机构号233301），用于数据隔离对比测试",
         "scope": "self_and_sub",
         "user_type": 3,

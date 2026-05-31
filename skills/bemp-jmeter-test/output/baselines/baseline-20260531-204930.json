@@ -1,0 +1,11 @@
+﻿{
+    "timestamp":  "2026-05-31T20:49:30",
+    "metrics":  {
+                    "error_pct":  0.38,
+                    "p99_ms":  621,
+                    "p95_ms":  319,
+                    "tps":  0,
+                    "avg_ms":  96.34
+                },
+    "test_target":  "https://www.baidu.com"
+}

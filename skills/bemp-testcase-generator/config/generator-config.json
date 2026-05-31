@@ -1,7 +1,7 @@
 {
   "target": {
-    "base_url": "http://127.0.0.1:8091",
-    "backend_url": "http://127.0.0.1:8010",
+    "base_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_FRONTEND_PORT}",
+    "backend_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_BACKEND_PORT}",
     "hash_route": "#/",
     "login_path": "#/login"
   },

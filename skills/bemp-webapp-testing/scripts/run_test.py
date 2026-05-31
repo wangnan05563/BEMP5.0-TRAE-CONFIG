@@ -27,7 +27,8 @@ from login_manager import LoginManager, LoginError
 from common import (
     get_selector, capture_errors, capture_requests,
     filter_critical_errors, filter_personalized_urls,
-    resolve_output_path, update_index, PROJECT_ROOT
+    resolve_output_path, update_index, PROJECT_ROOT,
+    get_default_bank_code
 )
 
 
@@ -261,7 +262,7 @@ def run_pre_code_checks(project_root, bank_id=None):
     issues = []
 
     if bank_id is None:
-        bank_id = "hnnxbank"
+        bank_id = os.environ.get('BEMP_ACTIVE_BANK', get_default_bank_code())
 
     frontend_dir = os.path.join(project_root, "frontend", "src", "views", "bizViews", "banks", bank_id)
     index_file = os.path.join(project_root, "frontend", "src", "api", "bank", f"{bank_id}Index.js")
@@ -325,22 +326,8 @@ def main():
     try:
         config = load_config(args.config)
     except FileNotFoundError:
-        config = {
-            "host": "127.0.0.1",
-            "active_bank": "",
-            "services": {
-                "backend_api": {"port": 8010, "health_url": "http://127.0.0.1:8010/bemp-served/", "required": True},
-                "frontend": {"port": 8091, "health_url": "http://127.0.0.1:8091/", "required": True}
-            },
-            "banks": {
-                "PLACEHOLDER": {
-                    "name": "请配置实际银行信息",
-                    "url_prefix": "/PLACEHOLDER/",
-                    "login": {"default": {"username": "PLACEHOLDER", "password": "PLACEHOLDER"}},
-                    "pages": {}
-                }
-            }
-        }
+        print("[ERROR] Config file not found. Please specify config via --config parameter")
+        sys.exit(1)
 
     bank_config, bank_id = get_bank_config(config, args.bank)
     if not bank_config:

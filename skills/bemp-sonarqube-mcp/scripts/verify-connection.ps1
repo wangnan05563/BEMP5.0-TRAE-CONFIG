@@ -6,6 +6,8 @@ param(
     [string]$ConfigPath = "$PSScriptRoot\..\config\scan_config.json"
 )
 
+. (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  BEMP SonarQube MCP 连接验证" -ForegroundColor Cyan
@@ -14,19 +16,42 @@ Write-Host ""
 
 # Step 1: 读取配置
 if (Test-Path $ConfigPath) {
-    $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+    $config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $sqConfig = $config.sonarqube_server
     $port = $sqConfig.port
-    $host = $sqConfig.host
-    $javaHome = $sqConfig.java_home
-    Write-Host "[配置] 已加载 scan_config.json" -ForegroundColor Green
+    $host = Resolve-EnvPlaceholder $sqConfig.host
+    $javaHome = Resolve-EnvPlaceholder $sqConfig.java_home
+    $projectKey = if ($config.project -and $config.project.key) { $config.project.key } else {
+        $defaults = (Get-GlobalEnvConfig).environmentDefaults
+        if ($defaults -and $defaults.BANK_SONAR_PROJECT_KEY) { $defaults.BANK_SONAR_PROJECT_KEY } else { "bemp-ext-hnnxbank" }
+    }
+    Write-Host "[OK] scan_config.json loaded" -ForegroundColor Green
     Write-Host "  SonarQube Host : $host" -ForegroundColor Gray
     Write-Host "  SonarQube Port : $port" -ForegroundColor Gray
     Write-Host "  JAVA_HOME      : $javaHome" -ForegroundColor Gray
 } else {
     Write-Host "[警告] 配置文件不存在: $ConfigPath" -ForegroundColor Red
-    $port = 9000
-    $host = "http://localhost:9000"
+    $sharedConfigPath = Join-Path $PSScriptRoot "..\..\_shared\env-config.json"
+    if (Test-Path $sharedConfigPath) {
+        $sharedConfig = Get-Content $sharedConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $port = $sharedConfig.services.sonarqube.port
+        $host = $sharedConfig.services.sonarqube.host
+    } else {
+        $port = 9000
+        $host = "http://localhost:9000"
+    }
+    $config = $null
+    $defaults = (Get-GlobalEnvConfig).environmentDefaults
+    if ($defaults -and $defaults.BANK_SONAR_PROJECT_KEY) {
+        $projectKey = $defaults.BANK_SONAR_PROJECT_KEY
+    } else {
+        $projectKey = "bemp-ext-hnnxbank"
+    }
+    $javaHome = [Environment]::GetEnvironmentVariable("JAVA_HOME_SONAR")
+    if ([string]::IsNullOrEmpty($javaHome)) {
+        $defaults = (Get-GlobalEnvConfig).environmentDefaults
+        if ($defaults) { $javaHome = $defaults.JAVA_HOME_SONAR }
+    }
 }
 
 Write-Host ""
@@ -85,8 +110,8 @@ Write-Host ""
 Write-Host "--- MCP 工具验证 ---" -ForegroundColor Yellow
 Write-Host "  需在 Trae Agent 中执行以下调用：" -ForegroundColor White
 Write-Host "  1. search_my_sonarqube_projects(q='BEMP')" -ForegroundColor White
-Write-Host "  2. get_project_quality_gate_status(projectKey='bemp-ext-hnnxbank')" -ForegroundColor White
+Write-Host "  2. get_project_quality_gate_status(projectKey='$($projectKey)')" -ForegroundColor White
 Write-Host ""
 Write-Host "  预期结果：" -ForegroundColor White
-Write-Host "  - 项目列表包含 bemp-ext-hnnxbank" -ForegroundColor White
+Write-Host "  - 项目列表包含 $projectKey" -ForegroundColor White
 Write-Host "  - 质量门禁状态返回 OK 或 ERROR" -ForegroundColor White

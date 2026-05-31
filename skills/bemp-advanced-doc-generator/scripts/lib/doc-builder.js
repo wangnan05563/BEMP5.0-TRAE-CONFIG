@@ -226,7 +226,10 @@ class DocumentBuilder {
     }
 
     async generateDocument(moduleName, outputPath, templateData, type = 'design') {
-        const data = templateData || this._getDefaultTemplateData(moduleName, type);
+        const data = this._resolvePlaceholders(
+            templateData || this._getDefaultTemplateData(moduleName, type),
+            { moduleName, currentDate: new Date().toLocaleDateString('zh-CN') }
+        );
         const children = [];
         children.push(...this.createCoverPage(data.coverPage));
         children.push(...this.createRevisionHistory(data.revisionHistory?.rows, data.revisionHistory?.headers));
@@ -595,6 +598,27 @@ class DocumentBuilder {
         const colWidth = Math.floor(9000 / colCount);
         const colWidths = headerCells.map(() => colWidth);
         return { headers: headerCells, rows, colWidths };
+    }
+
+    _resolvePlaceholders(data, vars) {
+        if (typeof data === 'string') {
+            let result = data;
+            Object.entries(vars).forEach(([key, value]) => {
+                result = result.replace(new RegExp(`\\$\\{${key}\\}`, 'g'), value || '');
+            });
+            return result;
+        }
+        if (Array.isArray(data)) {
+            return data.map(item => this._resolvePlaceholders(item, vars));
+        }
+        if (typeof data === 'object' && data !== null) {
+            const resolved = {};
+            Object.entries(data).forEach(([key, value]) => {
+                resolved[key] = this._resolvePlaceholders(value, vars);
+            });
+            return resolved;
+        }
+        return data;
     }
 
     _getDefaultTemplateData(moduleName, type) {

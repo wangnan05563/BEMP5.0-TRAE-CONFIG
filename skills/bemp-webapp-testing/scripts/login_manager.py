@@ -19,6 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from health_check import load_config, get_bank_config
+from common import get_default_host, get_default_port
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..', '..'))
@@ -26,14 +27,14 @@ PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..', '..'))
 
 class LoginManager:
     SESSION_STATE_DIR = "session_states"
-    STATE_MAX_AGE_SECONDS = 1800
+    STATE_MAX_AGE_SECONDS = int(os.environ.get('BEMP_SESSION_MAX_AGE', '1800'))
 
     def __init__(self, config, bank_id=None, browser=None, playwright_instance=None):
         self._config = config
         self._bank_id = bank_id or config.get('active_bank', '')
         self._bank_config, _ = get_bank_config(config, self._bank_id)
-        self._host = config.get('host', '127.0.0.1')
-        self._frontend_port = config.get('services', {}).get('frontend', {}).get('port', 8091)
+        self._host = config.get('host', get_default_host())
+        self._frontend_port = int(os.environ.get('BEMP_FRONTEND_PORT', str(config.get('services', {}).get('frontend', {}).get('port', get_default_port('BEMP_FRONTEND_PORT', 8091)))))
         self._base_url = f"http://{self._host}:{self._frontend_port}"
         self._selectors = config.get('selectors', {})
         self._login_config = config.get('login', {})
@@ -78,10 +79,12 @@ class LoginManager:
 
     def _load_test_accounts(self):
         accounts_file = self._config.get('test_data', {}).get('accounts_file', 'test-data/test-accounts.json')
-        accounts_path = os.path.join(PROJECT_ROOT, '.trae', 'skills', 'bemp-webapp-testing', accounts_file)
+        accounts_path = os.path.join(SCRIPT_DIR, '..', accounts_file)
         try:
             with open(accounts_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+            from common import resolve_config_placeholders
+            return resolve_config_placeholders(data)
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
@@ -346,7 +349,7 @@ if __name__ == '__main__':
     config = load_config(args.config)
 
     if args.cleanup_states:
-        state_dir = os.path.join(os.path.dirname(__file__), '..', LoginManager.SESSION_STATE_DIR)
+        state_dir = os.path.join(PROJECT_ROOT, LoginManager.SESSION_STATE_DIR)
         cleaned = 0
         if os.path.exists(state_dir):
             for f in os.listdir(state_dir):

@@ -1,23 +1,24 @@
 {
+  "_envConfigNote": "敏感信息使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析。未设置时回退到 _shared/env-config.json 的 environmentDefaults",
   "bank_profile": "hnnxbank",
 
   "environment": {
-    "host": "127.0.0.1",
+    "host": "${ENV:BEMP_HOST}",
     "services": {
-      "backend": { "port": 8010, "base_url": "http://127.0.0.1:8010/bemp-served/", "api_prefix": "/hnnxbank/" },
-      "frontend": { "port": 8091, "url": "http://127.0.0.1:8091" },
+      "backend": { "port": 8010, "base_url": "http://${ENV:BEMP_HOST}:8010/bemp-served/", "api_prefix": "${ENV:BANK_URL_PREFIX}" },
+      "frontend": { "port": 8091, "url": "http://${ENV:BEMP_HOST}:8091" },
       "redis": { "port": 6379 },
       "zookeeper": { "port": 2181 }
     }
   },
 
   "accounts": {
-    "default_teller": { "username": "wangnan02", "password": "abc@123", "description": "普通柜员账号" },
-    "admin": { "username": "mllzs01", "password": "888888", "description": "法人管理员账号" },
-    "branch_admin": { "username": "wangnan01", "password": "abc@123", "description": "机构管理员账号，用于机构管理、权限分配等管理功能测试" },
+    "default_teller": { "username": "wangnan02", "password": "${ENV:BEMP_TEST_PASSWORD}", "description": "普通柜员账号" },
+    "admin": { "username": "mllzs01", "password": "${ENV:BEMP_TEST_PASSWORD}", "description": "法人管理员账号" },
+    "branch_admin": { "username": "wangnan01", "password": "${ENV:BEMP_TEST_PASSWORD}", "description": "机构管理员账号，用于机构管理、权限分配等管理功能测试" },
     "branch_teller_sjl03": {
       "userNo": "sjl03",
-      "password": "888888",
+      "password": "${ENV:BEMP_TEST_PASSWORD}",
       "userType": 3,
       "brchNo": "233301",
       "role": "分行柜员",
