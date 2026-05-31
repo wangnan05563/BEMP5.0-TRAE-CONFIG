@@ -6,7 +6,7 @@ const VALID_TYPES = ['design', 'testcase', 'testreport', 'testcase-excel', 'test
 const VALID_FORMATS = ['docx', 'md', 'excel'];
 
 function parseArgs(args) {
-    const options = { type: 'design', format: 'docx', jsonOutput: false };
+    const options = { type: 'design', format: 'docx', jsonOutput: false, noOverwrite: false, listModules: false };
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -31,6 +31,10 @@ function parseArgs(args) {
                 options.visualization = true; break;
             case '--json':
                 options.jsonOutput = true; break;
+            case '--list':
+                options.listModules = true; break;
+            case '--no-overwrite':
+                options.noOverwrite = true; break;
             case '--help': case '-h':
                 printHelp(); process.exit(0);
             default:
@@ -66,6 +70,8 @@ BEMP 文档生成器 v2.0
   -c, --config <路径>      配置文件路径
   -p, --profile <路径>     业务模块配置文件路径（JSON）
   --json                   JSON结构化输出（含自动验证结果）
+  --list                   列出所有可用模块Profile
+  --no-overwrite           已存在文件跳过生成，不覆盖
   -v, --visualization      生成可视化文档
   -h, --help               显示帮助信息
 
@@ -74,6 +80,7 @@ BEMP 文档生成器 v2.0
   node cli.js -t testcase -f excel -r "需求.md" -m "额度管理"
   node cli.js -t testcase -f excel -r "需求.md" -m "额度管理" --json
   node cli.js -t testreport -m "批量导入"
+  node cli.js --list
 `);
 }
 
@@ -108,6 +115,14 @@ async function generateDocument(options) {
     if (!profile) {
         profile = RequirementAnalyzer.loadProfile(moduleName) || {};
     }
+
+    const CURRENT_SCHEMA = '1.0';
+    if (profile._schemaVersion && profile._schemaVersion !== CURRENT_SCHEMA) {
+        if (!jsonMode) {
+            console.warn(`⚠ Profile schema 版本不匹配: profile=${profile._schemaVersion}, 当前=${CURRENT_SCHEMA}，可能缺少新字段`);
+        }
+    }
+    const outputDir = profile.outputDir || paths.outputDir;
 
     if (options.format === 'excel') {
         const { ExcelTestCaseGenerator } = require('./lib/excel-testcase-generator');
@@ -153,7 +168,7 @@ async function generateDocument(options) {
     }
 
     const { DocumentBuilder } = require('./lib/doc-builder');
-    const builder = new DocumentBuilder({ profile });
+    const builder = new DocumentBuilder({ profile, outputDir });
 
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const typeLabels = { design: '详细设计文档', testcase: '测试用例', testreport: '测试报告' };
@@ -175,12 +190,18 @@ async function generateDocument(options) {
     let outputPath;
 
     if (options.format === 'md') {
-        const defaultOutput = path.join(paths.outputDir, `${moduleName}-${typeLabel}-${date}.md`);
+        const defaultOutput = path.join(outputDir, `${moduleName}-${typeLabel}-${date}.md`);
         outputPath = options.outputPath || defaultOutput;
+        if (options.noOverwrite && fs.existsSync(outputPath)) {
+            return [`⊘ 跳过(已存在): ${outputPath}`];
+        }
         builder.generateMarkdown(moduleName, outputPath, options.type, templateData);
     } else {
-        const defaultOutput = path.join(paths.outputDir, `${moduleName}-${typeLabel}-${date}.docx`);
+        const defaultOutput = path.join(outputDir, `${moduleName}-${typeLabel}-${date}.docx`);
         outputPath = options.outputPath || defaultOutput;
+        if (options.noOverwrite && fs.existsSync(outputPath)) {
+            return [`⊘ 跳过(已存在): ${outputPath}`];
+        }
 
         switch (options.type) {
             case 'design':
@@ -268,6 +289,29 @@ async function main() {
     }
 
     const options = parseArgs(args);
+
+    if (options.listModules) {
+        const { RequirementAnalyzer } = require('./lib/requirement-analyzer');
+        const profiles = RequirementAnalyzer.listProfiles();
+        console.log('\n可用模块 Profile:\n');
+        if (profiles.length === 0) {
+            console.log('  (未找到任何 profile 文件)');
+        } else {
+            const moduleProfs = profiles.filter(p => !p.isDefault);
+            const defaultProf = profiles.find(p => p.isDefault);
+            for (const p of moduleProfs) {
+                console.log(`  📄 ${p.name}  (v${p.schemaVersion})`);
+                if (p.description) console.log(`     ${p.description}`);
+            }
+            if (defaultProf) {
+                console.log(`\n  📋 ${defaultProf.name} (默认配置, v${defaultProf.schemaVersion})`);
+                if (defaultProf.description) console.log(`     ${defaultProf.description}`);
+            }
+            console.log(`\n共 ${moduleProfs.length} 个模块 + 1 个默认配置`);
+        }
+        console.log('');
+        process.exit(0);
+    }
 
     if (options.jsonOutput) {
         try {

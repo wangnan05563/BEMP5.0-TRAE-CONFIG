@@ -1,5 +1,7 @@
 {
+  "_schemaVersion": "1.0",
   "_description": "BEMP技能默认业务配置 — 所有硬编码值的外部化。模块可通过同名JSON文件覆盖任意字段。",
+  "outputDir": null,
   
   "company": {
     "name": "恒生电子股份有限公司",

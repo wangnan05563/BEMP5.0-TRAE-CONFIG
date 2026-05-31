@@ -14,7 +14,7 @@ const {
 
 class DocumentBuilder {
     constructor(options = {}) {
-        this.outputDir = paths.outputDir;
+        this.outputDir = options.outputDir || paths.outputDir;
         this.profile = options.profile || {};
     }
 

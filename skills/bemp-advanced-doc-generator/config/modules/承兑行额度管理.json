@@ -1,4 +1,5 @@
 {
+  "_schemaVersion": "1.0",
   "_description": "承兑行额度管理 — 额度申请/批复明细/复核的完整生命周期配置",
 
   "defaultMenuLevel1": "业务管理子系统",

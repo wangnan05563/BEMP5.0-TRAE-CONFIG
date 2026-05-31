@@ -44,6 +44,30 @@ class RequirementAnalyzer {
         }
         return RequirementAnalyzer._loadDefaultProfile();
     }
+
+    static listProfiles() {
+        const configDir = path.join(__dirname, '..', 'config', 'modules');
+        if (!fs.existsSync(configDir)) return [];
+        try {
+            return fs.readdirSync(configDir)
+                .filter(f => f.endsWith('.json'))
+                .map(f => {
+                    const filePath = path.join(configDir, f);
+                    try {
+                        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                        return {
+                            file: f,
+                            name: f.replace('.json', ''),
+                            description: data._description || '',
+                            isDefault: f === 'default-profile.json',
+                            schemaVersion: data._schemaVersion || '未知'
+                        };
+                    } catch (e) {
+                        return { file: f, name: f.replace('.json', ''), description: '(解析失败)', isDefault: false, schemaVersion: '未知' };
+                    }
+                });
+        } catch (e) { return []; }
+    }
     static _loadDefaultProfile() {
         const defaultPath = path.join(__dirname, '..', 'config', 'modules', 'default-profile.json');
         if (fs.existsSync(defaultPath)) {

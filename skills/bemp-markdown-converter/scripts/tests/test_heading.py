@@ -74,6 +74,24 @@ def test_no_headings():
     assert result == content
 
 
+def test_offset_from_h3():
+    """文档从三级标题开始，编号应从1开始而非0.0.1"""
+    content = "### Title\n#### Sub\n##### Detail"
+    result = fix_heading_numbers(content)
+    assert "### 1. Title" in result
+    assert "#### 1.1 Sub" in result
+    assert "##### 1.1.1 Detail" in result
+
+
+def test_offset_from_h2():
+    """文档从二级标题开始"""
+    content = "## Title\n### Sub\n#### Detail"
+    result = fix_heading_numbers(content)
+    assert "## 1. Title" in result
+    assert "### 1.1 Sub" in result
+    assert "#### 1.1.1 Detail" in result
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     passed = 0

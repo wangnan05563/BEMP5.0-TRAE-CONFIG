@@ -1,4 +1,4 @@
-﻿﻿---
+﻿﻿﻿﻿---
 name: "bemp-git-maven-automation"
 description: "自动同步工作空间中的Git仓库并执行Maven构建，支持Banks个性化工程增量编译。"
 whenToUse: "当用户需要更新 所有/全部/全量/增量 仓库代码/编译项目/maven构建/构建时调用"

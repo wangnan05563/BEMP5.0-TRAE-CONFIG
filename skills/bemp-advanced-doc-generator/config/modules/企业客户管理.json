@@ -1,4 +1,5 @@
 {
+  "_schemaVersion": "1.0",
   "_description": "企业客户管理优化 — 覆盖默认profile中的额度管理专用配置",
 
   "defaultMenuLevel1": "业务管理子系统",
