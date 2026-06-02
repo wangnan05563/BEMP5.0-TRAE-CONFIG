@@ -3,28 +3,24 @@ package com.hundsun.bemp.{{bank}}.adapter.msg.server.{{module}};
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 {{#XML_MODE}}
-import com.hundsun.bemp.adapter.msg.converter.MessageXmlBuilder;
+import com.hundsun.bemp.adapter.msg.converter.MessageXmlParser;
 import com.hundsun.bemp.adapter.msg.xml.XmlDocument;
-import com.hundsun.bemp.adapter.msg.xml.XmlNode;
-import com.hundsun.bemp.{{bank}}.adapter.msg.common.MessageConstants;
-import com.hundsun.bemp.{{bank}}.adapter.msg.util.HeadUtils;
-import com.hundsun.bemp.{{bank}}.adapter.msg.util.XmlUtil;
 {{/XML_MODE}}
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mockito;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.support.MessageBuilder;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
 
 /**
  * {{pice_code}}MessageConverter 单元测试
+ * {{功能中文名}}
  *
- * 测试策略：纯Mock方式，不启动Spring上下文
- * - fromMessage: 验证外围报文字段到内部DTO的映射正确性
- * - toMessage: 验证内部响应到外围报文的组装正确性
- * - 边界场景: 空节点、空数组、null值处理
+ * 测试策略：构造真实模拟报文，使用MessageXmlParser解析，不启动Spring上下文
+ * - 每个测试方法通过buildRequestXml/buildRequestJson构造完整模拟报文
+ * - 覆盖正常解析、子节点缺失容错、响应组装、空数据容错、映射验证
  */
 public class {{pice_code}}MessageConverterTest {
 
@@ -35,185 +31,370 @@ public class {{pice_code}}MessageConverterTest {
         converter = new {{pice_code}}MessageConverter();
     }
 
-    // ==================== fromMessage 测试 ====================
-
     {{#XML_MODE}}
     /**
-     * 测试fromMessage - 正常XML报文解析
-     * 验证所有字段映射关系与接口文档一致
+     * 构造{{外围系统}}请求报文XML
+     * 模拟外围系统发送的原始MQ报文，包含完整的header和body结构
+     */
+    private String buildRequestXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<transaction>" +
+                "  <header>" +
+                "    <ver>1.0</ver>" +
+                "    <msg>" +
+                "      <seqNb>{{流水号}}</seqNb>" +
+                "      <msgCd>{{外部服务码}}</msgCd>" +
+                "      <sndAppCd>{{外围系统}}</sndAppCd>" +
+                "      <sndDt>{{日期}}</sndDt>" +
+                "      <sndTm>{{时间}}</sndTm>" +
+                "      <sndMbrCd>{{外围系统}}</sndMbrCd>" +
+                "      <replyToQ>{{外围系统}}.RESP</replyToQ>" +
+                "      <refCallTyp>SYN</refCallTyp>" +
+                "    </msg>" +
+                "  </header>" +
+                "  <body>" +
+                "    <request>" +
+                "      <ebbsHdrReq>" +
+                "        <opCode>{{pice_code}}</opCode>" +
+                "        <version>01</version>" +
+                "        <channelNo>{{渠道}}</channelNo>" +
+                "        <reqFlowNo>{{请求流水号}}</reqFlowNo>" +
+                "        <reqLegalNo>{{法人号}}</reqLegalNo>" +
+                "      </ebbsHdrReq>" +
+                "      {{FROM_MESSAGE_XML_FIELDS}}" +
+                "    </request>" +
+                "  </body>" +
+                "</transaction>";
+    }
+
+    /**
+     * 正常报文解析测试
+     * 验证所有字段映射正确，包含Header字段覆盖（ECIF渠道）
      */
     @Test
-    public void testFromMessage_normalRequest() {
-        // 1. 构造Mock XML报文
-        Message<?> message = mock(Message.class);
-        XmlDocument xmlDocument = mock(XmlDocument.class);
-        XmlNode rootNode = mock(XmlNode.class);
-        XmlNode bodyNode = mock(XmlNode.class);
-        XmlNode requestNode = mock(XmlNode.class);
+    public void testFromMessage_normal() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
 
-        when(message.getPayload()).thenReturn(xmlDocument);
-        when(xmlDocument.getRoot()).thenReturn(rootNode);
-        when(rootNode.getSubNode("body")).thenReturn(bodyNode);
-        when(bodyNode.getSubNode("request")).thenReturn(requestNode);
-
-        // 2. Mock request节点下的字段值（按接口文档字段名）
-        // {{FROM_MESSAGE_FIELD_MOCK_BLOCK}}
-
-        // 3. 执行转换
         JSONObject result = converter.fromMessage(message);
 
-        // 4. 验证映射结果（按内部DTO字段名）
-        assertNotNull(result);
         JSONObject requestDto = result.getJSONObject("requestDto");
-        assertNotNull(requestDto);
+        assertNotNull("requestDto不应为null", requestDto);
         // {{FROM_MESSAGE_ASSERT_BLOCK}}
+
+        // 验证Header字段（ECIF渠道需验证tellerNo/orgCode覆盖）
+        JSONObject header = result.getJSONObject("Header");
+        assertNotNull("Header不应为null", header);
+        // {{FROM_MESSAGE_HEADER_ASSERT_BLOCK}}
     }
 
     /**
-     * 测试fromMessage - 子节点为null时的容错处理
-     * 验证可选子节点缺失时不影响主流程
+     * 子节点缺失时的容错处理
+     * 验证可选子节点缺失时null检查生效，不抛NPE
      */
     @Test
-    public void testFromMessage_subNodeNull() {
-        Message<?> message = mock(Message.class);
-        XmlDocument xmlDocument = mock(XmlDocument.class);
-        XmlNode rootNode = mock(XmlNode.class);
-        XmlNode bodyNode = mock(XmlNode.class);
-        XmlNode requestNode = mock(XmlNode.class);
+    public void testFromMessage_missingSubNodes() {
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<transaction>" +
+                "  <header>" +
+                "    <ver>1.0</ver>" +
+                "    <msg>" +
+                "      <seqNb>{{流水号}}</seqNb>" +
+                "      <msgCd>{{外部服务码}}</msgCd>" +
+                "      <sndAppCd>{{外围系统}}</sndAppCd>" +
+                "      <sndDt>{{日期}}</sndDt>" +
+                "      <sndTm>{{时间}}</sndTm>" +
+                "      <sndMbrCd>{{外围系统}}</sndMbrCd>" +
+                "      <replyToQ>{{外围系统}}.RESP</replyToQ>" +
+                "      <refCallTyp>SYN</refCallTyp>" +
+                "    </msg>" +
+                "  </header>" +
+                "  <body>" +
+                "    <request>" +
+                "      <ebbsHdrReq>" +
+                "        <opCode>{{pice_code}}</opCode>" +
+                "        <version>01</version>" +
+                "        <channelNo>{{渠道}}</channelNo>" +
+                "        <reqFlowNo>{{请求流水号}}</reqFlowNo>" +
+                "        <reqLegalNo>{{法人号}}</reqLegalNo>" +
+                "      </ebbsHdrReq>" +
+                "      {{FROM_MESSAGE_REQUIRED_ONLY_FIELDS}}" +
+                "    </request>" +
+                "  </body>" +
+                "</transaction>";
 
-        when(message.getPayload()).thenReturn(xmlDocument);
-        when(xmlDocument.getRoot()).thenReturn(rootNode);
-        when(rootNode.getSubNode("body")).thenReturn(bodyNode);
-        when(bodyNode.getSubNode("request")).thenReturn(requestNode);
-
-        // 仅Mock主字段，子节点返回null
-        // {{FROM_MESSAGE_REQUIRED_ONLY_MOCK_BLOCK}}
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(xml);
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
 
         JSONObject result = converter.fromMessage(message);
-
-        assertNotNull(result);
         JSONObject requestDto = result.getJSONObject("requestDto");
-        assertNotNull(requestDto);
-        // {{FROM_MESSAGE_REQUIRED_ONLY_ASSERT_BLOCK}}
-    }
-    {{/XML_MODE}}
 
-    {{#JSON_MODE}}
+        assertNotNull("requestDto不应为null", requestDto);
+        // 子节点缺失时，对应字段应为null
+        // {{FROM_MESSAGE_NULL_ASSERT_BLOCK}}
+    }
+
     /**
-     * 测试fromMessage - 正常JSON报文解析
-     * 验证JSON字段到内部DTO的映射正确性
+     * 正常响应组装测试
+     * 验证XML结构正确，包含retCode/retMsg/数据节点
      */
     @Test
-    public void testFromMessage_normalRequest() {
-        Message<?> message = mock(Message.class);
-        JSONObject payload = new JSONObject();
-        JSONObject body = new JSONObject();
-        JSONObject requestDto = new JSONObject();
+    public void testToMessage_normal() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
 
-        // 构造请求JSON（按接口文档字段名）
-        // {{FROM_MESSAGE_JSON_CONSTRUCT_BLOCK}}
-
-        payload.put("body", body);
-        when(message.getPayload()).thenReturn(payload);
-
-        JSONObject result = converter.fromMessage(message);
-
-        assertNotNull(result);
-        // {{FROM_MESSAGE_ASSERT_BLOCK}}
-    }
-    {{/JSON_MODE}}
-
-    // ==================== toMessage 测试 ====================
-
-    {{#XML_MODE}}
-    /**
-     * 测试toMessage - 正常响应XML组装
-     * 验证响应JSON到外围XML报文的字段映射
-     */
-    @Test
-    public void testToMessage_normalResponse() {
-        // 1. 构造原始消息（用于获取header）
-        Message<?> message = mock(Message.class);
-        XmlDocument xmlDocument = mock(XmlDocument.class);
-        XmlNode rootNode = mock(XmlNode.class);
-        XmlNode headerNode = mock(XmlNode.class);
-
-        when(message.getPayload()).thenReturn(xmlDocument);
-        when(xmlDocument.getRoot()).thenReturn(rootNode);
-        when(rootNode.getSubNode("header")).thenReturn(headerNode);
-
-        // 2. 构造服务响应JSON
-        JSONObject response = new JSONObject();
-        response.put("retCode", "0000");
-        response.put("retMsg", "成功");
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+        JSONArray retData = new JSONArray();
+        JSONObject data = new JSONObject();
         // {{TO_MESSAGE_RESPONSE_CONSTRUCT_BLOCK}}
+        retData.add(data);
+        responseJson.put("retData", retData);
 
-        // 3. 执行转换
-        Message<?> result = converter.toMessage(message, response);
+        Message<?> result = converter.toMessage(message, responseJson);
 
-        // 4. 验证结果不为null
-        assertNotNull(result);
+        assertNotNull("响应消息不应为null", result);
+        String payload = (String) result.getPayload();
+        assertTrue("响应应包含retCode", payload.contains("retCode"));
+        // {{TO_MESSAGE_ASSERT_BLOCK}}
     }
 
     /**
-     * 测试toMessage - 空数组响应
-     * 验证retData为空时不抛异常
+     * retData为空时的容错处理
+     * 验证空数组不导致异常，响应仍包含retCode/retMsg
      */
     @Test
     public void testToMessage_emptyRetData() {
-        Message<?> message = mock(Message.class);
-        XmlDocument xmlDocument = mock(XmlDocument.class);
-        XmlNode rootNode = mock(XmlNode.class);
-        XmlNode headerNode = mock(XmlNode.class);
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
 
-        when(message.getPayload()).thenReturn(xmlDocument);
-        when(xmlDocument.getRoot()).thenReturn(rootNode);
-        when(rootNode.getSubNode("header")).thenReturn(headerNode);
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+        responseJson.put("retData", new JSONArray());
 
-        JSONObject response = new JSONObject();
-        response.put("retCode", "0000");
-        response.put("retMsg", "成功");
+        Message<?> result = converter.toMessage(message, responseJson);
 
-        Message<?> result = converter.toMessage(message, response);
-
-        assertNotNull(result);
+        assertNotNull("响应消息不应为null", result);
+        String payload = (String) result.getPayload();
+        assertTrue("响应应包含retCode", payload.contains("retCode"));
     }
     {{/XML_MODE}}
 
     {{#JSON_MODE}}
     /**
-     * 测试toMessage - 正常响应JSON组装
+     * 构造外围系统请求JSON报文
+     * 模拟外围系统发送的原始MQ JSON报文
+     */
+    private JSONObject buildRequestJson() {
+        JSONObject payload = new JSONObject();
+        JSONObject body = new JSONObject();
+        JSONObject requestDto = new JSONObject();
+        // {{FROM_MESSAGE_JSON_CONSTRUCT_BLOCK}}
+        body.put("requestDto", requestDto);
+        payload.put("body", body);
+        return payload;
+    }
+
+    /**
+     * 正常JSON报文解析测试
+     * 验证JSON字段到内部DTO的映射正确性
+     */
+    @Test
+    public void testFromMessage_normal() {
+        JSONObject payload = buildRequestJson();
+        Message<?> message = MessageBuilder.createMessage(payload, new MessageHeaders(null));
+
+        JSONObject result = converter.fromMessage(message);
+
+        assertNotNull("result不应为null", result);
+        // {{FROM_MESSAGE_ASSERT_BLOCK}}
+    }
+
+    /**
+     * 正常响应组装测试
      * 验证响应JSON直通或简单封装
      */
     @Test
-    public void testToMessage_normalResponse() {
-        Message<?> message = mock(Message.class);
-        when(message.getPayload()).thenReturn(new JSONObject());
+    public void testToMessage_normal() {
+        JSONObject payload = buildRequestJson();
+        Message<?> message = MessageBuilder.createMessage(payload, new MessageHeaders(null));
 
-        JSONObject response = new JSONObject();
-        response.put("retCode", "0000");
-        response.put("retMsg", "成功");
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
         // {{TO_MESSAGE_JSON_CONSTRUCT_BLOCK}}
 
-        Message<?> result = converter.toMessage(message, response);
+        Message<?> result = converter.toMessage(message, responseJson);
 
-        assertNotNull(result);
+        assertNotNull("响应消息不应为null", result);
+        String payloadStr = (String) result.getPayload();
+        assertTrue("响应应包含retCode", payloadStr.contains("retCode"));
+        // {{TO_MESSAGE_ASSERT_BLOCK}}
     }
     {{/JSON_MODE}}
 
-    // ==================== getFunctionIdMapping 测试 ====================
+    {{#QINN_XML_MODE}}
+    /**
+     * 构造外围信贷系统请求报文XML（秦皇岛银行信贷模块XML模式）
+     * 模拟外围信贷系统发送的原始MQ报文，报文经过加密传输
+     */
+    private String buildRequestXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<{{MessageConstants.SERVICE}}>" +
+                "  <{{MessageConstants.SERVICE_HEADER}}>" +
+                "    <FrModCd>{{外围系统}}</FrModCd>" +
+                "    <ToModCd>BEMP</ToModCd>" +
+                "    <TxCd>{{外部服务码}}</TxCd>" +
+                "    <SndDt>{{日期}}</SndDt>" +
+                "    <SndTm>{{时间}}</SndTm>" +
+                "    <SeqNb>{{流水号}}</SeqNb>" +
+                "  </{{MessageConstants.SERVICE_HEADER}}>" +
+                "  <{{MessageConstants.SERVICE_BODY}}>" +
+                "    {{FROM_MESSAGE_XML_FIELDS}}" +
+                "  </{{MessageConstants.SERVICE_BODY}}>" +
+                "</{{MessageConstants.SERVICE}}>";
+    }
+
+    @Test
+    public void testFromMessage_normal() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject result = converter.fromMessage(message);
+
+        JSONObject requestDto = result.getJSONObject(MessageConstants.REQUESTDTO);
+        assertNotNull("requestDto不应为null", requestDto);
+        // {{FROM_MESSAGE_ASSERT_BLOCK}}
+    }
+
+    @Test
+    public void testFromMessage_missingSubNodes() {
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<{{MessageConstants.SERVICE}}>" +
+                "  <{{MessageConstants.SERVICE_HEADER}}>...</{{MessageConstants.SERVICE_HEADER}}>" +
+                "  <{{MessageConstants.SERVICE_BODY}}>" +
+                "    {{FROM_MESSAGE_REQUIRED_ONLY_FIELDS}}" +
+                "  </{{MessageConstants.SERVICE_BODY}}>" +
+                "</{{MessageConstants.SERVICE}}>";
+
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(xml);
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject result = converter.fromMessage(message);
+        JSONObject requestDto = result.getJSONObject(MessageConstants.REQUESTDTO);
+
+        assertNotNull("requestDto不应为null", requestDto);
+        // {{FROM_MESSAGE_NULL_ASSERT_BLOCK}}
+    }
+
+    @Test
+    public void testToMessage_normal() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+        JSONArray retData = new JSONArray();
+        JSONObject data = new JSONObject();
+        // {{TO_MESSAGE_RESPONSE_CONSTRUCT_BLOCK}}
+        retData.add(data);
+        responseJson.put("retData", retData);
+
+        Message<?> result = converter.toMessage(message, responseJson);
+
+        assertNotNull("响应消息不应为null", result);
+        String payload = (String) result.getPayload();
+        assertTrue("响应应包含retCode", payload.contains("retCode"));
+        // {{TO_MESSAGE_ASSERT_BLOCK}}
+    }
+
+    @Test
+    public void testToMessage_emptyRetData() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+        responseJson.put("retData", new JSONArray());
+
+        Message<?> result = converter.toMessage(message, responseJson);
+
+        assertNotNull("响应消息不应为null", result);
+    }
+    {{/QINN_XML_MODE}}
+
+    {{#JSON_BASE_MODE}}
+    /**
+     * 构造外围系统请求JSON报文（宜宾银行JSON+基类模式）
+     * 模拟外围系统发送的原始MQ JSON报文，payload包含body节点
+     */
+    private JSONObject buildRequestJson() {
+        JSONObject payload = new JSONObject();
+        JSONObject body = new JSONObject();
+        JSONObject requestDto = new JSONObject();
+        // {{FROM_MESSAGE_JSON_CONSTRUCT_BLOCK}}
+        body.put("requestDto", requestDto);
+        payload.put("body", body);
+        return payload;
+    }
 
     /**
-     * 测试getFunctionIdMapping - 映射配置正确性
+     * 正常JSON报文解析测试
+     * 基类从payload提取body节点，若子类有覆写则验证覆写逻辑
+     */
+    @Test
+    public void testFromMessage_normal() {
+        JSONObject payload = buildRequestJson();
+        Message<?> message = MessageBuilder.createMessage(payload, new MessageHeaders(null));
+
+        JSONObject result = converter.fromMessage(message);
+
+        assertNotNull("result不应为null", result);
+        // {{FROM_MESSAGE_ASSERT_BLOCK}}
+    }
+
+    @Test
+    public void testToMessage_normal() {
+        JSONObject payload = buildRequestJson();
+        Message<?> message = MessageBuilder.createMessage(payload, new MessageHeaders(null));
+
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+
+        Message<?> result = converter.toMessage(message, responseJson);
+
+        assertNotNull("响应消息不应为null", result);
+        String payloadStr = (String) result.getPayload();
+        assertTrue("响应应包含retCode", payloadStr.contains("retCode"));
+        // {{TO_MESSAGE_ASSERT_BLOCK}}
+    }
+    {{/JSON_BASE_MODE}}
+
+    /**
+     * getFunctionIdMapping映射测试
+     * 验证外部服务码与内部功能号映射关系正确
      * 数组最后一个元素必须是内部功能号
      */
     @Test
     public void testGetFunctionIdMapping() {
         String[] mapping = converter.getFunctionIdMapping();
 
-        assertNotNull(mapping);
-        assertTrue(mapping.length >= 2);
-        assertEquals("{{pice_code}}", mapping[mapping.length - 1]);
-        assertEquals("{{ext_service_code}}", mapping[0]);
+        assertNotNull("映射不应为null", mapping);
+        assertTrue("映射长度应>=2", mapping.length >= 2);
+        assertEquals("内部功能号", "{{pice_code}}", mapping[mapping.length - 1]);
+        assertEquals("外部服务码", "{{ext_service_code}}", mapping[0]);
     }
 }

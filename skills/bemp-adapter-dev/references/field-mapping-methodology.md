@@ -54,9 +54,11 @@ requestDto.put("mrgdCustNo", XmlUtil.getNodeValue(requestNode, "suspectCustNo"))
 **特征**：外围系统发送JSON格式MQ报文，银行有统一基类处理通用逻辑
 
 **映射要点**：
-- YbinChannelBaseMessageApplyResponseConverter基类已实现fromMessage/toMessage通用逻辑
-- fromMessage直接提取payload中的body节点返回
-- toMessage通过XmlUtil.buildSuccessMessage构建成功响应
+- yibbank有两个基类可选：
+  - `YbinChannelBaseMessageApplyResponseConverter`：自动从类名推导getFunctionIdMapping，适合空壳Converter
+  - `AbstractYbinMessageApplyResponseConverter`：需显式实现getFunctionIdMapping，适合需要字段映射的场景
+- 基类已实现：fromMessage直接提取payload中的body节点返回
+- 基类已实现：toMessage通过XmlUtil.buildSuccessMessage构建成功响应
 - 大部分Converter为空壳类，字段名与外围一致时无需映射
 - 仅当字段名不一致或需要特殊处理时才覆写方法
 
@@ -73,7 +75,7 @@ public class PICE030505MessageConverter extends YbinChannelBaseMessageApplyRespo
 }
 ```
 
-### JSON直通模式（qinnbank等）
+### JSON直通模式（qinnbank ebank等）
 
 **特征**：外围系统发送JSON格式MQ报文，无银行统一基类，每个Converter自行处理
 
@@ -92,18 +94,39 @@ String operCode = requestDto.getString("operCode");
 String billOrigin = jsonObject1.getString("billOrigin");
 ```
 
+### XML混合模式（qinnbank credit等）
+
+**特征**：外围信贷系统发送XML报文，加密传输，需先解密再解析
+
+**映射要点**：
+- 从Message中获取XML字符串，通过`EncryptKeyUtils`解密
+- 使用`MessageXmlParser`解析解密后的XML
+- 报文结构为`SERVICE/SERVICE_HEADER/SERVICE_BODY`而非`transaction/header/body`
+- Header使用`HeadUtils.sysHeadToJson(rootNode, functionId)`封装
+- 响应构建后需`XmlUtil.formatXml`格式化，再`EncryptKeyUtils.getEncryptString`加密
+- 数组节点使用`Struct`标签而非`data`标签
+
+**注释要求**：标注XML节点路径和字段含义
+
+```java
+// BIZ_TYP_CD: 外围"业务类型" → 内部busiType
+requestDto.put("busiType", XmlUtil.xmlNodeIsNull(requestNode.getSubNode("BIZ_TYP_CD")));
+// OPRT_IDN: 外围"操作标识" → 内部flag
+requestDto.put("flag", XmlUtil.xmlNodeIsNull(requestNode.getSubNode("OPRT_IDN")));
+```
+
 ### 三种模式映射对比
 
-| 维度 | XML模式 | JSON+基类模式 | JSON直通模式 |
-|------|---------|-------------|------------|
-| 报文格式 | XML | JSON | JSON |
-| 解析方式 | XmlDocument/XmlNode | 基类自动提取body | 手动getJSONObject |
-| 字段映射 | 逐字段映射，名称通常不同 | 通常无需映射 | 部分需映射 |
-| 基类 | AbstractMessageApplyResponseConverter | YbinChannelBaseMessageApplyResponseConverter | AbstractMessageApplyResponseConverter |
-| 响应构建 | MessageXmlBuilder逐节点 | XmlUtil.buildSuccessMessage | 直接toJSONString |
-| Header处理 | HeadUtils.sysHeadToJson/jsonToSysHead | 基类处理 | 通常无需处理 |
-| 代码复杂度 | 高 | 低 | 中 |
-| 注释重点 | 外围字段名→内部字段名映射 | 标注是否需要覆写 | JSON路径和字段含义 |
+| 维度 | XML模式 | JSON+基类模式 | JSON直通模式 | XML混合模式(qinnbank credit) |
+|------|---------|-------------|------------|---------------------------|
+| 报文格式 | XML | JSON | JSON | XML(加密) |
+| 解析方式 | XmlDocument/XmlNode | 基类自动提取body | 手动getJSONObject | XmlDocument/XmlNode(先解密) |
+| 字段映射 | 逐字段映射，名称通常不同 | 通常无需映射 | 部分需映射 | 逐字段映射，名称通常不同 |
+| 基类 | AbstractMessageApplyResponseConverter | YbinChannelBaseMessageApplyResponseConverter 或 AbstractYbinMessageApplyResponseConverter | AbstractMessageApplyResponseConverter | AbstractMessageApplyResponseConverter |
+| 响应构建 | MessageXmlBuilder逐节点 | XmlUtil.buildSuccessMessage | 直接toJSONString | MessageXmlBuilder + XmlUtil.formatXml + EncryptKeyUtils |
+| Header处理 | HeadUtils.sysHeadToJson/jsonToSysHead | 基类处理 | 通常无需处理 | HeadUtils.sysHeadToJson(rootNode, functionId) |
+| 代码复杂度 | 高 | 低 | 中 | 高 |
+| 注释重点 | 外围字段名→内部字段名映射 | 标注是否需要覆写 | JSON路径和字段含义 | 外围字段名→内部字段名映射 |
 
 ## 常见映射模式
 

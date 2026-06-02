@@ -17,6 +17,17 @@ import com.hundsun.bemp.{{bank}}.adapter.msg.server.YbinChannelBaseMessageApplyR
 {{#JSON_DIRECT_MODE}}
 import com.hundsun.bemp.adapter.msg.core.AbstractMessageApplyResponseConverter;
 {{/JSON_DIRECT_MODE}}
+{{#QINN_XML_MODE}}
+import com.hundsun.bemp.adapter.msg.converter.MessageXmlBuilder;
+import com.hundsun.bemp.adapter.msg.converter.MessageXmlParser;
+import com.hundsun.bemp.adapter.msg.core.AbstractMessageApplyResponseConverter;
+import com.hundsun.bemp.adapter.msg.xml.XmlDocument;
+import com.hundsun.bemp.adapter.msg.xml.XmlNode;
+import com.hundsun.bemp.{{bank}}.adapter.msg.common.MessageConstants;
+import com.hundsun.bemp.{{bank}}.adapter.msg.util.EncryptKeyUtils;
+import com.hundsun.bemp.{{bank}}.adapter.msg.util.HeadUtils;
+import com.hundsun.bemp.{{bank}}.adapter.msg.util.XmlUtil;
+{{/QINN_XML_MODE}}
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
@@ -240,4 +251,90 @@ public class {{pice_code}}MessageConverter extends AbstractMessageApplyResponseC
         return super.getMessage(jsonObject.toJSONString());
     }
     {{/JSON_DIRECT_MODE}}
+
+    {{#QINN_XML_MODE}}
+    /**
+     * 外围XML报文 → 内部JSON请求（秦皇岛银行信贷模块XML模式）
+     *
+     * <p>解析流程：
+     * 1. 从Message中获取解密后的XML字符串
+     * 2. MessageXmlParser解析为XmlDocument
+     * 3. 按路径 root → SERVICE_BODY 定位请求节点
+     * 4. 逐字段提取外围报文值，映射到内部DTO的JSON结构
+     * 5. 通过HeadUtils.sysHeadToJson封装系统报文头
+     *
+     * <p>字段映射明细：
+     * <pre>
+     * 外围字段(接口文档)           │ 外围路径              │ 内部DTO字段         │ 映射类型
+     * ───────────────────────────┼──────────────────────┼────────────────────┼────────
+     * {{field_mapping_table}}
+     * </pre>
+     *
+     * @param message MQ消息，载荷为加密XML字符串
+     * @return 转换后的JSON请求，包含requestDto和Header
+     */
+    @Override
+    public JSONObject fromMessage(Message<?> message) {
+        logger.info("{{pice_code}}MessageConverter 请求xml为：{}", message);
+        String decryptString = message.getPayload().toString();
+        MessageXmlParser xmlParser = MessageXmlParser.create();
+        XmlDocument xmlDocument = xmlParser.parse(decryptString);
+        XmlNode rootNode = xmlDocument.getRoot();
+
+        JSONObject request = HeadUtils.sysHeadToJson(rootNode, "{{pice_code}}");
+        XmlNode requestNode = rootNode.getSubNode(MessageConstants.SERVICE_BODY);
+
+        JSONObject requestDto = new JSONObject();
+
+        // ---- 主字段映射 ----
+        // {{FIELD_MAPPING_BLOCK}}
+
+        // ---- 数组节点映射 ----
+        // {{ARRAY_NODE_MAPPING_BLOCK}}
+
+        request.put(MessageConstants.REQUESTDTO, requestDto);
+        return request;
+    }
+
+    /**
+     * 内部JSON响应 → 外围XML报文
+     *
+     * <p>组装流程：
+     * 1. 从原始Message获取SERVICE_HEADER节点
+     * 2. 通过HeadUtils.createProcesses构建响应头
+     * 3. 遍历retData数组，逐条组装BIZ_DATA_ARR
+     * 4. XmlUtil.formatXml格式化XML
+     * 5. EncryptKeyUtils加密响应报文
+     *
+     * @param message    原始MQ消息，用于获取header
+     * @param jsonObject 服务响应JSON，包含retCode/retMsg/retData
+     * @return 转换后的加密XML响应Message
+     */
+    @Override
+    public Message<?> toMessage(Message<?> message, JSONObject jsonObject) {
+        logger.info("{{pice_code}}MessageConverter 接收产品请求json为：" + jsonObject);
+        XmlDocument xmlDocument = (XmlDocument) message.getPayload();
+        XmlNode rootNode = xmlDocument.getRoot();
+        XmlNode processes = rootNode.getSubNode(MessageConstants.SERVICE_HEADER);
+
+        MessageXmlBuilder builder = MessageXmlBuilder.create(MessageConstants.SERVICE);
+        MessageXmlBuilder header = builder.createElement(MessageConstants.SERVICE_HEADER);
+        HeadUtils.createProcesses(processes, header, jsonObject);
+        MessageXmlBuilder serviceBody = builder.createElement(MessageConstants.SERVICE_BODY);
+
+        MessageXmlBuilder bizDataArr = serviceBody.createElement("BIZ_DATA_ARR");
+        JSONArray retData = jsonObject.getJSONArray("retData");
+        if (retData != null && retData.size() > 0) {
+            for (int i = 0; i < retData.size(); i++) {
+                JSONObject rspInfo = retData.getJSONObject(i);
+                MessageXmlBuilder list = bizDataArr.createElement("Struct");
+                // {{RESPONSE_FIELD_BLOCK}}
+            }
+        }
+        String xml = XmlUtil.formatXml(builder.asXML());
+        String encryptString = EncryptKeyUtils.getEncryptString(xml);
+        logger.info("{{pice_code}}MessageConverter 返回给外围的报文为：" + xml);
+        return super.getMessage(encryptString);
+    }
+    {{/QINN_XML_MODE}}
 }

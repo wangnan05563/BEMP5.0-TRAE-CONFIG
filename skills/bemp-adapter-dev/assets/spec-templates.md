@@ -75,12 +75,17 @@
 
 ```markdown
 - [ ] {PICE_CODE}MessageConverter.java文件已创建在正确路径
-- [ ] 类继承AbstractMessageApplyResponseConverter，@Component注解value正确
+- [ ] 类继承正确的基类（AbstractMessageApplyResponseConverter / YbinChannelBase* / AbstractYbin*）
+- [ ] @Component注解value正确
 - [ ] getFunctionIdMapping返回正确的映射数组
 - [ ] fromMessage方法字段映射关系完整
-- [ ] fromMessage方法使用XmlUtil.getNodeValue和HeadUtils.sysHeadToJson
-- [ ] toMessage方法正确将响应JSON转换为XML格式
-- [ ] toMessage方法使用HeadUtils.jsonToSysHead和MessageXmlBuilder
+- [ ] fromMessage方法使用正确的工具类（XmlUtil.getNodeValue / XmlUtil.xmlNodeIsNull / HeadUtils.sysHeadToJson）
+- [ ] toMessage方法正确将响应JSON转换为外部报文格式
+- [ ] toMessage方法使用正确的构建器（MessageXmlBuilder / HeadUtils.jsonToSysHead / XmlUtil.buildSuccessMessage）
+- [ ] 代码注释标注了外围字段名和中文名（强制）
+- [ ] 单元测试类已创建在正确路径
+- [ ] 测试覆盖正常解析、子节点缺失容错、响应组装、空数据容错、映射验证
+- [ ] 测试使用模拟报文（MessageXmlParser解析真实XML / JSONObject构造真实JSON）
 - [ ] 代码风格与项目现有MessageConverter保持一致
 - [ ] IDE诊断无语法错误
 ```

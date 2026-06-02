@@ -50,7 +50,7 @@ import org.springframework.stereotype.Component;
 public class {PICE_CODE}MessageConverter extends {BankBaseClass} {
 ```
 
-### JSON报文直通模式（qinnbank等）
+### JSON报文直通模式（qinnbank ebank等）
 
 ```java
 package com.hundsun.bemp.{bank}.adapter.msg.server.{module};
@@ -66,6 +66,35 @@ import org.springframework.stereotype.Component;
  * 外围交易码: {txCode}  内部功能号: {PICE_CODE}
  * 外围系统: {ECIF/信贷/核心}  报文格式: JSON
  * 产品接口: {EcifXXXService}.{methodName}
+ */
+@Component("{PICE_CODE}MessageConverter")
+public class {PICE_CODE}MessageConverter extends AbstractMessageApplyResponseConverter {
+```
+
+### XML报文混合模式（qinnbank credit等）
+
+```java
+package com.hundsun.bemp.{bank}.adapter.msg.server.{module};
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.hundsun.bemp.adapter.msg.converter.MessageXmlBuilder;
+import com.hundsun.bemp.adapter.msg.converter.MessageXmlParser;
+import com.hundsun.bemp.adapter.msg.core.AbstractMessageApplyResponseConverter;
+import com.hundsun.bemp.adapter.msg.xml.XmlDocument;
+import com.hundsun.bemp.adapter.msg.xml.XmlNode;
+import com.hundsun.bemp.{bank}.adapter.msg.common.MessageConstants;
+import com.hundsun.bemp.{bank}.adapter.msg.util.EncryptKeyUtils;
+import com.hundsun.bemp.{bank}.adapter.msg.util.HeadUtils;
+import com.hundsun.bemp.{bank}.adapter.msg.util.XmlUtil;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+
+/**
+ * {功能中文名}
+ * 外围交易码: {txCode}  内部功能号: {PICE_CODE}
+ * 外围系统: {信贷/核心}  报文格式: XML(加密传输)
+ * 产品接口: {ServiceName}.{methodName}
  */
 @Component("{PICE_CODE}MessageConverter")
 public class {PICE_CODE}MessageConverter extends AbstractMessageApplyResponseConverter {
@@ -239,16 +268,88 @@ public Message<?> toMessage(Message<?> message, JSONObject jsonObject) {
 }
 ```
 
+### fromMessage - XML混合模式（qinnbank credit）
+
+```java
+@Override
+public JSONObject fromMessage(Message<?> message) {
+    logger.info("{PICE_CODE}MessageConverter 请求xml为：{}", message);
+    String decryptString = message.getPayload().toString();
+    MessageXmlParser xmlParser = MessageXmlParser.create();
+    XmlDocument xmlDocument = xmlParser.parse(decryptString);
+    XmlNode rootNode = xmlDocument.getRoot();
+
+    // 封装报文头（注意：与hnnxbank的sysHeadToJson签名不同，此处传入rootNode和functionId）
+    JSONObject request = HeadUtils.sysHeadToJson(rootNode, "{PICE_CODE}");
+    XmlNode requestNode = rootNode.getSubNode(MessageConstants.SERVICE_BODY);
+
+    JSONObject requestDto = new JSONObject();
+    requestDto.put("field1", XmlUtil.xmlNodeIsNull(requestNode.getSubNode("FIELD1"))); // FIELD1-中文名
+    // 数组节点
+    XmlNode arrNode = requestNode.getSubNode("ARR_NODE");
+    List<XmlNode> items = arrNode.getSubNodes("Struct");
+    JSONArray list = new JSONArray();
+    if (items != null) {
+        for (XmlNode item : items) {
+            JSONObject reqInfo = new JSONObject();
+            reqInfo.put("field2", XmlUtil.xmlNodeIsNull(item.getSubNode("FIELD2"))); // FIELD2-中文名
+            list.add(reqInfo);
+        }
+        requestDto.put("listField", list);
+    }
+    request.put(MessageConstants.REQUESTDTO, requestDto);
+    return request;
+}
+```
+
+### toMessage - XML混合模式（qinnbank credit）
+
+```java
+@Override
+public Message<?> toMessage(Message<?> message, JSONObject jsonObject) {
+    logger.info("{PICE_CODE}MessageConverter 接收产品请求json为：" + jsonObject);
+    XmlDocument xmlDocument = (XmlDocument) message.getPayload();
+    XmlNode rootNode = xmlDocument.getRoot();
+    XmlNode processes = rootNode.getSubNode(MessageConstants.SERVICE_HEADER);
+
+    MessageXmlBuilder builder = MessageXmlBuilder.create(MessageConstants.SERVICE);
+    MessageXmlBuilder header = builder.createElement(MessageConstants.SERVICE_HEADER);
+    HeadUtils.createProcesses(processes, header, jsonObject);
+    MessageXmlBuilder serviceBody = builder.createElement(MessageConstants.SERVICE_BODY);
+
+    MessageXmlBuilder bizDataArr = serviceBody.createElement("BIZ_DATA_ARR");
+    JSONArray retData = jsonObject.getJSONArray("retData");
+    if (retData != null && retData.size() > 0) {
+        for (int i = 0; i < retData.size(); i++) {
+            JSONObject rspInfo = retData.getJSONObject(i);
+            MessageXmlBuilder list = bizDataArr.createElement("Struct");
+            list.createElement("FIELD1").addText(rspInfo.getString("field1")); // field1-中文名
+        }
+    }
+    String xml = XmlUtil.formatXml(builder.asXML());
+    String encryptString = EncryptKeyUtils.getEncryptString(xml);
+    logger.info("{PICE_CODE}MessageConverter 返回给外围的报文为：" + xml);
+    return super.getMessage(encryptString);
+}
+```
+
 ## 工具类使用规范
 
 | 工具 | 用途 | 适用银行 | 调用方式 |
 |------|------|---------|---------|
 | XmlUtil.getNodeValue | 安全获取XML节点文本值 | XML报文银行 | `XmlUtil.getNodeValue(xmlNode, "key")` |
 | XmlUtil.xmlNodeIsNull | 获取节点值，null返回空串 | XML报文银行 | `XmlUtil.xmlNodeIsNull(node.getSubNode("key"))` |
+| XmlUtil.formatXml | 格式化XML字符串 | qinnbank credit | `XmlUtil.formatXml(builder.asXML())` |
+| XmlUtil.buildSuccessMessage | 构建成功响应XML | yibbank | `XmlUtil.buildSuccessMessage(message, jsonObject)` |
 | HeadUtils.sysHeadToJson | 封装请求报文头 | hnnxbank | `HeadUtils.sysHeadToJson(request, requestNode)` |
+| HeadUtils.sysHeadToJson(rootNode, funcId) | 封装请求报文头（不同签名） | qinnbank credit | `HeadUtils.sysHeadToJson(rootNode, "PICE070305")` |
 | HeadUtils.jsonToSysHead | 封装响应报文头 | hnnxbank | `HeadUtils.jsonToSysHead(header, jsonObject, transaction)` |
+| HeadUtils.createProcesses | 封装响应报文头 | qinnbank credit | `HeadUtils.createProcesses(processes, header, jsonObject)` |
 | MessageXmlBuilder | 构建XML响应 | XML报文银行 | `MessageXmlBuilder.create("root")` |
 | MessageConstants.NUM | 数组元素序号属性 | hnnxbank | `.addAttribute(MessageConstants.NUM, String.valueOf(i + 1))` |
+| MessageConstants.REQUESTDTO | 请求DTO键名 | qinnbank credit | `request.put(MessageConstants.REQUESTDTO, requestDto)` |
+| MessageConstants.SERVICE | 报文根节点名 | qinnbank credit | `MessageXmlBuilder.create(MessageConstants.SERVICE)` |
+| EncryptKeyUtils.getEncryptString | 加密响应报文 | qinnbank credit | `EncryptKeyUtils.getEncryptString(xml)` |
 | ConvertUtils | 通用报文解析 | shaoxbank | `ConvertUtils.commonRequestBody(message)` |
 | CommonService | 通用文本提取 | shaoxbank | `commonService.getTextByMap(body.get("field"))` |
 

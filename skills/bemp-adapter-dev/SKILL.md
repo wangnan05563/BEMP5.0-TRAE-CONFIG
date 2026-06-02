@@ -49,11 +49,47 @@ Do NOT use this skill when:
 
 | 风格 | 代表银行 | 报文格式 | server端基类 | XML解析 | 代码量 |
 |------|---------|---------|-------------|---------|--------|
-| XML报文 | hnnxbank/shaoxbank | XML入XML出 | `AbstractMessageApplyResponseConverter` | `XmlDocument`+`XmlNode` | 大 |
+| XML报文 | hnnxbank/shaoxbank/huisbank/jinzbank/nmgbank/huzbank/hxbank | XML入XML出 | `AbstractMessageApplyResponseConverter` | `XmlDocument`+`XmlNode` | 大 |
 | JSON报文+银行基类 | yibbank | JSON入XML出 | 银行专属基类 | 不需要 | 中 |
-| JSON报文直通 | qinnbank | JSON入JSON出 | `AbstractMessageApplyResponseConverter` | 不需要 | 小 |
+| JSON报文直通 | qinnbank(ebank) | JSON入JSON出 | `AbstractMessageApplyResponseConverter` | 不需要 | 小 |
+| XML报文(混合) | qinnbank(credit) | XML入XML出+加密 | `AbstractMessageApplyResponseConverter` | `XmlDocument`+`XmlNode`+`EncryptKeyUtils` | 大 |
 
-**识别方法**：读取目标银行任意一个已有MessageConverter，判断其payload类型和基类。
+> **重要**：qinnbank 存在模块级差异——ebank 模块为 JSON 直通模式，credit 模块为 XML 模式（报文需加密）。必须按目标模块识别风格，不能仅凭银行名判断。
+
+**识别方法**：读取目标银行对应模块目录下任意一个已有MessageConverter，判断其payload类型和基类。
+
+### 银行基类继承链速查
+
+**XML报文银行**（hnnxbank/shaoxbank等）：
+```
+AbstractMessageConverter
+  └── AbstractMessageApplyResponseConverter (server端)
+        └── {PICE_CODE}MessageConverter (子类实现)
+```
+
+**JSON报文+银行基类**（yibbank）：
+```
+AbstractMessageConverter
+  └── AbstractMessageApplyResponseConverter
+        ├── AbstractYbinMessageApplyResponseConverter (抽象, 需显式实现getFunctionIdMapping)
+        │     └── {PICE_CODE}MessageConverter (需覆写fromMessage/toMessage时使用)
+        └── YbinChannelBaseMessageApplyResponseConverter (自动从类名推导getFunctionIdMapping)
+              └── {PICE_CODE}MessageConverter (空壳类，字段与外围一致时使用)
+```
+
+**JSON报文直通**（qinnbank ebank）：
+```
+AbstractMessageConverter
+  └── AbstractMessageApplyResponseConverter
+        └── {PICE_CODE}MessageConverter (子类实现)
+```
+
+**XML报文混合**（qinnbank credit）：
+```
+AbstractMessageConverter
+  └── AbstractMessageApplyResponseConverter
+        └── {PICE_CODE}MessageConverter (使用XmlDocument/XmlNode+EncryptKeyUtils)
+```
 
 ## 执行步骤
 
@@ -83,7 +119,7 @@ Do NOT use this skill when:
 - 产品接口：`EcifXXXService.java` + `EcifXXXReqDto.java` + `EcifXXXResDto.java`
 - 拦截器：`MqMessageInterceptor.java`（了解消息路由和Header处理）
 
-**目录预检查**（新增）：开发前检查server目录下是否已有对应模块目录（如ecif/credit/ebank），如果不存在需新建。
+**目录预检查**：开发前检查server目录下是否已有对应模块目录（如ecif/credit/ebank），如果不存在需新建。
 
 ### Step 3: 字段映射矩阵
 对比外围报文字段与内部DTO字段，建立映射关系表：
@@ -100,7 +136,7 @@ Do NOT use this skill when:
 - 数组类型字段需识别循环解析逻辑
 - **保留外围中文名和内部DTO中文名**，这些将作为代码注释
 
-**ECIF渠道特殊判断**（新增）：
+**ECIF渠道特殊判断**：
 - ECIF报文中tellerNo/orgCode在request节点而非ebbsHdrReq中，必须在sysHeadToJson之后手动覆盖Header
 - ECIF渠道外部服务码格式为`ECIF.{交易码}0.01`（注意交易码后补0），不同于信贷渠道的`EBBS.{服务码}.01`
 - ECIF广播消息中isCust字段映射为内部operType（1=校验，0=修改），不能固定为"1"
@@ -111,22 +147,192 @@ Do NOT use this skill when:
 #### 4.1 确定开发模式
 根据Step 2识别的银行风格，选择对应的开发模式：
 
-**XML报文模式**（hnnxbank/shaoxbank等）：
+**XML报文模式**（hnnxbank/shaoxbank/huisbank/jinzbank/nmgbank/huzbank/hxbank等）：
 - 继承`AbstractMessageApplyResponseConverter`
 - 使用`XmlDocument`/`XmlNode`解析，`MessageXmlBuilder`构建响应
 - 实现`getFunctionIdMapping`、`fromMessage`、`toMessage`
+- 响应头使用`HeadUtils.jsonToSysHead`，响应体逐节点构建
 
 **JSON报文+银行基类模式**（yibbank等）：
-- 继承银行专属基类（如`YbinChannelBaseMessageApplyResponseConverter`）
-- `getFunctionIdMapping`可能自动从类名推导
-- 只需覆盖业务逻辑方法
+- 字段完全一致时继承`YbinChannelBaseMessageApplyResponseConverter`（空壳类，自动推导getFunctionIdMapping）
+- 需要字段映射时继承`AbstractYbinMessageApplyResponseConverter`（需显式实现getFunctionIdMapping）
+- 基类已实现：fromMessage = 提取body节点，toMessage = `XmlUtil.buildSuccessMessage`
 
-**JSON报文直通模式**（qinnbank等）：
+**JSON报文直通模式**（qinnbank ebank等）：
 - 继承`AbstractMessageApplyResponseConverter`
 - payload直接是JSONObject，无需XML解析
 - `toMessage`直接返回JSON字符串
+- 可能注入`@CloudReference`服务进行数据补充
 
-#### 4.2 注释规范（强制）
+**XML报文混合模式**（qinnbank credit等）：
+- 继承`AbstractMessageApplyResponseConverter`
+- XML报文需先解密再解析（使用`EncryptKeyUtils`）
+- 响应需先格式化再加密（`XmlUtil.formatXml` + `EncryptKeyUtils.getEncryptString`）
+- 报文头使用`HeadUtils.sysHeadToJson(rootNode, functionId)`（与hnnxbank签名不同）
+- 报文结构使用`SERVICE/SERVICE_HEADER/SERVICE_BODY`而非`transaction/header/body`
+
+#### 4.2 参考模板
+
+##### 模板A：XML报文风格（hnnxbank等）
+
+```java
+package com.hundsun.bemp.{bank}.adapter.msg.server.{module};
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.hundsun.bemp.adapter.msg.converter.MessageXmlBuilder;
+import com.hundsun.bemp.adapter.msg.core.AbstractMessageApplyResponseConverter;
+import com.hundsun.bemp.adapter.msg.xml.XmlDocument;
+import com.hundsun.bemp.adapter.msg.xml.XmlNode;
+
+import com.hundsun.bemp.{bank}.adapter.msg.common.MessageConstants;
+import com.hundsun.bemp.{bank}.adapter.msg.util.HeadUtils;
+import com.hundsun.bemp.{bank}.adapter.msg.util.XmlUtil;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+
+/**
+ * {功能中文名}
+ * 外围交易码: {txCode}  内部功能号: {PICE_CODE}
+ * 外围系统: {外围系统名}  报文格式: XML
+ * 产品接口: {ServiceName}.{methodName}
+ */
+@Component(value = "{PICE_CODE}MessageConverter")
+public class {PICE_CODE}MessageConverter extends AbstractMessageApplyResponseConverter {
+
+    @Override
+    public JSONObject fromMessage(Message<?> message) {
+        // 接收外围报文
+        XmlDocument xmlDocument = (XmlDocument) message.getPayload();
+        XmlNode rootNode = xmlDocument.getRoot();
+
+        JSONObject request = new JSONObject();
+        XmlNode requestNode = rootNode.getSubNode("body").getSubNode("request");
+
+        // 拼装bemp报文体
+        JSONObject requestDto = new JSONObject();
+        requestDto.put("field1", XmlUtil.getNodeValue(requestNode, "outerField1")); // outerField1-外围字段中文名
+        requestDto.put("field2", XmlUtil.getNodeValue(requestNode, "outerField2")); // outerField2-外围字段中文名→field2
+        request.put("requestDto", requestDto);
+
+        // sysHeadToJson提取报文头信息
+        JSONObject req = HeadUtils.sysHeadToJson(request, requestNode);
+        // ECIF渠道：tellerNo/orgCode在request节点，需手动覆盖Header
+        // JSONObject header = req.getJSONObject("Header");
+        // header.put("reqUserNo", XmlUtil.getNodeValue(requestNode, "tellerNo"));
+        // header.put("reqBrchNo", XmlUtil.getNodeValue(requestNode, "orgCode"));
+
+        return req;
+    }
+
+    @Override
+    public Message<?> toMessage(Message<?> message, JSONObject jsonObject) {
+        XmlDocument xmlDocument = (XmlDocument) message.getPayload();
+        MessageXmlBuilder transaction = MessageXmlBuilder.create("transaction");
+        XmlNode header = xmlDocument.getRoot().getSubNode("header");
+        MessageXmlBuilder response = HeadUtils.jsonToSysHead(header, jsonObject, transaction);
+        response.createElement("retCode").addText(jsonObject.getString("retCode"));
+        response.createElement("retMsg").addText(jsonObject.getString("retMsg"));
+
+        JSONArray retData = jsonObject.getJSONArray("retData");
+        MessageXmlBuilder retDataXml = response.createElement("body").createElement("response");
+
+        if (null != retData && retData.size() > 0) {
+            MessageXmlBuilder list = retDataXml.createElement("list");
+            for (int i = 0; i < retData.size(); i++) {
+                JSONObject reqInfo = retData.getJSONObject(i);
+                MessageXmlBuilder data = list.createElement("data")
+                        .addAttribute(MessageConstants.NUM, String.valueOf(i + 1));
+                data.createElement("respField1").addText(reqInfo.getString("respField1")); // respField1-响应字段中文名
+            }
+        }
+
+        return super.getMessage(response.asXML());
+    }
+
+    @Override
+    public String[] getFunctionIdMapping() {
+        return new String[]{
+                // {功能中文名}
+                "{外部服务码}",
+                "{PICE_CODE}"
+        };
+    }
+}
+```
+
+##### 模板B：JSON报文+银行基类（yibbank等）
+
+```java
+package com.hundsun.bemp.{bank}.adapter.msg.server.{module};
+
+import com.alibaba.fastjson.JSONObject;
+import com.hundsun.bemp.{bank}.adapter.msg.server.{Bank}ChannelBaseMessageApplyResponseConverter;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+
+/**
+ * {功能中文名}
+ * 外围交易码: {PICE_CODE}  内部功能号: {PICE_CODE}
+ * 外围系统: {外围系统名}  报文格式: JSON
+ * 产品接口: {ServiceName}.{methodName}
+ */
+@Component("{PICE_CODE}MessageConverter")
+public class {PICE_CODE}MessageConverter extends {Bank}ChannelBaseMessageApplyResponseConverter {
+
+    @Override
+    public JSONObject fromMessage(Message<?> message) {
+        JSONObject applyMessage = (JSONObject) message.getPayload();
+        JSONObject body = applyMessage.getJSONObject("body");
+        // 业务逻辑处理
+        JSONObject requestDto = body.getJSONObject("requestDto");
+        // ... 字段映射/数据补充 ...
+        return body;
+    }
+}
+```
+
+##### 模板C：JSON报文直通（qinnbank等）
+
+```java
+package com.hundsun.bemp.{bank}.adapter.msg.server.{module};
+
+import com.alibaba.fastjson.JSONObject;
+import com.hundsun.bemp.adapter.msg.core.AbstractMessageApplyResponseConverter;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+
+/**
+ * {功能中文名}
+ * 外围交易码: {PICE_CODE}  内部功能号: {PICE_CODE}
+ * 外围系统: {外围系统名}  报文格式: JSON
+ * 产品接口: {ServiceName}.{methodName}
+ */
+@Component("{PICE_CODE}MessageConverter")
+public class {PICE_CODE}MessageConverter extends AbstractMessageApplyResponseConverter {
+
+    @Override
+    public JSONObject fromMessage(Message<?> message) {
+        JSONObject jsonObject = (JSONObject) message.getPayload();
+        JSONObject requestDto = jsonObject.getJSONObject("requestDto");
+        // 字段映射处理
+        // requestDto.put("field1", jsonObject.getString("outerField1"));
+        return jsonObject;
+    }
+
+    @Override
+    public Message<?> toMessage(Message<?> applyMessage, JSONObject jsonObject) {
+        return super.getMessage(jsonObject.toJSONString());
+    }
+
+    @Override
+    public String[] getFunctionIdMapping() {
+        return new String[]{"{PICE_CODE}", "{PICE_CODE}"};
+    }
+}
+```
+
+#### 4.3 注释规范（强制）
 代码中必须包含以下注释，确保字段映射关系可追溯：
 
 **类级注释**：
@@ -167,37 +373,310 @@ if (null != mOrgCust) {
 requestDto.put("mrgdCustNo", XmlUtil.getNodeValue(requestNode, "suspectCustNo"));
 ```
 
-#### 4.3 ECIF Header覆盖（强制，仅ECIF渠道）
+#### 4.4 ECIF Header覆盖（强制，仅ECIF渠道）
 ECIF报文中tellerNo/orgCode在request节点而非ebbsHdrReq中，`HeadUtils.sysHeadToJson`从ebbsHdrReq提取的reqUserNo/reqBrchNo可能为空。**必须在sysHeadToJson之后手动覆盖**：
 
 ```java
 JSONObject req = HeadUtils.sysHeadToJson(request, requestNode);
 // ECIF报文中tellerNo/orgCode在request节点而非ebbsHdrReq，需手动覆盖Header
 JSONObject header = req.getJSONObject("Header");
-if (header != null) {
-    header.put("reqUserNo", XmlUtil.getNodeValue(requestNode, "tellerNo")); // tellerNo-柜员号(S(32)/Y)
-    header.put("reqBrchNo", XmlUtil.getNodeValue(requestNode, "orgCode")); // orgCode-机构码(S(32)/Y)
-}
+header.put("reqUserNo", XmlUtil.getNodeValue(requestNode, "tellerNo")); // tellerNo-柜员号
+header.put("reqBrchNo", XmlUtil.getNodeValue(requestNode, "orgCode")); // orgCode-机构码
 ```
 
 **判断规则**：如果外围系统是ECIF，必须做Header覆盖；信贷/核心渠道不需要。
 
-#### 4.4 单元测试（强制）
-每个MessageConverter必须配套单元测试类，放置在`src/test/java/`对应包路径下。
+#### 4.5 单元测试（强制）
 
-**测试类规范**（详见assets/MessageConverterTest.java.tpl）：
-- 使用JUnit 4 + Mockito
-- 不启动Spring上下文（纯单元测试）
-- Mock `Message` 对象构造测试报文
-- 测试覆盖以下场景：
-  - 正常报文解析（fromMessage）
-  - 正常响应组装（toMessage）
-  - 子节点缺失时的容错处理
-  - 数组字段的循环解析
-  - Header字段覆盖逻辑
+每个MessageConverter必须配套单元测试类，放置在`src/test/java/`对应包路径下。
 
 **测试类命名**：`{PICE_CODE}MessageConverterTest.java`
 **测试类路径**：`banks/ext-{bank}/{bank}-adapter-as/src/test/java/com/hundsun/bemp/{bank}/adapter/msg/server/{module}/`
+
+**测试框架**：JUnit 4 + Mockito，不启动Spring上下文（纯单元测试）
+
+**测试必须覆盖以下场景**：
+1. 正常报文解析（fromMessage） - 验证所有字段映射正确，包含Header字段覆盖（ECIF渠道）
+2. 子节点缺失时的容错处理 - 验证null检查生效
+3. 正常响应组装（toMessage） - 验证XML/JSON结构正确
+4. retData为空时的容错处理 - 验证空数组处理
+5. getFunctionIdMapping映射测试 - 验证外部服务码与内部功能号映射正确
+
+**模拟报文要求**（强制）：
+- XML模式：使用`MessageXmlParser`解析真实XML字符串，构造完整header+body+request结构
+- JSON模式：使用`JSONObject`构造完整JSON payload，包含body和requestDto
+- 模拟报文必须包含真实业务场景的样例数据，不能使用空值占位
+- 每个测试方法独立构造报文，不依赖共享状态
+
+**测试模板选择**：
+| 银行风格 | 模板section | assets文件 |
+|---------|-----------|-----------|
+| XML报文(hnnxbank等) | `{{#XML_MODE}}` | `MessageConverterTest.java.tpl` |
+| JSON+基类(yibbank) | `{{#JSON_BASE_MODE}}` | `MessageConverterTest.java.tpl` |
+| JSON直通(qinnbank ebank) | `{{#JSON_MODE}}` | `MessageConverterTest.java.tpl` |
+| XML混合(qinnbank credit) | `{{#QINN_XML_MODE}}` | `MessageConverterTest.java.tpl` |
+
+##### 测试类完整模板（XML报文风格）
+
+```java
+package com.hundsun.bemp.{bank}.adapter.msg.server.{module};
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.hundsun.bemp.adapter.msg.converter.MessageXmlParser;
+import com.hundsun.bemp.adapter.msg.xml.XmlDocument;
+import com.hundsun.bemp.adapter.msg.xml.XmlNode;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.support.MessageBuilder;
+
+import static org.junit.Assert.*;
+
+/**
+ * {PICE_CODE}MessageConverter单元测试
+ * {功能中文名}
+ */
+public class {PICE_CODE}MessageConverterTest {
+
+    private {PICE_CODE}MessageConverter converter;
+
+    @Before
+    public void setUp() {
+        converter = new {PICE_CODE}MessageConverter();
+    }
+
+    /**
+     * 构造{外围系统}请求报文XML
+     * 模拟外围系统发送的原始MQ报文
+     */
+    private String buildRequestXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<transaction>" +
+                "  <header>" +
+                "    <ver>1.0</ver>" +
+                "    <msg>" +
+                "      <seqNb>{流水号}</seqNb>" +
+                "      <msgCd>{外部服务码}</msgCd>" +
+                "      <sndAppCd>{外围系统}</sndAppCd>" +
+                "      <sndDt>{日期}</sndDt>" +
+                "      <sndTm>{时间}</sndTm>" +
+                "      <sndMbrCd>{外围系统}</sndMbrCd>" +
+                "      <replyToQ>{外围系统}.RESP</replyToQ>" +
+                "      <refCallTyp>SYN</refCallTyp>" +
+                "    </msg>" +
+                "  </header>" +
+                "  <body>" +
+                "    <request>" +
+                "      <ebbsHdrReq>" +
+                "        <opCode>{PICE_CODE}</opCode>" +
+                "        <version>01</version>" +
+                "        <channelNo>{渠道}</channelNo>" +
+                "        <reqFlowNo>{请求流水号}</reqFlowNo>" +
+                "        <reqLegalNo>{法人号}</reqLegalNo>" +
+                "      </ebbsHdrReq>" +
+                "      {外围报文字段}" +
+                "    </request>" +
+                "  </body>" +
+                "</transaction>";
+    }
+
+    /**
+     * 正常报文解析测试
+     * 验证所有字段映射正确，包含Header覆盖
+     */
+    @Test
+    public void testFromMessage_normal() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject result = converter.fromMessage(message);
+
+        JSONObject requestDto = result.getJSONObject("requestDto");
+        assertNotNull("requestDto不应为null", requestDto);
+        // 验证每个字段映射
+        assertEquals("期望值", requestDto.getString("fieldName")); // outerField→fieldName
+
+        // 验证Header字段（ECIF渠道需验证覆盖）
+        JSONObject header = result.getJSONObject("Header");
+        assertNotNull("Header不应为null", header);
+    }
+
+    /**
+     * 子节点缺失时的容错处理
+     * 验证null检查生效，不抛NPE
+     */
+    @Test
+    public void testFromMessage_missingSubNodes() {
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<transaction>" +
+                "  <header>...</header>" +
+                "  <body>" +
+                "    <request>" +
+                "      <ebbsHdrReq>...</ebbsHdrReq>" +
+                "      {仅包含必填字段，不含可选子节点}" +
+                "    </request>" +
+                "  </body>" +
+                "</transaction>";
+
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(xml);
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject result = converter.fromMessage(message);
+        JSONObject requestDto = result.getJSONObject("requestDto");
+
+        assertNotNull("requestDto不应为null", requestDto);
+        // 子节点缺失时，对应字段应为null
+        assertNull("子节点缺失，对应字段应为null", requestDto.getString("subNodeField"));
+    }
+
+    /**
+     * 正常响应组装测试
+     * 验证XML结构正确，包含retCode/retMsg/数据节点
+     */
+    @Test
+    public void testToMessage_normal() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+        JSONArray retData = new JSONArray();
+        JSONObject data = new JSONObject();
+        data.put("respField1", "value1");
+        retData.add(data);
+        responseJson.put("retData", retData);
+
+        Message<?> result = converter.toMessage(message, responseJson);
+
+        assertNotNull("响应消息不应为null", result);
+        String payload = (String) result.getPayload();
+        assertTrue("响应应包含响应字段", payload.contains("respField1"));
+        assertTrue("响应应包含retCode", payload.contains("retCode"));
+    }
+
+    /**
+     * retData为空时的容错处理
+     * 验证空数组不导致异常
+     */
+    @Test
+    public void testToMessage_emptyRetData() {
+        MessageXmlParser parser = MessageXmlParser.create();
+        XmlDocument xmlDocument = parser.parse(buildRequestXml());
+        Message<?> message = MessageBuilder.createMessage(xmlDocument, new MessageHeaders(null));
+
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+        responseJson.put("retData", new JSONArray());
+
+        Message<?> result = converter.toMessage(message, responseJson);
+
+        assertNotNull("响应消息不应为null", result);
+        String payload = (String) result.getPayload();
+        assertTrue("响应应包含retCode", payload.contains("retCode"));
+    }
+
+    /**
+     * getFunctionIdMapping映射测试
+     * 验证外部服务码与内部功能号一对一映射
+     */
+    @Test
+    public void testGetFunctionIdMapping() {
+        String[] mapping = converter.getFunctionIdMapping();
+        assertNotNull("映射不应为null", mapping);
+        assertEquals("映射长度应为2", 2, mapping.length);
+        assertEquals("外部服务码", "{外部服务码}", mapping[0]);
+        assertEquals("内部功能号", "{PICE_CODE}", mapping[1]);
+    }
+}
+```
+
+##### 测试类模板（JSON报文风格）
+
+```java
+package com.hundsun.bemp.{bank}.adapter.msg.server.{module};
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.support.MessageBuilder;
+
+import static org.junit.Assert.*;
+
+/**
+ * {PICE_CODE}MessageConverter单元测试
+ * {功能中文名}
+ */
+public class {PICE_CODE}MessageConverterTest {
+
+    private {PICE_CODE}MessageConverter converter;
+
+    @Before
+    public void setUp() {
+        converter = new {PICE_CODE}MessageConverter();
+    }
+
+    /**
+     * 构造外围系统请求JSON报文
+     * 模拟外围系统发送的原始MQ JSON报文
+     */
+    private JSONObject buildRequestJson() {
+        JSONObject payload = new JSONObject();
+        JSONObject body = new JSONObject();
+        JSONObject requestDto = new JSONObject();
+        requestDto.put("field1", "value1");
+        body.put("requestDto", requestDto);
+        payload.put("body", body);
+        return payload;
+    }
+
+    @Test
+    public void testFromMessage_normal() {
+        JSONObject payload = buildRequestJson();
+        Message<?> message = MessageBuilder.createMessage(payload, new MessageHeaders(null));
+
+        JSONObject result = converter.fromMessage(message);
+
+        assertNotNull("result不应为null", result);
+        JSONObject requestDto = result.getJSONObject("requestDto");
+        assertEquals("value1", requestDto.getString("field1"));
+    }
+
+    @Test
+    public void testToMessage_normal() {
+        JSONObject payload = buildRequestJson();
+        Message<?> message = MessageBuilder.createMessage(payload, new MessageHeaders(null));
+
+        JSONObject responseJson = new JSONObject();
+        responseJson.put("retCode", "0000");
+        responseJson.put("retMsg", "成功");
+
+        Message<?> result = converter.toMessage(message, responseJson);
+
+        assertNotNull("响应消息不应为null", result);
+        String payloadStr = (String) result.getPayload();
+        assertTrue("响应应包含retCode", payloadStr.contains("retCode"));
+    }
+
+    @Test
+    public void testGetFunctionIdMapping() {
+        String[] mapping = converter.getFunctionIdMapping();
+        assertNotNull("映射不应为null", mapping);
+        assertEquals("映射长度应为2", 2, mapping.length);
+        assertEquals("外部服务码", "{PICE_CODE}", mapping[0]);
+        assertEquals("内部功能号", "{PICE_CODE}", mapping[1]);
+    }
+}
+```
 
 ### Step 5: 验证
 1. 使用`GetDiagnostics`检查语法错误
@@ -213,7 +692,8 @@ if (header != null) {
 - MessageConverter.java：风格与同银行参考实现一致
 - **每个put/createElement操作带字段注释**（外围字段名+中文名+类型）
 - **映射差异处带说明注释**
-- MessageConverterTest.java：可独立执行的单元测试
+- MessageConverterTest.java：**可独立执行的单元测试，包含模拟报文**
+- 测试覆盖：正常解析、子节点缺失容错、响应组装、空数据容错、映射验证
 - IDE诊断无错误
 - Maven编译通过
 - 后端代码评审通过
@@ -272,6 +752,36 @@ return new String[]{"PICE070101", "PICE070101"};
 | 核心方法 | `fromMessage` + `toMessage` | `toMessage`(组装请求) + `fromMessage`(解析响应) |
 | getFunctionIdMapping | 必须实现 | 不需要 |
 | @Component命名 | `{PICE_CODE}MessageConverter` | `{POBM/POPC/POSM}MessageConverter` |
+
+## 关键工具类速查
+
+| 工具类 | 路径 | 用途 | 适用银行 |
+|--------|------|------|---------|
+| AbstractMessageApplyResponseConverter | `adapter/as/.../msg/core/` | server端基类 | 所有银行 |
+| AbstractGenericMessageRequestReplyConverter | `adapter/as/.../msg/generic/` | client端基类 | 所有银行 |
+| AbstractYbinMessageApplyResponseConverter | `banks/ext-yibbank/.../msg/server/` | yibbank抽象基类(需显式getFunctionIdMapping) | yibbank |
+| YbinChannelBaseMessageApplyResponseConverter | `banks/ext-yibbank/.../msg/server/` | yibbank渠道基类(自动推导getFunctionIdMapping) | yibbank |
+| MessageXmlBuilder | `adapter/as/.../msg/converter/` | XML响应构建器 | XML风格银行 |
+| MessageXmlParser | `adapter/as/.../msg/converter/` | XML报文解析器 | XML风格银行 |
+| XmlDocument | `adapter/as/.../msg/xml/` | XML文档对象 | XML风格银行 |
+| XmlNode | `adapter/as/.../msg/xml/` | XML节点对象 | XML风格银行 |
+| HeadUtils | `banks/ext-{bank}/{bank}-adapter-as/.../msg/util/` | 银行专属报文头工具 | 各银行独立 |
+| XmlUtil | `banks/ext-{bank}/{bank}-adapter-as/.../msg/util/` | 银行专属XML工具 | XML风格银行 |
+| EncryptKeyUtils | `banks/ext-qinnbank/.../msg/util/` | 报文加解密工具 | qinnbank(credit) |
+| MessageConstants | `banks/ext-{bank}/{bank}-adapter-as/.../msg/common/` | 银行专属常量 | 各银行独立 |
+| @CloudReference | `com.hundsun.jrescloud.rpc.annotation` | 远程服务注入 | qinnbank ebank |
+
+## 框架基类继承链
+
+```
+AbstractMessageConverter (adapter/as/.../msg/core/)
+  ├── AbstractMessageApplyResponseConverter (server端)
+  │     ├── getFunctionIdMapping() [抽象方法]
+  │     └── fromMessage() / toMessage() [子类实现]
+  └── AbstractMessageRequestReplyConverter (client端)
+        └── AbstractGenericMessageRequestReplyConverter
+              └── toMessage() / fromMessage() [子类实现]
+```
 
 ## 失败处理
 | 场景 | 处理策略 |

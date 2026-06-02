@@ -18,8 +18,15 @@ Glob: banks/ext-{bank}/**/msg/server/Abstract*MessageApplyResponseConverter.java
 | 发现的基类 | 报文风格 | 搜索重点 |
 |-----------|---------|---------|
 | 无银行基类 + XmlDocument引用 | XML模式 | XML解析风格、HeadUtils用法 |
-| YbinChannelBaseMessageApplyResponseConverter | JSON+基类模式 | 是否需要覆写、基类逻辑 |
-| 无银行基类 + JSONObject引用 | JSON直通模式 | JSON字段结构、数据补充逻辑 |
+| YbinChannelBaseMessageApplyResponseConverter | JSON+基类模式(YbinChannel) | 是否需要覆写、基类逻辑 |
+| AbstractYbinMessageApplyResponseConverter | JSON+基类模式(AbstractYbin) | 需显式getFunctionIdMapping |
+| 无银行基类 + JSONObject引用 + @CloudReference | JSON直通模式 | JSON字段结构、数据补充逻辑 |
+| 无银行基类 + XmlDocument + EncryptKeyUtils | XML混合模式(qinnbank credit) | 解密解析、加密响应、SERVICE结构 |
+
+### 特殊情况：qinnbank 模块级差异
+qinnbank 不同模块使用不同报文风格，必须按模块识别：
+- `banks/ext-qinnbank/.../msg/server/ebank/` → JSON直通模式
+- `banks/ext-qinnbank/.../msg/server/credit/` → XML混合模式（加密传输）
 
 ## 搜索线一：同银行参考实现
 
@@ -45,9 +52,10 @@ Glob: banks/ext-{bank}/**/*MessageConverter.java
 #### JSON+基类模式必读
 | 文件 | 用途 |
 |------|------|
-| YbinChannelBaseMessageApplyResponseConverter.java | 银行基类，了解通用逻辑 |
-| AbstractYbinMessageApplyResponseConverter.java | 抽象基类（如有） |
+| YbinChannelBaseMessageApplyResponseConverter.java | 渠道基类，自动从类名推导getFunctionIdMapping |
+| AbstractYbinMessageApplyResponseConverter.java | 抽象基类，需显式实现getFunctionIdMapping |
 | 同目录下的空壳Converter | 确认是否需要覆写 |
+| 同目录下覆写了fromMessage的Converter | 确认字段映射逻辑 |
 | {bank}/adapter/msg/utils/XmlUtil.java | buildSuccessMessage方法 |
 
 #### JSON直通模式必读
@@ -57,6 +65,15 @@ Glob: banks/ext-{bank}/**/*MessageConverter.java
 | {bank}/adapter/msg/util/HeadUtils.java | 报文头工具（如有） |
 | {bank}/adapter/msg/common/MessageConstants.java | 常量定义 |
 | {bank}/adapter/msg/TcpMessageInterceptor.java | TCP消息拦截器 |
+
+#### XML混合模式必读（qinnbank credit）
+| 文件 | 用途 |
+|------|------|
+| 同目录下的MessageConverter | 确定XML加解密和解析风格 |
+| {bank}/adapter/msg/util/EncryptKeyUtils.java | 报文加解密工具 |
+| {bank}/adapter/msg/util/HeadUtils.java | 报文头工具（sysHeadToJson签名不同） |
+| {bank}/adapter/msg/util/XmlUtil.java | XML工具（formatXml、xmlNodeIsNull） |
+| {bank}/adapter/msg/common/MessageConstants.java | 常量（SERVICE/SERVICE_HEADER/SERVICE_BODY） |
 
 ### 关键观察点
 

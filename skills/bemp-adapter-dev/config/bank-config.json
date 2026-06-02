@@ -109,6 +109,154 @@
                 "maven_compile": false
             }
         },
+        "huisbank": {
+            "bank_name": "徽商银行",
+            "adapter_module": "huisbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.huisbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文，与hnnxbank风格类似",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "interceptor_class": "MqMessageInterceptor",
+            "modules": {
+                "ebank": {
+                    "description": "网银系统",
+                    "service_prefix": "Ebank",
+                    "dto_package": "ebank"
+                }
+            },
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
+        "jinzbank": {
+            "bank_name": "晋中银行",
+            "adapter_module": "jinzbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.jinzbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "modules": {
+                "ebank": {
+                    "description": "网银系统",
+                    "service_prefix": "Ebank",
+                    "dto_package": "ebank"
+                }
+            },
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
+        "nmgbank": {
+            "bank_name": "内蒙古银行",
+            "adapter_module": "nmgbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.nmgbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "modules": {
+                "ebank": {
+                    "description": "网银系统",
+                    "service_prefix": "Ebank",
+                    "dto_package": "ebank"
+                }
+            },
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
+        "huzbank": {
+            "bank_name": "湖州银行",
+            "adapter_module": "huzbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.huzbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "modules": {
+                "ebank": {
+                    "description": "网银系统",
+                    "service_prefix": "Ebank",
+                    "dto_package": "ebank"
+                }
+            },
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
+        "hxbank": {
+            "bank_name": "华夏银行",
+            "adapter_module": "hxbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.hxbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "modules": {
+                "ebank": {
+                    "description": "网银系统",
+                    "service_prefix": "Ebank",
+                    "dto_package": "ebank"
+                }
+            },
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
+        "fxbank": {
+            "bank_name": "阜新银行",
+            "adapter_module": "fxbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.fxbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
+        "tianjbank": {
+            "bank_name": "天津银行",
+            "adapter_module": "tianjbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.tianjbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
+        "xxbank": {
+            "bank_name": "新兴银行",
+            "adapter_module": "xxbank-adapter-as",
+            "package_prefix": "com.hundsun.bemp.xxbank.adapter.msg",
+            "message_style": "XML",
+            "style_detail": "XmlDocument/XmlNode解析XML报文",
+            "base_class": "AbstractMessageApplyResponseConverter",
+            "ext_service_code_pattern": "EBBS.{tx_code}.01",
+            "test_config": {
+                "framework": "JUnit4",
+                "spring_context": false,
+                "test_directory": "src/test/java"
+            }
+        },
         "yibbank": {
             "bank_name": "宜宾银行",
             "adapter_module": "yibbank-adapter-as",
@@ -116,12 +264,22 @@
             "message_style": "JSON_BASE",
             "style_detail": "JSON报文+YbinChannelBaseMessageApplyResponseConverter基类，大部分Converter为空壳",
             "base_class": "YbinChannelBaseMessageApplyResponseConverter",
+            "base_class_hierarchy": "AbstractMessageApplyResponseConverter → AbstractYbinMessageApplyResponseConverter(抽象,需显式getFunctionIdMapping) → YbinChannelBaseMessageApplyResponseConverter(自动从类名推导getFunctionIdMapping)",
             "ext_service_code_pattern": "{PICE_CODE}",
             "interceptor_class": "YbinTcpMessageInterceptor",
             "base_class_detail": {
-                "fromMessage": "从payload提取body节点直接返回",
-                "toMessage": "XmlUtil.buildSuccessMessage构建成功响应",
-                "getFunctionIdMapping": "自动从类名提取PICE代码"
+                "YbinChannelBaseMessageApplyResponseConverter": {
+                    "fromMessage": "从payload提取body节点直接返回",
+                    "toMessage": "XmlUtil.buildSuccessMessage构建成功响应",
+                    "getFunctionIdMapping": "自动从类名提取PICE代码（去MessageConverter后缀）",
+                    "extends": "AbstractMessageApplyResponseConverter"
+                },
+                "AbstractYbinMessageApplyResponseConverter": {
+                    "fromMessage": "从payload提取body节点直接返回",
+                    "toMessage": "XmlUtil.buildSuccessMessage构建成功响应",
+                    "getFunctionIdMapping": "抽象方法，子类必须显式实现",
+                    "extends": "AbstractMessageApplyResponseConverter"
+                }
             },
             "modules": {
                 "ebank": {
@@ -163,21 +321,35 @@
             "adapter_module": "qinnbank-adapter-as",
             "package_prefix": "com.hundsun.bemp.qinnbank.adapter.msg",
             "message_style": "JSON_DIRECT",
-            "style_detail": "JSON报文直通，无银行基类，每个Converter自行处理fromMessage/toMessage",
+            "style_detail": "ebank模块JSON报文直通，但credit模块使用XML报文（XmlDocument/XmlNode解析），需按模块识别",
             "base_class": "AbstractMessageApplyResponseConverter",
             "ext_service_code_pattern": "{PICE_CODE}",
             "interceptor_class": "TcpMessageInterceptor",
             "modules": {
                 "ebank": {
                     "description": "网银系统",
+                    "message_style": "JSON_DIRECT",
+                    "style_detail": "JSON入JSON出，payload直接为JSONObject，toMessage直接toJSONString",
                     "service_prefix": "Ebank",
                     "dto_package": "ebank",
                     "sub_modules": ["fastdisc", "billpool"]
                 },
                 "credit": {
                     "description": "信贷系统",
+                    "message_style": "XML",
+                    "style_detail": "XML入XML出，使用XmlDocument/XmlNode解析，MessageXmlBuilder构建响应，响应需EncryptKeyUtils加密",
                     "service_prefix": "Credit",
-                    "dto_package": "credit"
+                    "dto_package": "credit",
+                    "xml_parsing": {
+                        "style": "XmlDocument_XmlNode",
+                        "util_class": "XmlUtil",
+                        "head_util_class": "HeadUtils",
+                        "constants_class": "MessageConstants",
+                        "request_path": "SERVICE_BODY",
+                        "header_path": "SERVICE_HEADER",
+                        "xml_format": "XmlUtil.formatXml",
+                        "encrypt": "EncryptKeyUtils.getEncryptString"
+                    }
                 },
                 "platform": {
                     "description": "平台",
@@ -206,9 +378,9 @@
     },
     "message_style_enum": {
         "XML": {
-            "description": "XML报文模式，需XmlDocument/XmlNode解析",
+            "description": "XML报文模式，需XmlDocument/XmlNode解析，MessageXmlBuilder构建响应",
             "template_mode": "XML_MODE",
-            "applicable_banks": ["hnnxbank", "shaoxbank"]
+            "applicable_banks": ["hnnxbank", "shaoxbank", "huisbank", "jinzbank", "nmgbank", "huzbank", "hxbank", "fxbank", "tianjbank", "xxbank"]
         },
         "JSON_BASE": {
             "description": "JSON报文+银行基类模式，大部分空壳Converter",
@@ -216,7 +388,7 @@
             "applicable_banks": ["yibbank"]
         },
         "JSON_DIRECT": {
-            "description": "JSON报文直通模式，无基类，自行处理",
+            "description": "JSON报文直通模式，无基类，自行处理fromMessage/toMessage",
             "template_mode": "JSON_DIRECT_MODE",
             "applicable_banks": ["qinnbank"]
         }
@@ -234,5 +406,17 @@
             "7. 调用bean的toMessage()组装响应"
         ],
         "function_id_map_registration": "各Converter的getFunctionIdMapping()在afterPropertiesSet()时注册到FUNCTION_ID_MAP"
+    },
+    "test_template": {
+        "description": "测试类必须包含模拟报文，可独立执行",
+        "xml_mode": "使用MessageXmlParser解析真实XML字符串，构造完整header+body+request结构",
+        "json_mode": "使用JSONObject构造完整JSON payload，包含body和requestDto",
+        "required_test_cases": [
+            "testFromMessage_normal - 正常报文解析，验证所有字段映射",
+            "testFromMessage_missingSubNodes - 子节点缺失容错，验证null检查",
+            "testToMessage_normal - 正常响应组装，验证XML/JSON结构",
+            "testToMessage_emptyRetData - 空retData容错，验证不抛异常",
+            "testGetFunctionIdMapping - 映射关系验证"
+        ]
     }
 }
