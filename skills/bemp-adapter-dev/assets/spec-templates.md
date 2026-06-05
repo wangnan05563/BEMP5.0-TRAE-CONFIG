@@ -66,26 +66,35 @@
   - [ ] SubTask 1.3: 实现getFunctionIdMapping方法
   - [ ] SubTask 1.4: 实现fromMessage方法
   - [ ] SubTask 1.5: 实现toMessage方法
+- [ ] Task 2: 创建{PICE_CODE}MessageConverterTest.java单元测试
+  - [ ] SubTask 2.1: 创建测试类，继承AbstractAdapterConverterTest，使用JUnit5 + @SpringBootTest
+  - [ ] SubTask 2.2: 在src/test/resources/mock-msg/<converter>/下放置请求+应答mock报文
+  - [ ] SubTask 2.3: 编写入参解析+字段映射测试
+  - [ ] SubTask 2.4: 编写应答拼装测试
+  - [ ] SubTask 2.5: 编写异常分支测试
+  - [ ] SubTask 2.6: 编写getFunctionIdMapping测试
 
 # Task Dependencies
-- 无外部依赖，Task 1内部子任务需按顺序执行
+- Task 1 和 Task 2 可并行开发
+- Task 1 完成后需IDE诊断验证无语法错误
 ```
 
 ## checklist.md模板
 
 ```markdown
 - [ ] {PICE_CODE}MessageConverter.java文件已创建在正确路径
-- [ ] 类继承正确的基类（AbstractMessageApplyResponseConverter / YbinChannelBase* / AbstractYbin*）
-- [ ] @Component注解value正确
+- [ ] 类继承AbstractMessageApplyResponseConverter，@Component注解value正确
 - [ ] getFunctionIdMapping返回正确的映射数组
 - [ ] fromMessage方法字段映射关系完整
-- [ ] fromMessage方法使用正确的工具类（XmlUtil.getNodeValue / XmlUtil.xmlNodeIsNull / HeadUtils.sysHeadToJson）
-- [ ] toMessage方法正确将响应JSON转换为外部报文格式
-- [ ] toMessage方法使用正确的构建器（MessageXmlBuilder / HeadUtils.jsonToSysHead / XmlUtil.buildSuccessMessage）
-- [ ] 代码注释标注了外围字段名和中文名（强制）
-- [ ] 单元测试类已创建在正确路径
-- [ ] 测试覆盖正常解析、子节点缺失容错、响应组装、空数据容错、映射验证
-- [ ] 测试使用模拟报文（MessageXmlParser解析真实XML / JSONObject构造真实JSON）
+- [ ] fromMessage方法使用XmlUtil.getNodeValue和HeadUtils.sysHeadToJson
+- [ ] toMessage方法正确将响应JSON转换为XML格式
+- [ ] toMessage方法使用HeadUtils.jsonToSysHead和MessageXmlBuilder
 - [ ] 代码风格与项目现有MessageConverter保持一致
 - [ ] IDE诊断无语法错误
+- [ ] {PICE_CODE}MessageConverterTest.java已创建在正确路径
+- [ ] 测试类继承AbstractAdapterConverterTest，使用JUnit5 + @SpringBootTest
+- [ ] mock报文存放于src/test/resources/mock-msg/<converter>/，命名遵循MUST-6
+- [ ] 测试覆盖4场景：入参解析/字段映射/应答拼装/异常分支
+- [ ] 字段映射断言验证≥3个核心业务字段（MUST-9）
+- [ ] 单元测试可独立执行（mvn test -Dtest={PICE_CODE}MessageConverterTest）
 ```

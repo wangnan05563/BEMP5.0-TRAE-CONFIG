@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mock-msg: hxbbank 信贷额度管控请求报文（历史风格）
+  bank: hxbbank (历史支持银行，workspace 中无对应代码)
+  channel: credit
+  func: PICE030505 (信贷额度管控 - 占用)
+  base-class: AbstractMessageApplyResponseConverter (XML_MODE)
+  报文特点:
+    - 报文头与体合并
+    - 含信贷特有字段（loanAccount, creditLimit, usedAmount）
+    - 报文头需解析后填入内部 DTO
+-->
+<request>
+    <head>
+        <bankCode>hx</bankCode>
+        <tellerNo>00002</tellerNo>
+        <orgCode>888888888</orgCode>
+        <busiDate>20210103</busiDate>
+        <flowNo>BEMP20210103000002</flowNo>
+    </head>
+    <body>
+        <requestDto>
+            <billId>B202101030002</billId>
+            <creditAcctNo>CREDIT20210103001</creditAcctNo>
+            <loanAcctNo>LOAN20210103001</loanAcctNo>
+            <custNo>CN20210103000002</custNo>
+            <custName>华夏银行测试客户</custName>
+            <creditLimit>5000000.00</creditLimit>
+            <usedAmount>1000000.00</usedAmount>
+            <occupAmount>1000000.00</occupAmount>
+            <transType>1</transType>
+            <remark>信贷额度占用</remark>
+        </requestDto>
+    </body>
+</request>

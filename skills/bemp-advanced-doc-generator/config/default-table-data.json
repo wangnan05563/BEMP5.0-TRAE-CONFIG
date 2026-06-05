@@ -1,0 +1,38 @@
+{
+  "defaultTerms": [
+    ["本项目", "项目管理系统平台", ""],
+    ["外部系统1", "外部对接系统1", "外部系统"],
+    ["外部系统2", "外部对接系统2", "外部系统"],
+    ["SIT", "System Integration Test，系统集成测试", ""],
+    ["UAT", "User Acceptance Test，用户验收测试", ""],
+    ["RBAC", "Role-Based Access Control，基于角色的访问控制", ""],
+    ["RPC", "Remote Procedure Call，远程过程调用", ""]
+  ],
+  "defaultReferences": [
+    ["《项目接口规范》", "V2.0"],
+    ["《Spring Boot官方文档》", "2.x"],
+    ["《MyBatis官方文档》", "3.x"]
+  ],
+  "defaultExternalInterfaces": [
+    ["本系统", "核心业务系统", "票据信息查询接口"],
+    ["本系统", "核心业务系统", "额度查询接口"],
+    ["本系统", "外部业务系统1", "额度占用/释放通知接口"],
+    ["本系统", "外部业务系统2", "客户信息同步接口"]
+  ],
+  "defaultReuseAnalysis": [
+    ["Spring Boot框架", "开源", "业界成熟的Java微服务框架，社区活跃，版本稳定"],
+    ["MyBatis ORM", "开源", "灵活的SQL映射框架，支持动态SQL和数据库方言适配"],
+    ["Apache Dubbo", "开源", "高性能Java RPC框架，与Spring Boot深度集成"],
+    ["Apache Shiro", "开源", "轻量级安全框架，满足RBAC权限控制需求"],
+    ["Vue.js", "开源", "渐进式前端框架，学习曲线平缓，生态丰富"],
+    ["Element UI", "开源", "企业级Vue组件库，控件丰富，主题可定制"],
+    ["Redis", "开源", "高性能内存缓存数据库，支持集群和哨兵模式"],
+    ["ZooKeeper", "开源", "分布式协调服务，用于服务注册发现和配置管理"]
+  ],
+  "feTechKeywords": [
+    "Vue.js", "Vue Router", "Vuex", "Element UI", "Axios", "Webpack",
+    "Babel", "ESLint", "Sass/SCSS", "ECharts", "Lodash", "Moment.js",
+    "Day.js", "SheetJS", "JSZip", "FileSaver", "View Design",
+    "Ant Design Vue", "Vite", "Less"
+  ]
+}

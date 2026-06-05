@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mock-msg: hnnxbank ECIF 客户主数据请求报文（历史风格）
+  bank: hnnxbank (历史支持银行，workspace 中无对应代码)
+  channel: ecif
+  func: PICE070701
+  base-class: AbstractMessageApplyResponseConverter (XML_MODE)
+  报文特点:
+    - XML 报文（无 SOAP Envelope）
+    - 根节点直接是 <request>
+    - 包含 ECIF 客户主数据常用字段
+    - 报文头与报文体合并
+-->
+<request>
+    <head>
+        <bankCode>hnnx</bankCode>
+        <tellerNo>00001</tellerNo>
+        <orgCode>999999999</orgCode>
+        <busiDate>20210103</busiDate>
+        <flowNo>BEMP20210103000001</flowNo>
+    </head>
+    <body>
+        <requestDto>
+            <cprcCustNo>CN20210103000001</cprcCustNo>
+            <cprcCustName>河南农商测试客户1号</cprcCustName>
+            <idType>01</idType>
+            <idNo>411111111111111111</idNo>
+            <custType>1</custType>
+            <vipLvl>3</vipLvl>
+            <cprcCustSts>0</cprcCustSts>
+            <mobNo>15312345678</mobNo>
+            <addr>河南省郑州市金水区</addr>
+            <remark>客户主数据同步</remark>
+        </requestDto>
+    </body>
+</request>

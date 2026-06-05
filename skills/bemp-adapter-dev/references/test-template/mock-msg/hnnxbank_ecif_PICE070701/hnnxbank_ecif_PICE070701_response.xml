@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mock-msg: hnnxbank ECIF 响应报文
+  bank: hnnxbank
+  channel: ecif
+  func: PICE070701
+  注意: hnnxbank 历史风格 - 直接 XML，无 SOAP 包装
+-->
+<response>
+    <head>
+        <retCode>0000</retCode>
+        <retMsg>成功</retMsg>
+        <flowNo>BEMP20210103000001</flowNo>
+    </head>
+    <body>
+        <responseDto>
+            <cprcCustNo>CN20210103000001</cprcCustNo>
+            <ecifNo>ECIF20210103000001</ecifNo>
+            <updateTime>2021-01-03 12:00:01</updateTime>
+        </responseDto>
+    </body>
+</response>

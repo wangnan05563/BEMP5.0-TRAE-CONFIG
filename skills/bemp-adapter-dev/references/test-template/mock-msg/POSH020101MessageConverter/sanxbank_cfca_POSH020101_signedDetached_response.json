@@ -1,0 +1,16 @@
+{
+    "HEAD": {
+        "retCode": "0000",
+        "retMsg": "成功"
+    },
+    "retData": [
+        {
+            "retCode": "0000",
+            "retMsg": "成功",
+            "signature": "MIIEPzCCA9CgAwIBAgIQCjG4nL9xZ7YvJ7mY8a1t5TANBgkqhkiG9w0BAQsFADCB...",
+            "certSerialNo": "1234567890ABCDEF",
+            "signerDN": "CN=测试公司,O=测试组织,OU=测试部门",
+            "signTime": "2023-02-20 15:00:01.234"
+        }
+    ]
+}

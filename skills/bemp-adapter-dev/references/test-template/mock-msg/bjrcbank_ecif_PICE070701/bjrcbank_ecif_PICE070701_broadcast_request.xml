@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mock-msg: bjrcbank ECIF 客户主数据广播报文（历史风格）
+  bank: bjrcbank (历史支持银行，workspace 中无对应代码)
+  channel: ecif
+  func: PICE070701 (广播模式 - 多客户批量)
+  base-class: AbstractMessageApplyResponseConverter (XML_MODE)
+  报文特点:
+    - 广播模式（多客户批量同步）
+    - 含 batchCustList 数组
+    - 每条客户数据含 ECIF 全部字段
+-->
+<request>
+    <head>
+        <bankCode>bjrc</bankCode>
+        <tellerNo>00003</tellerNo>
+        <orgCode>777777777</orgCode>
+        <busiDate>20210103</busiDate>
+        <flowNo>BEMP20210103000003</flowNo>
+        <broadcastFlag>1</broadcastFlag>
+    </head>
+    <body>
+        <requestDto>
+            <batchId>BATCH20210103001</batchId>
+            <batchCustList>
+                <cust>
+                    <cprcCustNo>CN20210103000011</cprcCustNo>
+                    <cprcCustName>北京农商银行客户1号</cprcCustName>
+                    <idType>01</idType>
+                    <idNo>110111111111111111</idNo>
+                    <custType>1</custType>
+                    <vipLvl>2</vipLvl>
+                    <cprcCustSts>0</cprcCustSts>
+                    <mobNo>15311111111</mobNo>
+                    <addr>北京市朝阳区</addr>
+                </cust>
+                <cust>
+                    <cprcCustNo>CN20210103000012</cprcCustNo>
+                    <cprcCustName>北京农商银行客户2号</cprcCustName>
+                    <idType>01</idType>
+                    <idNo>110222222222222222</idNo>
+                    <custType>2</custType>
+                    <vipLvl>1</vipLvl>
+                    <cprcCustSts>0</cprcCustSts>
+                    <mobNo>15322222222</mobNo>
+                    <addr>北京市海淀区</addr>
+                </cust>
+            </batchCustList>
+        </requestDto>
+    </body>
+</request>

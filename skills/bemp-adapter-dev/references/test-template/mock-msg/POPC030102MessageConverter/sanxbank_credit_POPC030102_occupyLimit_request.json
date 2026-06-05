@@ -1,0 +1,12 @@
+{
+    "requestDto": {
+        "billNo": "B20230220001",
+        "busiType": "OCCUPY_LIMIT",
+        "occupyType": "1",
+        "limitType": "01",
+        "occupyAmt": "500000.00",
+        "foreFlowNo": "F20230220001",
+        "operatorNo": "999999999",
+        "operateTime": "2023-02-20 14:30:00"
+    }
+}

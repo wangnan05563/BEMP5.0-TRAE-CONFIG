@@ -1,0 +1,19 @@
+{
+    "HEAD": {
+        "srcSysId": "BEMP",
+        "msgId": "BEMP202105030001",
+        "msgDate": "2021-05-03 10:30:00",
+        "msgRefId": "BEMP202105030001",
+        "retCode": "0000",
+        "retMsg": "成功"
+    },
+    "retData": [
+        {
+            "retCode": "0000",
+            "retMsg": "成功",
+            "billId": "B202105030001",
+            "billStatus": "01",
+            "dealTime": "2021-05-03 10:30:00"
+        }
+    ]
+}

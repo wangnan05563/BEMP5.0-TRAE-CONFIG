@@ -55,9 +55,9 @@
                 }
             },
             "test_config": {
-                "framework": "JUnit4",
+                "framework": "JUnit5",
                 "mock_framework": "Mockito",
-                "spring_context": false,
+                "spring_context": true,
                 "test_directory": "src/test/java"
             },
             "validation": {
@@ -99,162 +99,14 @@
                 "response_header_method": "HeadUtils.jsonToSysHead"
             },
             "test_config": {
-                "framework": "JUnit4",
+                "framework": "JUnit5",
                 "mock_framework": "Mockito",
-                "spring_context": false,
+                "spring_context": true,
                 "test_directory": "src/test/java"
             },
             "validation": {
                 "ide_diagnostics": true,
                 "maven_compile": false
-            }
-        },
-        "huisbank": {
-            "bank_name": "徽商银行",
-            "adapter_module": "huisbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.huisbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文，与hnnxbank风格类似",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "interceptor_class": "MqMessageInterceptor",
-            "modules": {
-                "ebank": {
-                    "description": "网银系统",
-                    "service_prefix": "Ebank",
-                    "dto_package": "ebank"
-                }
-            },
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
-            }
-        },
-        "jinzbank": {
-            "bank_name": "晋中银行",
-            "adapter_module": "jinzbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.jinzbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "modules": {
-                "ebank": {
-                    "description": "网银系统",
-                    "service_prefix": "Ebank",
-                    "dto_package": "ebank"
-                }
-            },
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
-            }
-        },
-        "nmgbank": {
-            "bank_name": "内蒙古银行",
-            "adapter_module": "nmgbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.nmgbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "modules": {
-                "ebank": {
-                    "description": "网银系统",
-                    "service_prefix": "Ebank",
-                    "dto_package": "ebank"
-                }
-            },
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
-            }
-        },
-        "huzbank": {
-            "bank_name": "湖州银行",
-            "adapter_module": "huzbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.huzbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "modules": {
-                "ebank": {
-                    "description": "网银系统",
-                    "service_prefix": "Ebank",
-                    "dto_package": "ebank"
-                }
-            },
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
-            }
-        },
-        "hxbank": {
-            "bank_name": "华夏银行",
-            "adapter_module": "hxbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.hxbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "modules": {
-                "ebank": {
-                    "description": "网银系统",
-                    "service_prefix": "Ebank",
-                    "dto_package": "ebank"
-                }
-            },
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
-            }
-        },
-        "fxbank": {
-            "bank_name": "阜新银行",
-            "adapter_module": "fxbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.fxbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
-            }
-        },
-        "tianjbank": {
-            "bank_name": "天津银行",
-            "adapter_module": "tianjbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.tianjbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
-            }
-        },
-        "xxbank": {
-            "bank_name": "新兴银行",
-            "adapter_module": "xxbank-adapter-as",
-            "package_prefix": "com.hundsun.bemp.xxbank.adapter.msg",
-            "message_style": "XML",
-            "style_detail": "XmlDocument/XmlNode解析XML报文",
-            "base_class": "AbstractMessageApplyResponseConverter",
-            "ext_service_code_pattern": "EBBS.{tx_code}.01",
-            "test_config": {
-                "framework": "JUnit4",
-                "spring_context": false,
-                "test_directory": "src/test/java"
             }
         },
         "yibbank": {
@@ -264,22 +116,12 @@
             "message_style": "JSON_BASE",
             "style_detail": "JSON报文+YbinChannelBaseMessageApplyResponseConverter基类，大部分Converter为空壳",
             "base_class": "YbinChannelBaseMessageApplyResponseConverter",
-            "base_class_hierarchy": "AbstractMessageApplyResponseConverter → AbstractYbinMessageApplyResponseConverter(抽象,需显式getFunctionIdMapping) → YbinChannelBaseMessageApplyResponseConverter(自动从类名推导getFunctionIdMapping)",
             "ext_service_code_pattern": "{PICE_CODE}",
             "interceptor_class": "YbinTcpMessageInterceptor",
             "base_class_detail": {
-                "YbinChannelBaseMessageApplyResponseConverter": {
-                    "fromMessage": "从payload提取body节点直接返回",
-                    "toMessage": "XmlUtil.buildSuccessMessage构建成功响应",
-                    "getFunctionIdMapping": "自动从类名提取PICE代码（去MessageConverter后缀）",
-                    "extends": "AbstractMessageApplyResponseConverter"
-                },
-                "AbstractYbinMessageApplyResponseConverter": {
-                    "fromMessage": "从payload提取body节点直接返回",
-                    "toMessage": "XmlUtil.buildSuccessMessage构建成功响应",
-                    "getFunctionIdMapping": "抽象方法，子类必须显式实现",
-                    "extends": "AbstractMessageApplyResponseConverter"
-                }
+                "fromMessage": "从payload提取body节点直接返回",
+                "toMessage": "XmlUtil.buildSuccessMessage构建成功响应",
+                "getFunctionIdMapping": "自动从类名提取PICE代码"
             },
             "modules": {
                 "ebank": {
@@ -306,9 +148,9 @@
             "has_server_subdirectory": true,
             "has_client_subdirectory": true,
             "test_config": {
-                "framework": "JUnit4",
+                "framework": "JUnit5",
                 "mock_framework": "Mockito",
-                "spring_context": false,
+                "spring_context": true,
                 "test_directory": "src/test/java"
             },
             "validation": {
@@ -321,35 +163,21 @@
             "adapter_module": "qinnbank-adapter-as",
             "package_prefix": "com.hundsun.bemp.qinnbank.adapter.msg",
             "message_style": "JSON_DIRECT",
-            "style_detail": "ebank模块JSON报文直通，但credit模块使用XML报文（XmlDocument/XmlNode解析），需按模块识别",
+            "style_detail": "JSON报文直通，无银行基类，每个Converter自行处理fromMessage/toMessage",
             "base_class": "AbstractMessageApplyResponseConverter",
             "ext_service_code_pattern": "{PICE_CODE}",
             "interceptor_class": "TcpMessageInterceptor",
             "modules": {
                 "ebank": {
                     "description": "网银系统",
-                    "message_style": "JSON_DIRECT",
-                    "style_detail": "JSON入JSON出，payload直接为JSONObject，toMessage直接toJSONString",
                     "service_prefix": "Ebank",
                     "dto_package": "ebank",
                     "sub_modules": ["fastdisc", "billpool"]
                 },
                 "credit": {
                     "description": "信贷系统",
-                    "message_style": "XML",
-                    "style_detail": "XML入XML出，使用XmlDocument/XmlNode解析，MessageXmlBuilder构建响应，响应需EncryptKeyUtils加密",
                     "service_prefix": "Credit",
-                    "dto_package": "credit",
-                    "xml_parsing": {
-                        "style": "XmlDocument_XmlNode",
-                        "util_class": "XmlUtil",
-                        "head_util_class": "HeadUtils",
-                        "constants_class": "MessageConstants",
-                        "request_path": "SERVICE_BODY",
-                        "header_path": "SERVICE_HEADER",
-                        "xml_format": "XmlUtil.formatXml",
-                        "encrypt": "EncryptKeyUtils.getEncryptString"
-                    }
+                    "dto_package": "credit"
                 },
                 "platform": {
                     "description": "平台",
@@ -365,9 +193,9 @@
                 "AbstractEsb3MessageRequestReplyConverter"
             ],
             "test_config": {
-                "framework": "JUnit4",
+                "framework": "JUnit5",
                 "mock_framework": "Mockito",
-                "spring_context": false,
+                "spring_context": true,
                 "test_directory": "src/test/java"
             },
             "validation": {
@@ -378,9 +206,9 @@
     },
     "message_style_enum": {
         "XML": {
-            "description": "XML报文模式，需XmlDocument/XmlNode解析，MessageXmlBuilder构建响应",
+            "description": "XML报文模式，需XmlDocument/XmlNode解析",
             "template_mode": "XML_MODE",
-            "applicable_banks": ["hnnxbank", "shaoxbank", "huisbank", "jinzbank", "nmgbank", "huzbank", "hxbank", "fxbank", "tianjbank", "xxbank"]
+            "applicable_banks": ["hnnxbank", "shaoxbank"]
         },
         "JSON_BASE": {
             "description": "JSON报文+银行基类模式，大部分空壳Converter",
@@ -388,7 +216,7 @@
             "applicable_banks": ["yibbank"]
         },
         "JSON_DIRECT": {
-            "description": "JSON报文直通模式，无基类，自行处理fromMessage/toMessage",
+            "description": "JSON报文直通模式，无基类，自行处理",
             "template_mode": "JSON_DIRECT_MODE",
             "applicable_banks": ["qinnbank"]
         }
@@ -407,16 +235,472 @@
         ],
         "function_id_map_registration": "各Converter的getFunctionIdMapping()在afterPropertiesSet()时注册到FUNCTION_ID_MAP"
     },
-    "test_template": {
-        "description": "测试类必须包含模拟报文，可独立执行",
-        "xml_mode": "使用MessageXmlParser解析真实XML字符串，构造完整header+body+request结构",
-        "json_mode": "使用JSONObject构造完整JSON payload，包含body和requestDto",
-        "required_test_cases": [
-            "testFromMessage_normal - 正常报文解析，验证所有字段映射",
-            "testFromMessage_missingSubNodes - 子节点缺失容错，验证null检查",
-            "testToMessage_normal - 正常响应组装，验证XML/JSON结构",
-            "testToMessage_emptyRetData - 空retData容错，验证不抛异常",
-            "testGetFunctionIdMapping - 映射关系验证"
+    "workspace_actual_banks": {
+        "description": "当前 workspace 实际存在的银行清单（区别于上方历史支持银行）",
+        "updated": "2026-06-02",
+        "important_correction": "v4.0 更新：workspace 实际有 10 家银行有 MessageConverter 实现（tabank/cqbank/jiybank/chengdbank/qhdbank/langfbank/guombank/sanlbank/qiybank/sanxbank），2 家空模板（whnsbank/shangrbank），10 家空骨架",
+        "stats_summary": {
+            "total_banks_with_dirs": 24,
+            "with_implementation": 10,
+            "empty_template": 2,
+            "empty_skeleton": 10,
+            "autocode_demo": 1,
+            "total_message_converters": 775,
+            "total_tests": 2,
+            "test_coverage": "0.3%"
+        },
+        "banks": {
+            "tabank": {
+                "bank_name": "泰安银行",
+                "directory_prefix": "ext-tabank",
+                "adapter_module": "tabank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.tabank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_TCP_ESB",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractEsbMessageRequestReplyConverter",
+                "custom_abstracts": ["AbstractEsbMessageRequestReplyConverter", "AbstractCreditMessageRequestReplyConverter"],
+                "converter_count": 160,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/tabank.md"
+            },
+            "cqbank": {
+                "bank_name": "重庆银行",
+                "directory_prefix": "ext-cqbank",
+                "adapter_module": "cqbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.cqbank.adapter.msg",
+                "message_style": "SERVER_JSON+CLIENT_HTTP",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractHttpMessageRequestReplyConverter",
+                "converter_count": 118,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/cqbank.md"
+            },
+            "jiybank": {
+                "bank_name": "济阳银行(厦门国际)",
+                "directory_prefix": "ext-jiybank",
+                "adapter_module": "jiybank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.xmgjbank.adapter.msg",
+                "pkg_note": "jiybank 的 Java 包名使用 xmgjbank",
+                "message_style": "SERVER_XML+CLIENT_MIXED",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "converter_count": 94,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/jiybank.md"
+            },
+            "chengdbank": {
+                "bank_name": "成都银行",
+                "directory_prefix": "ext-chengdbank",
+                "adapter_module": "chengdbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.chengdbank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_MIXED",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "custom_abstracts": ["AbstractEbankConverter", "AbstractEcdsEbankConverter"],
+                "converter_count": 73,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/chengdbank.md"
+            },
+            "qhdbank": {
+                "bank_name": "青岛银行",
+                "directory_prefix": "ext-qhdbank",
+                "adapter_module": "qhdbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.qhdbank.adapter.msg",
+                "message_style": "SERVER_JSON+CLIENT_MIXED",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "converter_count": 70,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/qhdbank.md"
+            },
+            "langfbank": {
+                "bank_name": "廊坊银行",
+                "directory_prefix": "ext-langfbank",
+                "adapter_module": "langfbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.langfbank.adapter.msg",
+                "message_style": "SERVER_XML_ESB+CLIENT_MIXED",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "converter_count": 65,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/langfbank.md"
+            },
+            "guombank": {
+                "bank_name": "国民银行",
+                "directory_prefix": "ext-guombank",
+                "adapter_module": "guombank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.guombank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_HTTP_ESB",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractEsbMessageRequestReplyConverter",
+                "custom_abstracts": ["AbstractEsbMessageRequestReplyConverter"],
+                "converter_count": 61,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/guombank.md"
+            },
+            "sanlbank": {
+                "bank_name": "三立银行",
+                "directory_prefix": "ext-sanlbank",
+                "adapter_module": "sanlbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.sanlbank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_MIXED",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "converter_count": 58,
+                "test_count": 2,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/sanlbank.md"
+            },
+            "qiybank": {
+                "bank_name": "齐鲁银行",
+                "directory_prefix": "ext-qiybank",
+                "adapter_module": "qiybank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.qiybank.adapter.msg",
+                "message_style": "SERVER_JSON_ESB+CLIENT_MIXED",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "converter_count": 52,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/qiybank.md"
+            },
+            "sanxbank": {
+                "bank_name": "三峡银行",
+                "directory_prefix": "ext-sanxbank",
+                "adapter_module": "sanxbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.sanxbank.adapter.msg",
+                "message_style": "SERVER_JSON+CLIENT_ESC_HTTP",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client_http": "SanxiaAbstractHttpMessageRequestReplyConverter",
+                "base_class_client_cfca": "AbstractGenericMessageRequestReplyConverter",
+                "converter_count": 24,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/sanxbank.md"
+            },
+            "ahnxbank": {
+                "bank_name": "安徽农商银行",
+                "directory_prefix": "ext-ahnxbank",
+                "adapter_module": "ahnxbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.ahnxbank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_SOCKET",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractSocketMessageRequestReplyConverter",
+                "custom_abstracts": ["AbstractSocketMessageRequestReplyConverter"],
+                "converter_count": 144,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/ahnxbank.md"
+            },
+            "nbtsbank": {
+                "bank_name": "南通农商银行",
+                "directory_prefix": "ext-nbtsbank",
+                "adapter_module": "nbtsbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.nbtsbank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_HTTP",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractHttpMessageRequestReplyConverter",
+                "converter_count": 131,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/nbtsbank.md"
+            },
+            "hkbank": {
+                "bank_name": "汉口银行",
+                "directory_prefix": "ext-hkbank",
+                "adapter_module": "hkbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.hkbank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_TCP",
+                "base_class_server": "AbstractGenericMessageApplyResponseConverter",
+                "base_class_client": "AbstractTcpMessageRequestReplyConverter",
+                "converter_count": 111,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/hkbank.md"
+            },
+            "shnsbank": {
+                "bank_name": "上海农商银行",
+                "directory_prefix": "ext-shnsbank",
+                "adapter_module": "shnsbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.xxbank.adapter.msg",
+                "package_note": "shnsbank 的 Java 包名使用 xxbank",
+                "message_style": "SERVER_MIXED+CLIENT_MIXED",
+                "base_class_server": "AbstractGenericMessageRequestReplyConverter",
+                "base_class_client": "MIXED",
+                "converter_count": 108,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/shnsbank.md"
+            },
+            "amgjbank": {
+                "bank_name": "厦门国际银行(安徽)",
+                "directory_prefix": "ext-amgjbank",
+                "adapter_module": "amgjbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.xmgjbank.adapter.msg",
+                "package_note": "amgjbank 的 Java 包名使用 xmgjbank",
+                "message_style": "SERVER_XML+CLIENT_TCP",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractTcpMessageRequestReplyConverter",
+                "converter_count": 95,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/amgjbank.md"
+            },
+            "ningxbank": {
+                "bank_name": "宁夏银行",
+                "directory_prefix": "ext-ningxbank",
+                "adapter_module": "ningxbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.ningxbank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_HTTP",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractHttpMessageRequestReplyConverter",
+                "converter_count": 69,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/ningxbank.md"
+            },
+            "jincbank": {
+                "bank_name": "晋城银行",
+                "directory_prefix": "ext-jincbank",
+                "adapter_module": "jincbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.jincbank.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_HTTP",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractHttpMessageRequestReplyConverter",
+                "custom_abstracts": ["AbstractPayMessageRequestReplyConverter", "AbstractDigMessageRequestReplyConverter"],
+                "converter_count": 64,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/jincbank.md"
+            },
+            "zjtfinance": {
+                "bank_name": "紫金信托",
+                "directory_prefix": "ext-zjtfinance",
+                "adapter_module": "zjtfinance-adapter-as",
+                "package_prefix": "com.hundsun.bemp.zjtfinance.adapter.msg",
+                "message_style": "SERVER_XML+CLIENT_GENERIC",
+                "base_class_server": "AbstractMessageApplyResponseConverter",
+                "base_class_client": "AbstractGenericMessageRequestReplyConverter",
+                "converter_count": 47,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/zjtfinance.md"
+            },
+            "fabbank": {
+                "bank_name": "富邦银行",
+                "directory_prefix": "ext-fabbank",
+                "adapter_module": "fabbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.adapter.msg",
+                "package_note": "fabbank 的 Java 包名无银行前缀",
+                "message_style": "SERVER_GENERIC+CLIENT_CREDIT",
+                "base_class_server": "AbstractGenericMessageRequestReplyConverter",
+                "base_class_client": "AbstractCreditMessageRequestReplyConverter",
+                "custom_abstracts": ["AbstractCreditMessageRequestReplyConverter"],
+                "converter_count": 14,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/fabbank.md"
+            },
+            "xzhbank": {
+                "bank_name": "徐州银行",
+                "directory_prefix": "ext-xzhbank",
+                "adapter_module": "xzhbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.xzhbank.adapter.msg",
+                "message_style": "SERVER_WS+CLIENT_WS",
+                "base_class_server": "AbstractGenericMessageRequestReplyConverter",
+                "base_class_client": "AbstractWsMessageRequestReplyConverter",
+                "converter_count": 14,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/xzhbank.md"
+            },
+            "xinhbank": {
+                "bank_name": "新华银行",
+                "directory_prefix": "ext-xinhbank",
+                "adapter_module": "xinhbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.xinhbank.adapter.msg",
+                "message_style": "CLIENT_TCP_ONLY",
+                "base_class_server": "NONE",
+                "base_class_client": "AbstractGenericMessageRequestReplyConverter",
+                "custom_abstracts": ["AbstractSmsMessageRequestReplyConverter", "AbstractOtpMessageRequestReplyConverter"],
+                "converter_count": 10,
+                "test_count": 0,
+                "implementation_status": "FULL",
+                "template_path": "references/banks/xinhbank.md"
+            },
+            "whnsbank": {
+                "bank_name": "武汉农商银行",
+                "directory_prefix": "ext-whnsbank",
+                "adapter_module": "whnsbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.whnsbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/whnsbank.md",
+                "correction_note": "上一轮标注 ~130 个 Converter / 完整模板是误判，whnsbank-adapter-as 实际无 src/main/java 源码",
+                "notes": "whnsbank-adapter-as/src/test/java 仅有 WhnsBankAdapterApplicationStarter.java 启动器，业务模块（whnsbank-biz-as 等）已存在但适配器未投产"
+            },
+            "shangrbank": {
+                "bank_name": "上海商业银行",
+                "directory_prefix": "ext-shangrbank",
+                "adapter_module": "shangrbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.shangrbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/shangrbank.md",
+                "correction_note": "上一轮标注 ~120 个 Converter / 完整模板是误判，shangrbank-adapter-as 实际无 src/main/java 源码",
+                "notes": "仅有 shangrbank-biz-as / shangrbank-biz-api 等业务模块，适配器未投产"
+            },
+            "baodbank": {
+                "bank_name": "保定银行",
+                "adapter_module": "baodbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.baodbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/baodbank.md"
+            },
+            "chaoybank": {
+                "bank_name": "朝阳银行",
+                "adapter_module": "chaoybank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.chaoybank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/chaoybank.md"
+            },
+            "dandbank": {
+                "bank_name": "丹东银行",
+                "adapter_module": "dandbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.dandbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/dandbank.md",
+                "notes": "银行根目录下存在 测试.http 文件"
+            },
+            "dzbank": {
+                "bank_name": "邓州银行",
+                "adapter_module": "dzbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.dzbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/dzbank.md"
+            },
+            "erdsbank": {
+                "bank_name": "二道商行",
+                "adapter_module": "erdsbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.erdsbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/erdsbank.md",
+                "notes": "银行根目录下存在 测试.http 文件"
+            },
+            "hengshbank": {
+                "bank_name": "衡水银行",
+                "adapter_module": "hengshbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.hengshbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/hengshbank.md"
+            },
+            "hongtbank": {
+                "bank_name": "红塔银行",
+                "adapter_module": "hongtbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.hongtbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/hongtbank.md",
+                "notes": "缺少 README.md，首次开发前需补全"
+            },
+            "klbank": {
+                "bank_name": "库尔勒银行",
+                "adapter_module": "klbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.klbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/klbank.md"
+            },
+            "qhbank": {
+                "bank_name": "青海银行",
+                "adapter_module": "qhbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.qhbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/qhbank.md"
+            },
+            "xxbank": {
+                "bank_name": "XX 银行（通用样例）",
+                "adapter_module": "xxbank-adapter-as",
+                "package_prefix": "com.hundsun.bemp.xxbank.adapter.msg",
+                "message_style": "UNDETERMINED",
+                "implementation_status": "EMPTY_TEMPLATE",
+                "template_status": "SKELETON",
+                "template_path": "references/banks/xxbank.md",
+                "notes": "xxbank-served-boot-deploy 含 BempServedAppStarter，可作为 served 端启动器参考"
+            },
+            "sample": {
+                "bank_name": "ext-sample 样例银行",
+                "adapter_module": "sample-adapter-as",
+                "package_prefix": "com.hundsun.bemp.sample.adapter.msg",
+                "message_style": "MIXED",
+                "implementation_status": "AUTOCODE_DEMO",
+                "template_status": "DOCUMENTED",
+                "template_path": "references/banks/sample.md",
+                "message_count_estimate": 4,
+                "test_count": 0,
+                "notes": "src/main/java 为空，src/test/java 含 autocode 工具生成的样例 Converter"
+            }
+        }
+    },
+    "user_listed_banks_not_in_workspace": {
+        "description": "用户原始任务中列出的银行，workspace 中无对应代码（但本轮已确认 14 家实际银行 + sanxbank 1 家完整实现）",
+        "note": "这些银行仅在 bank-config.json 上方的历史支持清单中提及，workspace 实际不存在",
+        "banks": [
+            "hnnxbank", "hxbbank", "bjrcbank", "qdgdbank", "lsgdbank",
+            "ccb-bank", "hkbchina", "cib-bank", "spdbank", "boc-bank",
+            "hfbank", "cmb-bank", "njcb-bank", "nbcb-bank", "bjbank"
+        ],
+        "extending_instructions": "如需扩展支持这些银行，参考 references/banks/legacy-banks.md 的扩展流程"
+    },
+    "workspace_actual_banks_summary_table": {
+        "description": "按状态分组的银行清单（一眼看出哪些有实现）",
+        "full_implementation": ["sample(237)", "tabank(160)", "ahnxbank(144)", "nbtsbank(131)", "cqbank(118)", "hkbank(111)", "shnsbank(108)", "amgjbank(95)", "jiybank(94)", "chengdbank(73)", "qhdbank(70)", "ningxbank(69)", "langfbank(65)", "jincbank(64)", "guombank(61)", "sanlbank(58)", "qiybank(52)", "zjtfinance(47)", "sanxbank(24)", "fabbank(14)", "xzhbank(14)", "xinhbank(10)"],
+        "empty_template_skeleton": ["whnsbank", "shangrbank"],
+        "empty_skeleton": ["baodbank", "chaoybank", "dandbank", "dzbank", "erdsbank", "hengshbank", "hongtbank", "klbank", "qhbank", "xxbank"],
+        "autocode_demo": ["sample"],
+        "legacy_banks_not_in_workspace": [
+            "hnnxbank", "hxbbank", "bjrcbank", "qdgdbank", "lsgdbank",
+            "ccb-bank", "hkbchina", "cib-bank", "spdbank", "boc-bank",
+            "hfbank", "cmb-bank", "njcb-bank", "nbcb-bank", "bjbank"
         ]
+    },
+    "test_must_rules": {
+        "description": "测试编写强制约束（写入 SKILL.md 第 5 节）",
+        "framework": "JUnit5 + Mockito + SpringBootTest",
+        "rules": [
+            "MUST 1: 每个 *MessageConverter.java 必须配套一个 *Test.java，与被测类同包",
+            "MUST 2: 必须含 ≥1 个请求模拟报文 + ≥1 个应答模拟报文，存放在 src/test/resources/mock-msg/<converter-name>/ 下",
+            "MUST 3: 测试必须使用 @SpringBootTest 真实 Spring 上下文 + @ActiveProfiles(test)",
+            "MUST 4: 测试必须可直接在 IDE 中 Run，也支持 mvn test -Dtest=<ConverterName>Test",
+            "MUST 5: 必须覆盖 入参解析 / 字段映射 / 应答拼装 / 异常分支 四个场景",
+            "MUST 6: mock-msg 命名严格遵循 <bank>_<channel>_<func>_<biz>_<request|response>.{xml|json}",
+            "MUST 7: 测试基类必须继承 references/test-template/AbstractAdapterConverterTest.java，按报文类型选子模板",
+            "MUST 8: mock 报文必须包含真实业务字段值（禁止空 JSON {} 或占位符 xxx）",
+            "MUST 9: 字段映射断言必须验证 ≥3 个核心业务字段（禁止只验证 retCode）"
+        ],
+        "coverage_threshold": {
+            "line": ">= 70%",
+            "branch": ">= 60%",
+            "critical_methods": "100% (fromMessage / toMessage)"
+        }
     }
 }

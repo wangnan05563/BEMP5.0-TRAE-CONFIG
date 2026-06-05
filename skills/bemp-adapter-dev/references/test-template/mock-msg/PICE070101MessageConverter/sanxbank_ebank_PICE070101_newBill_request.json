@@ -1,0 +1,25 @@
+{
+    "HEAD": {
+        "srcSysId": "BEMP",
+        "msgId": "BEMP202105030001",
+        "msgDate": "2021-05-03 10:30:00",
+        "msgRefId": "BEMP202105030001",
+        "msgTime": "10:30:00.001"
+    },
+    "BODY": {
+        "requestDto": {
+            "billId": "B202105030001",
+            "billType": "P_TYPE_001",
+            "billClass": "AC01",
+            "drwrName": "测试出票人公司",
+            "drwrAcctNo": "6222021234567890",
+            "payeeName": "测试收款人",
+            "payeeAcctNo": "6222020987654321",
+            "billMoney": "1000000.00",
+            "dueDt": "2021-11-03",
+            "acptDate": "2021-05-03",
+            "issueDate": "2021-05-03",
+            "remark": "mock新增票据测试"
+        }
+    }
+}

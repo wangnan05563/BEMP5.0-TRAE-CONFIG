@@ -1,0 +1,11 @@
+{
+    "requestDto": {
+        "signBizType": "001",
+        "signMethod": "PKCS7",
+        "hashAlg": "SHA256",
+        "srcData": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1+...",
+        "certDN": "CN=测试公司,O=测试组织,OU=测试部门",
+        "signerId": "signer001",
+        "operateTime": "2023-02-20 15:00:00"
+    }
+}

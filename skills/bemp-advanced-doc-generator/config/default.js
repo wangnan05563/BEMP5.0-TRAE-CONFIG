@@ -1,5 +1,6 @@
 const path = require('path');
-const dotenv = require('dotenv');
+// dotenv 安装在 scripts/node_modules 下，从 config/ 目录需通过相对路径引用
+const dotenv = require('../scripts/node_modules/dotenv');
 
 const SKILL_ROOT = path.resolve(__dirname, '..');
 
@@ -67,7 +68,26 @@ const paths = {
     templateDir: path.join(SKILL_ROOT, 'assets', 'templates'),
     assetDir: path.join(SKILL_ROOT, 'assets'),
     outputDir: path.join(SKILL_ROOT, 'output'),
-    libDir: path.join(SKILL_ROOT, 'lib')
+    libDir: path.join(SKILL_ROOT, 'scripts', 'lib'),
+    scriptsDir: path.join(SKILL_ROOT, 'scripts'),
+    // 概要设计模板路径：优先环境变量 BEMP_OUTLINE_TEMPLATE，否则使用通用默认模板
+    get outlineDesignTemplate() {
+        const envTpl = process.env.BEMP_OUTLINE_TEMPLATE;
+        if (envTpl) {
+            return path.isAbsolute(envTpl) ? envTpl : path.resolve(SKILL_ROOT, envTpl);
+        }
+        return path.join(SKILL_ROOT, 'assets', 'template-outline-design.docx');
+    }
+};
+
+const validTypes = ['design', 'testcase', 'testreport', 'testcase-excel', 'testcase-md', 'testreport-md', 'design-md', 'outline-design', 'unit-test-report', 'unit-test-report-xlsx'];
+const validFormats = ['docx', 'md', 'excel'];
+
+const defaultTemplateMap = {
+    design: path.join(SKILL_ROOT, 'assets', '详细设计文档模板.json'),
+    testcase: path.join(SKILL_ROOT, 'assets', '测试用例模板.json'),
+    testreport: path.join(SKILL_ROOT, 'assets', '测试报告模板.json'),
+    'unit-test-report': path.join(SKILL_ROOT, 'assets', '单元测试报告模板.json')
 };
 
 const processon = {
@@ -82,5 +102,6 @@ module.exports = {
     FONT, SIZE,
     DOC_STYLES, TABLE_BORDER, TABLE_BORDERS, TABLE_HEADER_BG,
     ERROR_CODES, BempDocError, createBempDocError,
-    paths, processon
+    paths, processon,
+    validTypes, validFormats, defaultTemplateMap
 };

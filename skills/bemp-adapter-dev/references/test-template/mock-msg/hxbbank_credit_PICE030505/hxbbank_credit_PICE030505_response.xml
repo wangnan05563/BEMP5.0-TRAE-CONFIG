@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mock-msg: hxbbank 信贷额度管控响应报文
+  bank: hxbbank
+  channel: credit
+  func: PICE030505
+-->
+<response>
+    <head>
+        <retCode>0000</retCode>
+        <retMsg>成功</retMsg>
+        <flowNo>BEMP20210103000002</flowNo>
+    </head>
+    <body>
+        <responseDto>
+            <billId>B202101030002</billId>
+            <creditAcctNo>CREDIT20210103001</creditAcctNo>
+            <transSeqNo>SEQ2021010300001</transSeqNo>
+            <transDate>20210103</transDate>
+            <transTime>120001</transTime>
+            <retCode>000000</retCode>
+            <retMsg>业务处理成功</retMsg>
+        </responseDto>
+    </body>
+</response>

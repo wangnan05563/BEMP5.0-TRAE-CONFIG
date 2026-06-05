@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mock-msg: bjrcbank ECIF 广播响应报文
+  bank: bjrcbank
+  channel: ecif
+  func: PICE070701
+  报文特点: 广播模式响应含每条客户的同步结果（成功/失败）
+-->
+<response>
+    <head>
+        <retCode>0000</retCode>
+        <retMsg>广播处理完成</retMsg>
+        <flowNo>BEMP20210103000003</flowNo>
+    </head>
+    <body>
+        <responseDto>
+            <batchId>BATCH20210103001</batchId>
+            <successCount>2</successCount>
+            <failureCount>0</failureCount>
+            <batchResultList>
+                <cust>
+                    <cprcCustNo>CN20210103000011</cprcCustNo>
+                    <ecifNo>ECIF20210103000011</ecifNo>
+                    <retCode>000000</retCode>
+                    <retMsg>成功</retMsg>
+                </cust>
+                <cust>
+                    <cprcCustNo>CN20210103000012</cprcCustNo>
+                    <ecifNo>ECIF20210103000012</ecifNo>
+                    <retCode>000000</retCode>
+                    <retMsg>成功</retMsg>
+                </cust>
+            </batchResultList>
+        </responseDto>
+    </body>
+</response>

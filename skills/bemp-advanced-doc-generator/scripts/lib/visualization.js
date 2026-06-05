@@ -1,18 +1,25 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
-const { paths, processon, BempDocError, ERROR_CODES } = require('../config/default');
+const { paths, processon, BempDocError, ERROR_CODES } = require('../../config/default');
 
 class SceneIdentifier {
     static identify(content) {
         if (!content || typeof content !== 'string') return 'mindmap';
         const flowchartKw = ['流程', '步骤', '判断', '分支', '循环', '开始', '结束', '处理', '条件', '执行', 'mermaid', 'flow', '时序', '泳道'];
         const mindmapKw = ['思维导图', '中心主题', '层级', '概念', '结构', '组织', '大纲', '树状', '分类'];
-        let fScore = 0, mScore = 0;
+        const archKw = ['架构', '层', '组件', '部署', '拓扑', '集群', '节点', '子系统', '模块', '服务'];
+        const erKw = ['表', '实体', '关系', 'ER', '字段', '主键', '外键', '关联'];
+        let fScore = 0, mScore = 0, aScore = 0, eScore = 0;
         flowchartKw.forEach(kw => { if (content.includes(kw)) fScore += 2; });
         mindmapKw.forEach(kw => { if (content.includes(kw)) mScore += 2; });
+        archKw.forEach(kw => { if (content.includes(kw)) aScore += 2; });
+        erKw.forEach(kw => { if (content.includes(kw)) eScore += 2; });
         if (content.includes('->') || content.includes('==>')) fScore += 3;
         if (content.includes('# ')) mScore += 3;
-        return fScore >= mScore ? 'flowchart' : 'mindmap';
+
+        const scores = { flowchart: fScore, mindmap: mScore, architecture: aScore, er: eScore };
+        const maxType = Object.entries(scores).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+        return maxType;
     }
 
     static identifyByModule(moduleName) {
@@ -22,12 +29,16 @@ class SceneIdentifier {
             '机构管理': { type: 'flowchart', scene: 'organization_management' },
             '系统概述': { type: 'mindmap', scene: 'system_overview' },
             '功能模块': { type: 'mindmap', scene: 'module_structure' },
-            '数据模型': { type: 'mindmap', scene: 'data_structure' },
+            '数据模型': { type: 'er', scene: 'data_model' },
             '接口定义': { type: 'mindmap', scene: 'api_structure' },
             '异常处理': { type: 'flowchart', scene: 'error_handling' },
             '安全策略': { type: 'mindmap', scene: 'security_framework' },
             '测试计划': { type: 'mindmap', scene: 'test_plan' },
-            '测试用例': { type: 'mindmap', scene: 'test_cases' }
+            '测试用例': { type: 'mindmap', scene: 'test_cases' },
+            '数据库': { type: 'er', scene: 'database_design' },
+            '架构': { type: 'architecture', scene: 'system_architecture' },
+            '部署': { type: 'architecture', scene: 'deployment' },
+            '流程': { type: 'flowchart', scene: 'business_process' },
         };
         for (const [key, value] of Object.entries(sceneMap)) {
             if (moduleName.includes(key)) return value;
@@ -70,8 +81,295 @@ class VisualizationGenerator {
         }
     }
 
+    /**
+     * 生成架构图节点边数据（AntV network-graph 格式）
+     * 节点用 name 标识，边用 source/target/name，符合 AntV API 要求
+     */
+    generateMcpFlowDiagramConfig(projectName, diagramType, scanData) {
+        const configs = {
+            'architecture': () => this._buildArchFlowConfig(projectName, scanData),
+            'network': () => this._buildNetworkFlowConfig(projectName, scanData),
+            'deployment': () => this._buildDeploymentFlowConfig(projectName, scanData),
+        };
+        const builder = configs[diagramType];
+        if (!builder) throw new Error(`不支持的图表类型: ${diagramType}`);
+        return builder();
+    }
+
+    _buildArchFlowConfig(projectName, scanData) {
+        const subsystems = (scanData?.subsystems || []).slice(0, 8);
+        const subNames = subsystems.map(s => s.name || s.code || s).filter(Boolean);
+        if (subNames.length === 0) subNames.push('核心业务');
+        const externalSystems = scanData?.externalSystems || ['外部系统1', '外部系统2', '外部系统3'];
+        const nodes = [
+            { name: '客户端' },
+            { name: 'Nginx反向代理' },
+            { name: 'Vue前端' },
+            ...subNames.map((name) => ({ name: name })),
+            { name: 'Redis集群' },
+            { name: 'ZooKeeper' },
+            { name: '数据库' },
+            ...externalSystems.map((name) => ({ name })),
+        ];
+        const firstSvc = subNames[0] || '核心业务';
+        const edges = [
+            { source: '客户端', target: 'Nginx反向代理', name: 'HTTPS' },
+            { source: 'Nginx反向代理', target: 'Vue前端', name: '静态资源' },
+            { source: 'Nginx反向代理', target: firstSvc, name: 'API转发' },
+            ...subNames.slice(1).map((name) => ({ source: firstSvc, target: name, name: 'RPC' })),
+            { source: firstSvc, target: 'Redis集群', name: '缓存' },
+            { source: firstSvc, target: 'ZooKeeper', name: '注册' },
+            { source: firstSvc, target: '数据库', name: '持久化' },
+            ...externalSystems.map((name) => ({ source: firstSvc, target: name, name: 'MQ/Socket' })),
+        ];
+        return { title: `${projectName}系统架构图`, type: 'network-graph', nodes, edges };
+    }
+
+    _buildNetworkFlowConfig(projectName, scanData) {
+        const externalSystems = scanData?.externalSystems || ['外部系统1', '外部系统2'];
+        const nodes = [
+            { name: '银行柜员终端' },
+            { name: '外网防火墙' },
+            { name: 'Nginx主节点' },
+            { name: 'Nginx备节点' },
+            { name: '应用集群' },
+            { name: '内网防火墙' },
+            { name: 'Redis Sentinel' },
+            { name: 'ZooKeeper集群' },
+            { name: '数据库主库' },
+            { name: '数据库从库' },
+            { name: 'NAS存储' },
+            { name: '银行专线' },
+            ...externalSystems.map((name) => ({ name })),
+        ];
+        const edges = [
+            { source: '银行柜员终端', target: '外网防火墙', name: 'HTTPS' },
+            { source: '外网防火墙', target: 'Nginx主节点', name: '' },
+            { source: '外网防火墙', target: 'Nginx备节点', name: '' },
+            { source: 'Nginx主节点', target: '应用集群', name: 'HTTP' },
+            { source: 'Nginx备节点', target: '应用集群', name: 'HTTP' },
+            { source: '应用集群', target: '内网防火墙', name: '' },
+            { source: '内网防火墙', target: 'Redis Sentinel', name: '' },
+            { source: '内网防火墙', target: 'ZooKeeper集群', name: '' },
+            { source: '内网防火墙', target: '数据库主库', name: '写' },
+            { source: '内网防火墙', target: '数据库从库', name: '读' },
+            { source: '内网防火墙', target: 'NAS存储', name: '' },
+            { source: '应用集群', target: '银行专线', name: '' },
+            ...externalSystems.map((name) => ({ source: '银行专线', target: name, name: 'MQ/Socket' })),
+        ];
+        return { title: `${projectName}网络拓扑图`, type: 'network-graph', nodes, edges };
+    }
+
+    _buildDeploymentFlowConfig(projectName, scanData) {
+        const subsystems = (scanData?.subsystems || []).slice(0, 8);
+        const subNames = subsystems.map(s => s.name || s.code || s).filter(Boolean);
+        if (subNames.length === 0) subNames.push('核心业务');
+        const nodes = [
+            { name: '负载均衡' },
+            { name: 'Web节点1' },
+            { name: 'Web节点2' },
+            ...subNames.map((name) => ({ name: name })),
+            { name: 'Redis Master' },
+            { name: 'Redis Slave1' },
+            { name: 'Redis Slave2' },
+            { name: 'ZK节点1' },
+            { name: 'ZK节点2' },
+            { name: 'ZK节点3' },
+            { name: 'DB主库' },
+            { name: 'DB从库1' },
+            { name: 'DB从库2' },
+        ];
+        const firstSvc = subNames[0] || '核心业务';
+        const edges = [
+            { source: '负载均衡', target: 'Web节点1', name: '' },
+            { source: '负载均衡', target: 'Web节点2', name: '' },
+            { source: 'Web节点1', target: firstSvc, name: 'API' },
+            { source: 'Web节点2', target: firstSvc, name: 'API' },
+            { source: firstSvc, target: 'Redis Master', name: '缓存' },
+            { source: firstSvc, target: 'ZK节点1', name: '注册' },
+            { source: firstSvc, target: 'DB主库', name: '写' },
+            { source: firstSvc, target: 'DB从库1', name: '读' },
+            { source: 'Redis Master', target: 'Redis Slave1', name: '同步' },
+            { source: 'Redis Master', target: 'Redis Slave2', name: '同步' },
+            { source: 'DB主库', target: 'DB从库1', name: '复制' },
+            { source: 'DB主库', target: 'DB从库2', name: '复制' },
+        ];
+        return { title: `${projectName}部署架构图`, type: 'network-graph', nodes, edges };
+    }
+
+    generateArchitectureDiagram(projectName, subsystems, layers) {
+        const middlewares = layers?.middlewares || ['Redis', 'ZooKeeper'];
+        const databases = layers?.databases || ['Oracle', 'MySQL'];
+        const externalSystems = layers?.externalSystems || ['外部系统1', '外部系统2', '外部系统3'];
+
+        const subsystemList = subsystems && subsystems.length > 0
+            ? subsystems.map(s => s.name || s).slice(0, 8)
+            : [];
+
+        const lines = ['graph TB'];
+        lines.push('    subgraph 客户端层[客户端层]');
+        lines.push('        Browser[浏览器 Chrome/IE11+]');
+        lines.push('        Nginx[Nginx 反向代理]');
+        lines.push('    end');
+        lines.push('');
+        lines.push('    subgraph 前端层[前端层]');
+        lines.push('        Vue[Vue.js 静态资源]');
+        lines.push('    end');
+        lines.push('');
+        lines.push('    subgraph 应用层[应用层 Spring Boot 微服务集群]');
+        subsystemList.forEach((sub, i) => {
+            lines.push(`        S${i}[${sub}]`);
+        });
+        lines.push('    end');
+        lines.push('');
+        lines.push('    subgraph 中间件层[中间件层]');
+        middlewares.forEach(mw => {
+            lines.push(`        ${mw}[${mw}集群]`);
+        });
+        lines.push('    end');
+        lines.push('');
+        lines.push('    subgraph 数据层[数据层]');
+        databases.forEach(db => {
+            lines.push(`        ${db}[${db}数据库]`);
+        });
+        lines.push('    end');
+        lines.push('');
+        lines.push('    subgraph 外部系统层[外部系统层]');
+        externalSystems.forEach((es, i) => {
+            lines.push(`        EXT${i}[${es}]`);
+        });
+        lines.push('    end');
+        lines.push('');
+        lines.push('    Browser --> Nginx');
+        lines.push('    Nginx --> Vue');
+        lines.push('    Nginx --> S0');
+        lines.push('    Vue --> Nginx');
+        subsystemList.forEach((_, i) => {
+            if (i > 0) lines.push(`    S${i - 1} <--> S${i}`);
+        });
+        middlewares.forEach((mw, i) => {
+            lines.push(`    S${i % subsystemList.length} --> ${mw}`);
+        });
+        databases.forEach((db, i) => {
+            lines.push(`    S${i % subsystemList.length} --> ${db}`);
+        });
+        externalSystems.forEach((es, i) => {
+            lines.push(`    S${i % subsystemList.length} --> EXT${i}`);
+        });
+
+        return lines.join('\n');
+    }
+
+    generateLogicFlowchart(processName, steps) {
+        const lines = ['flowchart TD'];
+        lines.push(`    Start([开始: ${processName}])`);
+
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            const nodeId = `Step${i + 1}`;
+            const shape = step.type === 'decision' ? '{' : '[';
+            const shapeEnd = step.type === 'decision' ? '}' : ']';
+            const label = step.label || `步骤${i + 1}`;
+            lines.push(`    ${nodeId}${shape}${label}${shapeEnd}`);
+            if (i === 0) {
+                lines.push(`    Start --> ${nodeId}`);
+            } else {
+                const prevNode = `Step${i}`;
+                lines.push(`    ${prevNode} --> ${nodeId}`);
+            }
+            if (step.type === 'decision') {
+                lines.push(`    ${nodeId} -->|是| ${nodeId}_Yes[${step.yesLabel || '继续'}]`);
+                lines.push(`    ${nodeId} -->|否| ${nodeId}_No[${step.noLabel || '返回'}]`);
+            }
+        }
+
+        const lastIdx = steps.length;
+        lines.push(`    Step${lastIdx} --> End([结束])`);
+
+        return lines.join('\n');
+    }
+
+    generateChartViaMCP(chartType, data, chartOptions = {}) {
+        const chartConfigs = {
+            'bar': this._buildBarChartConfig(data, chartOptions),
+            'line': this._buildLineChartConfig(data, chartOptions),
+            'column': this._buildColumnChartConfig(data, chartOptions),
+            'area': this._buildAreaChartConfig(data, chartOptions),
+            'pie': this._buildPieChartConfig(data, chartOptions),
+        };
+
+        const config = chartConfigs[chartType];
+        if (!config) {
+            throw new BempDocError(ERROR_CODES.GENERATION_FAILED, `不支持的图表类型: ${chartType}`);
+        }
+
+        return config;
+    }
+
+    _buildBarChartConfig(data, options) {
+        return {
+            title: options.title || '柱状图',
+            xAxis: { data: data.labels || [], name: options.xLabel || '' },
+            yAxis: { name: options.yLabel || '' },
+            series: (data.series || []).map(s => ({
+                name: s.name || '',
+                data: s.data || [],
+            })),
+        };
+    }
+
+    _buildLineChartConfig(data, options) {
+        return {
+            title: options.title || '折线图',
+            xAxis: { data: data.labels || [], name: options.xLabel || '' },
+            yAxis: { name: options.yLabel || '' },
+            series: (data.series || []).map(s => ({
+                name: s.name || '',
+                data: s.data || [],
+                type: 'line',
+            })),
+        };
+    }
+
+    _buildColumnChartConfig(data, options) {
+        return this._buildBarChartConfig(data, { ...options, title: options.title || '柱状图' });
+    }
+
+    _buildAreaChartConfig(data, options) {
+        return {
+            title: options.title || '面积图',
+            xAxis: { data: data.labels || [], name: options.xLabel || '' },
+            yAxis: { name: options.yLabel || '' },
+            series: (data.series || []).map(s => ({
+                name: s.name || '',
+                data: s.data || [],
+                type: 'area',
+            })),
+        };
+    }
+
+    _buildPieChartConfig(data, options) {
+        return {
+            title: options.title || '饼图',
+            series: [{
+                name: options.seriesName || '数据',
+                data: (data.items || []).map(item => ({
+                    name: item.name || '',
+                    value: item.value || 0,
+                })),
+            }],
+        };
+    }
+
     async _callProcessOnMCP(moduleName, type, content) {
-        const title = `${moduleName} - ${type === 'flowchart' ? '流程图' : '思维导图'}`;
+        const typeLabels = {
+            'mindmap': '思维导图',
+            'flowchart': '流程图',
+            'architecture': '架构图',
+            'er': 'ER关系图',
+        };
+        const typeLabel = typeLabels[type] || '图表';
+        const title = `${moduleName} - ${typeLabel}`;
         let lastError = null;
         for (let attempt = 1; attempt <= this.retryCount; attempt++) {
             try {
@@ -100,29 +398,59 @@ class VisualizationGenerator {
         const chartId = `${type}_${Date.now()}`;
         const fileName = `${moduleName}-${type}.html`;
         const filePath = path.join(outputDir, fileName);
-        const mermaidContent = type === 'mindmap' ? `graph TD\n    Root[${moduleName}]\n${this._generateMindMapMermaid(content)}` : content;
+
+        const typeLabels = {
+            'mindmap': '思维导图',
+            'flowchart': '流程图',
+            'architecture': '架构图',
+            'er': 'ER关系图',
+        };
+        const typeLabel = typeLabels[type] || '图表';
+
+        const mermaidContent = this._buildMermaidForType(type, moduleName, content);
         const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>${moduleName} - ${type === 'mindmap' ? '思维导图' : '流程图'}</title>
+    <title>${moduleName} - ${typeLabel}</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
-        body { font-family: "Microsoft YaHei", sans-serif; padding: 20px; }
-        .mermaid { max-width: 100%; height: auto; border: 1px solid #ccc; padding: 20px; }
-        h1 { color: #333; text-align: center; }
+        body { font-family: "Microsoft YaHei", sans-serif; padding: 20px; background: #f5f5f5; }
+        .chart-container { margin: 20px auto; max-width: 1400px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .mermaid { max-width: 100%; height: auto; display: flex; justify-content: center; overflow-x: auto; }
+        h1 { color: #333; text-align: center; margin-bottom: 20px; }
+        .info-bar { text-align: center; color: #666; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
     </style>
 </head>
 <body>
-    <h1>${moduleName} - ${type === 'mindmap' ? '思维导图' : '流程图'}</h1>
-    <div class="mermaid">
+    <div class="chart-container">
+        <h1>${moduleName} - ${typeLabel}</h1>
+        <div class="mermaid">
 ${mermaidContent}
+        </div>
+        <div class="info-bar">
+            生成时间: ${new Date().toLocaleString('zh-CN')} | 类型: ${typeLabel} | 关联模块: ${moduleName}
+        </div>
     </div>
-    <script>mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });</script>
 </body>
 </html>`;
         fs.writeFileSync(filePath, htmlContent, 'utf-8');
         return { chartId, fileUrl: `file:///${filePath.replace(/\\/g, '/')}` };
+    }
+
+    _buildMermaidForType(type, moduleName, content) {
+        switch (type) {
+            case 'mindmap':
+                return `graph TD\n    Root[${moduleName}]\n${this._generateMindMapMermaid(content)}`;
+            case 'flowchart':
+                return content;
+            case 'architecture':
+                return content;
+            case 'er':
+                return content;
+            default:
+                return content;
+        }
     }
 
     _generateContent(type, content) {

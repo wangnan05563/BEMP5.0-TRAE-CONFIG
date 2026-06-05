@@ -69,5 +69,9 @@
     ["TC-MAP-001", "授信类型", "creditType", "承兑行阈值", "承兑行阈值", "高"],
     ["TC-MAP-002", "客户类型", "custType", "同业", "同业", "高"],
     ["TC-MAP-003", "客户名称", "custName", "测试客户", "测试客户", "高"]
-  ]
+  ],
+
+  "erFilterKeywords": ["CORP_CREDI", "CRED", "LIMIT", "LOAN", "ACPT"],
+  "moduleKeywords": ["额度", "授信", "审批", "占用", "释放", "复核", "批复"],
+  "bankTablePrefixes": ["HNNX_"]
 }

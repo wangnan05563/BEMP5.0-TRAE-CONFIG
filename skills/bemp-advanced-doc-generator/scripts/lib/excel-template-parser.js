@@ -1,7 +1,7 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
-const { paths, BempDocError, ERROR_CODES } = require('../config/default');
+const { paths, BempDocError, ERROR_CODES } = require('../../config/default');
 
 class ExcelTemplateParser {
     constructor(options = {}) {

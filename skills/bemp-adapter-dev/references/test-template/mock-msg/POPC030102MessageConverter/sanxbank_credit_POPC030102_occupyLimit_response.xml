@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mock-msg: sanxbank 信贷 ESC 平台响应报文
+  报文特点: ESC 协议 + XML 响应
+-->
+<ESC_RESPONSE>
+    <HEAD>
+        <serviceId>POPC030102</serviceId>
+        <txnId>ESC20230220000001</txnId>
+        <respTime>2023-02-20 14:30:00.123</respTime>
+        <retCode>0000</retCode>
+        <retMsg>成功</retMsg>
+    </HEAD>
+    <BODY>
+        <responseDto>
+            <retCode>0000</retCode>
+            <retMsg>成功</retMsg>
+            <billNo>B20230220001</billNo>
+            <foreFlowNo>F20230220001</foreFlowNo>
+            <occupyAmt>500000.00</occupyAmt>
+            <remainLimit>5000000.00</remainLimit>
+        </responseDto>
+    </BODY>
+</ESC_RESPONSE>

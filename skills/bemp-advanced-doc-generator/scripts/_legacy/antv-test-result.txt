@@ -1,0 +1,8 @@
+=== v1-network-graph-name ===
+STATUS: 200
+BODY: {"success":true,"errorMessage":"成功","errorCode":"AE0110000000","resultObj":"https://mdn.alipayobjects.com/one_clip/afts/img/ukjSQbQnbm8AAAAARWAAAAgAoEACAQFr/original","traceId":"21b828dc17803668202956181e5477"}
+
+=== v2-flow-diagram-name ===
+STATUS: 200
+BODY: {"success":true,"errorMessage":"成功","errorCode":"AE0110000000","resultObj":"https://mdn.alipayobjects.com/one_clip/afts/img/1xGnTacZuFUAAAAAQlAAAAgAoEACAQFr/original","traceId":"219fd44f17803668252163382ec45f"}
+

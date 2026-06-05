@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "bemp-advanced-doc-generator",
   "version": "2.0.0",
   "description": "BEMP 高级文档生成器 - 支持详细设计文档、测试用例、测试报告、Excel SIT测试用例自动生成",
@@ -11,9 +11,10 @@
     "generate:testreport": "node cli.js -t testreport"
   },
   "dependencies": {
-    "docx": "^8.5.0",
-    "exceljs": "^4.4.0",
     "axios": "^1.6.0",
-    "dotenv": "^16.3.0"
+    "docx": "^8.5.0",
+    "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
+    "xlsx": "^0.18.5"
   }
 }

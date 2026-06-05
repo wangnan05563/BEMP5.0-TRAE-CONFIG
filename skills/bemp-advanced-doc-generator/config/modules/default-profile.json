@@ -1,21 +1,16 @@
 {
   "_schemaVersion": "1.0",
-  "_description": "BEMP技能默认业务配置 — 所有硬编码值的外部化。模块可通过同名JSON文件覆盖任意字段。",
+  "_description": "技能默认业务配置 — 所有硬编码值的外部化。模块可通过同名JSON文件覆盖任意字段。",
   "outputDir": null,
-  
+
   "company": {
-    "name": "恒生电子股份有限公司",
-    "product": "HUNDSUN 票据交易管理平台软件",
-    "version": "V5.0",
-    "department": "票据业务事业部"
+    "name": "公司名称",
+    "product": "项目产品名称",
+    "version": "V1.0",
+    "department": "业务部门"
   },
 
-  "subsystemKeywords": [
-    "系统管理子系统",
-    "业务管理子系统",
-    "场内交易子系统",
-    "场内业务子系统"
-  ],
+  "subsystemKeywords": [],
 
   "subsystemMap": {
     "系统管理子系统": "系统管理子系统",
@@ -27,17 +22,9 @@
   "defaultMenuLevel1": "业务管理子系统",
   "defaultMenuLevel2": "风险管理",
 
-  "defaultModules": [
-    ["额度申请", "额度申请查询、新增、删除"],
-    ["批复明细", "额度批复明细的新增、修改、删除、提交复核、撤销复核"],
-    ["额度复核", "额度复核查询、复核、撤销、清单导出"]
-  ],
+  "defaultModules": [],
 
-  "defaultInterfaces": [
-    ["额度申请接口", "RPC接口", "调用", "额度申请查询、新增、删除"],
-    ["批复明细接口", "RPC接口", "调用", "批复明细CRUD及复核操作"],
-    ["额度复核接口", "RPC接口", "调用", "额度复核、撤销、导出"]
-  ],
+  "defaultInterfaces": [],
 
   "defaultErrorCodes": [
     ["E001", "必填校验", "关键字段未填写", "返回错误提示"],
@@ -53,19 +40,18 @@
     ["N5", "提交审批", "提交数据至审批流程", "状态校验"]
   ],
 
-  "excludedScope": "外围系统消息发送、产品服务接口内部实现、其他子系统额度管理",
+  "excludedScope": "外围系统消息发送、产品服务接口内部实现",
 
   "securityRules": {
-    "defaultRule": "基于BEMP框架统一认证，申请岗和复核岗权限分离，复核岗不可操作申请数据，申请岗不可执行复核。",
-    "sensitiveFields": "客户名称、额度数据",
-    "roleAccessRule": "基于角色的访问控制(RBAC)，申请岗仅可操作额度申请和批复明细，复核岗仅可操作额度复核。操作审计日志记录所有关键操作。"
+    "defaultRule": "基于框架统一认证，权限分离",
+    "sensitiveFields": "敏感业务数据",
+    "roleAccessRule": "基于角色的访问控制(RBAC)，操作审计日志记录关键操作。"
   },
 
-  "codeDir": "banks/ext-hnnxbank",
+  "codeDir": "banks/ext-default",
 
   "references": [
-    "BEMP项目开发规范文档",
-    "上海票据交易所接口规范"
+    "项目开发规范文档"
   ],
 
   "designTargets": {
@@ -74,7 +60,7 @@
   },
 
   "testCoverPage": {
-    "refDocumentName": "承兑行额度管理需求规格说明书"
+    "refDocumentName": "需求规格说明书"
   },
 
   "testScope": {
@@ -132,5 +118,9 @@
     ["Playwright", "Web端自动化测试", "1.x"],
     ["JUnit", "单元测试执行", "4.x"],
     ["IDE", "代码编写和调试", "IntelliJ IDEA / VS Code"]
-  ]
+  ],
+
+  "moduleKeywords": ["管理", "申请", "明细", "模块", "系统"],
+  "bankTablePrefixes": [],
+  "erFilterKeywords": []
 }

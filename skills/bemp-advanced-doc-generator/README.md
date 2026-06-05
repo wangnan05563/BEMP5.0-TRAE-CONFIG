@@ -1,6 +1,6 @@
-# BEMP 高级文档生成器 v5.0
+# BEMP 高级文档生成器 v6.0
 
-BEMP 高级文档生成器是专业的技术文档生成工具，支持详细设计文档、测试用例、测试报告的自动生成，以及基于 Excel 模板的 SIT 测试用例生成。V5.0 进行了全面重构优化，统一了文档构建引擎、精简了可视化模块、统一了错误处理和环境配置。
+BEMP 高级文档生成器是专业的技术文档生成工具，支持概要设计说明书、详细设计文档、单元测试报告（Word/Excel双格式）、测试用例和测试报告的自动生成。V6.0 基于 .docx 模板填充引擎重构，新增7阶段执行管线、空章节双重检测、图表生成降级链、蓝色文本双重清理等关键策略。
 
 ## 主要特性
 
@@ -26,41 +26,75 @@ BEMP 高级文档生成器是专业的技术文档生成工具，支持详细设
 
 ```
 bemp-advanced-doc-generator/
-├── SKILL.md                                    # 技能主文件（精简版，详细内容见本文件）
+├── SKILL.md                                    # 技能主文件（v6.0，7阶段执行管线）
 ├── README.md                                   # 使用说明（本文件）
-├── cli.js                                      # 统一命令行入口
-├── package.json                                # 依赖管理（docx, exceljs, axios, dotenv）
 ├── config/
-│   └── default.js                              # 统一配置（常量/路径/错误码/ProcessOn）
-├── lib/
-│   ├── doc-builder.js                          # Word/Markdown 文档构建引擎
-│   ├── excel-testcase-generator.js             # Excel SIT测试用例生成器（含自动验证）
-│   ├── excel-template-parser.js                # Excel模板解析器（最长关键词匹配）
-│   ├── requirement-analyzer.js                 # 需求文档分析器（12种校验类型识别）
-│   └── visualization.js                        # 可视化生成（ProcessOn API + 本地HTML备用）
-├── assets/
-│   ├── templates/                              # 模板文件目录
-│   │   ├── 测试用例.xlsx                       # Excel SIT测试用例默认模板
-│   │   ├── excel-testcase-template-config.json # Excel模板列映射配置
-│   │   ├── default_flowchart.json              # 流程图默认模板
-│   │   ├── default_mindmap.json                # 思维导图默认模板
-│   │   └── XX银行-XX项目-差异化需求详细设计模板.doc  # Word详细设计模板
-│   ├── 详细设计文档模板.json                    # 详细设计文档JSON模板（8章）
-│   ├── 测试用例模板.json                       # 测试用例文档JSON模板（8章）
-│   └── 测试报告模板.json                       # 测试报告文档JSON模板
-├── references/                                 # 参考文档
-│   ├── 内容结构标准.md                         # 详细设计/测试用例文档章节结构标准
-│   ├── 技术术语表.md                           # 票据业务/系统模块/接口协议/开发技术术语
-│   └── 文档格式标准.md                         # 页面设置/文字样式/表格样式/DXA换算
+│   ├── default.js                              # 统一配置（常量/路径/错误码/样式）
+│   ├── default-table-data.json                 # 默认表格数据
+│   ├── subsystem-descriptions.json             # 子系统描述
+│   ├── tech-descriptions.json                  # 技术栈描述
+│   └── modules/                                # 模块配置
+│       ├── default-profile.json                # 默认配置
+│       ├── 企业客户管理.json
+│       ├── 分理处机构业务办理.json
+│       ├── 承兑行额度管理.json
+│       └── 机构管理.json
 ├── scripts/
-│   └── output/                                 # 历史脚本输出（含 reuse 报告）
-└── output/                                     # 文档输出目录
-    ├── {模块}-SIT测试用例-{日期}.xlsx           # Excel格式测试用例
-    ├── {模块}-测试用例-{日期}.md                # Markdown格式测试用例
-    ├── {模块}-详细设计文档-{日期}.md            # Markdown格式详细设计
-    ├── {模块}-测试报告-{日期}.docx              # Word格式测试报告
-    └── visualizations/                          # 可视化HTML输出
-        └── {模块}-{type}.html                   # Mermaid流程图/思维导图
+│   ├── cli.js                                  # 统一命令行入口
+│   ├── outline-design-generator.py             # 概要设计文档生成器（核心）
+│   ├── design-generator.py                     # 详细设计文档生成器（核心）
+│   ├── doc_formatter.py                        # 文档格式化工具（缩进/表格/空章节/TOC）
+│   ├── doc_utils.py                            # 文档通用工具（蓝色检测/段落操作）
+│   ├── doc_rules.yaml                          # 格式化规则配置
+│   ├── document-validator.py                   # 文档自动校验
+│   ├── diagram-generator.py                    # 图表生成（matplotlib 降级）
+│   ├── er-diagram-renderer.py                  # ER 图渲染
+│   ├── uml-renderer.py                         # UML 图渲染
+│   ├── requirement_md_parser.py                # 需求 Markdown 解析
+│   ├── paths.py / paths.js                     # 路径常量（消除硬编码）
+│   ├── package.json / package-lock.json        # Node.js 依赖
+│   ├── lib/                                    # Node.js 核心库
+│   │   ├── project-scanner.js                  # 项目代码扫描
+│   │   ├── requirement-analyzer.js             # 需求分析
+│   │   ├── antv-client.js                      # AntV 图表引擎
+│   │   ├── diagram-service.js                  # 图表服务
+│   │   ├── er-diagram-generator.js             # ER 图生成
+│   │   ├── uml-generator.js                    # UML 图生成
+│   │   ├── excel-testcase-generator.js         # Excel 测试用例生成
+│   │   ├── excel-template-parser.js            # Excel 模板解析
+│   │   ├── xlsx-report-generator.js            # XLSX 报告生成
+│   │   ├── doc-builder.js                      # 文档构建引擎
+│   │   ├── java-test-scanner.js                # Java 测试扫描
+│   │   ├── test-case-md-scanner.js             # 测试用例 Markdown 扫描
+│   │   ├── template_toc_utils.js               # 模板 TOC 工具
+│   │   └── visualization.js                    # 可视化
+│   └── _legacy/                                # 已弃用代码（备份）
+├── assets/
+│   ├── template-outline-design.docx            # 默认概要设计模板
+│   ├── template-outline-design-hnnx.docx       # 河南农商概要设计模板
+│   ├── template-hnnx-outline-design.docx       # 河南农商概要设计模板（备用）
+│   ├── 详细设计文档模板.json                    # 详细设计 JSON 模板
+│   ├── 测试用例模板.json                       # 测试用例 JSON 模板
+│   ├── 测试报告模板.json                       # 测试报告 JSON 模板
+│   ├── 单元测试报告模板.json                    # 单元测试报告 JSON 模板
+│   ├── 需求规格说明书模板.json                  # 需求规格说明书 JSON 模板
+│   └── templates/                              # 模板文件
+│       ├── 测试用例.xlsx                       # SIT 测试用例默认模板
+│       ├── excel-testcase-template-config.json # Excel 列映射配置
+│       ├── default_flowchart.json              # 流程图默认模板
+│       ├── default_mindmap.json                # 思维导图默认模板
+│       └── XX银行-XX项目-差异化需求详细设计模板.doc
+├── references/                                 # 参考文档
+│   ├── 内容结构标准.md                         # 文档章节结构标准
+│   ├── 文档格式标准.md                         # 页面/文字/表格样式标准
+│   ├── 技术术语表.md                           # 票据/系统/接口/开发术语
+│   └── ER图生成工作流程标准.md                  # ER 图生成规范
+└── output/                                     # 文档输出目录（运行时生成）
+    ├── diagrams/                               # 图表输出
+    │   └── uml/                                # UML 图
+    ├── _scan-data.json                         # 代码扫描缓存
+    ├── _design-data-{date}.json                # 设计数据缓存
+    └── {银行名}-{文档类型}-{日期}.docx          # 生成的文档
 ```
 
 ## 快速开始
@@ -496,7 +530,7 @@ PROCESSON_RETRY_DELAY=1000
 | 统一CLI | 合并 cli.js + smart-doc-generator.js → 新 cli.js |
 | 统一错误处理 | BempDocError + ERROR_CODES (E001-E006) |
 | 删除冗余 | 移除 script-registry.js、interactive-cli.js、SCRIPT_TEMPLATE.js 等 |
-| SKILL.md精简 | 从252行精简至70行，详细内容迁移至README.md，节省~2900 tokens/次 |
+| SKILL.md重构 | 从252行精简至70行（v5.0），v6.0扩展至237行含7阶段执行管线、关键策略与失败处理矩阵 |
 | --json输出 | 新增JSON结构化输出模式，含自动列对齐验证结果 |
 | 自动验证 | Excel测试用例生成后自动验证列对齐率 |
 | 最长关键词匹配 | 模板解析器使用最长关键词匹配算法，避免列映射误匹配 |
