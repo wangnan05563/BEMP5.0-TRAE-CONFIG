@@ -1,6 +1,6 @@
-# BEMP 高级文档生成器 v6.0
+# BEMP 高级文档生成器 v8.0
 
-BEMP 高级文档生成器是专业的技术文档生成工具，支持概要设计说明书、详细设计文档、单元测试报告（Word/Excel双格式）、测试用例和测试报告的自动生成。V6.0 基于 .docx 模板填充引擎重构，新增7阶段执行管线、空章节双重检测、图表生成降级链、蓝色文本双重清理等关键策略。
+BEMP 高级文档生成器是专业的技术文档生成工具，支持概要设计说明书、详细设计文档、单元测试报告（Word/Excel双格式）、测试用例和测试报告的自动生成。V8.0 新增 xlsx 模板填充标准管线（含 SOP 与复盘文档），V7.0 引入 7 阶段执行管线、空章节双重检测、图表生成降级链、蓝色文本双重清理等关键策略，V6.0 基于 .docx 模板填充引擎重构。
 
 ## 主要特性
 
@@ -8,19 +8,73 @@ BEMP 高级文档生成器是专业的技术文档生成工具，支持概要设
 |------|------|------|
 | **三种文档类型** | 详细设计、测试用例、测试报告 | ✅ |
 | **三种输出格式** | Word (.docx)、Markdown (.md)、Excel (.xlsx) | ✅ |
+| **xlsx 模板填充管线（v8.0）** | 6 步标准作业：inspect→scan→build→map→write→validate，零硬编码 | ✅ |
+| **表头评分检测** | 关键词+必填*+列名长度-说明行评分，精准识别表头行 | ✅ |
+| **SEMANTIC_RULES 优先级** | 长复合词规则先于通用词，避免 `步骤描述` 误匹配 `summary` | ✅ |
+| **样式最小覆盖** | 保留模板原 cell.style（边框/底色），仅覆盖 font/alignment | ✅ |
 | **Excel SIT测试用例** | 基于自定义 Excel 模板，自动解析列映射生成 SIT 格式测试用例 | ✅ |
 | **需求文档智能分析** | 从 Markdown 需求文档自动提取测试点并生成用例 | ✅ |
 | **可视化文档生成** | 智能场景识别，ProcessOn MCP + 本地 HTML 备用 | ✅ |
-| **统一错误处理** | BempDocError 统一错误码（E001-E006） | ✅ |
+| **统一错误处理** | BempDocError 统一错误码（E001-E006 + E101-E106） | ✅ |
 | **统一配置管理** | 集中管理常量、路径、样式和错误码 | ✅ |
 | **JSON结构化输出** | `--json` 参数输出含自动验证结果的结构化数据 | ✅ |
-| **自动列对齐验证** | Excel 生成后自动验证数据列对齐率 | ✅ |
+| **自动列对齐验证** | Excel 生成后自动验证数据列对齐率（17 列 100% 门禁） | ✅ |
+
+## v7.1 配置驱动升级（2026-06-07）
+
+### 核心原则：零硬编码，全配置驱动
+
+所有 Uml / 标题规范化 / 空表格处理 / ER 图迁移 / 关键技术差异化 / 图表引擎选择 的参数均已从代码中剥离，统一由 `scripts/doc_rules.yaml` 管理。Python 端通过 `doc_formatter.load_doc_rules()` 加载，Node 端通过 `lib/yaml-loader.js` 加载。
+
+### 配置节速查
+
+| 配置节 | 用途 | 关键字段 |
+|--------|------|----------|
+| `uml` | UML 图表生成 | `keywords`, `required_headings`, `file_matchers`, `fallback_*` |
+| `title_normalize` | 标题编号规范化 | `heading_style_ids`, `number_pattern`, `strip_style_numbering` |
+| `empty_table` | 空表格智能处理 | `delete_if`, `fill_if`, `dual_layer_check` |
+| `er_diagram_migration` | ER 图章节迁移 | `target_h1`, `h2_prefix`, `max_groups` |
+| `tech_description` | 关键技术差异化 | `type_keywords`, `subset_size`, `fallback_tech_stack` |
+| `chart_engine` | 图表引擎调度 | `engine_priority`, `uml_engine`, `fallback_strategy` |
+
+### 新增模块
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 图表调度器 | `lib/diagram_dispatcher.py` | 统一 ER/架构/UML 图生成入口，按 `chart_engine` 配置选择引擎 |
+| YAML 加载器 | `lib/yaml-loader.js` | Node 端配置加载，支持 js-yaml / yaml-mini 双引擎降级 |
+| 配置验证测试 | `tests/test_doc_rules.py` | 18 个测试用例验证 6 个配置节的完整性和正确性 |
+
+### 关键技术去重机制
+
+`_build_tech_description(scan, bm, component_index)` 通过 `component_index` 参数确保不同组件获得差异化技术描述：
+- 稳定 hash（`bm_name + component_index`）从 `techStack` 选取 5-7 项不同子集
+- `module_type` 自动识别（query/write/batch/approval）追加差异化业务规则
+- **12 组件全唯一，0 重复**
 
 ## 触发关键词
 
 ```
 生成详细设计文档 | 生成测试用例 | 生成测试报告 | 生成Excel测试用例 | SIT测试用例 | 需求分析生成用例
 ```
+
+## 触发关键词（xlsx 模板填充）
+
+```
+基于xlsx模板生成 | 按xlsx模板填充 | 单元测试报告xlsx | 单元测试报告excel
+```
+
+## 配套文档
+
+| 文档 | 用途 |
+|------|------|
+| [SKILL.md](./SKILL.md) | 技能主文件（v8.0：xlsx 6 步标准作业 + 7 阶段管道） |
+| [references/xlsx-template-fill-sop.md](./references/xlsx-template-fill-sop.md) | xlsx 模板填充 SOP（标准作业流程） |
+| [references/xlsx-template-fill-retrospective.md](./references/xlsx-template-fill-retrospective.md) | xlsx 模板填充复盘（机构管理优化场景） |
+| [references/ER图生成工作流程标准.md](./references/ER图生成工作流程标准.md) | ER 图生成规范 |
+| [references/内容结构标准.md](./references/内容结构标准.md) | 文档内容结构规范 |
+| [references/技术术语表.md](./references/技术术语表.md) | 技术术语统一表 |
+| [references/文档格式标准.md](./references/文档格式标准.md) | 文档格式标准 |
 
 ## 目录结构
 
@@ -58,8 +112,14 @@ bemp-advanced-doc-generator/
 │   │   ├── requirement-analyzer.js             # 需求分析
 │   │   ├── antv-client.js                      # AntV 图表引擎
 │   │   ├── diagram-service.js                  # 图表服务
+│   │   ├── diagram_dispatcher.py               # 图表调度器（v7.1）
 │   │   ├── er-diagram-generator.js             # ER 图生成
-│   │   ├── uml-generator.js                    # UML 图生成
+│   │   ├── enhanced-uml-service.js             # 增强 UML 服务
+│   │   ├── graphviz-generator.js               # Graphviz DOT 生成（v7.1 配置驱动）
+│   │   ├── graphviz-renderer.js                # Graphviz 渲染
+│   │   ├── yaml-loader.js                      # YAML 配置加载（v7.1）
+│   │   ├── yaml-mini.js                        # 零依赖 YAML 解析（v7.1）
+│   │   ├── uml-generator.js                    # UML 图生成（旧版）
 │   │   ├── excel-testcase-generator.js         # Excel 测试用例生成
 │   │   ├── excel-template-parser.js            # Excel 模板解析
 │   │   ├── xlsx-report-generator.js            # XLSX 报告生成
@@ -68,6 +128,8 @@ bemp-advanced-doc-generator/
 │   │   ├── test-case-md-scanner.js             # 测试用例 Markdown 扫描
 │   │   ├── template_toc_utils.js               # 模板 TOC 工具
 │   │   └── visualization.js                    # 可视化
+│   ├── tests/                                  # 测试（v7.1）
+│   │   └── test_doc_rules.py                   # 配置验证测试
 │   └── _legacy/                                # 已弃用代码（备份）
 ├── assets/
 │   ├── template-outline-design.docx            # 默认概要设计模板

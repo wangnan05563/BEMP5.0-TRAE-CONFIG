@@ -66,9 +66,12 @@ def parse_requirement_md(md_path, extra_keywords=None):
     # 2. 提取业务子模块（H5标题，如"子模块A"/"子模块B明细"等）
     # 它们的特征是"子模块标题"下面有 H6 子节（查询/新增/删除/修改/复核/提交等）
     # 或者直接用H4标题（不同需求文档可能不同）
+    # 业务子模块仅归属于首个 H3（主模块）；其他 H3 下的 H5 一律不收集
     business_modules = []
     current_module = None
     current_subsection = None
+    main_h3_seen = False  # 是否已经看到主 H3
+    in_main_h3_scope = False  # 当前是否在主 H3 作用域内
 
     # 先收集所有候选模块标题（H4或H5，名字典型为：查询/新增/删除/修改/批复明细/复核/提交复核 等不是模块名）
     # 模块名特征：长度>=3个汉字、不是常见UI操作名
@@ -80,33 +83,62 @@ def parse_requirement_md(md_path, extra_keywords=None):
     state = 'normal'  # normal | module | subsection
 
     for i, line in enumerate(lines):
+        # H3 切换：所有 H3 都视为顶层业务模块切换
+        m3 = re.match(r'^\s*###\s+(.+)$', line)
+        if m3:
+            current_module = None
+            current_subsection = None
+            state = 'normal'
+            if not main_h3_seen:
+                main_h3_seen = True
+                in_main_h3_scope = True
+            else:
+                in_main_h3_scope = False
+            continue  # H3 行本身不作为子模块
+
         # H4 标题（####）
         m4 = re.match(r'^\s*####\s+(.+)$', line)
         # H5 标题（#####）  
         m5 = re.match(r'^\s*#####\s+(.+)$', line)
 
-        # 业务子模块识别：H5中符合模块名特征的，且下方有H6子节
-        if m5:
+        # 业务子模块识别：H5中符合模块名特征的
+        # 2026-06-06 优化：兼容两类需求文档结构
+        #   类型A：H5 下有 H6 子节（标准结构）
+        #   类型B：H5 下直接是列表/表格（无 H6，但有 *业务规则*/*栏位描述*/*界面设计* 等约定小节）
+        if m5 and in_main_h3_scope:
             name = m5.group(1).strip()
             if _is_module_name(name):
-                # 验证下方有H6子节（subsection）
+                # 验证下方有 H6 子节 OR 业务子节（*业务规则*/*栏位描述*/*界面设计*）
                 has_subsection = False
+                has_business_subsection = False
                 for k in range(i + 1, min(i + SUBSECTION_LOOKAHEAD_LINES, len(lines))):
                     if re.match(r'^\s*######\s+', lines[k]):
                         has_subsection = True
                         break
+                    if re.match(r'^\s*\*\s*(业务规则|栏位描述|界面设计)\s*$', lines[k].strip()):
+                        has_business_subsection = True
+                        break
                     if re.match(r'^\s*#{1,5}\s+', lines[k]):  # 遇到更高级标题
                         break
-                if has_subsection:
+                if has_subsection or has_business_subsection:
+                    # 如果没有 H6 subsection 但有约定业务子节，自动创建与模块同名子节
+                    default_subsection = None
+                    if not has_subsection and has_business_subsection:
+                        default_subsection = {
+                            "name": name,
+                            "rules": [],
+                            "fields": [],
+                            "interface_description": ""
+                        }
                     current_module = {
                         "name": name,
-                        "subsections": [],
+                        "subsections": ([default_subsection] if default_subsection else []),
                         "summary": "",
                         "rules": []
                     }
                     business_modules.append(current_module)
-                    current_subsection = None
-                    state = 'module'
+                    current_subsection = default_subsection
+                    state = 'subsection' if default_subsection else 'module'
                     continue
         elif m4:
             # H4 通常是描述性标题，跳过
@@ -125,16 +157,60 @@ def parse_requirement_md(md_path, extra_keywords=None):
             state = 'subsection'
             continue
 
+        # 2026-06-06 增强：识别"【子系统】-【模块】-【菜单名】菜单"格式的有序列表项
+        #   例：1. 【系统管理子系统】-【系统管理】-【机构管理】菜单；
+        #   这种结构在功能优化类需求中常见，菜单名是核心业务子模块
+        m_menu = re.match(r'^\s*\d+\.\s*【.+?】-【.+?】-【(.+?)】菜单', line)
+        if m_menu and in_main_h3_scope and state in ('normal', 'module'):
+            menu_name = m_menu.group(1).strip()
+            if _is_module_name(menu_name) and not any(bm.get("name") == menu_name for bm in business_modules):
+                current_module = {
+                    "name": menu_name,
+                    "subsections": [],
+                    "summary": "",
+                    "rules": []
+                }
+                business_modules.append(current_module)
+                current_subsection = None
+                state = 'module'
+                # 菜单项也作为子节，记录其下功能描述
+                current_subsection = {
+                    "name": f"{menu_name}-功能列表",
+                    "rules": [],
+                    "fields": [],
+                    "interface_description": ""
+                }
+                current_module["subsections"].append(current_subsection)
+                # 收集下方的子列表项（直到遇到 H4/H5/H3 或非缩进行）
+                j = i + 1
+                sub_rule_re = re.compile(r'^\s*(\d+)[.．]\s+(.+)$')
+                while j < len(lines):
+                    nl = lines[j]
+                    # 遇到同级或更高级标题停止
+                    if re.match(r'^\s*#{1,5}\s+', nl) or re.match(r'^\s*\d+\.\s*【.+?】-【.+?】-【', nl):
+                        break
+                    rm = sub_rule_re.match(nl)
+                    if rm:
+                        current_subsection["rules"].append(rm.group(2).strip())
+                    j += 1
+                continue
+
         # 在子节内识别"业务规则"
         if current_subsection and re.match(r'^\s*\*\s*业务规则\s*$', line.strip()):
-            # 收集业务规则列表项
+            # 收集业务规则列表项（2026-06-06 优化：跳过紧邻的空行）
             j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
             while j < len(lines):
                 next_line = lines[j]
                 rule_match = re.match(r'^\s*(\d+)[.．]\s+(.+)$', next_line)
                 if rule_match:
                     current_subsection["rules"].append(rule_match.group(2).strip())
                     j += 1
+                    # 跳过空行继续收集
+                    while j < len(lines) and not lines[j].strip():
+                        j += 1
+                    continue
                 else:
                     break
             continue
@@ -158,11 +234,25 @@ def parse_requirement_md(md_path, extra_keywords=None):
     # 3. 提取全局业务规则（模块级别，H3 下含"规则"关键字的子节）
     global_rules = []
     in_global_rules = False
-    for i, line in enumerate(lines):
+    # 业务规则归属：仅在当前主模块（第一个 H3）下的规则才视为"本模块全局规则"
+    # 其他 H3 下的规则不纳入，避免把其他业务模块的规则错误归属到本模块
+    current_h3 = None  # 当前 H3 标题文本
+    main_h3 = None      # 主 H3 标题（首个 H3）
+    for line in lines:
+        m_h3 = re.match(r'^\s*###\s+(.+)$', line)
+        if m_h3:
+            current_h3 = m_h3.group(1).strip()
+            if main_h3 is None:
+                main_h3 = current_h3
+            continue
         # 顶层"业务模块额度使用规则"或类似（H4或H5含"规则"关键字）
         m_rule_section = re.match(r'^\s*#{4,5}\s+.*规则\s*$', line)
-        if m_rule_section:
+        if m_rule_section and current_h3 == main_h3:
             in_global_rules = True
+            continue
+        # 切换 H3 时退出规则收集
+        if m_h3 and current_h3 != main_h3:
+            in_global_rules = False
             continue
         if in_global_rules:
             # 收集中间所有列表项（直到下一个H5/H4/H3）

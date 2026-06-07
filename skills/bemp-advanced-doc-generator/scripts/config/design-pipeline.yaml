@@ -1,0 +1,198 @@
+# =====================================================================
+# BEMP 详细设计文档生成管线配置 v1.0 — 2026-06-07
+# =====================================================================
+# 设计原则：
+#   - 零硬编码：所有阈值/关键词/降级策略均通过本文件管理
+#   - 通用化：不包含特定银行/项目名称，仅描述抽象规则
+#   - 可扩展：新增管线阶段只需在 stages 中添加条目
+#   - 兜底安全：配置缺失时各模块使用内置 _DEFAULT 值
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# 管线阶段顺序
+# ---------------------------------------------------------------------
+pipeline:
+  enabled: true
+  stages:
+    - id: "data-prep"
+      name: "数据准备"
+      description: "解析需求MD → design_data JSON"
+      required: true
+      timeout_ms: 30000
+    - id: "template-prep"
+      name: "模板预处理"
+      description: "复制模板 + 封面替换 + 蓝色清理"
+      required: true
+    - id: "chapter-fill"
+      name: "章节填充"
+      description: "按优先级策略填充模板章节"
+      required: false  # preserve_mode 时跳过
+      skip_when_preserve: true
+    - id: "post-process"
+      name: "后处理"
+      description: "修订记录/标题编号/样式统一"
+      required: true
+    - id: "diagram-gen"
+      name: "图表生成"
+      description: "类图/顺序图/活动图/流程图/时序图 PNG 生成"
+      required: false
+      skip_when_preserve: false  # 保留模式也执行
+    - id: "appendix-clean"
+      name: "附录清理"
+      description: "移除不协调的附录内容"
+      required: false
+      skip_when_preserve: false
+    - id: "save-inject"
+      name: "保存并注入"
+      description: "doc.save + inject_update_fields"
+      required: true
+
+# ---------------------------------------------------------------------
+# 保留模式 (Preserve Mode)
+# 当 design_data.chapters 为空时触发，仅替换封面字段，保留模板原始正文
+# ---------------------------------------------------------------------
+preserve_mode:
+  # 触发条件（支持多条件组合，任一满足即触发）
+  triggers:
+    - condition: "chapters_empty"
+      description: "design_data.chapters 为空数组或不存在"
+  # 保留模式中仍然执行的操作（白名单）
+  allowed_operations:
+    - "cover_page_replace"      # 封面标题/部门/日期替换
+    - "revision_table_update"   # 修订记录表格更新
+    - "heading_renumber"        # 标题编号重构
+    - "heading_style_unify"     # 标题样式统一
+    - "hardcode_number_strip"   # 硬编码编号剥除
+    - "subheading_promote"      # 子标题样式提升
+    - "diagram_generation"      # 图表自动生成
+    - "appendix_cleanup"        # 附录清理
+    - "body_indent"             # 正文缩进
+    - "table_style"             # 表格样式统一
+    - "toc_inject"              # TOC 域注入
+  # 保留模式中跳过的操作（黑名单，优先级高于白名单）
+  skipped_operations:
+    - "blue_text_removal"       # 蓝色占位删除
+    - "blue_run_clear"          # 蓝色 run 清理
+    - "content_fill"            # 所有章节内容填充
+    - "empty_chapter_fill"      # 空章节插入占位
+    - "clear_between_headings"  # 标题间内容清理
+
+# ---------------------------------------------------------------------
+# 标题样式策略
+# ---------------------------------------------------------------------
+heading_strategy:
+  # 核心原则：已设标题不升级/不降级
+  # current_level > 0 的段落（已有 Heading 样式）仅应用视觉属性
+  protected_heading_rule:
+    enabled: true
+    description: "已有 heading 样式的段落永不修改其 pStyle 级别"
+    behavior: "only_visual"  # 仅改字号/加粗/字体，不改 pStyle
+  # 仅对 Normal 段落（current_level == 0）按关键词推断并设置 Heading
+  normal_promotion:
+    enabled: true
+    description: "Normal 段落命中关键词时升级为对应 Heading 样式"
+
+# ---------------------------------------------------------------------
+# 图表自动生成配置
+# ---------------------------------------------------------------------
+diagram_generation:
+  enabled: true
+  strategy: "graphviz_first"  # graphviz → matplotlib → placeholder
+  registered_types:
+    - keyword: "类图"
+      file_prefix: "class-diagram"
+      default_nodes: 3
+    - keyword: "顺序图"
+      file_prefix: "sequence-diagram"
+      default_nodes: 3
+    - keyword: "活动图"
+      file_prefix: "activity-diagram"
+      default_nodes: 5
+    - keyword: "业务流程图"
+      file_prefix: "business-flow"
+      default_nodes: 4
+    - keyword: "时序图"
+      file_prefix: "timing-diagram"
+      default_nodes: 4
+  # 降级链
+  fallback_chain:
+    - backend: "graphviz"
+      format: "png"
+      timeout_ms: 10000
+    - backend: "matplotlib"
+      format: "png"
+      timeout_ms: 15000
+    - backend: "placeholder"
+      format: "text"
+      fallback_text: "（{diagram_type}详见UML设计文档，此处为占位说明）"
+  image_settings:
+    width_inches: 5.5
+    dpi: 150
+    caption_font_size_pt: 9
+    caption_color: "808080"
+
+# ---------------------------------------------------------------------
+# 附录清理配置
+# ---------------------------------------------------------------------
+appendix_cleanup:
+  enabled: true
+  target: "附录F：术语与缩略语"
+  # 需要在该附录下清理的内容模式（含匹配策略）
+  removal_patterns:
+    - pattern: "功能模块"
+      match_type: "exact"       # exact/contains/regex
+      scope: "recursive"       # 递归搜索后代元素文本
+      action: "remove_table_and_following"  # 删除所在表格及后续元素
+  # 边界检测：遇到这些样式时停止收集删除范围
+  boundary_styles:
+    - "1"
+    - "2"
+    - "3"
+    - "Heading1"
+    - "Heading2"
+    - "Heading3"
+
+# ---------------------------------------------------------------------
+# 编码与兼容性配置
+# ---------------------------------------------------------------------
+encoding:
+  # Windows 终端中文参数传递策略
+  windows_terminal_fix:
+    enabled: true
+    approaches:
+      - "set_env_vars"       # 设置 PYTHONIOENCODING=utf-8
+      - "direct_api_call"    # 绕过 CLI 直接调用 JS/Python API
+      - "arg_escaping"       # 参数转义处理
+    env_vars:
+      PYTHONIOENCODING: "utf-8"
+      PYTHONUTF8: "1"
+  # Node.js 编码处理
+  node_encoding:
+    stdout_encoding: "utf-8"
+    argv_encoding: "utf-8"
+
+# ---------------------------------------------------------------------
+# 验证门禁
+# ---------------------------------------------------------------------
+validation_gates:
+  - id: "template_exists"
+    description: "模板文件存在且为 .docx 格式"
+    severity: "blocking"
+  - id: "design_data_valid"
+    description: "design_data JSON 可解析且含 coverPage"
+    severity: "blocking"
+  - id: "paragraph_count"
+    description: "输出段落数与模板差异 ≤ 20%"
+    severity: "warning"
+  - id: "heading_level_consistency"
+    description: "标题层级无跨级（H1→H3 无 H2 过渡）"
+    severity: "warning"
+  - id: "hardcode_number_stripped"
+    description: "H1-H8 标题无硬编码编号残留"
+    severity: "warning"
+  - id: "cover_fields_present"
+    description: "封面标题/部门/日期已替换"
+    severity: "warning"
+  - id: "header_footer_preserved"
+    description: "页眉页脚文件完整保留"
+    severity: "warning"

@@ -1,0 +1,155 @@
+# =====================================================================
+# BEMP 概要设计 - 部署图专业绘制配置
+# ---------------------------------------------------------------------
+# 用途：定义部署图的"机房机架"布局、HA 标签、网络连线，避免硬编码
+# 设计原则：
+#   - 区域定义可配置：可适配不同银行架构
+#   - 每个机架的"高可用模式"由配置决定（主备/集群/主从）
+#   - 字体/颜色/连线风格统一从配置读取
+# =====================================================================
+
+diagram_style:
+  architecture:
+    figsize: [16, 11]   # 宽×高（英寸）
+    layer_box_height: 1.3
+    layer_box_width: 19
+    title_fontsize: 18
+    item_fontsize: 8.5
+    label_fontsize: 9
+  network_topology:
+    figsize: [16, 11]
+    rack_height: 3.0
+    title_fontsize: 18
+    item_fontsize: 8.5
+  deployment:
+    figsize: [12, 7.5]   # 紧凑布局（之前 20×14 太散）
+    rack_width: 4.5
+    rack_height: 2.8
+    title_fontsize: 18
+    item_fontsize: 8
+    ha_mode_fontsize: 7
+
+  # 颜色调色板
+  colors:
+    客户端层: "#E3F2FD"
+    接入层: "#FFF3E0"
+    前端应用层: "#F3E5F5"
+    后端服务层: "#E8F5E9"
+    服务治理层: "#FFFDE7"
+    缓存层: "#FFF9C4"
+    数据层: "#FCE4EC"
+    外部系统层: "#F5F5F5"
+    终端区: "#E3F2FD"
+    DMZ区: "#FFF3E0"
+    应用服务区: "#E8F5E9"
+    中间件区: "#FFFDE7"
+    数据存储区: "#FCE4EC"
+    外部专线区: "#F5F5F5"
+    应用服务器: "#E8F5E9"
+    前端服务器: "#F3E5F5"
+    缓存服务器: "#FFF9C4"
+    注册中心: "#FFFDE7"
+    数据库服务器: "#FCE4EC"
+    文件服务器: "#E3F2FD"
+    负载均衡: "#E1F5FE"
+    消息队列: "#F8BBD0"
+    安全设备: "#FFCDD2"
+    监控运维: "#DCEDC8"
+
+  # 边框色（深一档）
+  border_colors:
+    客户端层: "#1565C0"
+    接入层: "#E65100"
+    前端应用层: "#6A1B9A"
+    后端服务层: "#2E7D32"
+    服务治理层: "#F57F17"
+    缓存层: "#F9A825"
+    数据层: "#C62828"
+    外部系统层: "#616161"
+
+# 部署图：服务器机架（从 scan_data.dynamic_config 动态加载，无则用此默认）
+# ha_mode: 集群 | 主备 | 主从 | 单点
+# category: 用于在图中分区域显示
+default_racks:
+  - title: "前端接入区"
+    category: "前端服务器"
+    ha_mode: "主备"
+    items:
+      - "Nginx 主节点 (8C/16G)"
+      - "Nginx 备节点 (8C/16G)"
+      - "Keepalived VIP"
+  - title: "应用服务区"
+    category: "应用服务器"
+    ha_mode: "集群"
+    items:
+      - "App 节点 1 (16C/32G)"
+      - "App 节点 2 (16C/32G)"
+      - "App 节点 3 (16C/32G)"
+      - "Dubbo 负载均衡"
+  - title: "缓存区"
+    category: "缓存服务器"
+    ha_mode: "集群"
+    items:
+      - "Redis-Master (8C/16G)"
+      - "Redis-Slave-1 (8C/16G)"
+      - "Redis-Slave-2 (8C/16G)"
+  - title: "注册/配置中心"
+    category: "注册中心"
+    ha_mode: "集群"
+    items:
+      - "Nacos 节点 1 (4C/8G)"
+      - "Nacos 节点 2 (4C/8G)"
+      - "Nacos 节点 3 (4C/8G)"
+  - title: "数据库区"
+    category: "数据库服务器"
+    ha_mode: "主从"
+    items:
+      - "Oracle 主库 (16C/64G)"
+      - "Oracle 备库 1 (16C/64G)"
+      - "Oracle 备库 2 (16C/64G)"
+      - "MySQL 业务库 (8C/32G)"
+  - title: "存储/文件"
+    category: "文件服务器"
+    ha_mode: "主备"
+    items:
+      - "NAS 主存储 (10TB)"
+      - "NAS 备存储 (10TB)"
+      - "SAN 光纤交换机"
+
+# 跨机架连接（颜色 + 标签 + 关系）
+# color: 主链路绿/备链路橙/读链路蓝/写链路红
+# style: solid | dashed
+# arrow: -> | <- | <->
+cross_connections:
+  - from: "前端接入区"
+    to: "应用服务区"
+    color: "#2E7D32"
+    label: "HTTPS/REST"
+    style: "solid"
+  - from: "应用服务区"
+    to: "缓存区"
+    color: "#F9A825"
+    label: "缓存读写"
+    style: "dashed"
+  - from: "应用服务区"
+    to: "注册/配置中心"
+    color: "#F57F17"
+    label: "服务发现/配置"
+    style: "dashed"
+  - from: "应用服务区"
+    to: "数据库区"
+    color: "#C62828"
+    label: "JDBC"
+    style: "solid"
+  - from: "应用服务区"
+    to: "存储/文件"
+    color: "#1565C0"
+    label: "文件读写"
+    style: "dashed"
+
+# HA 模式颜色映射
+ha_mode_color:
+  集群: "#2E7D32"
+  主备: "#E65100"
+  主从: "#6A1B9A"
+  单点: "#9E9E9E"

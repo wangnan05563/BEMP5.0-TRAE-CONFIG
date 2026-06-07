@@ -137,22 +137,32 @@ def build_design_constraint_text(scan):
 
 
 def build_external_interface_text(scan):
-    """外部接口"""
-    module_name = ensure_module_name(scan)
+    """外部接口
 
-    lines = [
-        f'{module_name}涉及以下外部接口：',
-        '',
-        '1. 核心系统接口\n'
-        '   - 客户信息查询接口：获取客户基本信息\n'
-        '   - 账户信息查询接口：获取账户余额和状态\n\n'
-        '2. 信贷系统接口\n'
-        '   - 授信额度查询接口：获取客户授信额度\n'
-        '   - 额度占用/释放接口：同步额度状态\n\n'
-        '3. ESB服务总线\n'
-        '   - 服务注册接口：将本系统服务注册到ESB\n'
-        '   - 消息路由接口：通过ESB进行消息转发',
-    ]
+    数据来源：scan_data.externalDeps（项目扫描识别的外部依赖与接口）
+    无硬编码业务名；无数据时回退到"不涉及"。
+    """
+    module_name = ensure_module_name(scan)
+    external_deps = scan.get('externalDeps') or []
+
+    if not external_deps:
+        return f'{module_name}当前未识别到外部系统接口，本章节不涉及。'
+
+    lines = [f'{module_name}涉及以下外部接口：', '']
+    for idx, dep in enumerate(external_deps, 1):
+        if isinstance(dep, dict):
+            name = dep.get('name') or dep.get('interfaceName') or f'外部接口{idx}'
+            desc = dep.get('description') or dep.get('remark') or '与外部系统对接'
+            protocol = dep.get('protocol') or dep.get('callType') or 'REST/RPC'
+            lines.append(f'{idx}. {name}')
+            lines.append(f'   - 调用方式：{protocol}')
+            lines.append(f'   - 说明：{desc}')
+            lines.append('')
+        elif isinstance(dep, str):
+            lines.append(f'{idx}. {dep}')
+            lines.append(f'   - 调用方式：REST/RPC')
+            lines.append(f'   - 说明：与外部系统对接')
+            lines.append('')
     return '\n'.join(lines)
 
 

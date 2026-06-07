@@ -317,136 +317,117 @@ def generate_network_diagram(output_path, project_name=None):
 
 
 def generate_deployment_diagram(output_path, project_name=None):
-    """部署架构图 - 服务器机架视图+集群标识+高可用连线"""
-    fig, ax = plt.subplots(1, 1, figsize=(20, 14))
-    ax.set_xlim(0, 20)
-    ax.set_ylim(0, 14)
-    ax.axis('off')
-    ax.set_title(f'{project_name} 部署架构图', fontsize=20, fontweight='bold', pad=25)
+    """部署架构图 - 服务器机架视图+集群标识+高可用连线
 
-    def draw_server_rack(ax, x, y, w, h, title, items, bg_color, border_color, ha_mode='主备'):
-        """绘制服务器机架"""
+    关键修复(2026-06-06)：从 deployment-style.yaml 加载配置，
+    杜绝硬编码的 figsize/rack 数/items/连线。
+    """
+    import yaml
+    cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deployment-style.yaml')
+    try:
+        with open(cfg_path, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f) or {}
+    except Exception as e:
+        print(f'[WARN] 加载 deployment-style.yaml 失败: {e}', file=sys.stderr)
+        cfg = {}
+
+    style = cfg.get('diagram_style', {}).get('deployment', {})
+    figsize = tuple(style.get('figsize', [12, 7.5]))
+    rack_w = style.get('rack_width', 4.5)
+    rack_h = style.get('rack_height', 2.8)
+    title_fs = style.get('title_fontsize', 18)
+    item_fs = style.get('item_fontsize', 8)
+    ha_fs = style.get('ha_mode_fontsize', 7)
+
+    colors = cfg.get('diagram_style', {}).get('colors', {})
+    ha_color_map = cfg.get('ha_mode_color', {})
+
+    racks = cfg.get('default_racks', [])
+    crosses = cfg.get('cross_connections', [])
+
+    n_racks = max(len(racks), 1)
+    # 动态计算画布尺寸（机架越多越宽）
+    fig_w = max(figsize[0], rack_w * n_racks * 0.6 + 2)
+    fig_h = max(figsize[1], rack_h * 1.2 + 1.5)
+    fig, ax = plt.subplots(1, 1, figsize=(fig_w, fig_h))
+    ax.set_xlim(0, fig_w)
+    ax.set_ylim(0, fig_h)
+    ax.axis('off')
+    ax.set_title(f'{project_name or "系统"} 部署架构图',
+                 fontsize=title_fs, fontweight='bold', pad=25)
+
+    col_w = fig_w / n_racks
+    ha_color_map_full = {
+        '集群': ha_color_map.get('集群', '#2E7D32'),
+        '主备': ha_color_map.get('主备', '#E65100'),
+        '主从': ha_color_map.get('主从', '#6A1B9A'),
+        '单点': ha_color_map.get('单点', '#9E9E9E'),
+    }
+
+    rack_centers = {}
+    for idx, r in enumerate(racks):
+        title = r.get('title', f'机架{idx+1}')
+        category = r.get('category', '应用服务器')
+        ha_mode = r.get('ha_mode', '集群')
+        items = r.get('items', [])
+
+        x0 = idx * col_w + 0.3
+        y0 = 1.0
+        w = col_w - 0.6
+        h = fig_h - 2.0
+
+        bg = colors.get(category, colors.get('应用服务器', '#E8F5E9'))
+        ha_color = ha_color_map_full.get(ha_mode, '#2E7D32')
+
         rack = FancyBboxPatch(
-            (x, y), w, h,
+            (x0, y0), w, h,
             boxstyle="round,pad=0.08",
-            facecolor=bg_color, edgecolor=border_color, linewidth=2.5,
-            alpha=0.7
+            facecolor=bg, edgecolor=ha_color, linewidth=2.5,
+            alpha=0.65
         )
         ax.add_patch(rack)
 
-        # 机架标题
-        ax.text(x + w / 2, y + h - 0.25, title, fontsize=10, fontweight='bold',
-                color=border_color, ha='center', va='top')
+        ax.text(x0 + w/2, y0 + h - 0.25, title,
+                ha='center', va='top',
+                fontsize=item_fs + 1.5, fontweight='bold', color='#212121')
 
-        # 高可用模式标签
-        ha_color = '#2E7D32' if ha_mode == '集群' else '#E65100'
-        ax.text(x + w - 0.2, y + h - 0.25, f'[{ha_mode}]', fontsize=7,
-                color=ha_color, ha='right', va='top', fontweight='bold')
+        ax.text(x0 + 0.2, y0 + h - 0.55, f'【{ha_mode}】',
+                ha='left', va='top',
+                fontsize=ha_fs, fontweight='bold',
+                color='white', bbox=dict(
+                    boxstyle='round,pad=0.2',
+                    facecolor=ha_color, edgecolor=ha_color, alpha=0.9))
 
-        # 服务器节点
-        for idx, item in enumerate(items):
-            iy = y + h - 0.7 - idx * 0.4
-            node_box = FancyBboxPatch(
-                (x + 0.2, iy - 0.12), w - 0.4, 0.32,
-                boxstyle="round,pad=0.02",
-                facecolor='white', edgecolor=border_color, linewidth=0.8
-            )
-            ax.add_patch(node_box)
-            # 状态指示灯
-            ax.plot(x + 0.4, iy + 0.04, 'o', color='#4CAF50', markersize=4)
-            ax.text(x + w / 2, iy + 0.04, item, fontsize=7, ha='center', va='center')
+        for j, item in enumerate(items):
+            item_y = y0 + h - 0.9 - j * 0.28
+            if item_y < y0 + 0.1:
+                break
+            ax.text(x0 + 0.15, item_y, f'• {item}',
+                    ha='left', va='top', fontsize=item_fs, color='#212121')
 
-    # 差异化：使用机架式布局，而非简单矩形
-    # 上层：前端+应用+缓存
-    draw_server_rack(ax, 0.5, 9.5, 5.5, 3.8, '前端服务器集群',
-                     ['Nginx主节点(8C/16G)', 'Nginx备节点(8C/16G)', 'Keepalived VIP'],
-                     '#F3E5F5', '#6A1B9A', '主备')
+        rack_centers[title] = (x0 + w/2, y0 + h/2)
 
-    draw_server_rack(ax, 7.0, 9.5, 6.0, 3.8, '应用服务器集群',
-                     ['App节点1(16C/32G)', 'App节点2(16C/32G)', 'App节点3(16C/32G)', 'Dubbo负载均衡'],
-                     '#E8F5E9', '#2E7D32', '集群')
-
-    draw_server_rack(ax, 14.0, 9.5, 5.5, 3.8, '缓存服务器集群',
-                     ['Redis-S1(8C/16G)', 'Redis-S2(8C/16G)', 'Redis-S3(8C/16G)'],
-                     '#FFF9C4', '#F9A825', '集群')
-
-    # 下层：注册中心+数据库+文件
-    draw_server_rack(ax, 0.5, 4.5, 5.5, 4.2, '注册中心集群',
-                     ['ZK-1(4C/8G)', 'ZK-2(4C/8G)', 'ZK-3(4C/8G)', 'Leader选举'],
-                     '#FFFDE7', '#F57F17', '集群')
-
-    draw_server_rack(ax, 7.0, 4.5, 6.0, 4.2, '数据库服务器集群',
-                     ['Oracle主库(16C/64G)', 'Oracle从库1(16C/64G)', 'Oracle从库2(16C/64G)', 'MySQL(8C/32G)', 'Data Guard同步'],
-                     '#FCE4EC', '#C62828', '主从')
-
-    draw_server_rack(ax, 14.0, 4.5, 5.5, 4.2, '文件/存储服务器',
-                     ['NAS主存储(10TB)', 'NAS备存储(10TB)', 'SAN光纤交换机'],
-                     '#E3F2FD', '#1565C0', '主备')
-
-    # 差异化：增加高可用连线（绿色实线=主链路，橙色虚线=备链路）
-    ha_connections = [
-        # 前端主备切换
-        (3.25, 9.5, 3.25, 9.0, '#4CAF50', '-', 'VIP切换'),
-        # 应用集群内部通信
-        (10.0, 9.5, 10.0, 9.0, '#4CAF50', '-', '集群内通信'),
-        # Redis哨兵通信
-        (16.75, 9.5, 16.75, 9.0, '#4CAF50', '-', '哨兵监控'),
-    ]
-    for x1, y1, x2, y2, color, style, label in ha_connections:
-        ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle='->', color=color, lw=1.5, linestyle=style))
-        ax.text(x1 + 0.3, (y1 + y2) / 2, label, fontsize=6, color=color, va='center')
-
-    # 差异化：增加跨机架连线（应用→数据库、应用→缓存、应用→注册中心）
-    cross_connections = [
-        (10.0, 9.5, 10.0, 8.7, '#2E7D32', '→', 'Dubbo注册'),
-        (16.75, 9.5, 16.75, 8.7, '#F9A825', '→', '缓存读写'),
-        (10.0, 4.5, 10.0, 3.7, '#C62828', '→', 'JDBC连接'),
-        (3.25, 4.5, 3.25, 3.7, '#F57F17', '→', '服务发现'),
-        (16.75, 4.5, 16.75, 3.7, '#1565C0', '→', '文件读写'),
-    ]
-    for x1, y1, x2, y2, color, arrow, label in cross_connections:
-        ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle='->', color=color, lw=1.2, linestyle='dashed'))
-
-    # 外部系统
-    ext_box = FancyBboxPatch(
-        (0.5, 0.3), 19, 3.2,
-        boxstyle="round,pad=0.08",
-        facecolor='#F5F5F5', edgecolor='#616161', linewidth=2.0, linestyle='dashed',
-        alpha=0.6
-    )
-    ax.add_patch(ext_box)
-    ax.text(1.0, 3.2, '外部系统（银行专线接入）', fontsize=11, fontweight='bold',
-            color='#616161', va='top')
-
-    ext_systems = [
-        ('票交所ECDS/CPES', '专线/MQ', 3.5, 2.0),
-        ('核心银行系统', 'TCP/Socket', 8.0, 2.0),
-        ('ECIF客户系统', 'HTTP/REST', 12.5, 2.0),
-        ('信贷系统', 'Dubbo RPC', 17.0, 2.0),
-    ]
-    for label, protocol, x, y in ext_systems:
-        box = FancyBboxPatch((x - 1.5, y - 0.4), 3.0, 0.8,
-                             boxstyle="round,pad=0.03",
-                             facecolor='white', edgecolor='#616161', linewidth=1.0)
-        ax.add_patch(box)
-        ax.text(x, y + 0.1, label, fontsize=8, ha='center', va='center', fontweight='bold')
-        ax.text(x, y - 0.2, protocol, fontsize=6, ha='center', va='center', color='#9E9E9E')
-
-    # 差异化：增加网络协议标注
-    protocol_labels = [
-        (6.0, 8.5, 'HTTP/HTTPS', '#6A1B9A'),
-        (13.0, 8.5, 'Dubbo RPC', '#2E7D32'),
-        (19.0, 8.5, 'Jedis', '#F9A825'),
-        (6.0, 3.5, 'TCP', '#F57F17'),
-        (13.0, 3.5, 'JDBC', '#C62828'),
-        (19.0, 3.5, 'NFS/CIFS', '#1565C0'),
-    ]
-    for x, y, label, color in protocol_labels:
-        ax.text(x, y, label, fontsize=7, ha='center', va='center', color=color,
-                fontweight='bold',
-                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor=color, alpha=0.9))
+    # 跨机架连线
+    for c in crosses:
+        src_title = c.get('from', '')
+        dst_title = c.get('to', '')
+        if src_title not in rack_centers or dst_title not in rack_centers:
+            continue
+        x1, y1 = rack_centers[src_title]
+        x2, y2 = rack_centers[dst_title]
+        color = c.get('color', '#1565C0')
+        label = c.get('label', '')
+        line_style = '-' if c.get('style', 'solid') == 'solid' else '--'
+        ax.annotate(
+            '', xy=(x2, y2), xytext=(x1, y1),
+            arrowprops=dict(arrowstyle='->', color=color,
+                            linestyle=line_style, linewidth=1.5, alpha=0.7)
+        )
+        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+        ax.text(mx, my + 0.15, label, ha='center', va='center',
+                fontsize=item_fs, color=color, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
+                          edgecolor=color, alpha=0.9))
 
     plt.tight_layout()
     fig.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white')

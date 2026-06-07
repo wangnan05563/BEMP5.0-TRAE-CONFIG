@@ -103,7 +103,7 @@
     "MYSQL_USERNAME": "root",
     "MYSQL_PASSWORD": "##PLEASE_SET_MYSQL_PASSWORD_IN_ENV##",
     "MYSQL_DSN": "root@127.0.0.1:3306/bemp_hnnx",
-    "BEMP_TEST_PASSWORD": "",
+    "BEMP_TEST_PASSWORD": "abc@123",
     "TRAE_PATH": "",
     "GIT_PATH": "",
     "BANK_CODE": "hnnxbank",

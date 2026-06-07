@@ -55,8 +55,11 @@ def get_default_glossary():
 
     这些是通用术语，不包含银行/票据特定业务术语。
     业务特定术语应由需求文档解析器注入。
+
+    Returns: (headers, rows) 元组，兼容 ContentRegistry.generate() 的 table 类型返回格式
     """
-    return [
+    headers = ['术语', '全称', '说明']
+    rows = [
         ['BEMP', 'Bill Exchange Management Platform', '票据交换管理平台'],
         ['API', 'Application Programming Interface', '应用程序编程接口'],
         ['REST', 'Representational State Transfer', '表述性状态转移'],
@@ -65,16 +68,22 @@ def get_default_glossary():
         ['RPC', 'Remote Procedure Call', '远程过程调用'],
         ['MVCC', 'Multi-Version Concurrency Control', '多版本并发控制'],
     ]
+    return headers, rows
 
 
 def get_default_references():
-    """返回默认参考资料列表"""
-    return [
+    """返回默认参考资料列表
+
+    Returns: (headers, rows) 元组，兼容 ContentRegistry.generate() 的 table 类型返回格式
+    """
+    headers = ['文档名称', '版本', '来源']
+    rows = [
         ['《BEMP票据系统需求规格说明书》', 'V1.0', '项目组'],
         ['《BEMP票据系统数据库设计说明书》', 'V1.0', '项目组'],
         ['《Spring Boot参考文档》', '最新版', 'Spring官方'],
         ['《MyBatis参考文档》', '最新版', 'MyBatis官方'],
     ]
+    return headers, rows
 
 
 def ensure_module_name(scan):

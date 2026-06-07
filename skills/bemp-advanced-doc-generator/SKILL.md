@@ -146,6 +146,33 @@ UML 图：uml-generator.js → uml-renderer.py → output/diagrams/uml/class-dia
 
 ## 关键策略
 
+### xlsx 模板填充标准管线（v8.0 新增）
+
+适用于 `unit-test-report-xlsx` 类型，与概要设计/详细设计的 7 阶段管道**并行**。详细 SOP 见 [references/xlsx-template-fill-sop.md](references/xlsx-template-fill-sop.md)，复盘记录见 [references/xlsx-template-fill-retrospective.md](references/xlsx-template-fill-retrospective.md)。
+
+```
+[1] TemplateInspector  → TemplateSchema    # 模板解析（评分制表头检测）
+[2] Scanner            → scanResult        # 数据源扫描（MD/Java）
+[3] ContentBuilder     → testcases[]       # 标准化全语义键
+[4] ColumnMapper       → rows[][]          # 基于 schema.columns 动态映射
+[5] _writeAll          → xlsx              # 复制+清空+写入+统一样式
+[6] _validate          → 7 项校验          # 门禁
+```
+
+**核心设计原则**：
+- **Schema 优先**：先 inspect 模板得到 `TemplateSchema`，再驱动所有后续步骤
+- **零硬编码**：列数/列名/表头行/起始行/Sheet 名全部从模板动态读取
+- **样式最小覆盖**：保留模板原 `cell.style`（边框/底色），仅覆盖 font/alignment
+- **多语言兼容**：`pickList('中文', 'english', 'Alias')` 三键轮询
+
+**6 项关键判断逻辑**（速查）：
+1. **表头评分**：关键词+必填*+列名长度-说明行 → 最高分=表头
+2. **SEMANTIC_RULES 顺序**：长复合词规则必须先于通用词
+3. **列填充率门禁**：schema 缺列 → scanner 缺字段 → mapper 兜底 三级排查
+4. **路径稳健性**：`__dirname` 锚定技能根，禁用 `process.cwd()`
+5. **多语言 key 容错**：YAML 字段支持中英+别名
+6. **样式最小覆盖**：spread `oldStyle`，仅覆盖 font/alignment
+
 ### 文档内容管理架构（v7.0 新增）
 
 ```
@@ -277,8 +304,14 @@ node scripts/cli.js -t outline-design -m "银行名称" -r "项目根目录" --j
 node scripts/cli.js -t outline-design -m "银行名称" -r "项目根目录" --template "模板.docx" \
   --cover-placeholders "XXX信息系统/项目=项目名;XXX=项目名;2018=2026" --json
 
-# 详细设计文档（Word）
-node scripts/cli.js -t design -m "模块名称" --template "模板.docx"
+# 详细设计文档（Word — 从需求MD生成）
+node scripts/cli.js -t design -m "模块名称" -r "需求.md" --template "模板.docx"
+
+# 详细设计文档（Word — 从预生成 design_data JSON 生成，跳过需求分析）
+node scripts/cli.js -t design -m "模块名称" --template "模板.docx" --design-data "_design-data.json"
+
+# 详细设计文档（Word — 保留模式：仅替换封面，保留模板全部正文）
+node scripts/cli.js -t design -m "模块名称" --template "模板.docx" --preserve
 
 # 详细设计文档（Markdown）
 node scripts/cli.js -t design -f md -m "模块名称"
@@ -294,4 +327,51 @@ node scripts/cli.js -t testcase -f excel -r "需求文件.md" -m "模块名称" 
 node scripts/cli.js -t testreport -m "模块名称"
 ```
 
-详细参数说明、文档类型对照、配置模块说明见 `README.md`。
+### 新增参数（v8.1 — 2026-06-07）
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `--design-data` | string | 直接传入预生成的 design_data JSON 路径，跳过 RequirementAnalyzer |
+| `--preserve` | flag | 显式启用保留模式，仅替换封面字段，保留模板全部正文内容 |
+
+## 复盘与优化总结 (v8.1 — 2026-06-07)
+
+### 成功路径（可复现的最小执行流程）
+
+```
+Step 1: 需求MD → RequirementAnalyzer.analyzeForDesign() → design_data JSON
+Step 2: design_data + 模板.docx → design-generator.py → 输出.docx
+Step 3: 验证：段落数/封面/标题层级/页眉页脚/编号剥除/附录清理
+```
+
+### 失败模式清单
+
+| 场景 | 频率 | 严重度 | 根因 | 对策 |
+|------|------|--------|------|------|
+| CLI 中文参数乱码 | 高 | 高 | Windows PowerShell 编码不兼容 | 设置 PYTHONIOENCODING/直接调用 API/`--design-data` 绕过 |
+| .docx 模板被误解析为 JSON | 高 | 中 | `loadTemplateData` 未区分 .docx | 检查后缀，.docx 时跳过 |
+| 标题层级错位（H2→H3） | 中 | 高 | `h3_keywords` 匹配了 H1 直系子标题 | 已设标题不升级 + h3_keywords 净化 |
+| 附录F不协调表格残留 | 中 | 中 | 表格单元格内文本未被段落级搜索命中 | v4 递归搜索后代元素 + 祖先回溯 |
+| 保留模式下模板正文仍被删 | 低 | 高 | `_PRESERVE_MODE` 仅守卫第二遍未守卫第一遍 | 第一遍蓝色清理处也加 `if not _PRESERVE_MODE` |
+| moduleName 被输出路径覆盖 | 低 | 中 | CLI 调用链中 moduleName 字段被覆写 | `{ ...designData, moduleName }` 显式注入 |
+
+### 适用/不适用场景
+
+**适用**：
+- 有 .docx 模板 + 有需求 MD → 完整管线
+- 有 .docx 模板 + 无需求 MD → 保留模式（仅替换封面）
+- 需求为 Markdown 格式 + BEMP 详细设计文档 → RequirementAnalyzer 可用
+
+**不适用**：
+- 无 .docx 模板 → 回退到 Markdown 生成
+- 模板为 .doc (OLE2) → 提示转换格式
+- 需要概要设计说明书 → 走 `outline-design-generator.py`
+- 仅需 Markdown 输出 → 跳过模板填充管线
+
+### 通用化设计原则
+
+1. **零硬编码**：所有阈值/关键词/降级策略统一由 `config/design-pipeline.yaml` 和 `doc_rules.yaml` 管理
+2. **配置驱动**：管线段顺序、模式触发条件、图表降级链、附录清理规则均配置化
+3. **已设标题保护**：`unify_heading_styles` 中 `current_level > 0` 时永不修改 pStyle 级别
+4. **降级安全链**：graphviz → matplotlib → 占位文字，每层有兜底
+5. **递归内容检测**：附录清理支持表格单元格内文本匹配 + 祖先回溯

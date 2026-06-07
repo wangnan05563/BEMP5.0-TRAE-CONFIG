@@ -1,0 +1,163 @@
+# =====================================================================
+# BEMP 概要设计 - UML 图表绘制配置
+# ---------------------------------------------------------------------
+# 用途：定义 UML 图（类图/顺序图/活动图/状态图）的绘制规则
+# 设计原则：
+#   - 通过 Graphviz/DOT 语言统一描述
+#   - 节点、边、样式集中在 YAML 中
+#   - 通过 output/uml/ 目录下的 .dot 文件生成 PNG
+# =====================================================================
+
+# 通用 Graphviz 全局属性
+graphviz_global:
+  rankdir: "TB"          # TB=上到下 / LR=左到右
+  bgcolor: "white"
+  fontname: "Microsoft YaHei"
+  fontsize: 12
+  pad: "0.5"
+  nodesep: "0.6"
+  ranksep: "0.8"
+  splines: "ortho"        # orthogonal: 折线 / spline: 曲线
+
+# 节点默认样式
+node_default:
+  shape: "box"
+  style: "rounded,filled"
+  fontname: "Microsoft YaHei"
+  fontsize: 11
+  fillcolor: "#E3F2FD"
+  color: "#1565C0"
+  width: 1.4
+  height: 0.5
+
+# 边默认样式
+edge_default:
+  fontname: "Microsoft YaHei"
+  fontsize: 9
+  color: "#424242"
+  arrowsize: 0.8
+
+# ── 类图样式（classDiagram） ──
+class_diagram:
+  node_class:
+    shape: "record"
+    style: "filled"
+    fillcolor: "#FFFDE7"
+    color: "#F57F17"
+  node_interface:
+    shape: "record"
+    style: "filled,dashed"
+    fillcolor: "#E8F5E9"
+    color: "#2E7D32"
+  edge_inheritance:
+    arrowhead: "empty"
+    color: "#1565C0"
+    style: "solid"
+  edge_association:
+    arrowhead: "vee"
+    color: "#616161"
+    style: "solid"
+  edge_aggregation:
+    arrowhead: "odiamond"
+    color: "#2E7D32"
+    style: "solid"
+  edge_composition:
+    arrowhead: "diamond"
+    color: "#C62828"
+    style: "solid"
+  edge_dependency:
+    arrowhead: "vee"
+    color: "#616161"
+    style: "dashed"
+
+# ── 顺序图样式（sequenceDiagram） ──
+sequence_diagram:
+  rankdir: "LR"
+  node_actor:
+    shape: "box"
+    style: "rounded,filled"
+    fillcolor: "#F3E5F5"
+    color: "#6A1B9A"
+  node_lifeline:
+    shape: "point"
+    width: 0.05
+  edge_message:
+    color: "#1565C0"
+    arrowsize: 0.7
+  edge_reply:
+    color: "#2E7D32"
+    style: "dashed"
+    arrowsize: 0.7
+  edge_async:
+    color: "#E65100"
+    style: "dashed"
+    arrowsize: 0.7
+
+# ── 活动图样式（activityDiagram） ──
+activity_diagram:
+  rankdir: "TB"
+  node_initial:
+    shape: "circle"
+    style: "filled"
+    fillcolor: "#2E7D32"
+    color: "#2E7D32"
+    width: 0.3
+  node_final:
+    shape: "doublecircle"
+    style: "filled"
+    fillcolor: "#C62828"
+    color: "#C62828"
+    width: 0.3
+  node_action:
+    shape: "box"
+    style: "rounded,filled"
+    fillcolor: "#E3F2FD"
+    color: "#1565C0"
+  node_decision:
+    shape: "diamond"
+    style: "filled"
+    fillcolor: "#FFF3E0"
+    color: "#E65100"
+    width: 1.2
+    height: 0.8
+  edge_default:
+    color: "#424242"
+    arrowsize: 0.7
+
+# ── 状态图样式（stateDiagram） ──
+state_diagram:
+  node_initial:
+    shape: "circle"
+    style: "filled"
+    fillcolor: "#2E7D32"
+    color: "#2E7D32"
+  node_final:
+    shape: "doublecircle"
+    style: "filled"
+    fillcolor: "#C62828"
+    color: "#C62828"
+  node_state:
+    shape: "record"
+    style: "rounded,filled"
+    fillcolor: "#FFFDE7"
+    color: "#F57F17"
+  edge_transition:
+    color: "#1565C0"
+    arrowsize: 0.7
+
+# ── 部署图样式（deploymentDiagram） ──
+deployment_diagram:
+  node_device:
+    shape: "box3d"
+    style: "filled"
+    fillcolor: "#E8F5E9"
+    color: "#2E7D32"
+  node_zone:
+    shape: "box"
+    style: "rounded,filled,dashed"
+    fillcolor: "#F5F5F5"
+    color: "#616161"
+  edge_connection:
+    color: "#1565C0"
+    style: "solid"
+    arrowsize: 0.7

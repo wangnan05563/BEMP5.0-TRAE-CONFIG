@@ -83,9 +83,9 @@ CONTENT_INDEX = {
             },
             '外部接口': {
                 'module': 'outline_chapters',
-                'generator': 'build_external_interface_text',
-                'type': 'text',
-                'description': '外部接口说明',
+                'generator': 'build_external_interface_table',
+                'type': 'table',
+                'description': '外部接口表',
             },
             '组件汇总表': {
                 'module': 'outline_chapters',

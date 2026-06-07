@@ -1,8 +1,0 @@
-[INFO] diagram_dir ����: d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\diagrams
-[INFO] diagram_dir �Ƿ�ΪĿ¼: True
-[INFO] diagram_dir �� PNG �ļ���: 5
-[INFO] _insert_diagrams: diagram_dir=d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\diagrams
-[INFO] _insert_diagrams: �ҵ� 4 �� PNG �ļ�: ['architecture-diagram.png', 'class-diagram.png', 'deployment-diagram.png', 'network-topology.png']
-[WARN] _insert_diagrams: δ�ҵ�ƥ����� ['ϵͳ�ܹ�', '����ṹͼ', '�ܹ�ͼ']������ͼƬ architecture-diagram.png
-[WARN] _insert_diagrams: δ�ҵ�ƥ����� ['����ṹͼ', '��������', '����ͼ']������ͼƬ network-topology.png
-[WARN] _insert_diagrams: δ�ҵ�ƥ����� ['����ͼ', '����ܹ�']������ͼƬ deployment-diagram.png

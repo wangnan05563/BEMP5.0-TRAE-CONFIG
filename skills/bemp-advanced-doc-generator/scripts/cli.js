@@ -83,54 +83,66 @@ function enforceDiagramGate(diagramDir, mcpConfigPath) {
 }
 
 function parseArgs(args) {
-    const options = { type: 'design', format: 'docx', jsonOutput: false, noOverwrite: false, listModules: false, keepTemplateToc: false, coverPlaceholders: null, updateFields: true, useAntV: true };
+    const options = { type: 'design', format: 'docx', jsonOutput: false, noOverwrite: false, listModules: false, keepTemplateToc: false, coverPlaceholders: null, updateFields: true, useAntV: true, umlEngine: 'graphviz' };
+    let lastFlagConsumed = false;
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
         switch (arg) {
             case '--type': case '-t':
-                options.type = args[++i]; break;
+                options.type = args[++i]; lastFlagConsumed = true; break;
             case '--module': case '-m':
-                options.module = args[++i]; break;
+                options.module = args[++i]; lastFlagConsumed = true; break;
             case '--format': case '-f':
-                options.format = args[++i]; break;
+                options.format = args[++i]; lastFlagConsumed = true; break;
             case '--output': case '-o':
-                options.outputPath = args[++i]; break;
+                options.outputPath = args[++i]; lastFlagConsumed = true; break;
             case '--template':
-                options.templatePath = args[++i]; break;
+                options.templatePath = args[++i]; lastFlagConsumed = true; break;
             case '--xlsx-template':
-                options.xlsxTemplate = args[++i]; break;
+                options.xlsxTemplate = args[++i]; lastFlagConsumed = true; break;
             case '--test-source':
-                options.testSource = args[++i]; break;
+                options.testSource = args[++i]; lastFlagConsumed = true; break;
             case '--test-cases':
-                options.testCasesPath = args[++i]; break;
+                options.testCasesPath = args[++i]; lastFlagConsumed = true; break;
             case '--mode':
-                options.mode = args[++i]; break;
+                options.mode = args[++i]; lastFlagConsumed = true; break;
             case '--requirement': case '-r':
-                options.requirementPath = args[++i]; break;
+                options.requirementPath = args[++i]; lastFlagConsumed = true; break;
             case '--requirement-md': case '--requirementMD':
-                options.requirementMd = args[++i]; break;
+                options.requirementMd = args[++i]; lastFlagConsumed = true; break;
+            case '--root': case '--project-root':
+                options.projectRoot = args[++i]; lastFlagConsumed = true; break;
             case '--config': case '-c':
-                options.configPath = args[++i]; break;
+                options.configPath = args[++i]; lastFlagConsumed = true; break;
             case '--profile': case '-p':
-                options.profilePath = args[++i]; break;
+                options.profilePath = args[++i]; lastFlagConsumed = true; break;
             case '--visualization': case '-v':
-                options.visualization = true; break;
+                options.visualization = true; lastFlagConsumed = false; break;
             case '--json':
-                options.jsonOutput = true; break;
+                options.jsonOutput = true; lastFlagConsumed = false; break;
             case '--list':
-                options.listModules = true; break;
+                options.listModules = true; lastFlagConsumed = false; break;
             case '--no-overwrite':
-                options.noOverwrite = true; break;
+                options.noOverwrite = true; lastFlagConsumed = false; break;
             // 2026-06-03 新增：扫描缓存与分离模式
             case '--use-scan-cache':
-                options.useScanCache = true; break;
+                options.useScanCache = true; lastFlagConsumed = false; break;
             case '--scan-only':
-                options.scanOnly = true; break;
+                options.scanOnly = true; lastFlagConsumed = false; break;
             case '--from-scan':
-                options.fromScan = args[++i]; break;
+                options.fromScan = args[++i]; lastFlagConsumed = true; break;
             case '--no-scan':
-                options.noScan = true; break;
+                options.noScan = true; lastFlagConsumed = false; break;
+            // 2026-06-07 v8.0 新增：外部 SEMANTIC_RULES 注入
+            case '--semantic-map':
+                options.semanticMap = args[++i]; break;
+            // 2026-06-07 新增：直接传入 design_data JSON 路径（跳过 RequirementAnalyzer）
+            case '--design-data':
+                options.designDataPath = args[++i]; lastFlagConsumed = true; break;
+            // 2026-06-07 新增：显式设置保留模式（保留模板正文，仅替换封面）
+            case '--preserve':
+                options.preserveTemplate = true; break;
             // 2026-06-02 新增：模板驱动文档生成参数
             case '--keep-template-toc':
                 options.keepTemplateToc = true; break;
@@ -141,10 +153,13 @@ function parseArgs(args) {
                 options.updateFields = false; break;
             case '--no-antv':
                 options.useAntV = false; break;
+            case '--uml-engine':
+                options.umlEngine = args[++i]; lastFlagConsumed = true; break;
             case '--help': case '-h':
                 printHelp(); process.exit(0);
             default:
-                if (!arg.startsWith('-')) options.module = arg;
+                if (!arg.startsWith('-') && !lastFlagConsumed) options.module = arg;
+                lastFlagConsumed = false;
         }
     }
     if (options.type.endsWith('-md')) {
@@ -174,6 +189,7 @@ function printHelp() {
   -f, --format <格式>      输出格式: docx|md|excel (默认: docx)
   -o, --output <路径>      输出文件路径
   -r, --requirement <路径> 需求文档路径 (用于testcase类型)
+  --root <路径>           项目根路径（用于代码扫描）
   --template <路径>        模板文件路径
   -c, --config <路径>      配置文件路径
   -p, --profile <路径>     业务模块配置文件路径（JSON）
@@ -185,6 +201,7 @@ function printHelp() {
   --cover-placeholders <map> 封面占位文字替换，格式 "占位1=值1;占位2=值2"
   --no-update-fields       禁止自动注入 updateFields=true（默认注入）
   --no-antv                禁用 AntV 引擎，强制走 matplotlib（用于离线环境）
+  --uml-engine <引擎>      UML图表引擎: graphviz(默认,生成5种专业图)/ mermaid(旧版兼容)
   --xlsx-template <路径>   xlsx模板文件路径（unit-test-report-xlsx 类型必填）
   --test-source <路径>     Java测试代码目录（unit 模式必填）
   --test-cases <路径>      功能测试用例MD文件路径（functional 模式必填）
@@ -291,6 +308,15 @@ async function generateDocument(options) {
 
     if (options.type === 'unit-test-report-xlsx' || (options.type === 'unit-test-report' && options.format === 'xlsx')) {
         const { XlsxUnitTestReportGenerator } = require('./lib/xlsx-report-generator');
+        // v8.0：解析 --semantic-map（JSON 文件）→ 数组
+        let semanticMap = null;
+        if (options.semanticMap) {
+            const { TemplateInspector } = require('./lib/xlsx-report/template-inspector');
+            semanticMap = TemplateInspector.loadSemanticMap(options.semanticMap);
+            if (!jsonMode) {
+                console.log(`[semantic-map] 已加载 ${semanticMap.length} 条自定义规则: ${options.semanticMap}`);
+            }
+        }
         const xlsxGen = new XlsxUnitTestReportGenerator();
         const result = await xlsxGen.generate({
             xlsxTemplate: options.xlsxTemplate,
@@ -300,7 +326,8 @@ async function generateDocument(options) {
             moduleName,
             requirementPath: options.requirementPath,
             project: (profile && profile.projectName) || moduleName,
-            mode: options.mode
+            mode: options.mode,
+            semanticMap
         });
 
         if (jsonMode) {
@@ -343,14 +370,34 @@ async function generateDocument(options) {
     const typeLabel = typeLabels[options.type] || '文档';
 
     let templateData = null;
-    if (requirementContent && options.type === 'design') {
+
+    // 2026-06-07 新增：--design-data 直接传入 JSON，跳过 RequirementAnalyzer
+    if (options.designDataPath) {
+        const resolvedPath = path.isAbsolute(options.designDataPath)
+            ? options.designDataPath
+            : path.resolve(process.cwd(), options.designDataPath);
+        if (!fs.existsSync(resolvedPath)) {
+            throw new BempDocError(ERROR_CODES.TEMPLATE_NOT_FOUND, `design_data 文件不存在: ${resolvedPath}`);
+        }
+        templateData = JSON.parse(fs.readFileSync(resolvedPath, 'utf-8'));
+        // 若未设置 moduleName，从文件中读取或使用 --module 参数
+        if (!templateData.moduleName && moduleName) {
+            templateData.moduleName = moduleName;
+        }
+        console.log(`  [design-data] 已加载 JSON: ${resolvedPath} (chapters: ${(templateData.chapters || []).length})`);
+    } else if (requirementContent && options.type === 'design') {
         const analyzer = new RequirementAnalyzer({ profile });
         templateData = analyzer.analyzeForDesign(requirementContent, moduleName);
     } else if (requirementContent && options.type === 'testcase') {
         const analyzer = new RequirementAnalyzer({ profile });
         templateData = analyzer.analyzeForTestCase(requirementContent, moduleName);
     } else if (options.templatePath) {
-        templateData = loadTemplateData(options.templatePath, options.type);
+        // 2026-06-07 修复：仅当模板为 JSON 时才尝试解析，.docx 模板由 Python 脚本处理
+        if (options.templatePath.toLowerCase().endsWith('.docx')) {
+            templateData = null;
+        } else {
+            templateData = loadTemplateData(options.templatePath, options.type);
+        }
     } else {
         templateData = getDefaultTemplateData(options.type);
     }
@@ -374,10 +421,28 @@ async function generateDocument(options) {
         switch (options.type) {
             case 'design':
                 // 当传入 .docx 模板时，使用 python-docx 模板填充模式
+                // 2026-06-07 优化：未显式指定 --template 时，优先回退到 docs/07 标准模板，
+                // 避免错误地命中内置"差异化需求"模板导致样式丢失
+                if (!options.templatePath) {
+                    const fallbackTpl = paths.designTemplate;
+                    if (fallbackTpl && fs.existsSync(fallbackTpl)) {
+                        options.templatePath = fallbackTpl;
+                        console.log(`  [default-template] 未指定 --template，使用默认: ${fallbackTpl}`);
+                    }
+                }
                 if (options.templatePath && options.templatePath.toLowerCase().endsWith('.docx')) {
                     const { execFileSync: execDesignPy } = require('child_process');
                     const designDataPath = path.join(outputDir, `_design-data-${date}.json`);
-                    const designData = templateData || builder._getDefaultTemplateData(moduleName, 'design');
+                    let designData = templateData || builder._getDefaultTemplateData(moduleName, 'design');
+                    // 2026-06-07 修复：注入 moduleName 到顶层，让 _render_template 占位符替换生效
+                    // 设计原则：通用化（不硬编码具体字段），仅补全 CLI 显式传入的上下文
+                    if (moduleName && !designData.moduleName) {
+                        designData = { ...designData, moduleName };
+                    }
+                    // 2026-06-07 新增：--preserve 标志注入到 design_data，传递保留模式到 Python 生成器
+                    if (options.preserveTemplate) {
+                        designData._preserve = true;
+                    }
                     fs.writeFileSync(designDataPath, JSON.stringify(designData, null, 2), 'utf-8');
                     const designScript = path.join(paths.scriptsDir, 'design-generator.py');
                     const resolvedTemplate = path.isAbsolute(options.templatePath) ? options.templatePath : path.resolve(process.cwd(), options.templatePath);
@@ -409,26 +474,75 @@ async function generateDocument(options) {
                         diagramDir = null;
                     }
 
-                    // 2026-06-04 新增：UML 图表生成（类图/顺序图/活动图）
+                    // 2026-06-04/06 升级：UML 图表生成 - 默认走 Graphviz 引擎
+                    // 5 种专业图表：类图/顺序图/活动图/业务流程图/时序图
+                    // 引擎选择：--uml-engine graphviz（默认，高质量）/ mermaid（旧版兼容）
                     let umlDir = null;
                     try {
-                        const { UmlGenerator } = require('./lib/uml-generator');
-                        const umlGen = new UmlGenerator({
-                            outputDir,
-                            projectName: moduleName,
-                            useAntV: options.useAntV !== false,
-                            fallbackToMatplotlib: true,
-                        });
-                        const lightScanDataForUml = {
-                            projectName: moduleName,
-                            modules: (templateData && Array.isArray(templateData.modules)) ? templateData.modules : [],
-                            businessSubsystems: (templateData && Array.isArray(templateData.businessSubsystems)) ? templateData.businessSubsystems : [],
-                            dependencies: (templateData && Array.isArray(templateData.dependencies)) ? templateData.dependencies : [],
-                        };
-                        const umlResult = await umlGen.generateAll(lightScanDataForUml);
-                        umlDir = umlGen.getUmlDir();
-                        const umlSuccess = umlResult.results.filter(r => r.png && r.png.success).length;
-                        console.log(`  UML 图表生成: ${umlSuccess}/${umlResult.results.length} 成功 | 目录: ${umlDir}`);
+                        const umlEngine = options.umlEngine || 'graphviz';
+                        if (umlEngine === 'graphviz') {
+                            const { EnhancedUmlService } = require('./lib/enhanced-uml-service');
+                            const umlService = new EnhancedUmlService({
+                                outputDir,
+                                projectName: moduleName,
+                                fallbackToPython: true,
+                            });
+                            // 2026-06-06：优先使用需求文档（--requirement / -r）生成需求驱动的5图
+                            let requirementText = null;
+                            const reqPath = options.requirementPath || options.requirementMd;
+                            if (reqPath && fs.existsSync(reqPath)) {
+                                requirementText = fs.readFileSync(reqPath, 'utf-8');
+                            } else if (templateData && templateData._rawRequirement) {
+                                requirementText = templateData._rawRequirement;
+                            }
+                            if (requirementText) {
+                                // 需求驱动模式
+                                const umlResult = await umlService.generateFromRequirement(requirementText);
+                                const pngCount = (umlResult.classDiagram && umlResult.classDiagram.png && umlResult.classDiagram.png.success ? 1 : 0)
+                                    + umlResult.sequenceDiagrams.filter(s => s.png && s.png.success).length
+                                    + umlResult.activityDiagrams.filter(a => a.png && a.png.success).length
+                                    + umlResult.businessFlows.filter(b => b.png && b.png.success).length
+                                    + umlResult.timingDiagrams.filter(t => t.png && t.png.success).length;
+                                const total = 1 + umlResult.sequenceDiagrams.length + umlResult.activityDiagrams.length
+                                    + umlResult.businessFlows.length + umlResult.timingDiagrams.length;
+                                umlDir = umlService.getOutputDir();
+                                console.log(`  UML 图表(Graphviz/需求驱动): ${pngCount}/${total} 成功 | 类图×1+顺序图×${umlResult.sequenceDiagrams.length}+活动图×${umlResult.activityDiagrams.length}+流程图×${umlResult.businessFlows.length}+时序图×${umlResult.timingDiagrams.length} | 目录: ${umlDir}`);
+                            } else {
+                                // 兼容模式：从 scanData 走旧版 generateAll
+                                const lightScanDataForUml = {
+                                    projectName: moduleName,
+                                    modules: (templateData && Array.isArray(templateData.modules)) ? templateData.modules : [],
+                                    businessSubsystems: (templateData && Array.isArray(templateData.businessSubsystems)) ? templateData.businessSubsystems : [],
+                                    dependencies: (templateData && Array.isArray(templateData.dependencies)) ? templateData.dependencies : [],
+                                };
+                                // 用 Graphviz 风格但保留旧 generateAll 行为
+                                const oldGen = require('./lib/uml-generator');
+                                const oldUmlGen = new oldGen.UmlGenerator({ outputDir, projectName: moduleName, useAntV: false, fallbackToMatplotlib: false });
+                                const oldResult = await oldUmlGen.generateAll(lightScanDataForUml);
+                                umlDir = oldUmlGen.getUmlDir();
+                                const ok = oldResult.results.filter(r => r.png && r.png.success).length;
+                                console.log(`  UML 图表(Graphviz/旧数据): ${ok}/${oldResult.results.length} 成功 | 目录: ${umlDir}`);
+                            }
+                        } else {
+                            // mermaid 旧版兼容
+                            const { UmlGenerator } = require('./lib/uml-generator');
+                            const umlGen = new UmlGenerator({
+                                outputDir,
+                                projectName: moduleName,
+                                useAntV: options.useAntV !== false,
+                                fallbackToMatplotlib: true,
+                            });
+                            const lightScanDataForUml = {
+                                projectName: moduleName,
+                                modules: (templateData && Array.isArray(templateData.modules)) ? templateData.modules : [],
+                                businessSubsystems: (templateData && Array.isArray(templateData.businessSubsystems)) ? templateData.businessSubsystems : [],
+                                dependencies: (templateData && Array.isArray(templateData.dependencies)) ? templateData.dependencies : [],
+                            };
+                            const umlResult = await umlGen.generateAll(lightScanDataForUml);
+                            umlDir = umlGen.getUmlDir();
+                            const umlSuccess = umlResult.results.filter(r => r.png && r.png.success).length;
+                            console.log(`  UML 图表(Mermaid): ${umlSuccess}/${umlResult.results.length} 成功 | 目录: ${umlDir}`);
+                        }
                     } catch (umlErr) {
                         console.warn(`  ⚠ UML 图表生成失败: ${umlErr.message}`);
                         umlDir = null;
@@ -615,7 +729,7 @@ async function generateOutlineDesign(options, outputDir, profile, jsonMode) {
         console.log('  [update-fields] 已开启：自动注入 updateFields=true（Word打开时自动更新域）');
     }
 
-    const projectRoot = options.requirementPath || process.cwd();
+    const projectRoot = options.projectRoot || options.requirementPath || process.cwd();
     const resolvedRoot = path.isAbsolute(projectRoot) ? projectRoot : path.resolve(process.cwd(), projectRoot);
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
     const scanDataPath = path.join(outputDir, '_scan-data.json');
@@ -889,30 +1003,67 @@ async function generateOutlineDesign(options, outputDir, profile, jsonMode) {
     }
     for (const warn of diagramGate.warnings) console.warn(`  ⚠ ${warn}`);
 
-    // 2026-06-05 新增：UML 图表生成（类图/顺序图/活动图），从业务模块提取实体
-    console.log('  [4.5/7] 生成 UML 图表（类图/顺序图/活动图）...');
+    // 2026-06-05/06 升级：UML 图表生成 - 默认走 Graphviz 引擎（5种专业图）
+    // 引擎选择：--uml-engine graphviz（默认，高质量）/ mermaid（旧版兼容）
+    console.log('  [4.5/7] 生成 UML 图表（类图/顺序图/活动图/业务流程图/时序图）...');
     let umlDir = null;
     try {
-        const { UmlGenerator } = require('./lib/uml-generator');
-        const umlGen = new UmlGenerator({
-            outputDir,
-            projectName: moduleName,
-            useAntV: options.useAntV !== false,
-            fallbackToMatplotlib: true,
-        });
-        // 从 scanData 的业务模块中提取实体信息用于类图
-        const businessModules = scanData.businessModules || [];
-        const umlModules = _extractUmlModules(businessModules, moduleName);
-        const lightScanDataForUml = {
-            projectName: moduleName,
-            modules: umlModules,
-            businessSubsystems: scanData.businessSubsystems || [],
-            dependencies: [],
-        };
-        const umlResult = await umlGen.generateAll(lightScanDataForUml);
-        umlDir = umlGen.getUmlDir();
-        const umlSuccess = umlResult.results.filter(r => r.png && r.png.success).length;
-        console.log(`  UML 图表生成: ${umlSuccess}/${umlResult.results.length} 成功 | 目录: ${umlDir}`);
+        const umlEngine = options.umlEngine || 'graphviz';
+        if (umlEngine === 'graphviz') {
+            // 优先尝试需求驱动（5种图）
+            let requirementText = null;
+            const reqPath = options.requirementPath || options.requirementMd;
+            console.log('    [uml-debug] reqPath=' + JSON.stringify(reqPath) + ' exists=' + (reqPath ? fs.existsSync(reqPath) : 'no') + ' stat=' + (reqPath && fs.existsSync(reqPath) ? (fs.statSync(reqPath).isFile() ? 'file' : (fs.statSync(reqPath).isDirectory() ? 'DIR' : '?')) : 'N/A'));
+            try { fs.appendFileSync('d:/code/QJ/BEMP5.0DEV/output/uml_debug.log', '[' + new Date().toISOString() + '] reqPath=' + JSON.stringify(reqPath) + ' exists=' + (reqPath ? fs.existsSync(reqPath) : 'no') + ' stat=' + (reqPath && fs.existsSync(reqPath) ? (fs.statSync(reqPath).isFile() ? 'file' : (fs.statSync(reqPath).isDirectory() ? 'DIR' : '?')) : 'N/A') + '\n'); } catch(e){}
+            if (reqPath && fs.existsSync(reqPath)) {
+                try {
+                    requirementText = fs.readFileSync(reqPath, 'utf-8');
+                    console.log('    [uml] requirement loaded: ' + requirementText.length + ' chars');
+                } catch (e) {
+                    console.log('    [uml] readFile FAILED: ' + e.message);
+                }
+            }
+            if (requirementText) {
+                const { EnhancedUmlService } = require('./lib/enhanced-uml-service');
+                const umlService = new EnhancedUmlService({ outputDir, projectName: moduleName, fallbackToPython: true });
+                const umlResult = await umlService.generateFromRequirement(requirementText);
+                umlDir = umlService.getOutputDir();
+                const total = 1 + umlResult.sequenceDiagrams.length + umlResult.activityDiagrams.length + umlResult.businessFlows.length + umlResult.timingDiagrams.length;
+                const ok = (umlResult.classDiagram && umlResult.classDiagram.png && umlResult.classDiagram.png.success ? 1 : 0)
+                    + umlResult.sequenceDiagrams.filter(s => s.png && s.png.success).length
+                    + umlResult.activityDiagrams.filter(a => a.png && a.png.success).length
+                    + umlResult.businessFlows.filter(b => b.png && b.png.success).length
+                    + umlResult.timingDiagrams.filter(t => t.png && t.png.success).length;
+                console.log(`  UML 图表(Graphviz/需求驱动): ${ok}/${total} 成功 | 类图+顺序×${umlResult.sequenceDiagrams.length}+活动×${umlResult.activityDiagrams.length}+流程×${umlResult.businessFlows.length}+时序×${umlResult.timingDiagrams.length} | ${umlDir}`);
+            } else {
+                // 兼容旧版：从 scanData 提取类
+                const { UmlGenerator } = require('./lib/uml-generator');
+                const umlGen = new UmlGenerator({ outputDir, projectName: moduleName, useAntV: false, fallbackToMatplotlib: false });
+                const businessModules = scanData.businessModules || [];
+                const umlModules = _extractUmlModules(businessModules, moduleName);
+                const lightScanDataForUml = {
+                    projectName: moduleName,
+                    modules: umlModules,
+                    businessSubsystems: scanData.businessSubsystems || [],
+                    dependencies: [],
+                };
+                const umlResult = await umlGen.generateAll(lightScanDataForUml);
+                umlDir = umlGen.getUmlDir();
+                const umlSuccess = umlResult.results.filter(r => r.png && r.png.success).length;
+                console.log(`  UML 图表(Graphviz/数据驱动): ${umlSuccess}/${umlResult.results.length} 成功 | ${umlDir}`);
+            }
+        } else {
+            // mermaid 旧版兼容
+            const { UmlGenerator } = require('./lib/uml-generator');
+            const umlGen = new UmlGenerator({ outputDir, projectName: moduleName, useAntV: options.useAntV !== false, fallbackToMatplotlib: true });
+            const businessModules = scanData.businessModules || [];
+            const umlModules = _extractUmlModules(businessModules, moduleName);
+            const lightScanDataForUml = { projectName: moduleName, modules: umlModules, businessSubsystems: scanData.businessSubsystems || [], dependencies: [] };
+            const umlResult = await umlGen.generateAll(lightScanDataForUml);
+            umlDir = umlGen.getUmlDir();
+            const umlSuccess = umlResult.results.filter(r => r.png && r.png.success).length;
+            console.log(`  UML 图表(Mermaid/旧版): ${umlSuccess}/${umlResult.results.length} 成功 | ${umlDir}`);
+        }
     } catch (umlErr) {
         console.warn(`  ⚠ UML 图表生成失败: ${umlErr.message}`);
         umlDir = null;

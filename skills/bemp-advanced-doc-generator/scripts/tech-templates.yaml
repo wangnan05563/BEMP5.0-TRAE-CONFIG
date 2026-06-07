@@ -1,0 +1,152 @@
+# =====================================================================
+# BEMP 概要设计 - 关键技术描述模板
+# ---------------------------------------------------------------------
+# 用途：为不同技术栈组件提供差异化的"关键技术"描述，避免千篇一律
+# 设计原则：
+#   - 每个技术有独立的"角色" + "价值点" 描述
+#   - 根据业务子模块的"分类"差异化（如查询类、写入类、批量类）
+#   - 严禁所有组件使用同一段描述
+# =====================================================================
+
+# 技术栈角色模板（按技术名 key 索引）
+# role:  在本系统中的核心角色
+# value: 解决了什么具体问题
+# integration: 与其他技术如何集成
+tech_templates:
+  Spring Boot:
+    role: "应用主框架"
+    value: "提供依赖注入、声明式事务、统一异常处理、RESTful API 能力"
+    integration: "通过 @SpringBootApplication 引导，结合 MyBatis/Spring Data 访问数据"
+  MyBatis:
+    role: "数据访问层"
+    value: "支持复杂 SQL、动态 SQL 拼接、二级缓存"
+    integration: "Mapper XML 与 DAO 接口对应，事务由 Spring 管理"
+  MyBatis-Plus:
+    role: "数据访问增强层"
+    value: "提供通用 CRUD、分页插件、逻辑删除、字段自动填充"
+    integration: "继承 MyBatis 体系，通过 Wrapper 构造动态条件"
+  Dubbo RPC:
+    role: "服务间通信框架"
+    value: "支持多协议（Dubbo/HTTP）、负载均衡、容错"
+    integration: "基于 ZooKeeper/Nacos 进行服务注册与发现"
+  Redis:
+    role: "分布式缓存"
+    value: "支持高频数据缓存、分布式锁、消息发布订阅"
+    integration: "采用 Jedis/Lettuce 客户端，哨兵模式保证高可用"
+  Jedis:
+    role: "Redis 客户端"
+    value: "提供连接池、Pipeline 批量操作、集群路由"
+    integration: "通过 Spring-data-redis 统一管理连接"
+  FastJSON:
+    role: "JSON 序列化框架"
+    value: "高性能 JSON 解析/生成，支持自动类型推断"
+    integration: "作为 Spring MVC 默认 MessageConverter"
+  Jackson:
+    role: "JSON 序列化框架"
+    value: "支持泛型、注解定制、树模型操作"
+    integration: "Spring Boot 默认 JSON 转换器"
+  Apache POI:
+    role: "Office 文档读写"
+    value: "支持 Excel/Word 导入导出、模板填充"
+    integration: "通过 SXSSF 流式 API 处理大文件，避免 OOM"
+  SLF4J:
+    role: "日志门面"
+    value: "统一日志 API，支持运行时绑定具体实现"
+    integration: "结合 Log4j2/Logback 输出分级日志"
+  Log4j:
+    role: "日志实现"
+    value: "支持异步日志、日志分级、日志归档"
+    integration: "通过 SLF4J 接口调用，配置 log4j.properties"
+  Kafka:
+    role: "消息中间件"
+    value: "支持高吞吐、消息回溯、分区有序"
+    integration: "通过 Spring-kafka 集成，ZooKeeper 协调"
+  Nacos:
+    role: "服务注册/配置中心"
+    value: "支持动态配置推送、服务健康检查"
+    integration: "替代 ZooKeeper 进行服务发现与配置管理"
+  Guava:
+    role: "Java 工具库"
+    value: "提供集合扩展、缓存、并发工具"
+    integration: "在工具类中广泛使用，补充 JDK 不足"
+  Vue.js:
+    role: "前端框架"
+    value: "响应式数据绑定、组件化、虚拟 DOM"
+    integration: "结合 Vue Router / Vuex 构建 SPA"
+  Vue Router:
+    role: "前端路由"
+    value: "支持嵌套路由、路由守卫、懒加载"
+    integration: "作为 Vue.js 插件加载"
+  Vuex:
+    role: "前端状态管理"
+    value: "集中式状态存储、状态变更可追溯"
+    integration: "作为 Vue.js 插件加载"
+  Axios:
+    role: "HTTP 客户端"
+    value: "支持拦截器、请求/响应转换、取消请求"
+    integration: "封装为 Vue 插件，全局统一异常处理"
+  Webpack:
+    role: "前端构建工具"
+    value: "支持模块打包、代码分割、CSS/资源处理"
+    integration: "Vue CLI 底层依赖"
+  Babel:
+    role: "JS 编译器"
+    value: "将 ES6+ 编译为浏览器兼容代码"
+    integration: "Webpack loader 链中的 preset-env"
+  "Sass/SCSS":
+    role: "CSS 预处理器"
+    value: "支持变量、嵌套、Mixin、函数"
+    integration: "Webpack 集成 sass-loader"
+  ECharts:
+    role: "前端图表库"
+    value: "支持柱状/折线/饼图等 30+ 图表类型"
+    integration: "Vue 组件化封装"
+  Lodash:
+    role: "JS 工具库"
+    value: "提供深拷贝、防抖节流、集合操作"
+    integration: "在工具类与组件中按需引入"
+  Moment.js:
+    role: "日期处理库"
+    value: "支持格式化、解析、相对时间"
+    integration: "替代原生 Date API"
+  FileSaver:
+    role: "前端文件保存"
+    value: "支持 Blob/URL 下载到本地"
+    integration: "配合 Axios 文件流导出"
+  ZooKeeper:
+    role: "分布式协调服务"
+    value: "提供服务注册/发现、配置管理、Leader 选举"
+    integration: "Dubbo 默认注册中心"
+  JUnit:
+    role: "单元测试框架"
+    value: "支持断言、测试套件、参数化测试"
+    integration: "结合 Mockito 模拟对象"
+  JUnit5:
+    role: "单元测试框架"
+    value: "支持嵌套测试、动态测试、扩展模型"
+    integration: "替代 JUnit4 的新代测试框架"
+
+# 业务规则附加项（每个组件末尾追加，按业务模块类型差异化）
+business_rule_appendix:
+  query_intensive:  # 查询密集型
+    - "数据缓存：高频查询结果按主键写入 Redis，TTL 30 分钟"
+    - "分页优化：超过 10 万行记录自动走 ES 检索"
+  write_intensive:  # 写入密集型
+    - "异步落库：非关键字段通过 MQ 异步持久化"
+    - "乐观锁：更新操作携带 version 字段防并发覆盖"
+  batch_processing:  # 批量处理型
+    - "分布式任务：批量复制采用 XXL-JOB 分片执行"
+    - "断点续传：失败任务记录偏移量，支持重启续跑"
+  approval_workflow:  # 审批流转型
+    - "流程引擎：基于 Activiti/Flowable 实现多级审批"
+    - "状态机：业务状态变更通过 StateMachine 校验"
+  default:  # 通用兜底
+    - "业务校验：服务层通过 JSR-303 注解 + 自定义校验器双重校验"
+    - "审计日志：通过 AOP 拦截关键方法，记录操作人/时间/内容"
+
+# 业务模块→类型映射（根据模块名关键词自动识别）
+module_type_keywords:
+  query_intensive: ["查询", "检索", "列表", "统计", "汇总", "清单"]
+  write_intensive: ["新增", "修改", "删除", "复核", "提交", "导入", "登记"]
+  batch_processing: ["批量", "复制", "导入", "导出", "迁移", "同步"]
+  approval_workflow: ["审批", "复核", "流程", "审核", "签批"]

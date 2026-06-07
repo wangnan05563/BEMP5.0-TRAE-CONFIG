@@ -46,7 +46,24 @@ const ERROR_CODES = {
     GENERATION_FAILED: 'E003',
     OUTPUT_FAILED: 'E004',
     VALIDATION_FAILED: 'E005',
-    INVALID_PARAMS: 'E006'
+    INVALID_PARAMS: 'E006',
+    // === v8.0 xlsx 模板填充新增错误码 ===
+    /** E101: 模板表头未识别（前 N 行无关键词命中） */
+    HEADER_NOT_DETECTED: 'E101',
+    /** E102: 列填充率不达标（必含主键或全列 < 100%） */
+    COLUMN_UNDERFILLED: 'E102',
+    /** E103: 输出路径解析失败 */
+    OUTPUT_PATH_INVALID: 'E103',
+    /** E104: 必含主键缺失（如 id/name 不在 schema.columns 中） */
+    REQUIRED_KEY_MISSING: 'E104',
+    /** E105: 模板工作表缺失（按 sheetName 找不到） */
+    SHEET_MISSING: 'E105',
+    /** E106: 数据源为空（Scanner 未提取出 testcases） */
+    DATA_SOURCE_EMPTY: 'E106',
+    /** E107: 模板 Sheet 名称未指定（无法定位主工作表） */
+    TEMPLATE_INVALID: 'E107',
+    /** E108: 自定义 SEMANTIC_RULES 加载失败 */
+    SEMANTIC_MAP_INVALID: 'E108'
 };
 
 class BempDocError extends Error {
@@ -77,6 +94,24 @@ const paths = {
             return path.isAbsolute(envTpl) ? envTpl : path.resolve(SKILL_ROOT, envTpl);
         }
         return path.join(SKILL_ROOT, 'assets', 'template-outline-design.docx');
+    },
+    // 详细设计模板路径：优先环境变量 BEMP_DESIGN_TEMPLATE，否则回退到 docs/07 标准模板
+    // 该路径在 cli.js 中作为 design 类型的 .docx 模板默认值；不存在时 build 流程会自动回退
+    get designTemplate() {
+        const envTpl = process.env.BEMP_DESIGN_TEMPLATE;
+        if (envTpl) {
+            return path.isAbsolute(envTpl) ? envTpl : path.resolve(SKILL_ROOT, envTpl);
+        }
+        // 优先级：项目内 docs/07【模板】详细设计说明书.docx > skill 内置差异化模板 > null
+        const projectTpl = path.join(SKILL_ROOT, '..', '..', '..', 'docs', '07【模板】详细设计说明书.docx');
+        if (require('fs').existsSync(projectTpl)) {
+            return projectTpl;
+        }
+        const innerTpl = path.join(SKILL_ROOT, 'assets', 'templates', 'XX银行-XX项目-差异化需求详细设计模板.docx');
+        if (require('fs').existsSync(innerTpl)) {
+            return innerTpl;
+        }
+        return null;
     }
 };
 

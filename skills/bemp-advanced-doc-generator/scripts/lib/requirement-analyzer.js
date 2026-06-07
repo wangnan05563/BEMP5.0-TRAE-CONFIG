@@ -336,7 +336,11 @@ class RequirementAnalyzer {
         const moduleMap = new Map();
         const level3 = menuPath.level3 || '模块';
         for (const sec of sections) {
-            if (sec.level >= 4 && sec.level <= 5 && sec.title) {
+            // 2026-06-06 修复：业务子模块必须是 H4/H5 且有 H6 子节
+            // 仅有描述性 H5（如"业务模块额度使用规则"）不应被识别为业务子模块
+            const isCandidate = sec.level >= 4 && sec.level <= 5 && sec.title;
+            const hasSub = sec.level <= 4 || sec.hasSubsection === true;
+            if (isCandidate && hasSub) {
                 const parentTitle = sec.parentTitle || sec.title;
                 if (!moduleMap.has(parentTitle)) {
                     moduleMap.set(parentTitle, [parentTitle, sec.content ? sec.content.substring(0, 60).trim() : '']);
@@ -344,11 +348,8 @@ class RequirementAnalyzer {
             }
         }
         if (moduleMap.size === 0) {
-            const defaults = this.profile.defaultModules || [
-                ['额度申请', '额度申请查询、新增、删除'],
-                ['批复明细', '额度批复明细的新增、修改、删除、提交复核、撤销复核'],
-                ['额度复核', '额度复核查询、复核、撤销、清单导出']
-            ];
+            // 硬编码默认值已移除：从 profile 读取，无配置时回退到空数组
+            const defaults = this.profile.defaultModules || [];
             for (const dm of defaults) moduleMap.set(dm[0], [dm[0], dm[1] || '']);
         }
         return Array.from(moduleMap.entries()).map(([name, desc]) => [
@@ -392,7 +393,10 @@ class RequirementAnalyzer {
     _extractInterfaces(sections, menuPath) {
         const moduleNames = new Set();
         for (const sec of sections) {
-            if (sec.level >= 4 && sec.level <= 5) {
+            // 2026-06-06 修复：接口清单对应业务子模块，H5 需有 H6 子节才收集
+            const isCandidate = sec.level >= 4 && sec.level <= 5;
+            const hasSub = sec.level <= 4 || sec.hasSubsection === true;
+            if (isCandidate && hasSub) {
                 moduleNames.add(sec.title);
             }
         }
@@ -401,11 +405,8 @@ class RequirementAnalyzer {
             interfaces.push([`${name}接口`, 'RPC接口', '调用', `${name}相关业务操作`]);
         }
         if (interfaces.length === 0) {
-            const defs = this.profile.defaultInterfaces || [
-                ['额度申请接口', 'RPC接口', '调用', '额度申请查询、新增、删除'],
-                ['批复明细接口', 'RPC接口', '调用', '批复明细CRUD及复核操作'],
-                ['额度复核接口', 'RPC接口', '调用', '额度复核、撤销、导出']
-            ];
+            // 硬编码默认值已移除：从 profile 读取，无配置时回退到空数组
+            const defs = this.profile.defaultInterfaces || [];
             for (const d of defs) interfaces.push(d);
         }
         return interfaces;
@@ -891,6 +892,21 @@ class RequirementAnalyzer {
                 content: buffer.join('\n'),
                 parentTitle: parentHeadings[currentLevel - 1] || ''
             });
+        }
+
+        // 2026-06-06 修复：标注 H5 是否有 H6 子节
+        // 业务子模块的特征是"模块标题"下有 H6 子节（查询/新增/删除等）
+        // 仅有描述性 H5（如"业务模块额度使用规则"）不应被识别为业务子模块
+        for (let i = 0; i < sections.length; i++) {
+            const sec = sections[i];
+            if (sec.level === 5) {
+                let hasSubsection = false;
+                for (let k = i + 1; k < sections.length; k++) {
+                    if (sections[k].level <= 5) break; // 遇到同级或更高级标题，结束扫描
+                    if (sections[k].level === 6) { hasSubsection = true; break; }
+                }
+                sec.hasSubsection = hasSubsection;
+            }
         }
 
         return sections;
