@@ -39,13 +39,13 @@ const DIAGRAMS_DIR = path.join(OUTPUT_DIR, 'diagrams');
 const LIB_DIR = path.join(SCRIPTS_DIR, 'lib');
 
 // ── 项目级路径 ────────────────────────────────────────────
-// 银行个性化需求目录：优先查找项目根目录下的"河南农商个性化需求"，其次查找 docs
-const _bankReqCandidates = [
-    path.join(PROJECT_ROOT, '河南农商个性化需求'),
-    path.join(PROJECT_ROOT, 'docs'),
-];
-const BANK_REQUIREMENTS_DIR = _bankReqCandidates.find(d => fs.existsSync(d))
-    || path.join(PROJECT_ROOT, '河南农商个性化需求');
+// 银行个性化需求目录：环境变量 BEMP_REQUIREMENTS_DIR 指定，否则自动探测 docs 目录
+const _envReqDir = process.env.BEMP_REQUIREMENTS_DIR;
+const _defaultReqCandidates = _envReqDir
+    ? [path.resolve(PROJECT_ROOT, _envReqDir)]
+    : [path.join(PROJECT_ROOT, 'docs')];
+const BANK_REQUIREMENTS_DIR = _defaultReqCandidates.find(d => fs.existsSync(d))
+    || path.join(PROJECT_ROOT, 'docs');
 
 // ── 常用文件路径（函数形式，延迟求值） ──────────────────────
 // 模板路径优先级：环境变量 > 通用默认模板

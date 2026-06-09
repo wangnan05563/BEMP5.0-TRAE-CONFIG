@@ -1,0 +1,43 @@
+# 测试用例标准化定义格式
+# 所有测试用例配置文件必须符合此 Schema
+test_case_schema:
+  id_pattern: "TC-{module}-{id}"
+  priority_levels: [P0, P1, P2]
+
+  api_defaults:
+    method: POST
+    content_type: "application/x-www-form-urlencoded"
+    base_url: "http://127.0.0.1:{port}"
+
+  assertion_operators:
+    - name: equals
+      description: "精确匹配"
+    - name: not_equals
+      description: "不等于"
+    - name: contains
+      description: "包含（解决DB查询顺序不确定问题）"
+    - name: not_contains
+      description: "不包含"
+    - name: matches
+      description: "正则匹配"
+    - name: is_null
+      description: "为空"
+    - name: is_not_null
+      description: "不为空"
+
+  failure_categories:
+    - name: code_defect
+      description: "代码逻辑缺陷"
+    - name: data_defect
+      description: "测试数据不一致"
+    - name: env_defect
+      description: "环境问题（服务未启动等）"
+    - name: config_defect
+      description: "配置问题（LEGAL_NO不一致等）"
+
+  # 银行级配置覆盖规则
+  # 加载优先级：banks/{bank_id}/ > 通用 > schema默认值
+  bank_override:
+    enabled: true
+    path_pattern: "config/test-cases/{bank_id}/"
+    merge_strategy: "deep_merge"

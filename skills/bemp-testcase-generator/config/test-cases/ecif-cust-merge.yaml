@@ -1,0 +1,74 @@
+# ECIF客户号合并报备校验 - 测试用例配置
+# 模块编号：ECIFMRG
+# 对应API：/ce/channel/ecif/operCustMergeByCustNo
+module: ECIFMRG
+description: "客户号合并报备校验功能测试"
+
+api:
+  path: "/ce/channel/ecif/operCustMergeByCustNo"
+  method: POST
+  content_type: "application/x-www-form-urlencoded"
+  # port 从 config/health-check.json 的 services.springboot.port 继承
+
+test_cases:
+  - id: "011"
+    priority: P0
+    description: "被合并客户号下存在已报备成功的账号且客户号将变更-拒绝操作"
+    request:
+      params:
+        custNo: "TESTMRG003"
+        mrgdCustNo: "TESTMRG001"
+        operType: "0"
+        legalNo: "000010"
+    assertions:
+      - field: "retCode"
+        operator: "not_equals"
+        expected: "000000"
+      - field: "retMsg"
+        operator: "contains"
+        expected: "账号已报备，不允许修改客户号"
+    failure_category_hint: code_defect
+
+  - id: "013"
+    priority: P1
+    description: "被合并客户号下存在报备中的账号-允许操作但提示"
+    request:
+      params:
+        custNo: "TESTMRG003"
+        mrgdCustNo: "TESTMRG004"
+        operType: "0"
+        legalNo: "000010"
+    assertions:
+      - field: "retCode"
+        operator: "equals"
+        expected: "000000"
+      - field: "retData.chkRsltRetRsn"
+        operator: "contains"
+        expected: "报备中"
+    failure_category_hint: code_defect
+
+  - id: "014"
+    priority: P0
+    description: "正常合并-无报备账号-操作成功"
+    request:
+      params:
+        custNo: "TESTMRG005"
+        mrgdCustNo: "TESTMRG006"
+        operType: "0"
+        legalNo: "000010"
+    assertions:
+      - field: "retCode"
+        operator: "equals"
+        expected: "000000"
+    failure_category_hint: data_defect
+
+# 银行级覆盖示例（取消注释启用）
+# bank_overrides:
+#   hnnxbank:
+#     api:
+#       legalNo: "000010"
+#     test_cases:
+#       - id: "011"
+#         request:
+#           params:
+#             legalNo: "000010"

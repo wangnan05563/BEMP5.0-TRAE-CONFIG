@@ -4,6 +4,7 @@ const { BempDocError, ERROR_CODES } = require('../../config/default');
 
 function getDefaultCodeDir() {
     try {
+        // 优先读取银行配置共享文件中的 projectDir
         const envConfigPath = path.join(__dirname, '..', '..', '_shared', 'env-config.json');
         if (fs.existsSync(envConfigPath)) {
             const envConfig = JSON.parse(fs.readFileSync(envConfigPath, 'utf-8'));
@@ -11,7 +12,10 @@ function getDefaultCodeDir() {
             if (bankDir) return `banks/${bankDir}`;
         }
     } catch (e) { /* fallthrough */ }
-    return 'banks/ext-hnnxbank';
+    // 环境变量优先，无配置时回退到空（调用方需自行提供 bank 参数）
+    const envBankDir = process.env.BEMP_BANK_PROJECT_DIR;
+    if (envBankDir) return envBankDir;
+    return '';
 }
 
 class RequirementAnalyzer {

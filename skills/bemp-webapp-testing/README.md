@@ -10,7 +10,7 @@
 | 🔐 **会话复用** | `LoginManager` 基于 `storage_state` 持久化会话，30 分钟过期自动续期，多角色切换 |
 | ⚙️ **配置驱动** | 选择器、页面路由、登录凭据、错误过滤全部配置化，零硬编码 |
 | ✅ **Schema 校验** | `test_config.schema.json` 定义配置规范，启动时自动校验 |
-| 📋 **双向索引** | `test-index.json` 建立 test-cases ↔ scripts 映射，覆盖 21 条目 207+ 用例 |
+| 📋 **双向索引** | `test-index.json` 建立 test-cases ↔ scripts 映射，覆盖 21 条目 207+ 用例（由 bemp-test-common 管理） |
 
 ## 目录结构
 
@@ -41,12 +41,12 @@ bemp-webapp-testing/
 │   ├── error-catalog.md          错误分类与排查
 │   ├── playwright-mcp-guide.md   Playwright MCP 工具指南
 │   └── test-data-management.md   Oracle MCP 测试数据管理
-├── test-cases/                   测试用例（common/sm/bm/be/ce）
 ├── test-data/
 │   └── test-accounts.json        测试账号配置（PLACEHOLDER）
 └── assets/templates/             用例模板 + 报告模板
 ```
 
+> 用例文档（test-cases/）由 `bemp-test-common` 管理，YAML用例配置由 `bemp-testcase-generator` 管理
 > 运行时产物统一输出至项目根目录 `aotutests-playwright/`（详见下方"输出管理"）
 
 ## 前置条件

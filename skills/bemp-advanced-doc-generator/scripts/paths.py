@@ -42,14 +42,15 @@ DIAGRAMS_DIR = OUTPUT_DIR / 'diagrams'
 LIB_DIR = SCRIPTS_DIR / 'lib'
 
 # ── 项目级路径 ────────────────────────────────────────────
-# 银行个性化需求目录：优先查找项目根目录下的"河南农商个性化需求"，其次查找 docs
-_BANK_REQ_CANDIDATES = [
-    PROJECT_ROOT / '河南农商个性化需求',
-    PROJECT_ROOT / 'docs',
-]
+# 银行个性化需求目录：环境变量 BEMP_REQUIREMENTS_DIR 指定，否则自动探测 docs 目录
+_env_req_dir = os.environ.get('BEMP_REQUIREMENTS_DIR')
+if _env_req_dir:
+    _bank_req_candidates = [PROJECT_ROOT / _env_req_dir]
+else:
+    _bank_req_candidates = [PROJECT_ROOT / 'docs']
 BANK_REQUIREMENTS_DIR = next(
-    (d for d in _BANK_REQ_CANDIDATES if d.exists()),
-    PROJECT_ROOT / '河南农商个性化需求'  # 默认值（即使不存在也保持语义正确）
+    (d for d in _bank_req_candidates if d.exists()),
+    PROJECT_ROOT / 'docs'  # 默认值
 )
 
 # ── 常用文件路径（函数形式，延迟求值） ──────────────────────

@@ -10,11 +10,11 @@
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `{BANK_CODE}` | 银行编码，用于目录路径和包名 | `hnnxbank` |
-| `{BANK_CLASS_PREFIX}` | 个性化类名前缀（PascalCase） | `Hnnx` |
-| `{BANK_NAME}` | 银行中文名称，用于部署目录 | `河南农信` |
+| `{BANK_CODE}` | 银行编码，用于目录路径和包名 | `${ENV:BANK_CODE}` |
+| `{BANK_CLASS_PREFIX}` | 个性化类名前缀（PascalCase） | `${ENV:BANK_CLASS_PREFIX}` |
+| `{BANK_NAME}` | 银行中文名称，用于部署目录 | `${ENV:BANK_NAME}` |
 
-> 切换银行时仅需修改上表默认值，所有文档中的路径和命名引用自动生效。
+> 切换银行时仅需修改 `_shared/env-config.json`，所有文档中的路径和命名引用自动生效。
 
 ## 文档结构
 

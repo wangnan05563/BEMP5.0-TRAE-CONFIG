@@ -1,0 +1,64 @@
+{
+  "_schemaVersion": "1.0",
+  "_description": "银行级配置模板 — 新增银行时复制此文件并修改",
+
+  "bankName": "",
+  "bankCode": "",
+  "projectName": "",
+
+  "coverPlaceholders": {
+    "XXX信息系统": "",
+    "XXX项目": "",
+    "XXX 系统": "",
+    "XXX": "",
+    "2018": "2026"
+  },
+
+  "templates": {
+    "design": null,
+    "outlineDesign": null,
+    "unitTestReport": null,
+    "testcase": null
+  },
+
+  "testSource": {
+    "baseDir": "",
+    "unitTestPaths": {},
+    "testFilters": {}
+  },
+
+  "font": {
+    "name": "宋体",
+    "size": 10.5,
+    "headingFont": "SimHei",
+    "bodyFont": "SimSun"
+  },
+
+  "contentDefaults": {
+    "project": "",
+    "component": "业务管理",
+    "tester": "bemp",
+    "designer": "bemp",
+    "cycle": "功能测试"
+  },
+
+  "qualityGate": {
+    "docx": {
+      "minParagraphs": 100,
+      "maxBlueResidual": 0,
+      "maxPlaceholderResidual": 0,
+      "headingLevelConsistency": true
+    },
+    "xlsx": {
+      "minFillRate": 100,
+      "requiredKeyFillRate": 100,
+      "maxBlueResidual": 0,
+      "fontConsistency": true
+    },
+    "testcase": {
+      "minCases": 1,
+      "columnAlignmentRate": 100,
+      "priorityDistribution": {}
+    }
+  }
+}

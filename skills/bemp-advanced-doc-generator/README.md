@@ -133,8 +133,8 @@ bemp-advanced-doc-generator/
 │   └── _legacy/                                # 已弃用代码（备份）
 ├── assets/
 │   ├── template-outline-design.docx            # 默认概要设计模板
-│   ├── template-outline-design-hnnx.docx       # 河南农商概要设计模板
-│   ├── template-hnnx-outline-design.docx       # 河南农商概要设计模板（备用）
+│   ├── template-outline-design-hnnx.docx       # 银行概要设计模板（示例）
+│   ├── template-hnnx-outline-design.docx       # 银行概要设计模板（示例备用）
 │   ├── 详细设计文档模板.json                    # 详细设计 JSON 模板
 │   ├── 测试用例模板.json                       # 测试用例 JSON 模板
 │   ├── 测试报告模板.json                       # 测试报告 JSON 模板

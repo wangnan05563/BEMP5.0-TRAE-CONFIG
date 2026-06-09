@@ -1,38 +1,38 @@
 {
   "_envConfigNote": "敏感信息使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析。未设置时回退到 _shared/env-config.json 的 environmentDefaults",
-  "active_bank": "hnnxbank",
+  "active_bank": "${ENV:BANK_CODE}",
   "host": "${ENV:BEMP_HOST}",
   "services": {
     "backend_api": {
-      "port": 8010,
-      "health_url": "http://${ENV:BEMP_HOST}:8010/bemp-served/",
+      "port": "${ENV:BEMP_BACKEND_PORT:8010}",
+      "health_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_BACKEND_PORT:8010}/bemp-served/",
       "required": true,
       "description": "SpringBoot后端API服务"
     },
     "frontend": {
-      "port": 8091,
-      "health_url": "http://${ENV:BEMP_HOST}:8091/",
+      "port": "${ENV:BEMP_FRONTEND_PORT:8091}",
+      "health_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_FRONTEND_PORT:8091}/",
       "required": true,
       "description": "Node.js前端开发服务器"
     },
     "redis": {
-      "port": 6379,
+      "port": "${ENV:BEMP_BACKEND_PORT_REDIS:6379}",
       "required": true,
       "description": "Redis缓存数据库"
     },
     "zookeeper": {
-      "port": 2181,
+      "port": "${ENV:BEMP_BACKEND_PORT_ZK:2181}",
       "required": true,
       "description": "ZooKeeper分布式协调服务"
     }
   },
   "banks": {
-    "hnnxbank": {
-      "name": "河南农信",
-      "url_prefix": "/hnnxbank/",
-      "component_base": "banks/hnnxbank",
-      "view_path": "views/bizViews/banks/hnnxbank",
-      "route_index": "hnnxbankIndex.js",
+    "${ENV:BANK_CODE}": {
+      "name": "${ENV:BANK_NAME}",
+      "url_prefix": "${ENV:BANK_URL_PREFIX}",
+      "component_base": "banks/${ENV:BANK_PROJECT_DIR}",
+      "view_path": "views/bizViews/banks/${ENV:BANK_PROJECT_DIR}",
+      "route_index": "${ENV:BANK_MODULE_PREFIX}Index.js",
       "login": {
         "default": {
           "username": "wangnan02",

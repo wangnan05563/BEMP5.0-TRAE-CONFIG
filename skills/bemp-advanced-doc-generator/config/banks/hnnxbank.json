@@ -1,0 +1,76 @@
+{
+  "_schemaVersion": "1.0",
+  "_description": "河南农商银行(hnnxbank)个性化配置 — 覆盖全局默认值",
+
+  "bankName": "河南农商",
+  "bankCode": "hnnxbank",
+  "projectName": "河南农商票据交易管理平台",
+
+  "coverPlaceholders": {
+    "XXX信息系统": "河南农商票据交易管理平台",
+    "XXX项目": "河南农商票据交易管理平台",
+    "XXX 系统": "河南农商票据交易管理平台",
+    "XXX": "河南农商",
+    "2018": "2026"
+  },
+
+  "templates": {
+    "design": "docs/07【模板】详细设计说明书.docx",
+    "outlineDesign": "docs/06【模板】概要设计说明书.docx",
+    "unitTestReport": "docs/09【模板】单元测试报告.xlsx",
+    "testcase": null
+  },
+
+  "testSource": {
+    "baseDir": "banks/ext-hnnxbank",
+    "unitTestPaths": {
+      "客户号合并功能接口": "banks/ext-hnnxbank/hnnxbank-biz-as/src/test/java/com/hundsun/bemp/hnnxbank/biz/channel/ecif",
+      "机构管理和管理员管理功能优化": "banks/ext-hnnxbank/hnnxbank-biz-as/src/test/java/com/hundsun/bemp/hnnxbank/biz/sm",
+      "修改票据回购的记账逻辑": "banks/ext-hnnxbank/hnnxbank-biz-as/src/test/java/com/hundsun/bemp/hnnxbank/biz/be/market",
+      "导出明细增加额度占用对象": "banks/ext-hnnxbank/hnnxbank-biz-as/src/test/java/com/hundsun/bemp/hnnxbank/biz/pc/acct",
+      "贴现企业名单管理": "banks/ext-hnnxbank/hnnxbank-biz-as/src/test/java/com/hundsun/bemp/hnnxbank/biz/ce/disc"
+    },
+    "testFilters": {
+      "客户号合并功能接口": ["HnnxEcif4001ServiceImpl", "PICE070701MessageConverter"],
+      "机构管理和管理员管理功能优化": ["HnnxBankBranchController", "HnnxBankBranchAdminController", "HnnxRoleServiceImpl"],
+      "修改票据回购的记账逻辑": ["HnnxRebuyApplyServiceImpl", "HnnxBankRebuyBatchAtomImpl", "HnnxBankAcctScenelServiceImpl"],
+      "导出明细增加额度占用对象": ["HnnxBankBalanceRegisterAtomImpl", "HnnxBalanceRegister"],
+      "贴现企业名单管理": ["HnnxDiscCompanyRoster"]
+    }
+  },
+
+  "font": {
+    "name": "宋体",
+    "size": 10.5,
+    "headingFont": "SimHei",
+    "bodyFont": "SimSun"
+  },
+
+  "contentDefaults": {
+    "project": "河南农商票据交易管理平台",
+    "component": "业务管理",
+    "tester": "bemp",
+    "designer": "bemp",
+    "cycle": "功能测试"
+  },
+
+  "qualityGate": {
+    "docx": {
+      "minParagraphs": 100,
+      "maxBlueResidual": 0,
+      "maxPlaceholderResidual": 0,
+      "headingLevelConsistency": true
+    },
+    "xlsx": {
+      "minFillRate": 100,
+      "requiredKeyFillRate": 100,
+      "maxBlueResidual": 0,
+      "fontConsistency": true
+    },
+    "testcase": {
+      "minCases": 1,
+      "columnAlignmentRate": 100,
+      "priorityDistribution": { "P0_min": 1 }
+    }
+  }
+}

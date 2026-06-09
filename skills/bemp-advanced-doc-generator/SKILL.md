@@ -3,7 +3,7 @@ name: "bemp-advanced-doc-generator"
 description: "BEMP项目技术文档自动生成：基于.docx模板和代码扫描数据，填充生成概要设计说明书、详细设计文档。支持单元测试报告(xlsx/Word)、测试用例、测试报告的模板驱动生成。触发时机：用户要求生成/编制/撰写BEMP项目的概要设计、详细设计、测试文档，或要求基于模板填充文档内容。"
 ---
 
-# BEMP 高级文档生成器 v7.0
+# BEMP 高级文档生成器 v10.0
 
 ## 触发条件
 
@@ -28,6 +28,8 @@ Input:
 - `--requirement` (string): 需求文档路径（Markdown）或项目根目录（outline-design）
 - `--template` (string): 自定义 .docx 模板路径，可选，默认使用内置模板
 - `--cover-placeholders` (string): 封面占位替换映射，格式 `"XXX=项目名;2018=2026"`
+- `--bank` (string): 银行级配置代码（如 `<银行代码>`），自动加载 testSource/template/filter/coverPlaceholders
+- `--test-filter` (string): 测试类名过滤（逗号分隔），仅扫描类名包含关键词的测试类
 - `--json` (bool): 是否输出 JSON 结构化结果，默认 false
 - `--no-antv` (bool): 禁用 AntV 引擎强制走 matplotlib，默认 false
 - 详细参数见 `README.md` 参数表
@@ -320,6 +322,13 @@ node scripts/cli.js -t design -f md -m "模块名称"
 node scripts/cli.js -t unit-test-report-xlsx -m "模块名称" \
   --xlsx-template "模板.xlsx" --test-source "测试代码目录" --mode unit --json
 
+# 单元测试报告（Excel，银行级配置自动加载）
+node scripts/cli.js -t unit-test-report-xlsx -m "模块名称" --bank <银行代码> --json
+
+# 单元测试报告（Excel，银行配置 + 自定义过滤）
+node scripts/cli.js -t unit-test-report-xlsx -m "模块名称" \
+  --bank <银行代码> --test-filter "ClassNameA,ClassNameB" --json
+
 # SIT 测试用例（Excel，从需求文档分析生成）
 node scripts/cli.js -t testcase -f excel -r "需求文件.md" -m "模块名称" --json
 
@@ -375,3 +384,71 @@ Step 3: 验证：段落数/封面/标题层级/页眉页脚/编号剥除/附录�
 3. **已设标题保护**：`unify_heading_styles` 中 `current_level > 0` 时永不修改 pStyle 级别
 4. **降级安全链**：graphviz → matplotlib → 占位文字，每层有兜底
 5. **递归内容检测**：附录清理支持表格单元格内文本匹配 + 祖先回溯
+
+## 银行级配置体系（v9.0 — 2026-06-08）
+
+### 设计动机
+
+批量生成多个需求的文档时发现：每个需求都需要手动指定 `--test-source`、`--xlsx-template`、`--cover-placeholders` 等参数，且测试扫描范围不精确（扫描整个银行目录返回全部测试类而非需求相关的几个）。银行级配置体系将所有银行特定参数集中管理，消除硬编码。
+
+### 配置文件结构
+
+```
+config/banks/
+├── _template.json     # 新银行接入模板（复制后修改）
+└── <银行代码>.json     # 银行个性化配置
+```
+
+**`<银行代码>.json` 配置项**：
+
+| 配置节 | 字段 | 说明 |
+|--------|------|------|
+| `coverPlaceholders` | `XXX信息系统` → `<项目名称>` | 封面占位替换映射 |
+| `templates` | `design`/`outlineDesign`/`unitTestReport` | 各类型文档模板路径 |
+| `testSource.baseDir` | `banks/<银行模块目录>` | 测试代码根目录 |
+| `testSource.unitTestPaths` | `"<需求模块名>"` → 精确目录 | 需求级测试代码路径 |
+| `testSource.testFilters` | `"<需求模块名>"` → `["<实现类名1>"]` | 需求级类名过滤 |
+| `font` | `name`/`size`/`headingFont`/`bodyFont` | 字体配置 |
+| `contentDefaults` | `project`/`component`/`tester`/`designer`/`cycle` | 内容默认值 |
+| `qualityGate` | `docx`/`xlsx`/`testcase` | 质量门禁阈值 |
+
+### 参数优先级规则
+
+```
+用户显式参数（CLI --test-source/--xlsx-template 等）
+    > 银行配置（--bank <银行代码> 加载的 bank config）
+    > 内置默认值
+```
+
+### 核心模块
+
+| 模块 | 路径 | 职责 |
+|------|------|------|
+| `BankConfigLoader` | `scripts/lib/bank-config-loader.js` | 加载银行配置，列出可用银行 |
+| `BankConfig` | `scripts/lib/bank-config-loader.js` | 类型安全配置访问，路径解析，参数合并 |
+| `QualityGate` | `scripts/lib/quality-gate.js` | 统一质量门禁，参数化阈值校验 |
+| `JavaTestScanner` | `scripts/lib/java-test-scanner.js` | 支持 `classFilters` 过滤的测试扫描器 |
+
+### 新增 CLI 参数
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `--bank <code>` | 银行配置代码 | `--bank <银行代码>` |
+| `--test-filter <keywords>` | 测试类名过滤（逗号分隔） | `--test-filter "ClassNameA,ClassNameB"` |
+
+### 统一质量门禁
+
+`QualityGate` 模块将 xlsx/docx/testcase 三种文档类型的校验阈值参数化：
+
+- **xlsx**：`minFillRate`（整体填充率）、`requiredKeyFillRate`（必含主键填充率）、`maxBlueResidual`（蓝色残留上限）、`fontConsistency`（字体一致性）
+- **docx**：`minParagraphs`（最小段落数）、`maxBlueResidual`、`maxPlaceholderResidual`（占位符残留上限）、`headingLevelConsistency`
+- **testcase**：`minCases`（最小用例数）、`columnAlignmentRate`（列对齐率）、`priorityDistribution`（优先级分布要求）
+
+### 新银行接入流程
+
+1. 复制 `config/banks/_template.json` → `config/banks/{bankCode}.json`
+2. 填写 `bankName`、`projectName`、`coverPlaceholders`
+3. 配置 `templates` 路径（相对于项目根目录）
+4. 配置 `testSource.unitTestPaths` 和 `testSource.testFilters`
+5. 调整 `qualityGate` 阈值（可选，默认值已内置）
+6. 使用 `--bank {bankCode}` 即可

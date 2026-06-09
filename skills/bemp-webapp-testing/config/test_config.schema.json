@@ -19,28 +19,18 @@
       "type": "object",
       "required": ["backend_api", "frontend"],
       "properties": {
-        "backend_api": {
-          "$ref": "#/definitions/service"
-        },
-        "frontend": {
-          "$ref": "#/definitions/service"
-        },
-        "redis": {
-          "$ref": "#/definitions/service"
-        },
-        "zookeeper": {
-          "$ref": "#/definitions/service"
-        }
+        "backend_api": { "$ref": "#/definitions/service" },
+        "frontend": { "$ref": "#/definitions/service" },
+        "redis": { "$ref": "#/definitions/service" },
+        "zookeeper": { "$ref": "#/definitions/service" }
       }
     },
     "banks": {
       "type": "object",
-      "description": "银行配置，key 为银行标识（如 hnnxbank, huisbank），至少需要配置一个银行",
+      "description": "银行配置，key 为银行标识，至少需要配置一个银行",
       "minProperties": 1,
       "patternProperties": {
-        "^[a-zA-Z][a-zA-Z0-9_]*$": {
-          "$ref": "#/definitions/bank"
-        }
+        "^[a-zA-Z][a-zA-Z0-9_]*$": { "$ref": "#/definitions/bank" }
       }
     },
     "login": {
@@ -55,7 +45,7 @@
       "type": "object",
       "description": "会话管理配置",
       "properties": {
-        "state_dir": { "type": "string", "default": "session_states" },
+        "state_dir": { "type": "string", "default": "aotutests-playwright/session_states" },
         "state_max_age": { "type": "integer", "default": 1800 },
         "auto_refresh_threshold": { "type": "integer", "default": 1500 },
         "session_check_interval": { "type": "integer", "default": 300 },
@@ -70,16 +60,14 @@
         "networkidle_timeout": { "type": "integer" },
         "screenshot_dir": { "type": "string" },
         "report_dir": { "type": "string" },
+        "output_root": { "type": "string", "description": "统一输出根目录" },
         "headless": { "type": "boolean" },
-        "viewport": {
-          "$ref": "#/definitions/viewport"
-        },
+        "viewport": { "$ref": "#/definitions/viewport" },
         "browser": {
           "type": "object",
           "properties": {
             "channel": { "type": "string", "enum": ["chrome", "chromium", "firefox"] },
-            "launch_options": { "type": "object" },
-            "viewport": { "$ref": "#/definitions/viewport" }
+            "launch_options": { "type": "object" }
           }
         }
       }
@@ -88,18 +76,9 @@
       "type": "object",
       "description": "错误分类过滤配置",
       "properties": {
-        "critical_errors": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "ignorable_errors": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "warning_errors": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
+        "critical_errors": { "type": "array", "items": { "type": "string" } },
+        "ignorable_errors": { "type": "array", "items": { "type": "string" } },
+        "warning_errors": { "type": "array", "items": { "type": "string" } }
       }
     },
     "selectors": {
@@ -121,25 +100,70 @@
         "query_button": { "type": "string" },
         "add_button": { "type": "string" },
         "modify_button": { "type": "string" },
-        "delete_button": { "type": "string" }
+        "delete_button": { "type": "string" },
+        "credit_batch_page": { "$ref": "#/definitions/selector_group" },
+        "credit_info_page": { "$ref": "#/definitions/selector_group" },
+        "credit_recheck_page": { "$ref": "#/definitions/selector_group" }
+      }
+    },
+    "credit_status_codes": {
+      "type": "object",
+      "description": "承兑行额度状态码映射",
+      "patternProperties": {
+        "^[0-9]+$": { "type": "string" }
+      }
+    },
+    "credit_prompt_text": {
+      "type": "object",
+      "description": "承兑行额度提示文本映射",
+      "patternProperties": {
+        "^[a-zA-Z_]+$": { "type": "string" }
+      }
+    },
+    "credit_export_templates": {
+      "type": "object",
+      "description": "承兑行额度导出模板配置",
+      "patternProperties": {
+        "^[a-zA-Z_]+$": {
+          "type": "object",
+          "properties": {
+            "template_name": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        }
       }
     },
     "product_url_patterns": {
       "type": "array",
+      "description": "产品URL模式匹配规则",
       "items": { "type": "string" }
     },
     "test_data": {
       "type": "object",
+      "description": "测试数据配置",
       "properties": {
         "accounts_file": { "type": "string" }
       }
     },
     "code_checks": {
       "type": "object",
+      "description": "代码预检配置",
       "properties": {
         "enabled": { "type": "boolean" },
-        "frontend": { "type": "object" },
-        "backend": { "type": "object" }
+        "frontend": {
+          "type": "object",
+          "description": "前端代码检查项，key为检查项ID",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_-]*$": { "$ref": "#/definitions/code_check_item" }
+          }
+        },
+        "backend": {
+          "type": "object",
+          "description": "后端代码检查项，key为检查项ID",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_-]*$": { "$ref": "#/definitions/code_check_item" }
+          }
+        }
       }
     }
   },
@@ -149,7 +173,7 @@
       "required": ["port", "required"],
       "properties": {
         "port": { "type": "integer" },
-        "health_url": { "type": "string", "format": "uri" },
+        "health_url": { "type": "string" },
         "required": { "type": "boolean" },
         "description": { "type": "string" }
       }
@@ -158,27 +182,11 @@
       "type": "object",
       "required": ["name", "url_prefix", "login", "pages"],
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "银行中文名称"
-        },
-        "url_prefix": {
-          "type": "string",
-          "pattern": "^/[a-zA-Z0-9_-]+/$",
-          "description": "个性化 URL 前缀，格式如 /hnnxbank/"
-        },
-        "component_base": {
-          "type": "string",
-          "description": "组件基础路径"
-        },
-        "view_path": {
-          "type": "string",
-          "description": "视图路径"
-        },
-        "route_index": {
-          "type": "string",
-          "description": "路由索引文件名"
-        },
+        "name": { "type": "string", "description": "银行中文名称" },
+        "url_prefix": { "type": "string", "pattern": "^/[a-zA-Z0-9_-]+/$", "description": "个性化 URL 前缀" },
+        "component_base": { "type": "string", "description": "组件基础路径" },
+        "view_path": { "type": "string", "description": "视图路径" },
+        "route_index": { "type": "string", "description": "路由索引文件名" },
         "login": {
           "type": "object",
           "description": "登录账号（按角色组织）",
@@ -210,9 +218,16 @@
                   "type": "array",
                   "items": {
                     "type": "object",
+                    "required": ["type"],
                     "properties": {
-                      "type": { "type": "string" },
-                      "text": { "type": "string" }
+                      "type": {
+                        "type": "string",
+                        "enum": ["text_visible", "element_visible", "datagrid_has_data", "no_console_errors", "click_and_check", "api_response"]
+                      },
+                      "text": { "type": "string" },
+                      "selector": { "type": "string" },
+                      "timeout": { "type": "integer" },
+                      "expected_status": { "type": "integer" }
                     }
                   }
                 }
@@ -227,6 +242,28 @@
       "properties": {
         "width": { "type": "integer", "minimum": 320 },
         "height": { "type": "integer", "minimum": 240 }
+      }
+    },
+    "selector_group": {
+      "type": "object",
+      "description": "选择器分组，按业务页面组织",
+      "patternProperties": {
+        "^[a-zA-Z_]+$": { "type": "string" }
+      }
+    },
+    "code_check_item": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "检查项唯一标识" },
+        "name": { "type": "string", "description": "检查项名称" },
+        "pattern": { "type": "string", "description": "匹配模式（正则表达式）" },
+        "glob": { "type": "string", "description": "文件匹配模式" },
+        "file_glob": { "type": "string", "description": "文件匹配模式（别名）" },
+        "severity": { "type": "string", "description": "严重级别（P0/P1/P2 或 error/warning/info）" },
+        "expected_matches": { "type": "integer", "description": "期望匹配数" },
+        "note": { "type": "string", "description": "说明" },
+        "fix": { "type": "string", "description": "修复建议" },
+        "description": { "type": "string" }
       }
     }
   }

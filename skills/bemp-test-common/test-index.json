@@ -351,22 +351,32 @@
       "case_count": 11,
       "scripts": [],
       "description": "ECIF机构客户合并XML报文解析(fromMessage)/响应组装(toMessage)/服务码映射，11条用例含P0:4 P1:7；Java单元测试：PICE070701MessageConverterTest"
+    },
+    {
+      "id": "TC-ECIFMRG-011",
+      "file": "aotutests-devtools/ecif-cust-merge-sign-check.md",
+      "subsystem": "adapter",
+      "feature": "客户号合并前企业信息报备状态校验",
+      "priority": "P0",
+      "case_count": 12,
+      "scripts": [],
+      "description": "合并/修改客户号前报备状态校验：已报备+客户号变更→拒绝(3)、已报备+客户号不变→允许(1)、报备中/未报备→允许(1)、无签约记录→允许(1)、客户不存在→允许(1)、边界(2)、联动(2)、接口(2)、安全(1)；Java单元测试：HnnxEcif4001ServiceImplTest"
     }
   ],
   "summary": {
-    "total_cases": 32,
-    "total_estimated_count": 414,
+    "total_cases": 33,
+    "total_estimated_count": 426,
     "by_subsystem": {
       "common": 2,
       "sm": 5,
       "bm": 17,
       "be": 4,
       "ce": 3,
-      "adapter": 1
+      "adapter": 2
     },
     "by_priority": {
-      "P0": 22,
-      "P1": 9,
+      "P0": 23,
+      "P1": 10,
       "P2": 2,
       "P3": 0,
       "unknown": 0

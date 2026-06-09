@@ -8,6 +8,7 @@ const { ColumnMapper } = require('./column-mapper');
 const { ContentBuilder } = require('./content-builder');
 const { SummaryBuilder } = require('./summary-builder');
 const { BempDocError, ERROR_CODES } = require('../../../config/default');
+const { QualityGate } = require('../quality-gate');
 
 /**
  * XlsxReportPipeline —— 通用化 xlsx 报告生成主编排器
@@ -53,6 +54,14 @@ class XlsxReportPipeline {
             contentBuilder: options.contentBuilder || new ContentBuilder(options),
             summaryBuilder: options.summaryBuilder || new SummaryBuilder(),
             logger: options.logger || console.log,
+            /** v9.0：银行级配置（BankConfig 实例），提供 testSource/testFilter/template 等默认值 */
+            bankConfig: options.bankConfig || null,
+            /** v9.0：运行时类名过滤列表（CLI --test-filter 或 bankConfig.getTestFilter 计算结果） */
+            classFilters: options.classFilters || null,
+            /** v9.0：统一质量门禁（从 bank config qualityGate 初始化） */
+            qualityGate: options.qualityGate || new QualityGate(
+                options.bankConfig ? options.bankConfig.qualityGate : {}
+            ),
             ...options
         };
     }
@@ -77,6 +86,23 @@ class XlsxReportPipeline {
         // 1. 参数校验
         this._validateParams(params);
 
+        // v9.0：银行配置合并默认值（用户显式参数 > bankConfig > 内置默认值）
+        if (this.options.bankConfig) {
+            const merged = this.options.bankConfig.mergeWithDefaults({
+                project: params.project || this.options.project,
+                component: params.component || this.options.component,
+                tester: params.tester || this.options.tester,
+                designer: params.designer || this.options.designer,
+                cycle: params.cycle || this.options.cycle,
+            });
+            this.options.project = merged.project;
+            this.options.component = merged.component;
+            this.options.tester = merged.tester;
+            this.options.designer = merged.designer;
+            this.options.cycle = merged.cycle;
+            this._log(`[bank-config] 已加载银行配置: ${this.options.bankConfig.bankName} (${this.options.bankConfig.bankCode})`);
+        }
+
         // v8.0：运行时 SEMANTIC_RULES 覆盖
         if (Array.isArray(semanticMap) && semanticMap.length) {
             this.options.inspector = new TemplateInspector({ extraSemanticRules: semanticMap });
@@ -84,7 +110,21 @@ class XlsxReportPipeline {
         }
 
         const resolvedMode = mode || (testCasesPath ? 'functional' : 'unit');
-        const resolvedTemplate = this._resolvePath(xlsxTemplate);
+
+        // v9.0：从 bankConfig 解析 testSource 和 classFilters（用户显式参数优先）
+        const resolvedTestSource = testSource
+            || (this.options.bankConfig && this.options.bankConfig.getTestSource(moduleName))
+            || (this.options.bankConfig && this.options.bankConfig.getTestSourceBase());
+        const resolvedTemplate = this._resolvePath(
+            xlsxTemplate || (this.options.bankConfig && this.options.bankConfig.getUnitTestReportTemplate())
+        );
+        // classFilters 优先级：构造时传入 > bankConfig.getTestFilter > null
+        const effectiveClassFilters = this.options.classFilters
+            || (this.options.bankConfig && this.options.bankConfig.getTestFilter(moduleName))
+            || null;
+        if (effectiveClassFilters) {
+            this._log(`[test-filter] 类名过滤: ${effectiveClassFilters.join(', ')} (共 ${effectiveClassFilters.length} 条)`);
+        }
         const resolvedOutput = this._resolveOutputPath(outputPath, moduleName, resolvedMode);
 
         this._log(`\n======== XlsxReportPipeline v2.0 (mode=${resolvedMode}) ========`);
@@ -102,7 +142,7 @@ class XlsxReportPipeline {
 
         // 3. 扫描数据源
         this._log(`[2/6] 扫描数据源`);
-        const { scanResult, sourceLabel } = await this._scanSource(resolvedMode, testSource, testCasesPath);
+        const { scanResult, sourceLabel } = await this._scanSource(resolvedMode, resolvedTestSource, testCasesPath, effectiveClassFilters);
         this._log(`  - ${sourceLabel}`);
 
         // 4. 构建测试用例
@@ -174,15 +214,17 @@ class XlsxReportPipeline {
         }
     }
 
-    async _scanSource(mode, testSource, testCasesPath) {
+    async _scanSource(mode, testSource, testCasesPath, classFilters) {
         if (mode === 'unit') {
             const { JavaTestScanner } = require('../java-test-scanner');
             const scanner = new JavaTestScanner();
-            const scanResult = scanner.scan(testSource);
-            return {
-                scanResult,
-                sourceLabel: `扫描到 ${scanResult.fileCount} 个 java 文件，${scanResult.testMethodCount} 个 @Test 方法`
-            };
+            const filterOptions = classFilters ? { classFilters } : null;
+            const scanResult = scanner.scan(testSource, filterOptions);
+            let label = `扫描到 ${scanResult.fileCount} 个 java 文件，${scanResult.testMethodCount} 个 @Test 方法`;
+            if (scanResult.filterInfo) {
+                label += ` (过滤: ${scanResult.filterInfo.matchedFiles}/${scanResult.filterInfo.totalFiles} 文件匹配)`;
+            }
+            return { scanResult, sourceLabel: label };
         } else {
             const { TestCaseMdScanner } = require('../test-case-md-scanner');
             const scanner = new TestCaseMdScanner();
@@ -264,12 +306,14 @@ class XlsxReportPipeline {
     }
 
     /**
-     * 校验 —— 基于 schema 动态校验
+     * 校验 —— 基于 schema 动态校验 + QualityGate 参数化阈值
      */
     async _validate(outputPath, schema, writtenCount, sourceLabel) {
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(outputPath);
         const items = [];
+        const gate = this.options.qualityGate;
+        const xlsxThresholds = gate.getThresholds('xlsx');
 
         // 1. 主工作表存在
         const mainSheet = workbook.getWorksheet(schema.sheetName);
@@ -303,16 +347,9 @@ class XlsxReportPipeline {
             message: `第${schema.dataStartRow}行起写入 ${writtenCount} 条`
         });
 
-        // 4. 用例数
-        items.push({
-            name: '用例数',
-            pass: writtenCount > 0,
-            message: writtenCount > 0 ? `写入 ${writtenCount} (${sourceLabel})` : '无测试用例'
-        });
-
-        // 5. **每列填充率门禁**（v8.0 新增）—— 自动发现"整列为空"问题
+        // 4. 收集列填充率统计（供 QualityGate 使用）
+        let columnRates = [];
         if (mainSheet && writtenCount > 0) {
-            const columnRates = [];
             const underfilled = [];
             for (const colDef of schema.columns) {
                 let filled = 0;
@@ -332,20 +369,19 @@ class XlsxReportPipeline {
                     rate: +rate.toFixed(1),
                     required: !!colDef.required
                 });
-                // 必含主键（required=true）必须 100%；其他列 < 100% 也告警
                 if (colDef.required && filled < writtenCount) {
                     underfilled.push({ col: colDef, filled, emptyRows: emptyRows.slice(0, 5) });
-                } else if (rate < 100) {
+                } else if (rate < xlsxThresholds.minFillRate) {
                     underfilled.push({ col: colDef, filled, emptyRows: emptyRows.slice(0, 5), warn: true });
                 }
             }
-            // 必含主键未达 100% → 抛错 E102
+            // 必含主键未达阈值 → 抛错 E102
             const criticalMisses = underfilled.filter(u => !u.warn);
             items.push({
                 name: '列填充率门禁',
                 pass: criticalMisses.length === 0,
                 message: underfilled.length === 0
-                    ? `全部 ${columnRates.length} 列填充率 100%`
+                    ? `全部 ${columnRates.length} 列填充率 ≥ ${xlsxThresholds.minFillRate}%`
                     : `⚠ ${underfilled.length} 列不达标（必含主键 ${criticalMisses.length} 列）：${underfilled.map(u => `${u.col.headerText}=${u.filled}/${writtenCount}`).join('; ')}`
             });
             if (criticalMisses.length > 0) {
@@ -358,7 +394,7 @@ class XlsxReportPipeline {
             }
         }
 
-        // 6. 摘要 Sheet 状态
+        // 5. 摘要 Sheet 状态
         const summarySheet = workbook.getWorksheet(schema.summary.sheetName);
         if (schema.summary.exists) {
             items.push({
@@ -374,7 +410,7 @@ class XlsxReportPipeline {
             });
         }
 
-        // 7. 非超链接蓝色检查
+        // 6. 非超链接蓝色检查（阈值从 QualityGate 读取）
         let blueCount = 0;
         for (const sheet of [mainSheet, summarySheet]) {
             if (!sheet) continue;
@@ -390,12 +426,17 @@ class XlsxReportPipeline {
         }
         items.push({
             name: '非超链接蓝色',
-            pass: blueCount === 0,
-            message: blueCount === 0 ? '0处' : `${blueCount}处`
+            pass: blueCount <= xlsxThresholds.maxBlueResidual,
+            message: blueCount <= xlsxThresholds.maxBlueResidual
+                ? `${blueCount}处（阈值 ≤ ${xlsxThresholds.maxBlueResidual}）`
+                : `${blueCount}处超过阈值 ${xlsxThresholds.maxBlueResidual}`
         });
 
-        const allPass = items.every(i => i.pass);
-        return { allPass, items, blueCount, writtenCount, mode: schema.meta?.mode || 'unknown' };
+        // 7. 统一质量门禁汇总
+        const gateResult = gate.checkXlsx({ writtenCount, columnRates, blueCount });
+        const allPass = items.every(i => i.pass) && gateResult.passed;
+
+        return { allPass, items, blueCount, writtenCount, mode: schema.meta?.mode || 'unknown', gateSummary: gateResult.summary };
     }
 
     _resolvePath(p) {

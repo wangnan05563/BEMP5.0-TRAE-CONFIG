@@ -1,6 +1,6 @@
 # BEMP 项目规则
 
-> **配置变量**：本文件中 `{BANK_CODE}` 默认为 `hnnxbank`，`{BANK_CLASS_PREFIX}` 默认为 `Hnnx`，`{BANK_NAME}` 默认为 `河南农信`。切换银行时仅需修改默认值。
+> **配置变量**：本文件中银行相关变量均引用 `_shared/env-config.json`：`{BANK_CODE}` → `${ENV:BANK_CODE}`，`{BANK_CLASS_PREFIX}` → `${ENV:BANK_CLASS_PREFIX}`，`{BANK_NAME}` → `${ENV:BANK_NAME}`。切换银行时仅需修改 env-config.json。
 
 ## 版本约束
 - 【强制】Java 1.8 语法编码

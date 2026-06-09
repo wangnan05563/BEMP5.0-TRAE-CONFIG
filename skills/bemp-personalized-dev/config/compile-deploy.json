@@ -1,0 +1,31 @@
+{
+  "description": "BEMP个性化开发编译→部署→重启路径配置",
+  "_ref": "所有路径引用 _shared/env-config.json，通过 ${ENV:} 占位符解析，无硬编码",
+  "bankCode": "${ENV:BANK_CODE}",
+  "compile": {
+    "encoding": "UTF-8",
+    "javaVersion": "1.8",
+    "javacPath": "${ENV:JAVA_HOME}\\bin\\javac",
+    "sourceDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-as/src/main/java",
+    "outputDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-as/target/classes",
+    "classpathFile": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-as/.classpath"
+  },
+  "deploy": {
+    "warClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/classes",
+    "warLibDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/lib",
+    "packageMapping": {
+      "description": "源文件包路径到WAR包class路径的映射规则",
+      "rule": "将target/classes下的相对路径原样复制到WEB-INF/classes下"
+    }
+  },
+  "restart": {
+    "scriptPath": ".trae/skills/bemp-automation-startserver/scripts/start-bemp-env.ps1",
+    "parameters": "-Service springboot -QuickStart -ForceRestart",
+    "startupIndicator": "Started BempApplication"
+  },
+  "checks": {
+    "sourceVsClass": "比较源文件(.java)和class文件的修改时间，源文件更新则需要编译",
+    "targetVsWar": "比较target/classes和WEB-INF/classes中class文件的修改时间，target更新则需要复制",
+    "classVsRestart": "比较class文件更新时间和SpringBoot启动时间，class更新于启动之后则需要重启"
+  }
+}

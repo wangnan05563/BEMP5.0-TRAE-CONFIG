@@ -1,0 +1,106 @@
+# =============================================================================
+# 硬编码检查规则配置文件
+# 运行: node scripts/lib/hardcode-checker.js
+# 或作为 CI 流程一部分自动执行
+# =============================================================================
+
+version: "1.0"
+description: "bemp-advanced-doc-generator 技能硬编码扫描规则"
+
+# 扫描范围（相对于 SKILL_ROOT）
+scan:
+  include:
+    - "SKILL.md"
+    - "README.md"
+    - "references/**/*.md"
+    - "scripts/**/*.{js,py}"
+    - "config/**/*.{js,json,yaml}"
+  exclude:
+    - "output/**"
+    - "node_modules/**"
+    - "assets/templates/**"      # 模板资产中的示例数据属于业务案例，不受通用化限制
+    - "config/banks/**/*.json"    # 银行配置文件天然包含银行特定数据，不在此规则范围
+    - "scripts/package-lock.json"
+
+# 检查规则集
+rules:
+  # ──── 规则1：禁止特定银行名称硬编码 ────
+  no-bank-names:
+    description: "禁止在通用文档/脚本中出现特定银行名称"
+    severity: error
+    patterns:
+      - "hnnxbank"
+      - "河南农商"
+      - "河南农信"
+      - "hnnx"
+      - "HNNX"
+    exclude_patterns:
+      - "`<银行代码>`"          # 占位符说明
+      - "banks/ext-"           # 路径结构说明
+      - "bankCode"             # 参数名
+      - "BANK_CODE"            # 常量名
+    # 排除文件列表（这些文件天然包含银行数据）
+    exclude_files:
+      - "config/banks/**"
+      - "assets/templates/**"
+
+  # ──── 规则2：禁止特定业务需求名称硬编码 ────
+  no-requirement-names:
+    description: "禁止在通用文档/命令示例中出现特定需求名称"
+    severity: warning
+    patterns:
+      - "客户号合并功能接口"
+      - "机构管理和管理员管理功能优化"
+      - "修改票据回购的记账逻辑"
+      - "导出明细增加额度占用对象"
+      - "贴现企业名单管理"
+    exclude_files:
+      - "config/banks/**"
+      - "output/**"
+
+  # ──── 规则3：禁止特定 Java 类名硬编码 ────
+  no-class-names:
+    description: "禁止在通用脚本中硬编码银行特定 Java 类名"
+    severity: error
+    patterns:
+      - "HnnxEcif4001"
+      - "HnnxBankBranch"
+      - "HnnxRoleService"
+      - "HnnxRebuyApply"
+      - "HnnxBalanceRegister"
+      - "HnnxDiscCompanyRoster"
+      - "PICE070701"
+    exclude_files:
+      - "config/banks/**"
+      - "assets/templates/**"
+
+  # ──── 规则4：禁止硬编码项目路径 ────
+  no-hardcoded-paths:
+    description: "禁止在脚本中硬编码项目特定路径（如 '河南农商个性化需求'）"
+    severity: error
+    patterns:
+      - "河南农商个性化需求"
+      - "banks/ext-hnnxbank"
+    exclude_files:
+      - "config/banks/**"
+
+  # ──── 规则5：禁止硬编码默认值 ────
+  no-hardcoded-defaults:
+    description: "关键默认值应通过配置/环境变量管理，不应在代码中硬编码"
+    severity: warning
+    checks:
+      - type: "env_var_missing"
+        message: "默认源码目录应优先从环境变量 BEMP_BANK_PROJECT_DIR 读取"
+        files: ["scripts/lib/requirement-analyzer.js"]
+      - type: "env_var_missing"
+        message: "需求目录应优先从环境变量 BEMP_REQUIREMENTS_DIR 读取"
+        files: ["scripts/paths.js", "scripts/paths.py"]
+      - type: "env_var_missing"
+        message: "UML 默认值应支持从 config/uml-defaults.js 或 BEMP_UML_DEFAULTS 读取"
+        files: ["scripts/lib/requirement-uml-extractor.js"]
+
+# 检查结果输出
+output:
+  format: markdown   # markdown | json | console
+  file: "output/_hardcode-check-result.md"
+  fail_on_error: true  # 有 error 级问题时退出码非0

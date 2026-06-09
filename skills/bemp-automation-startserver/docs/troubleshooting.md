@@ -38,8 +38,8 @@ admin.serverPort=8088
 
 **解决方案**：预先编译项目
 ```powershell
-cd d:\code\QJ\BEMP5.0DEV\banks\ext-hnnxbank
-mvn clean install -DskipTests=true -pl hnnxbank-served-deploy -am
+cd d:\code\QJ\BEMP5.0DEV\banks\ext-${ENV:BANK_PROJECT_DIR}
+mvn clean install -DskipTests=true -pl ${ENV:BANK_MODULE_PREFIX}served-deploy -am
 ```
 
 ## 4. 前端启动报 OpenSSL 错误

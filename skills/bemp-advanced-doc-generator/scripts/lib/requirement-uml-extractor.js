@@ -13,9 +13,28 @@
  */
 
 const fs = require('fs');
+const path = require('path');
+
+// 外部 UML 默认值配置路径，环境变量可覆盖
+const UML_DEFAULTS_PATH = process.env.BEMP_UML_DEFAULTS 
+    || path.join(__dirname, '..', '..', 'config', 'uml-defaults.js');
+
+let _umlDefaults = null;
+function _loadUmlDefaults() {
+    if (_umlDefaults) return _umlDefaults;
+    try {
+        if (fs.existsSync(UML_DEFAULTS_PATH)) {
+            _umlDefaults = require(UML_DEFAULTS_PATH);
+        }
+    } catch (e) {
+        // 外部配置加载失败，使用内置默认值兜底
+    }
+    return _umlDefaults;
+}
 
 // =====================================================================
 // 1. 业务实体词典（基于 BEMP 票据系统常见名词）
+// 内置默认值，可通过 config/uml-defaults.js 覆盖
 // =====================================================================
 
 /**

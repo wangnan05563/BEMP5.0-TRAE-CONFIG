@@ -1,0 +1,33 @@
+{
+  "_doc": "服务启动后自动健康检查配置。包含端口轮询等待参数和SpringBoot启动失败自动诊断策略",
+  "_ref": "端口和路径引用 _shared/env-config.json 的 services 节，通过 ${ENV:} 占位符解析",
+  "services": {
+    "redis": {
+      "port": "${ENV:BEMP_BACKEND_PORT_REDIS:6379}",
+      "maxWaitSeconds": 30,
+      "pollIntervalSeconds": 5
+    },
+    "zookeeper": {
+      "port": "${ENV:BEMP_BACKEND_PORT_ZK:2181}",
+      "maxWaitSeconds": 60,
+      "pollIntervalSeconds": 10
+    },
+    "springboot": {
+      "port": "${ENV:BEMP_BACKEND_PORT:8010}",
+      "maxWaitSeconds": 600,
+      "pollIntervalSeconds": 30,
+      "diagnostics": {
+        "checkDependencies": ["redis", "zookeeper"],
+        "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
+        "logFile": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/logs/bemp-served.log"
+      }
+    },
+    "frontend": {
+      "port": "${ENV:BEMP_FRONTEND_PORT:8091}",
+      "maxWaitSeconds": 600,
+      "pollIntervalSeconds": 30,
+      "maxRetries": 3,
+      "retryDelaySeconds": 10
+    }
+  }
+}

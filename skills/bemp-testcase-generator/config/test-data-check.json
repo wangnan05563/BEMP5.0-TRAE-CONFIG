@@ -1,0 +1,25 @@
+{
+  "_doc": "测试数据一致性校验配置 - 测试前自动校验数据状态",
+  "_ref": "数据库连接引用 _shared/env-config.json 的 database 节，通过 ${ENV:} 占位符解析",
+  "consistencyChecks": [
+    {
+      "name": "LEGAL_NO一致性",
+      "description": "签约表与客户表的LEGAL_NO必须一致，否则报备校验逻辑异常",
+      "signTable": "TM_CUST_ELEC_SIGN",
+      "corpTable": "TM_CUST_CORP",
+      "joinKey": "CUST_NO",
+      "compareField": "LEGAL_NO",
+      "autoFix": true,
+      "fixStrategy": "UPDATE签约表的LEGAL_NO为客户表的LEGAL_NO",
+      "checkSql": "SELECT e.CUST_NO, e.LEGAL_NO AS SIGN_LEGAL_NO, c.LEGAL_NO AS CORP_LEGAL_NO FROM TM_CUST_ELEC_SIGN e JOIN TM_CUST_CORP c ON e.CUST_NO = c.CUST_NO WHERE e.CUST_NO LIKE '{testDataPrefix}%' AND e.LEGAL_NO != c.LEGAL_NO",
+      "fixSql": "UPDATE TM_CUST_ELEC_SIGN e SET e.LEGAL_NO = (SELECT c.LEGAL_NO FROM TM_CUST_CORP c WHERE c.CUST_NO = e.CUST_NO) WHERE e.CUST_NO LIKE '{testDataPrefix}%' AND e.LEGAL_NO != (SELECT c.LEGAL_NO FROM TM_CUST_CORP c WHERE c.CUST_NO = e.CUST_NO)"
+    }
+  ],
+  "testDataPrefix": "{testDataPrefix}",
+  "database": {
+    "schema": "${ENV:ORACLE_SCHEMA}",
+    "username": "${ENV:ORACLE_USERNAME}",
+    "password": "${ENV:ORACLE_PASSWORD}",
+    "dsn": "${ENV:ORACLE_DSN}"
+  }
+}

@@ -137,6 +137,12 @@ function parseArgs(args) {
             // 2026-06-07 v8.0 新增：外部 SEMANTIC_RULES 注入
             case '--semantic-map':
                 options.semanticMap = args[++i]; break;
+            // 2026-06-08 v9.0 新增：银行级配置加载
+            case '--bank':
+                options.bankCode = args[++i]; lastFlagConsumed = true; break;
+            // 2026-06-08 v9.0 新增：测试类名过滤（逗号分隔）
+            case '--test-filter':
+                options.testFilter = args[++i] ? args[i].split(',').map(s => s.trim()).filter(Boolean) : []; lastFlagConsumed = true; break;
             // 2026-06-07 新增：直接传入 design_data JSON 路径（跳过 RequirementAnalyzer）
             case '--design-data':
                 options.designDataPath = args[++i]; lastFlagConsumed = true; break;
@@ -206,6 +212,8 @@ function printHelp() {
   --test-source <路径>     Java测试代码目录（unit 模式必填）
   --test-cases <路径>      功能测试用例MD文件路径（functional 模式必填）
   --mode <模式>            xlsx报告模式: unit|functional（默认根据参数自动推断）
+  --bank <银行代码>        银行级配置代码（如 <银行代码>），自动加载 testSource/template/filter
+  --test-filter <关键词>   测试类名过滤（逗号分隔），仅扫描类名包含关键词的测试类
   -h, --help               显示帮助信息
 
 示例:
@@ -217,6 +225,8 @@ function printHelp() {
   node cli.js -t outline-design -m "项目名称" -r "项目根目录" --template "模板.docx" --json
   node cli.js -t unit-test-report -m "项目名称"
   node cli.js -t unit-test-report-xlsx -m "模块名称" --xlsx-template "模板.xlsx" --test-cases "用例.md" --mode functional --json
+  node cli.js -t unit-test-report-xlsx -m "模块名称" --bank <银行代码> --json
+  node cli.js -t unit-test-report-xlsx -m "模块名称" --bank <银行代码> --test-filter "ClassNameA,ClassNameB" --json
   node cli.js --list
 `);
 }
@@ -317,10 +327,41 @@ async function generateDocument(options) {
                 console.log(`[semantic-map] 已加载 ${semanticMap.length} 条自定义规则: ${options.semanticMap}`);
             }
         }
-        const xlsxGen = new XlsxUnitTestReportGenerator();
+
+        // v9.0：银行级配置加载（--bank 参数）
+        let bankConfig = null;
+        if (options.bankCode) {
+            const { BankConfigLoader } = require('./lib/bank-config-loader');
+            const loader = new BankConfigLoader(options.bankCode);
+            bankConfig = loader.load();
+            if (!jsonMode) {
+                console.log(`[bank-config] 已加载银行配置: ${bankConfig.bankName} (${options.bankCode})`);
+            }
+        }
+
+        // v9.0：参数优先级 —— 用户显式参数 > bankConfig > 内置默认值
+        const resolvedXlsxTemplate = options.xlsxTemplate
+            || (bankConfig && bankConfig.getUnitTestReportTemplate());
+        const resolvedTestSource = options.testSource
+            || (bankConfig && bankConfig.getTestSource(moduleName))
+            || (bankConfig && bankConfig.getTestSourceBase());
+
+        // v9.0：classFilters 优先级 —— CLI --test-filter > bankConfig.getTestFilter
+        const classFilters = options.testFilter
+            || (bankConfig && bankConfig.getTestFilter(moduleName))
+            || null;
+
+        if (classFilters && !jsonMode) {
+            console.log(`[test-filter] 类名过滤: ${classFilters.join(', ')} (共 ${classFilters.length} 条)`);
+        }
+
+        const xlsxGen = new XlsxUnitTestReportGenerator({
+            bankConfig,
+            classFilters
+        });
         const result = await xlsxGen.generate({
-            xlsxTemplate: options.xlsxTemplate,
-            testSource: options.testSource,
+            xlsxTemplate: resolvedXlsxTemplate,
+            testSource: resolvedTestSource,
             testCasesPath: options.testCasesPath,
             outputPath: options.outputPath,
             moduleName,
@@ -420,14 +461,47 @@ async function generateDocument(options) {
 
         switch (options.type) {
             case 'design':
+                // v9.1：统一加载银行配置，供整个 design 分支复用
+                let designBankConfig = null;
+                if (options.bankCode) {
+                    try {
+                        const { BankConfigLoader } = require('./lib/bank-config-loader');
+                        const loader = new BankConfigLoader(options.bankCode);
+                        designBankConfig = loader.load();
+                        console.log(`  [bank-config] 已加载银行配置: ${designBankConfig.bankName} (${options.bankCode})`);
+                    } catch (e) {
+                        console.warn(`  ⚠ 银行配置加载失败: ${e.message}`);
+                    }
+                }
+
                 // 当传入 .docx 模板时，使用 python-docx 模板填充模式
                 // 2026-06-07 优化：未显式指定 --template 时，优先回退到 docs/07 标准模板，
                 // 避免错误地命中内置"差异化需求"模板导致样式丢失
+                // v9.0：--bank 配置中的设计模板也参与回退链
                 if (!options.templatePath) {
-                    const fallbackTpl = paths.designTemplate;
-                    if (fallbackTpl && fs.existsSync(fallbackTpl)) {
-                        options.templatePath = fallbackTpl;
-                        console.log(`  [default-template] 未指定 --template，使用默认: ${fallbackTpl}`);
+                    // 优先使用银行配置中的设计模板
+                    if (designBankConfig) {
+                        const bankTpl = designBankConfig.getDesignTemplate();
+                        if (bankTpl && fs.existsSync(bankTpl)) {
+                            options.templatePath = bankTpl;
+                            console.log(`  [bank-config] 使用银行设计模板: ${bankTpl}`);
+                        }
+                    }
+                    // 银行配置无模板或未指定 --bank，使用默认模板
+                    if (!options.templatePath) {
+                        const fallbackTpl = paths.designTemplate;
+                        if (fallbackTpl && fs.existsSync(fallbackTpl)) {
+                            options.templatePath = fallbackTpl;
+                            console.log(`  [default-template] 未指定 --template，使用默认: ${fallbackTpl}`);
+                        }
+                    }
+                }
+                // v9.0：银行配置自动注入 coverPlaceholders（用户未显式指定时）
+                if ((!options.coverPlaceholders || Object.keys(options.coverPlaceholders).length === 0) && designBankConfig) {
+                    const bankPlaceholders = designBankConfig.getCoverPlaceholdersString();
+                    if (bankPlaceholders) {
+                        options.coverPlaceholders = parsePlaceholderMap(bankPlaceholders);
+                        console.log(`  [bank-config] 已注入银行封面占位替换: ${Object.keys(options.coverPlaceholders).length} 项`);
                     }
                 }
                 if (options.templatePath && options.templatePath.toLowerCase().endsWith('.docx')) {
@@ -443,11 +517,21 @@ async function generateDocument(options) {
                     if (options.preserveTemplate) {
                         designData._preserve = true;
                     }
+                    // v9.1 新增：注入源代码路径到 design_data，使 Python 生成器能扫描实际代码填充"代码示例"
+                    // 优先级：--test-source > designBankConfig testSource
+                    const resolvedSourceDir = options.testSource
+                        || (designBankConfig && designBankConfig.getTestSource(moduleName))
+                        || (designBankConfig && designBankConfig.getTestSourceBase());
+                    if (resolvedSourceDir && fs.existsSync(resolvedSourceDir)) {
+                        designData.sourceDir = resolvedSourceDir;
+                        console.log(`  [source-dir] 已注入源代码路径: ${resolvedSourceDir}`);
+                    }
                     fs.writeFileSync(designDataPath, JSON.stringify(designData, null, 2), 'utf-8');
                     const designScript = path.join(paths.scriptsDir, 'design-generator.py');
                     const resolvedTemplate = path.isAbsolute(options.templatePath) ? options.templatePath : path.resolve(process.cwd(), options.templatePath);
 
                     // 图表生成管线：为详细设计生成架构图/网络图/部署图
+                    // v9.1 修复：diagramDir 按需求名隔离，避免多需求共用同一套图
                     let diagramDir = null;
                     try {
                         const { DiagramService } = require('./lib/diagram-service');
@@ -460,7 +544,7 @@ async function generateDocument(options) {
                             techStack: ['Spring Boot', 'MyBatis', 'Vue.js'],
                         };
                         const diagramService = new DiagramService({
-                            outputDir,
+                            outputDir: path.join(outputDir, 'diagrams', moduleName),
                             projectName: moduleName,
                             useAntV: options.useAntV !== false,
                             fallbackToMatplotlib: true,
@@ -483,7 +567,7 @@ async function generateDocument(options) {
                         if (umlEngine === 'graphviz') {
                             const { EnhancedUmlService } = require('./lib/enhanced-uml-service');
                             const umlService = new EnhancedUmlService({
-                                outputDir,
+                                outputDir: path.join(outputDir, 'diagrams', moduleName, 'uml'),
                                 projectName: moduleName,
                                 fallbackToPython: true,
                             });
@@ -517,7 +601,7 @@ async function generateDocument(options) {
                                 };
                                 // 用 Graphviz 风格但保留旧 generateAll 行为
                                 const oldGen = require('./lib/uml-generator');
-                                const oldUmlGen = new oldGen.UmlGenerator({ outputDir, projectName: moduleName, useAntV: false, fallbackToMatplotlib: false });
+                                const oldUmlGen = new oldGen.UmlGenerator({ outputDir: path.join(outputDir, 'diagrams', moduleName, 'uml'), projectName: moduleName, useAntV: false, fallbackToMatplotlib: false });
                                 const oldResult = await oldUmlGen.generateAll(lightScanDataForUml);
                                 umlDir = oldUmlGen.getUmlDir();
                                 const ok = oldResult.results.filter(r => r.png && r.png.success).length;
@@ -527,7 +611,7 @@ async function generateDocument(options) {
                             // mermaid 旧版兼容
                             const { UmlGenerator } = require('./lib/uml-generator');
                             const umlGen = new UmlGenerator({
-                                outputDir,
+                                outputDir: path.join(outputDir, 'diagrams', moduleName, 'uml'),
                                 projectName: moduleName,
                                 useAntV: options.useAntV !== false,
                                 fallbackToMatplotlib: true,
@@ -712,6 +796,28 @@ function _extractUmlModules(businessModules, moduleName) {
 async function generateOutlineDesign(options, outputDir, profile, jsonMode) {
     const { execFileSync } = require('child_process');
     const { ProjectScanner } = require('./lib/project-scanner');
+
+    // v9.0：银行级配置加载（--bank 参数），自动注入 coverPlaceholders/template 等
+    let bankConfig = null;
+    if (options.bankCode) {
+        const { BankConfigLoader } = require('./lib/bank-config-loader');
+        const loader = new BankConfigLoader(options.bankCode);
+        bankConfig = loader.load();
+        console.log(`[bank-config] 已加载银行配置: ${bankConfig.bankName} (${options.bankCode})`);
+        // 银行配置中的 coverPlaceholders 合并到用户参数（用户显式参数优先）
+        if (!options.coverPlaceholders || Object.keys(options.coverPlaceholders).length === 0) {
+            const bankPlaceholders = bankConfig.getCoverPlaceholdersString();
+            if (bankPlaceholders) {
+                options.coverPlaceholders = parsePlaceholderMap(bankPlaceholders);
+                console.log(`[bank-config] 已注入银行封面占位替换: ${Object.keys(options.coverPlaceholders).length} 项`);
+            }
+        }
+        // 银行配置中的概要设计模板（用户未指定时使用）
+        if (!options.templatePath && bankConfig.getOutlineDesignTemplate()) {
+            options.templatePath = bankConfig.getOutlineDesignTemplate();
+            console.log(`[bank-config] 已注入银行概要设计模板: ${options.templatePath}`);
+        }
+    }
 
     // 2026-06-02 新增：模板驱动参数透传给Python脚本
     if (options.coverPlaceholders && Object.keys(options.coverPlaceholders).length > 0) {

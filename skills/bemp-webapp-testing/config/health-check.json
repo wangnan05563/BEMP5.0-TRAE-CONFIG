@@ -1,0 +1,35 @@
+{
+  "_doc": "服务健康检查配置 - 测试前自动校验服务可用性",
+  "_ref": "端口引用 _shared/env-config.json 的 services 节，通过 ${ENV:} 占位符解析",
+  "services": {
+    "springboot": {
+      "port": "${ENV:BEMP_BACKEND_PORT:8010}",
+      "description": "SpringBoot后端API服务",
+      "maxWaitSeconds": 600,
+      "pollIntervalSeconds": 30,
+      "required": true
+    },
+    "frontend": {
+      "port": "${ENV:BEMP_FRONTEND_PORT:8091}",
+      "description": "Node.js前端开发服务器",
+      "maxWaitSeconds": 600,
+      "pollIntervalSeconds": 30,
+      "required": true
+    },
+    "redis": {
+      "port": "${ENV:BEMP_BACKEND_PORT_REDIS:6379}",
+      "description": "Redis缓存数据库",
+      "maxWaitSeconds": 60,
+      "pollIntervalSeconds": 10,
+      "required": true
+    },
+    "zookeeper": {
+      "port": "${ENV:BEMP_BACKEND_PORT_ZK:2181}",
+      "description": "ZooKeeper分布式协调服务",
+      "maxWaitSeconds": 60,
+      "pollIntervalSeconds": 10,
+      "required": true
+    }
+  },
+  "check_command": "netstat -ano | findstr \":{port} \" | findstr \"LISTEN\""
+}

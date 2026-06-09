@@ -20,9 +20,9 @@ triggers:
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `{BANK_CODE}` | 银行编码，用于目录路径和包名 | `hnnxbank` |
-| `{BANK_CLASS_PREFIX}` | 个性化类名前缀（PascalCase） | `Hnnx` |
-| `{BANK_NAME}` | 银行中文名称，用于部署目录 | `河南农信` |
+| `{BANK_CODE}` | 银行编码，用于目录路径和包名 | `${ENV:BANK_CODE}` |
+| `{BANK_CLASS_PREFIX}` | 个性化类名前缀（PascalCase） | `${ENV:BANK_CLASS_PREFIX}` |
+| `{BANK_NAME}` | 银行中文名称，用于部署目录 | `${ENV:BANK_NAME}` |
 
 **使用规则**：
 - 本文档中所有路径、命名均使用 `{BANK_CODE}`、`{BANK_CLASS_PREFIX}`、`{BANK_NAME}` 占位
@@ -44,6 +44,8 @@ triggers:
 ```
 bemp-personalized-dev/
 ├── SKILL.md                          # 本文件 - Skill 定义
+├── config/
+│   └── compile-deploy.json           # 编译→部署→重启路径配置
 ├── assets/
 │   ├── guides/                       # 开发指南（规范+模板合并）
 │   │   ├── frontend-guide.md         # 前端开发指南（规范+模板）
@@ -64,6 +66,7 @@ bemp-personalized-dev/
 │           └── configcenter.json     # 配置中心增量文件模板
 └── references/                       # 参考文档
     ├── project-rules.md              # 项目规则（核心约束）
+    ├── override-patterns.md          # 子类Override模式知识库
     └── faq.md                        # 常见问题与最佳实践
 ```
 
@@ -78,6 +81,7 @@ bemp-personalized-dev/
 | 数据库 | [database-guide.md](assets/guides/database-guide.md) | 表设计规范、字段命名、DDL/DML模板、MyBatis Mapper模板 |
 | Adapter | [adapter-guide.md](assets/guides/adapter-guide.md) | Client/Server端规范、报文转换、签名服务模板 |
 | 项目规则 | [project-rules.md](references/project-rules.md) | 版本约束、目录规范、核心约束 |
+| Override模式 | [override-patterns.md](references/override-patterns.md) | 响应DTO字段传递、Bean注入方式、编译部署重启闭环 |
 | HUI组件文档 | `hui_doc` MCP | H-UI 组件属性、方法、事件、使用示例及最佳实践 |
 | FAQ | [faq.md](references/faq.md) | 常见问题解答、最佳实践 |
 
@@ -107,6 +111,7 @@ bemp-personalized-dev/
    - **数据库开发**: 必须参考 [数据库开发指南](assets/guides/database-guide.md)
    - **Adapter 接口开发**: 必须参考 [Adapter接口开发指南](assets/guides/adapter-guide.md)
    - **项目规则**: 必须遵守 [项目规则](references/project-rules.md)
+   - **Override模式**: 后端开发涉及子类重写父类方法时，必须参考 [Override模式知识库](references/override-patterns.md)
    - **HUI组件文档**: 前端开发中涉及 H-UI 组件使用时，必须调用 `hui_doc` MCP 查询组件详细信息
    - 根据开发内容类型，选择对应的开发指南文档，确保编码符合规范要求
 
@@ -209,3 +214,33 @@ bemp-personalized-dev/
    - 检查是否存在未处理的异常分支
    - 确认敏感数据未在日志中明文输出
    - 验证权限校验逻辑是否完整
+
+10. **代码修改后的编译→部署→重启流程【强制】**
+    - **触发条件**：修改Java源代码后，必须执行以下3步才能使修改生效
+    - **配置文件**：路径和参数统一管理在 [compile-deploy.json](config/compile-deploy.json) 中，禁止硬编码
+    - **编译检查**：比较源文件(.java)和class文件的修改时间
+      - 源文件更新 → 需要编译
+      - 编译命令：`javac -encoding UTF-8 -cp "{classpath}" -d "{outputDir}" "{sourceFile}"`
+    - **部署检查**：比较target/classes和WAR/WEB-INF/classes中class文件的修改时间
+      - target/classes更新 → 需要复制
+      - 复制命令：`Copy-Item "{srcClass}" "{dstClass}" -Force`
+    - **重启检查**：比较class文件更新时间和SpringBoot启动时间
+      - class文件更新于启动之后 → 需要重启
+      - 重启命令：`.\start-bemp-env.ps1 -Service springboot -QuickStart -ForceRestart`
+    - **常见遗漏**：
+      - 只编译未复制class → 旧代码仍在运行
+      - 只复制class未重启 → JVM仍加载旧class
+      - 只重启未编译 → 运行的还是旧代码
+    - **Override模式参考**：子类重写父类方法时的字段传递陷阱，详见 [Override模式知识库](references/override-patterns.md)
+
+11. **数据库查询顺序不确定性提醒**
+    - **问题描述**：MyBatis查询无ORDER BY时，Oracle返回的记录顺序不确定，可能导致：
+      - 测试用例预期值与实际返回不一致
+      - 遍历List时先命中的记录与预期不同
+    - **解决方案**：
+      - 业务代码：如果需要确定顺序，必须显式指定ORDER BY
+      - 测试用例：预期值使用"包含"断言而非"等于"断言
+      - 异常信息：如果遍历到第一个匹配记录就抛异常，异常信息中的具体值可能不确定
+    - **判断逻辑**：
+      - 代码中遍历List并取第一个匹配项 → 提示顺序不确定性
+      - 测试预期值指定了具体账号/名称 → 建议改为"包含"断言

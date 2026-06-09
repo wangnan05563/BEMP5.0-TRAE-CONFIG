@@ -851,8 +851,8 @@ def _render_template(text, design_data=None, module_name=None):
     - 兜底：design_data 为 None 时仅替换内置变量
 
     示例：
-        _render_template('${moduleName}详细设计文档', {'moduleName': '客户号合并'})
-        → '客户号合并详细设计文档'
+        _render_template('${moduleName}详细设计文档', {'moduleName': '模块名称'})
+        → '模块名称详细设计文档'
     """
     if not text or '${' not in text:
         return text
@@ -1374,7 +1374,9 @@ def _find_matching_chapter(h1_title, h2_title, chapter_map):
 
 def generate_design_from_template(template_path, design_data_path, output_path, diagram_dir=None):
     """基于 .docx 模板生成详细设计文档"""
-    with open(r'D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\scripts\_fn_trace.log', 'a', encoding='utf-8') as _ftr:
+    # v9.1 修复：移除硬编码绝对路径，改为脚本同目录下的相对路径
+    _fn_trace_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_fn_trace.log')
+    with open(_fn_trace_path, 'a', encoding='utf-8') as _ftr:
         _ftr.write('[DBG-FN] generate_design_from_template called\n')
         _ftr.flush()
     shutil.copy2(template_path, output_path)
@@ -1807,7 +1809,8 @@ def generate_design_from_template(template_path, design_data_path, output_path, 
     # 业务模块 ch 按需重新编号（如果模板 H1 数量 != business_chs 数量，
     # 多的追加为新 H1，少的丢弃）
     if business_chs:
-        with open(r'D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\scripts\_fn_trace.log', 'a', encoding='utf-8') as _ftr:
+        _fn_trace_path2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_fn_trace.log')
+        with open(_fn_trace_path2, 'a', encoding='utf-8') as _ftr:
             _ftr.write(f'[DBG-LOOP] business_chs count={len(business_chs)}, biz_module_h1s count={len(biz_module_h1s)}\n')
             _ftr.flush()
         # 2026-06-06 新增：计算每个业务模块 H1 的"章节号"（= 在文档 H1 列表中的 1-indexed 位置）
@@ -1929,6 +1932,10 @@ def generate_design_from_template(template_path, design_data_path, output_path, 
     for kw, _label in EMPTY_CHECK_EXTRA:
         _remove_empty_table_between_headings(doc, start_keyword=kw, end_keyword=None,
                                              placeholder='不涉及')
+
+    # v9.1 新增：从 design_data 填充代码示例（必须在 fill_empty_chapter 之前，
+    # 否则"代码示例"标题下会被 fill_empty_chapter 填充为"不涉及"占位文字）
+    _fill_code_examples(doc, design_data)
 
     # 2026-06-04 新增：检查并填充空子标题（设计目标、输入项、输出项、代码示例、性能优化、附录等）
     fill_empty_chapter(doc, EMPTY_CHECK_KEYWORDS, placeholder='不涉及')
@@ -2904,8 +2911,11 @@ def _insert_diagrams(doc, diagram_dir):
             (['网络结构图', '网络拓扑', '网络图'], None),
             (['部署图', '部署架构'], None),
             (['类图', '类图设计'], None),
-            (['顺序图', '时序图', '序列图'], None),
-            (['活动图', '流程图'], None),
+            (['顺序图', '序列图'], None),
+            (['时序图'], None),
+            (['活动图'], None),
+            (['业务流程图', '业务流程'], None),
+            (['流程图'], None),
         ] for kw in kws])
         return
 
@@ -2927,8 +2937,11 @@ def _insert_diagrams(doc, diagram_dir):
         (['网络结构图', '网络拓扑', '网络图'], ['network-topology.png', 'network-topology.jpg']),
         (['部署图', '部署架构'], ['deployment-diagram.png', 'deployment-diagram.jpg']),
         (['类图', '类图设计'], ['class-diagram.png', 'class-diagram.jpg']),
-        (['顺序图', '时序图', '序列图'], ['sequence-diagram.png', 'sequence-diagram.jpg']),
-        (['活动图', '流程图'], ['activity-diagram.png', 'activity-diagram.jpg']),
+        (['顺序图', '序列图'], ['sequence-diagram.png', 'sequence-diagram.jpg']),
+        (['时序图'], ['timing-diagram.png', 'sequence-diagram.png', 'timing-diagram.jpg']),
+        (['活动图'], ['activity-diagram.png', 'activity-diagram.jpg']),
+        (['业务流程图', '业务流程'], ['business-flow.png', 'business-flow.jpg']),
+        (['流程图'], ['flow-diagram.png', 'activity-diagram.png', 'flow-diagram.jpg']),
         (['ER图', 'E-R图', '实体关系'], ['er-diagram.png', 'er-diagram.jpg']),
         (['数据流图', '数据流'], ['data-flow-diagram.png', 'data-flow-diagram.jpg']),
         (['状态图', '状态机'], ['state-diagram.png', 'state-diagram.jpg']),
@@ -4229,6 +4242,213 @@ def _build_component_specific_tech(doc, design_data):
     if DEBUG_LAYOUT:
         print(f'[DEBUG] _build_component_specific_tech: rewrote {rewritten} tech sections', file=sys.stderr)
     return rewritten
+
+
+def _fill_code_examples(doc, design_data):
+    """从 design_data 中提取代码示例数据，填充到文档中"代码示例"子标题下
+
+    v9.1 新增：解决5个详细设计的"代码示例"内容一致问题。
+    数据来源优先级：
+    1. design_data.codeSnippets（CLI 从实际 Java 源码扫描注入）
+    2. design_data.chapters 中"代码示例"section 的 content（headers + rows）
+
+    如果 design_data 中有 sourceDir，还会扫描实际 Java 源码提取方法签名。
+    """
+    if doc is None:
+        return 0
+
+    module_name = design_data.get('moduleName', '')
+    code_snippets = design_data.get('codeSnippets', [])
+
+    # 从 chapters 中查找"代码示例"section 的数据
+    chapters = design_data.get('chapters', [])
+    chapter_code_data = None
+    for ch in chapters:
+        for sec in ch.get('sections', []):
+            sec_title = sec.get('title', '')
+            if '代码示例' in sec_title:
+                content = sec.get('content', {})
+                if content.get('headers') and content.get('rows'):
+                    chapter_code_data = content
+                break
+        if chapter_code_data:
+            break
+
+    # 如果有 sourceDir，扫描实际 Java 源码
+    source_dir = design_data.get('sourceDir')
+    if source_dir and os.path.isdir(source_dir):
+        try:
+            scanned_snippets = _scan_java_source_for_examples(source_dir, module_name)
+            if scanned_snippets:
+                code_snippets = scanned_snippets  # 实际扫描结果优先
+        except Exception as e:
+            print(f'[WARN] _fill_code_examples: Java源码扫描失败: {e}', file=sys.stderr)
+
+    # 确定最终数据源
+    if not code_snippets and not chapter_code_data:
+        return 0
+
+    # 在文档中查找所有"代码示例"标题并填充
+    filled = 0
+    for p in doc.paragraphs:
+        if not p.style or not p.style.name.startswith('Heading'):
+            continue
+        p_text = re.sub(r'^\d+(\.\d+)*\s*', '', p.text.strip())
+        if p_text != '代码示例':
+            continue
+
+        # 检查标题下是否已有内容（非空段落或表格）
+        has_content = False
+        next_el = p._element.getnext()
+        while next_el is not None:
+            if next_el.tag.endswith('}p'):
+                t_elems = next_el.findall('.//' + qn('w:t'))
+                text = ''.join(t.text or '' for t in t_elems).strip()
+                if text and text != '不涉及' and text != '代码示例':
+                    has_content = True
+                    break
+            elif next_el.tag.endswith('}tbl'):
+                has_content = True
+                break
+            # 遇到下一个标题则停止
+            pPr = next_el.find('.//' + qn('w:pPr') + '/' + qn('w:pStyle'))
+            if pPr is not None:
+                style_val = pPr.get(qn('w:val'), '')
+                if style_val in ('1', '2', '3', '4', '5', '6',
+                                  'Heading1', 'Heading2', 'Heading3', 'Heading4', 'Heading5', 'Heading6'):
+                    break
+            next_el = next_el.getnext()
+
+        if has_content:
+            continue
+
+        # 优先使用 codeSnippets（实际扫描或 CLI 注入），否则用 chapter_code_data
+        if code_snippets:
+            _insert_code_snippet_table(doc, p, code_snippets)
+            filled += 1
+        elif chapter_code_data:
+            _insert_code_chapter_table(doc, p, chapter_code_data)
+            filled += 1
+
+    if filled > 0:
+        print(f'[INFO] _fill_code_examples: 填充了 {filled} 个代码示例章节', file=sys.stderr)
+    return filled
+
+
+def _scan_java_source_for_examples(source_dir, module_name):
+    """扫描 Java 源代码目录，提取关键方法签名作为代码示例
+
+    返回格式: [{className, methodName, description, lines}]
+    """
+    snippets = []
+    java_files = []
+    for root, _dirs, files in os.walk(source_dir):
+        for f in files:
+            if f.endswith('.java') and 'Test' not in f:
+                java_files.append(os.path.join(root, f))
+
+    # 限制扫描文件数，避免过多
+    for jf in java_files[:10]:
+        try:
+            with open(jf, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read(50000)  # 限制读取大小
+            class_name = os.path.basename(jf).replace('.java', '')
+            # 提取 public 方法签名
+            method_pattern = re.compile(
+                r'(public|protected)\s+\S+\s+(\w+)\s*\([^)]*\)',
+                re.MULTILINE
+            )
+            for match in method_pattern.finditer(content):
+                method_name = match.group(2)
+                # 跳过 getter/setter/toString 等通用方法
+                if method_name.startswith(('get', 'set', 'is', 'toString', 'hashCode', 'equals')):
+                    continue
+                snippets.append({
+                    'className': class_name,
+                    'methodName': method_name,
+                    'description': f'{class_name}.{method_name} 方法',
+                    'lines': '约20行'
+                })
+                if len(snippets) >= 8:
+                    break
+        except Exception:
+            continue
+        if len(snippets) >= 8:
+            break
+    return snippets
+
+
+def _insert_code_snippet_table(doc, heading_para, snippets):
+    """在标题下插入代码示例表格（来自 codeSnippets 数据）"""
+    headers = ['类名', '方法名', '说明', '代码行数']
+    rows = []
+    for s in snippets:
+        rows.append([
+            s.get('className', ''),
+            s.get('methodName', ''),
+            s.get('description', ''),
+            s.get('lines', '')
+        ])
+    _insert_table_after_heading(doc, heading_para, headers, rows)
+
+
+def _insert_code_chapter_table(doc, heading_para, chapter_data):
+    """在标题下插入代码示例表格（来自 chapters 中的 content 数据）"""
+    headers = chapter_data.get('headers', ['类名', '方法名', '说明', '代码行数'])
+    rows = chapter_data.get('rows', [])
+    _insert_table_after_heading(doc, heading_para, headers, rows)
+
+
+def _insert_table_after_heading(doc, heading_para, headers, rows):
+    """在标题段落后插入一个表格"""
+    if not headers or not rows:
+        return
+    # 清除标题下的"不涉及"占位文字
+    next_el = heading_para._element.getnext()
+    while next_el is not None:
+        if next_el.tag.endswith('}p'):
+            t_elems = next_el.findall('.//' + qn('w:t'))
+            text = ''.join(t.text or '' for t in t_elems).strip()
+            if text == '不涉及':
+                # 清除占位文字
+                for t in t_elems:
+                    t.text = ''
+                break
+            elif text:
+                break  # 有其他内容，不覆盖
+        elif next_el.tag.endswith('}tbl'):
+            break  # 已有表格
+        pPr = next_el.find('.//' + qn('w:pPr') + '/' + qn('w:pStyle'))
+        if pPr is not None:
+            style_val = pPr.get(qn('w:val'), '')
+            if style_val in ('1', '2', '3', '4', '5', '6',
+                              'Heading1', 'Heading2', 'Heading3', 'Heading4', 'Heading5', 'Heading6'):
+                break
+        next_el = next_el.getnext()
+
+    # 创建表格
+    table = doc.add_table(rows=1 + len(rows), cols=len(headers))
+    table.style = 'Table Grid'
+    # 表头
+    for i, h in enumerate(headers):
+        cell = table.rows[0].cells[i]
+        cell.text = h
+        for p in cell.paragraphs:
+            for run in p.runs:
+                run.bold = True
+                run.font.size = Pt(TABLE_FONT_SIZE)
+    # 数据行
+    for r_idx, row_data in enumerate(rows):
+        for c_idx, val in enumerate(row_data):
+            if c_idx < len(headers):
+                cell = table.rows[r_idx + 1].cells[c_idx]
+                cell.text = str(val) if val else ''
+                for p in cell.paragraphs:
+                    for run in p.runs:
+                        run.font.size = Pt(TABLE_FONT_SIZE)
+
+    # 将表格移动到标题后面
+    heading_para._element.addnext(table._element)
 
 
 def _find_next_heading_in_range(body, start_para, heading_keyword, stop_headings=None):

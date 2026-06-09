@@ -2,14 +2,13 @@
 name: bemp-webapp-testing
 version: "2.0.0"
 description: "基于 Playwright 实现 BEMP 票据系统的 Web 端自动化测试，覆盖：服务健康检查、登录态管理、页面功能验证、个性化路径校验、控制台错误检测、组件交互测试。通过配置驱动支持多银行环境无缝切换。接收 bemp-testcase-generator 编写的测试用例并执行验证，是 BEMP 测试流程中'用例执行'环节的唯一执行技能。共享资源（用例文档、参考指南、用例索引）由 bemp-test-common 统一管理。通过 Python 脚本（scripts/run_test.py、scripts/test_accept_bank_credit.py）驱动 Playwright 执行测试，支持 --bank 参数切换银行环境。"
-whenToUse: "开发完成后需要验证功能、修复 bug 后需要回归测试、bemp-testcase-generator 编写完测试用例后需要执行验证、首轮测试时调用、执行 test-cases/ 目录中的用例、执行页面冒烟测试、执行承兑行额度 E2E 测试"
+whenToUse: "开发完成后需要验证功能、修复 bug 后需要回归测试、bemp-testcase-generator 编写完测试用例后需要执行验证、首轮测试时调用、执行页面冒烟测试、执行承兑行额度 E2E 测试"
 triggers:
   - "测试/功能/自动化/复现/页面 验证"
   - "页面/自动化/功能/需求/前端/UI/组件 测试"
   - "用例/案例 执行"
   - "执行测试用例/运行测试/自动化功能测试"
   - "bemp.testcase.generator 生成用例后"
-  - "执行 test-cases/ 目录中的测试用例"
   - "首轮测试/回归测试"
 ---
 
@@ -29,7 +28,8 @@ bemp-webapp-testing/
 ├── SKILL.md                          本文件
 ├── config/
 │   ├── test_config.json              核心配置（银行/服务/选择器/会话/错误过滤）
-│   └── test_config.schema.json       JSON Schema 校验定义
+│   ├── test_config.schema.json       JSON Schema 校验定义
+│   └── health-check.json             服务健康检查配置（端口/超时/轮询间隔）
 ├── scripts/
 │   ├── common.py                     公共工具函数（选择器解析、截图、日志等）
 │   ├── health_check.py               服务健康检查 + 配置校验 (--validate-only)
@@ -48,13 +48,16 @@ bemp-webapp-testing/
 └── test-data/                        测试账号
 ```
 
-> 以下资源已迁移至 `bemp-test-common/`，由 common 统一管理：
+> 以下资源已迁移至共享技能，由对应技能统一管理：
 > - `references/website-functional-map.md` → `bemp-test-common/references/website-functional-map.md`
 > - `references/test-priority-matrix.md` → `bemp-test-common/references/test-priority-matrix.md`
 > - `references/testing-standards.md` → `bemp-test-common/references/testing-standards.md`
 > - `references/test-data-management.md` → `bemp-test-common/references/test-data-management.md`
 > - `test-cases/` → `bemp-test-common/test-cases/`
 > - `test-index.json` → `bemp-test-common/test-index.json`
+> - `config/test-case-schema.yaml` → `bemp-testcase-generator/config/test-case-schema.yaml`
+> - `config/test-cases/` → `bemp-testcase-generator/config/test-cases/`
+> - `config/test-data-check.json` → `bemp-testcase-generator/config/test-data-check.json`
 
 > 所有运行时产物统一输出至项目根目录 `aotutests-playwright/`（报告/截图/会话/日志），详见下方输出规范。
 
@@ -74,6 +77,117 @@ bemp-webapp-testing/
 
 > 详细选择器用法见 `config/test_config.json` selectors 节点，组件交互模式见 `references/bemp-component-guide.md`
 
+## 测试用例配置驱动（零硬编码）
+
+测试用例通过 YAML 配置文件定义，API路径、参数、预期值均从配置读取，禁止在 prompt 或脚本中硬编码。
+
+### 配置加载优先级
+
+```
+bank-specific (bemp-testcase-generator/config/test-cases/{bank_id}/*.yaml)
+    > 通用 (bemp-testcase-generator/config/test-cases/*.yaml)
+    > Schema默认值 (bemp-testcase-generator/config/test-case-schema.yaml)
+```
+
+合并策略：deep_merge，bank-specific 配置覆盖通用配置的同名字段。
+
+### 用例配置格式
+
+每个 YAML 文件定义一个模块的测试用例，核心字段：
+
+| 字段 | 说明 |
+|:---|:---|
+| `module` | 模块标识（大写，如 ECIFMRG） |
+| `api.path` | API路径（不含base_url） |
+| `api.method` | 请求方法（默认POST） |
+| `api.content_type` | 内容类型（默认application/x-www-form-urlencoded） |
+| `test_cases[].id` | 用例编号 |
+| `test_cases[].priority` | 优先级（P0/P1/P2） |
+| `test_cases[].request.params` | 请求参数（key-value） |
+| `test_cases[].assertions[].field` | 断言字段（支持点号路径如 retData.chkRsltRetRsn） |
+| `test_cases[].assertions[].operator` | 断言算子（equals/contains/not_equals/matches/is_null/is_not_null） |
+| `test_cases[].assertions[].expected` | 预期值 |
+| `test_cases[].failure_category_hint` | 失败分类提示（code_defect/data_defect/env_defect/config_defect） |
+
+### 断言算子说明
+
+| 算子 | 含义 | 典型场景 |
+|:---|:---|:---|
+| `equals` | 精确匹配 | retCode == "000000" |
+| `not_equals` | 不等于 | retCode != "000000" |
+| `contains` | 包含子串 | retMsg含"账号已报备"，解决DB查询顺序不确定问题 |
+| `not_contains` | 不包含 | retMsg不含"异常" |
+| `matches` | 正则匹配 | retCode匹配"^[0-9]{6}$" |
+| `is_null` | 为空 | 错误场景下retData为空 |
+| `is_not_null` | 不为空 | 正常场景下retData非空 |
+
+### 新增用例步骤
+
+1. 在 `bemp-testcase-generator/config/test-cases/` 下创建或编辑 YAML 文件
+2. 按 Schema 格式添加 test_cases 条目
+3. 如需银行级覆盖，在 `bemp-testcase-generator/config/test-cases/{bank_id}/` 下创建同名 YAML，仅写覆盖字段
+4. 执行测试验证
+
+> Schema完整定义见 `bemp-testcase-generator/config/test-case-schema.yaml`，示例见 `bemp-testcase-generator/config/test-cases/ecif-cust-merge.yaml`
+
+## 服务健康检查（测试前必执行）
+
+### 自动端口检查
+
+测试执行前，自动检查以下服务端口是否监听：
+
+| 服务 | 默认端口 | 配置来源 |
+|:---|:---|:---|
+| SpringBoot | 8010 | `config/health-check.json` services.springboot.port |
+| Frontend | 8091 | `config/health-check.json` services.frontend.port |
+| Redis | 6379 | `config/health-check.json` services.redis.port |
+| ZooKeeper | 2181 | `config/health-check.json` services.zookeeper.port |
+
+检查方式：通过 RunCommand 执行 `netstat -ano | findstr ":{port} " | findstr "LISTEN"`
+
+### 自动等待逻辑
+
+如果端口未监听，自动等待：
+- 最长等待：`maxWaitSeconds`（SpringBoot/Frontend默认600秒，Redis/ZK默认60秒）
+- 轮询间隔：`pollIntervalSeconds`（SpringBoot/Frontend默认30秒，Redis/ZK默认10秒）
+- 超时后报告"服务启动超时"，**不继续执行测试**，返回 BLOCKED 状态
+
+### 银行级覆盖
+
+`config/health-check.json` 的 `bank_overrides.{bank_id}` 节点可覆盖默认端口和超时配置，通过 `--bank` 参数自动加载。
+
+> 完整配置见 `config/health-check.json`
+
+## 测试数据一致性校验（测试前必执行）
+
+### LEGAL_NO一致性检查
+
+自动查询 TM_CUST_ELEC_SIGN 和 TM_CUST_CORP 表中测试数据的 LEGAL_NO 是否一致。不一致时签约报备校验逻辑会异常。
+
+校验SQL（来自 `bemp-testcase-generator/config/test-data-check.json` consistencyChecks[0].checkSql）：
+
+```sql
+SELECT e.CUST_NO, e.LEGAL_NO AS SIGN_LEGAL_NO, c.LEGAL_NO AS CORP_LEGAL_NO
+FROM TM_CUST_ELEC_SIGN e
+JOIN TM_CUST_CORP c ON e.CUST_NO = c.CUST_NO
+WHERE e.CUST_NO LIKE '{testDataPrefix}%'
+AND e.LEGAL_NO != c.LEGAL_NO
+```
+
+### 自动修复
+
+当 `autoFix=true` 时，自动执行修复SQL（UPDATE签约表的LEGAL_NO为客户表的LEGAL_NO）。修复前须截图记录不一致数据。
+
+### 配置管理
+
+| 配置项 | 说明 | 配置来源 |
+|:---|:---|:---|
+| testDataPrefix | 测试数据前缀 | `bemp-testcase-generator/config/test-data-check.json` testDataPrefix |
+| consistencyChecks | 校验规则列表 | `bemp-testcase-generator/config/test-data-check.json` consistencyChecks |
+| bank_overrides | 银行级覆盖 | `bemp-testcase-generator/config/test-data-check.json` bank_overrides.{bank_id} |
+
+> 完整配置见 `bemp-testcase-generator/config/test-data-check.json`
+
 ## 快速开始
 
 ```powershell
@@ -82,12 +196,12 @@ bemp-webapp-testing/
 
 # 2. 环境检查
 python scripts/health_check.py
-python scripts/health_check.py --bank hnnxbank
+python scripts/health_check.py --bank ${ENV:BANK_CODE}
 python scripts/health_check.py --validate-only    # 仅校验配置
 
 # 3. 运行测试
 python scripts/run_test.py --test all
-python scripts/run_test.py --test all --bank hnnxbank --role admin
+python scripts/run_test.py --test all --bank ${ENV:BANK_CODE} --role admin
 python scripts/run_test.py --test branch --no-headless    # 可见模式调试
 
 # 4. 查看报告 → aotutests-playwright/reports/{bank_id}/YYYY-MM/ 目录
@@ -127,13 +241,16 @@ aotutests-playwright/
 
 | 步骤 | 操作 | 命令/要点 |
 |:---|:---|:---|
-| ① 代码预检 | 前端代码必检项（@on-click/@views/Col:）<br/>⚠️ 多银行时确认 glob 匹配当前 `active_bank` | `run_test.py` 内置，或手动 Select-String |
-| ② 环境预检 | 确认后端(8010)、前端(8091)、Redis、ZK | `python scripts/health_check.py` |
-| ③ 测试数据 | Oracle MCP 查询/补充测试数据 | 详见 `bemp-test-common/references/test-data-management.md` |
-| ④ 登录 | LoginManager 自动处理（storage_state 复用） | `python scripts/login_manager.py --pre-login` |
-| ⑤ 导航 | Vue 懒加载路由须菜单点击注册，URL 回退 | `references/bemp-component-guide.md` |
-| ⑥ 测试 | 弹窗交互 / DataGrid 查询 / 控制台错误检测 | `references/bemp-component-guide.md` |
-| ⑦ 报告 | Markdown 格式，含 Token 消耗统计 | `aotutests-playwright/reports/` |
+| 0a 服务健康检查 | 自动检查端口监听，未就绪则等待（配置见 `config/health-check.json`） | `netstat -ano \| findstr ":{port} " \| findstr "LISTEN"` |
+| 0b 数据一致性校验 | 自动校验LEGAL_NO等字段一致性，不一致则自动修复（配置见 `bemp-testcase-generator/config/test-data-check.json`） | Oracle MCP 执行 checkSql |
+| 1 代码预检 | 前端代码必检项（@on-click/@views/Col:）⚠️ 多银行时确认 glob 匹配当前 `active_bank` | `run_test.py` 内置，或手动 Select-String |
+| 2 环境预检 | 确认后端(8010)、前端(8091)、Redis、ZK | `python scripts/health_check.py` |
+| 3 测试数据 | Oracle MCP 查询/补充测试数据 | 详见 `bemp-test-common/references/test-data-management.md` |
+| 4 登录 | LoginManager 自动处理（storage_state 复用） | `python scripts/login_manager.py --pre-login` |
+| 5 导航 | Vue 懒加载路由须菜单点击注册，URL 回退 | `references/bemp-component-guide.md` |
+| 6 测试 | 弹窗交互 / DataGrid 查询 / 控制台错误检测 / API断言（YAML配置驱动） | `references/bemp-component-guide.md` + `bemp-testcase-generator/config/test-cases/` |
+| 7 失败诊断 | 自动按 环境→数据→代码→配置 逐层诊断，输出分类和建议 | 见"测试失败自动诊断"章节 |
+| 8 报告 | Markdown 格式，含 Token 消耗统计 + 失败诊断分类 | `aotutests-playwright/reports/` |
 
 > BEMP Chrome 模式下密码字段可能是 tempPassword，登录按钮文本可能是"登 录"(含空格)
 > 弹窗操作必须先截图后断言，关闭弹窗前不要导航
@@ -151,6 +268,51 @@ aotutests-playwright/
 | PASS | 功能正常，无 TypeError/ReferenceError |
 | FAIL | 结果不符预期，或存在致命 JS 错误 |
 | BLOCKED | 服务不可达、登录失败、数据缺失 |
+
+## 测试失败自动诊断
+
+当测试用例失败时，按以下优先级逐层诊断，定位根因分类：
+
+### 诊断流程
+
+```
+Step 1: 环境检查 → 服务是否正常运行？端口是否监听？
+  ├─ 失败 → env_defect（服务未启动/端口未监听/网络不通）
+  └─ 通过 ↓
+
+Step 2: 数据检查 → 测试数据是否存在？LEGAL_NO是否一致？签约状态是否正确？
+  ├─ 失败 → data_defect（测试数据缺失/状态错误/LEGAL_NO不一致）
+  └─ 通过 ↓
+
+Step 3: 代码检查 → 个性化代码是否生效？class文件是否最新？SpringBoot是否已重启？
+  ├─ 失败 → code_defect（代码逻辑错误/class文件未更新/未重启）
+  └─ 通过 ↓
+
+Step 4: 配置检查 → API参数格式是否正确？legalNo是否与测试数据匹配？
+  ├─ 失败 → config_defect（API参数格式错误/legalNo不匹配）
+  └─ 通过 → code_defect（默认归因，需人工复核代码逻辑）
+```
+
+### 失败分类定义
+
+| 分类 | 根因 | 典型表现 |
+|:---|:---|:---|
+| `env_defect` | 环境问题 | 连接超时、端口未监听、服务503 |
+| `data_defect` | 数据问题 | 查询结果为空、LEGAL_NO不一致、签约状态与预期不符 |
+| `code_defect` | 代码问题 | 返回码不符合预期、逻辑判断错误、class文件时间戳早于源码 |
+| `config_defect` | 配置问题 | API参数格式错误、legalNo与测试数据不匹配、content_type错误 |
+
+### 诊断输出格式
+
+```
+[DIAGNOSIS] TC-ECIFMRG-011 失败诊断:
+  分类: code_defect
+  根因: retCode返回"000000"而非预期的非"000000"
+  诊断路径: 环境(OK) → 数据(OK) → 代码(FAIL)
+  建议: 检查 operCustMergeByCustNo 方法中报备状态判断逻辑
+```
+
+> 用例配置中的 `failure_category_hint` 字段提供默认分类提示，诊断结果可覆盖
 
 ## 最佳实践
 
@@ -180,6 +342,7 @@ aotutests-playwright/
 | `scripts/test_accept_bank_credit.py` | 承兑行额度管理 E2E（--bank 多银行） |
 | `config/test_config.json` | 核心配置（选择器/超时/银行/会话） |
 | `config/test_config.schema.json` | 配置 JSON Schema 校验定义 |
+| `config/health-check.json` | 服务健康检查配置（端口/超时/轮询/银行覆盖） |
 | `test-data/test-accounts.json` | 测试账号配置（按银行和角色） |
 
 ## 测试用例基准

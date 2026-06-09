@@ -90,7 +90,7 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 {
   "globalPaths": {
     "workspaceRoot": "d:\\code\\QJ\\BEMP5.0DEV",
-    "banksProjectPath": "d:\\code\\QJ\\BEMP5.0DEV\\banks\\ext-hnnxbank",
+    "banksProjectPath": "d:\\code\\QJ\\BEMP5.0DEV\\banks\\ext-${ENV:BANK_PROJECT_DIR}",
     "frontendProjectPath": "d:\\code\\QJ\\BEMP5.0DEV\\frontend",
     "traePath": "F:\\Program Files\\Trae CN\\Trae CN.exe",
     "javaHome": "D:\\code\\Java\\jdk1.8.0_341",
@@ -121,7 +121,7 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
       "enabled": true,
       "name": "SpringBoot",
       "mainClass": "com.hundsun.bemp.BempServedAppStarter",
-      "modulePath": "hnnxbank-served-deploy",
+      "modulePath": "${ENV:BANK_MODULE_PREFIX}served-deploy",
       "warFile": "bemp-served.war",
       "port": 8010,
       "debugPort": 5005,
@@ -243,8 +243,8 @@ Frontend          8091 [--] Stopped
 当 WAR 文件不存在时，需要手动编译项目：
 
 ```powershell
-cd d:\code\QJ\BEMP5.0DEV\banks\ext-hnnxbank
-mvn clean install -DskipTests=true -pl hnnxbank-served-deploy -am
+cd d:\code\QJ\BEMP5.0DEV\banks\ext-${ENV:BANK_PROJECT_DIR}
+mvn clean install -DskipTests=true -pl ${ENV:BANK_MODULE_PREFIX}served-deploy -am
 ```
 
 ## 故障排查
