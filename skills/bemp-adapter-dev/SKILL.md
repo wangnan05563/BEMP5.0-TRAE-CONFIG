@@ -4,8 +4,8 @@ description: |
   BEMP 银行适配器 MessageConverter 开发技能。
   适用：(1) 新增 MessageConverter（Server/Client）；(2) 改造已有 Converter；(3) 接入新外围系统；
   (4) 编写/补充单元测试。覆盖 SOAP/WS、JSON、TCP+定长头、HTTP、AMQP、SOFA RPC 等协议。
-version: 11.1
-updated: 2026-06-05 (v202601.00 增量)
+version: 12.0
+updated: 2026-06-10 (v202602.00 新增 Mock-Msg 驱动开发章节)
 ---
 
 ## 触发条件
@@ -33,6 +33,88 @@ Do NOT use this skill when:
 | 5 | mock-msg | src/test/resources/mock-msg/ 有请求+应答报文 | 缺失 → 找业务方索取 |
 | 6 | 基类 | 决策树确定 | 多候选 → 优先同银行已有模式 |
 
+## Mock-Msg 驱动开发
+
+**核心原则**: mock-msg 是开发契约，先写报文再写代码。报文即测试数据，代码即报文映射。
+
+### Step 1: 获取报文
+
+```text
+业务方提供报文?
+  ├─ 是 → 验证完整性（有request+response、字段非空）→ 直接使用
+  └─ 否 → 从接口文档推断报文结构 → 标"待联调确认"
+           ├─ 有接口文档 → 提取字段列表+示例值 → 构造报文
+           └─ 无接口文档 → 阻塞，等业务方提供
+```
+
+**报文来源优先级**: 业务方提供 > 同银行同通道已有报文参考 > 接口文档推断
+
+### Step 2: 创建 mock-msg 文件
+
+| 规则 | 要求 |
+|------|------|
+| 目录 | `src/test/resources/mock-msg/<ConverterName>/` |
+| 命名 | `<bank>_<channel>_<func>_<biz>_<request\|response>.{xml\|json}` |
+| 数量 | >=1 请求 + >=1 应答 |
+| 编码 | UTF-8（查 bank-config.json mock_msg.encoding，默认 UTF-8） |
+| 内容 | 真实业务值，禁止空JSON/占位符/全零值 |
+| 注释 | XML 报文头部注释标明 bank/channel/func/base-class/报文特点 |
+
+**命名示例**:
+- `hnnxbank_ecif_PICE070701_request.xml`
+- `sanxbank_ebank_PICE070101_newBill_request.json`
+- `sanxbank_credit_POPC030102_occupyLimit_request.json`
+
+**报文特点注释模板**（XML 报文必须包含）:
+```xml
+<!--
+  mock-msg: <bank> <channel> <biz_desc>
+  bank: <bank-key>
+  channel: <channel>
+  func: <FUNC_CODE>
+  base-class: <base-class-name> (<template_mode>)
+  报文特点:
+    - <特点1: 如 XML 报文无 SOAP Envelope>
+    - <特点2: 如含数组字段>
+-->
+```
+
+### Step 3: 基于 mock-msg 编写 Converter
+
+**开发顺序**: mock-msg → fromMessage → toMessage → getFunctionIdMapping
+
+1. **fromMessage**: 按 mock-msg request 结构逐字段解析
+   - 每个字段映射对应 mock-msg 中的一个节点
+   - 嵌套节点先判 null 再取值
+   - 语义映射（值域转换）标注"测试假设"
+
+2. **toMessage**: 按 mock-msg response 结构组装
+   - 参考同银行同通道已有 Converter 的响应格式
+   - 成功响应至少包含 retCode + retMsg
+
+3. **getFunctionIdMapping**: 格式 `{外围交易码, 产品功能号}`
+   - 外围交易码从 mock-msg 或接口文档获取
+   - 产品功能号即类名前缀（PICE/BICE/POPC 等）
+
+### Step 4: 基于 mock-msg 编写 Test
+
+1. 继承对应测试基类（查 bank-config.json test_config 或 style_enum.test_template）
+2. 加载 mock-msg 文件作为输入
+3. 调用 Converter 方法
+4. 断言核心字段映射（>=3 个业务字段）
+5. 补充异常场景（必输字段缺失、报文非法）
+
+### 不确定性与失败处理
+
+| 不确定性 | 判定 | 处理 |
+|---------|------|------|
+| 报文结构不确定 | 有接口文档 → 不阻塞 | 从文档推断，标"待联调确认" |
+| 字段映射不确定 | 名不同义同 → 不阻塞 | 最保守假设，标"待确认" |
+| 响应格式不确定 | 无参考 → 不阻塞 | 参考同银行同通道已有 Converter |
+| mock-msg 与真实报文不一致 | 联调后才发现 | 联调后修正 mock-msg 并回归测试 |
+| 字段名大小写错误 | 编译不报错但运行时取值null | 严格使用 MessageConstants 常量 |
+| 嵌套节点路径错误 | fromMessage 返回空值 | 逐层 getNode 逐步调试 |
+
 ## 银行路由（按需加载）
 
 **必须先读取 config/bank-index.json**，按 bank-key 路由，禁止在主文件硬编码银行信息：
@@ -52,30 +134,35 @@ Do NOT use this skill when:
 - style 字段 → 查 style_enum 子对象 → 获取 base/msg/test_template
 ## 实施步骤
 
+> 所有步骤遵循 Mock-Msg 驱动开发原则：**先写报文，再写代码**。
+
 ### Server 端（被动接收）
 
 1. 选择基类（决策树 + 银行模板 custom_abstracts）
-2. 创建 *MessageConverter.java
-3. 重写 fromMessage(Message<?>)  解析外围报文为内部 JSON
-4. 重写 toMessage(Message<?>, JSONObject)  内部 JSON 拼装为外围响应
-5. 如需路由，重写 getFunctionIdMapping() 或 getWsdlDefinition()
-6. 编写配套 Test（见测试章节）
+2. **创建 mock-msg**（见 Mock-Msg 驱动开发 Step 1-2）
+3. 创建 *MessageConverter.java
+4. 基于 mock-msg request 重写 fromMessage(Message<?>)  解析外围报文为内部 JSON
+5. 基于 mock-msg response 重写 toMessage(Message<?>, JSONObject)  内部 JSON 拼装为外围响应
+6. 如需路由，重写 getFunctionIdMapping() 或 getWsdlDefinition()
+7. 基于 mock-msg 编写配套 Test（见 Mock-Msg 驱动开发 Step 4）
 
 ### Client 端（主动调用）
 
 1. 选择基类（决策树 + 银行模板 custom_abstracts）
-2. 创建 *MessageConverter.java
-3. 重写 toMessage(JSONObject)  内部 JSON 拼装为外围请求
-4. 重写 fromMessage(Message<?>, JSONObject)  解析外围响应为内部 JSON
-5. 配置通道
-6. 编写配套 Test
+2. **创建 mock-msg**（见 Mock-Msg 驱动开发 Step 1-2）
+3. 创建 *MessageConverter.java
+4. 基于 mock-msg request 重写 toMessage(JSONObject)  内部 JSON 拼装为外围请求
+5. 基于 mock-msg response 重写 fromMessage(Message<?>, JSONObject)  解析外围响应为内部 JSON
+6. 配置通道
+7. 基于 mock-msg 编写配套 Test
 
 ### 异步/通用 Converter
 
 1. 选择 AbstractGenericMessage* 系列基类
-2. 重写异步处理方法（process/handle）
-3. 配置消息中间件队列名
-4. 编写配套 Test（使用 @MockBean mock 中间件）
+2. **创建 mock-msg**（见 Mock-Msg 驱动开发 Step 1-2）
+3. 重写异步处理方法（process/handle）
+4. 配置消息中间件队列名
+5. 基于 mock-msg 编写配套 Test（使用 @MockBean mock 中间件）
 ## 基类决策树
 
 ### Step 1: 查 bank-index.json custom_abstracts
@@ -186,6 +273,10 @@ Client -> JSON:AbstractMessageRequestReplyConverter / HTTP:AbstractHttpMessageRe
 | ESB通道Bean找不到 | #esb通道未配置 | 检查Spring配置中tcpMessageChannel#esb |
 | EsbXmlUtils解析失败 | ESB信封节点名不匹配 | 使用银行专用工具类（查银行模板ref） |
 | 包名不一致 | 部分银行包名有例外 | 确认bank-index.json的pkg+pkg_note |
+| mock-msg加载失败 | 文件路径或命名不规范 | 检查目录名=Converter类名，文件名符合命名规范 |
+| mock报文字段全null | 报文节点路径与实际不匹配 | 对照mock-msg逐步调试getNode路径 |
+| Test假绿（断言未执行） | mock-msg为空JSON或占位符 | mock-msg必须含真实业务值（M8规则） |
+| 联调字段缺失 | mock-msg缺少生产报文中的字段 | 联调后补充缺失字段到mock-msg并回归 |
 
 ## 命名规范
 

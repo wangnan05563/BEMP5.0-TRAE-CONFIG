@@ -1,0 +1,112 @@
+{
+    "version": "1.0",
+    "description": "Docx to Markdown converter configuration",
+    
+    "merge_row": {
+        "enabled": true,
+        "threshold_ratio": 0.8,
+        "min_cell_count": 2
+    },
+    
+    "button_row": {
+        "enabled": true,
+        "cell_keywords": [
+            "新增", "修改", "删除", "关闭", "确定", "取消", "提交", "保存", "返回", "重置",
+            "复制", "撤回", "查询", "批量导入", "清单导出", "操作历史",
+            "导入", "导出", "查看利率明细", "导出利率模版", "导入利率模版"
+        ],
+        "min_button_count": 2,
+        "output_separator": " ",
+        "output_format": "[{button_text}]"
+    },
+    
+    "form_row": {
+        "enabled": true,
+        "patterns": [
+            "\\[.*\\]",
+            "<button>"
+        ]
+    },
+    
+    "title_row": {
+        "enabled": true,
+        "keywords": [],
+        "position": "first"
+    },
+    
+    "field_desc_table": {
+        "enabled": true,
+        "header_keywords": ["数据名称", "输入/输出", "表现形式"],
+        "deduplicate_consecutive": true
+    },
+    
+    "image": {
+        "enabled": true,
+        "output_dir": "images",
+        "naming_pattern": "img_{index}_{hash}",
+        "extensions": {
+            "image/png": ".png",
+            "image/jpeg": ".jpg",
+            "image/gif": ".gif",
+            "image/bmp": ".bmp",
+            "image/tiff": ".tiff",
+            "image/x-emf": ".emf",
+            "image/x-wmf": ".wmf"
+        },
+        "default_extension": ".png"
+    },
+    
+    "heading_number": {
+        "enabled": true,
+        "preserve_from_text": true,
+        "extract_from_numpr": true
+    },
+    
+    "spacing": {
+        "enabled": true,
+        "rules": {
+            "heading_after_normal": 1,
+            "heading_after_heading": 1,
+            "heading_after_table": 1,
+            "normal_after_heading": 0,
+            "normal_after_normal": 1,
+            "normal_after_table": 1,
+            "table_after_normal": 1,
+            "table_after_heading": 1,
+            "table_after_table": 0
+        }
+    },
+    
+    "list_number": {
+        "enabled": true,
+        "format": "{num}. ",
+        "reset_on_heading": true
+    },
+    
+    "implicit_heading": {
+        "enabled": true,
+        "max_length": 20,
+        "keywords": [
+            "业务规则", "查询界面", "界面设计", "新增", "修改", "删除", "复制", "提交", "撤回",
+            "删除确认", "提交确认", "修改确认", "复制确认", "提交复核确认", "撤销复核确认",
+            "操作历史", "栏位描述", "系统参数", "功能说明", "流程图", "流程图说明",
+            "岗位说明", "外围接口", "功能点", "业务背景", "问题描述", "需求说明",
+            "业务说明", "优化详情", "需求目标", "业务描述及流程", "需求背景"
+        ],
+        "exclude_punctuation": ["，", "。", "；", "：", "、", "【", "】"]
+    },
+    
+    "list_prefix": {
+        "enabled": true,
+        "symbols": ["●", "○", "■", "□", "◆", "◇", "•", "-", "*", "·"],
+        "number_pattern": "^\\d+[\\.、]"
+    },
+    
+    "indent": {
+        "enabled": true,
+        "unit": 720,
+        "default_level": 0
+    },
+    
+    "max_heading_level": 6
+}

@@ -702,5 +702,32 @@
             "branch": ">= 60%",
             "critical_methods": "100% (fromMessage / toMessage)"
         }
+    },
+    "mock_msg": {
+        "description": "Mock-Msg 驱动开发配置",
+        "base_dir": "src/test/resources/mock-msg",
+        "encoding": "UTF-8",
+        "path_template": "<base_dir>/<ConverterName>/<bank>_<channel>_<func>_<biz>_<type>.<ext>",
+        "required_files": ["request", "response"],
+        "file_ext_by_style": {
+            "XML": "xml",
+            "JSON_BASE": "json",
+            "JSON_DIRECT": "json",
+            "SERVER_XML+CLIENT_TCP_ESB": "xml",
+            "SERVER_JSON+CLIENT_HTTP": "json",
+            "SERVER_XML+CLIENT_MIXED": "xml"
+        },
+        "quality_rules": {
+            "no_empty_json": true,
+            "no_placeholder_values": true,
+            "no_all_zero_values": true,
+            "min_field_count": 3,
+            "xml_must_have_header_comment": true
+        },
+        "fallback_strategy": {
+            "no_mock_from_business": "从接口文档推断报文结构，标'待联调确认'",
+            "no_interface_doc": "阻塞，等业务方提供",
+            "response_format_uncertain": "参考同银行同通道已有 Converter 的响应格式"
+        }
     }
 }
