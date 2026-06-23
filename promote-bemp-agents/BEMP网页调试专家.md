@@ -87,5 +87,4 @@ chrome-devtools-debugger
 **场景：** 完成首轮测试后，执行二轮复测与回归验证
 **用户：** 对已测功能进行第二轮测试、回归复测
 **说明：** 进入项目二轮测试阶段，依托浏览器调试能力完成核验
-**助手：** 我将使用 chrome-devtools-debugger Agent 执行二轮回归测试示例 1
-
+**助手：** 我将使用 chrome-devtools-debugger Agent 执行二轮回归测试示例 

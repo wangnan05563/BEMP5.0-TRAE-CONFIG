@@ -76,9 +76,69 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-sonarqube-mcp\scripts
 ### 第一步：连接验证与项目确认
 
 ```
-1. 调用 search_my_sonarqube_projects 确认 MCP 可用
-2. 确认目标项目存在（默认：bemp-ext-hnnxbank）
-3. 读取 config/scan_config.json 获取项目配置
+1. 检查 MCP 可用性：
+   - 检查当前项目 MCP 服务器列表是否包含 SonarQube MCP
+   - MCP 可用 → 使用 MCP 工具执行扫描
+   - MCP 不可用 → 执行降级处理（见"降级处理"章节）
+
+2. MCP 可用时：
+   - 调用 search_my_sonarqube_projects 确认 MCP 连接
+   - 确认目标项目存在（默认：bemp-ext-hnnxbank）
+   - 读取 config/scan_config.json 获取项目配置
+
+3. Token 验证：
+   - 检查 SONARQUBE_TOKEN 环境变量是否设置
+   - Token 存在 → 验证 API 调用返回 200
+   - Token 无效或不存在 → 输出修复建议，终止流程
+```
+
+### 降级处理（MCP 不可用时）
+
+> **重要**：当 SonarQube MCP 工具不可用时，不得跳过智能体，必须执行降级处理。
+
+```
+1. 输出警告："SonarQube MCP 未配置，将使用 sonar-scanner 命令行工具"
+2. 读取 config/scan_config.json 获取 sonar_scanner 配置
+3. 生成 sonar-project.properties 配置文件（如不存在）
+4. 执行 scripts/run-sonar-scanner.ps1 作为降级方案
+5. 扫描完成后，验证结果上传到 SonarQube Web 界面
+6. 输出引导用户配置 MCP 的建议
+```
+
+**降级执行命令（Agent 执行）**：
+```powershell
+cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-sonarqube-mcp\scripts
+.\run-sonar-scanner.ps1 -ProjectKey "bemp-ext-hnnxbank-org-management" -Sources "hnnxbank-biz-as/src/main/java"
+```
+
+**可配置项**（config/scan_config.json → sonar_scanner）：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| scanner_home | ${ENV:SONAR_SCANNER_HOME} | sonar-scanner 安装目录 |
+| scanner_bin | bin\sonar-scanner.bat | 扫描器可执行文件路径 |
+| project_properties_template | sonar-project.properties.template | 项目配置模板文件 |
+| wait_timeout_seconds | 180 | 扫描等待超时时间 |
+
+### 结果验证（必须执行）
+
+> **重要**：扫描完成后，必须验证结果是否成功上传到 SonarQube Web 界面。
+
+```
+1. 检查扫描结果是否上传：
+   - 调用 HTTP GET {host}/api/projects/search?projects={project_key}
+   - 项目存在 → 扫描成功上传
+   - 项目不存在 → 扫描未上传，输出排查建议
+
+2. 获取质量门禁状态：
+   - 调用 HTTP GET {host}/api/qualitygates/project_status?projectKey={project_key}
+   - 解析门禁状态：OK / ERROR
+   - 输出门禁详情
+
+3. 输出标准化扫描报告（见"输出标准"章节）
+
+4. 输出访问地址：
+   - SonarQube Dashboard: {host}/dashboard?id={project_key}
 ```
 
 ### 第二步：功能模块代码定位

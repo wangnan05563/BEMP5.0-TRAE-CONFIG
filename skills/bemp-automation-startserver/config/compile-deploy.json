@@ -30,6 +30,13 @@
       "targetClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-ds/target/classes",
       "warClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/classes",
       "warLibDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/lib"
+    },
+    "_adapterPattern": "适配器模块编译部署到 adapter WAR 包",
+    "{modulePrefix}adapter-as": {
+      "sourceDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}adapter-as/src/main/java",
+      "targetClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}adapter-as/target/classes",
+      "warClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}adapter-deploy/target/bemp-adapter/WEB-INF/classes",
+      "warLibDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}adapter-deploy/target/bemp-adapter/WEB-INF/lib"
     }
   }
 }

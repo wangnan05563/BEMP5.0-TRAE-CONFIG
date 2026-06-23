@@ -145,7 +145,7 @@ JVM 内存不足时,修改 `config.json` 中的参数：
 ```json
 {
   "services": {
-    "springboot": {
+    "served": {
       "jvmOptions": "-Xmx512m -Xms256m"
     }
   }

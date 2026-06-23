@@ -338,9 +338,9 @@
       "subsystem": "be",
       "feature": "修改票据回购的记账逻辑",
       "priority": "P0",
-      "case_count": 21,
+      "case_count": 25,
       "scripts": [],
-      "description": "质押式正回购回购金额只读(3)、质押式逆回购校验(3)、边界回归(3)、安全(1)、联动(2)、BEMP验证(3)、接口测试(6)"
+      "description": "质押式正回购回购金额灰显与同步(3)、质押式逆回购灰显与同步(3)、逆回购提交后端校验(2)、卖出端正回购提交校验(2)、边界回归(3)、安全(1)、联动(2)、BEMP验证(3)、接口测试(6)；P0:18 P1:3 P2:2 P3:0"
     },
     {
       "id": "TC-ECIFMRG-001",
@@ -361,21 +361,31 @@
       "case_count": 12,
       "scripts": [],
       "description": "合并/修改客户号前报备状态校验：已报备+客户号变更→拒绝(3)、已报备+客户号不变→允许(1)、报备中/未报备→允许(1)、无签约记录→允许(1)、客户不存在→允许(1)、边界(2)、联动(2)、接口(2)、安全(1)；Java单元测试：HnnxEcif4001ServiceImplTest"
+    },
+    {
+      "id": "TC-CUSTACCT-010",
+      "file": "bemp-test-common/test-cases/bm/cust/custAcct-sign-check.md",
+      "subsystem": "bm",
+      "feature": "企业账号同步报备状态校验",
+      "priority": "P0",
+      "case_count": 12,
+      "scripts": [],
+      "description": "同步保存时报备状态校验：已报备+客户号不一致→拦截(1)、已报备+客户号一致→允许(1)、未报备→允许(1)、报备中→允许(1)、多账号部分拦截(1)、空列表(1)、空客户号(1)、空账号编号(1)、多签约记录(1)、ECIF合并豁免(1)、单笔同步入口(1)、个性化路径(1)、法人编号为空(1)；P0:4 P1:6 P2:2"
     }
   ],
   "summary": {
-    "total_cases": 33,
-    "total_estimated_count": 426,
+    "total_cases": 34,
+    "total_estimated_count": 442,
     "by_subsystem": {
       "common": 2,
       "sm": 5,
-      "bm": 17,
+      "bm": 18,
       "be": 4,
       "ce": 3,
       "adapter": 2
     },
     "by_priority": {
-      "P0": 23,
+      "P0": 24,
       "P1": 10,
       "P2": 2,
       "P3": 0,

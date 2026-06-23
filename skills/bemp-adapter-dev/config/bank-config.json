@@ -235,6 +235,48 @@
         ],
         "function_id_map_registration": "各Converter的getFunctionIdMapping()在afterPropertiesSet()时注册到FUNCTION_ID_MAP"
     },
+    "mapping_validation": {
+        "description": "getFunctionIdMapping 返回数组的格式校验配置",
+        "min_length": 2,
+        "separator_in_element_check": true,
+        "error_message": "功能号映射关系查找失败",
+        "root_cause": "逗号写在字符串内部导致数组长度=1，基类afterPropertiesSet()不注册映射",
+        "fix_pattern": "拆分为独立字符串元素：new String[]{\"外部服务码\", \"内部功能号\"}",
+        "ext_code_prefixes": ["EBBS", "ECIF", "BUP", "CMS", "JYT", "PICE", "BICE", "POPC", "BOCE", "POSH"],
+        "func_code_pattern": "^[A-Z]{4}\\d{6}$",
+        "base_class_registration_logic": {
+            "size_equals_2": "FUNCTION_ID_MAP.put(array[0], array[1])",
+            "size_greater_than_2": "前面所有元素作为key映射到最后一个元素",
+            "size_less_than_2": "打印'无效映射关系'，映射表为空，运行时报'功能号映射关系查找失败'"
+        },
+        "auto_check_rules": [
+            {
+                "id": "MAPPING_001",
+                "name": "数组长度检查",
+                "description": "getFunctionIdMapping返回数组长度必须>=min_length",
+                "severity": "CRITICAL"
+            },
+            {
+                "id": "MAPPING_002",
+                "name": "元素内逗号检查",
+                "description": "数组元素内不应包含逗号（逗号应在元素之间）",
+                "severity": "CRITICAL",
+                "detection_pattern": "\"[^\"]*,[^\"]*\""
+            },
+            {
+                "id": "MAPPING_003",
+                "name": "外部服务码前缀检查",
+                "description": "数组第一个元素必须匹配ext_code_prefixes中的前缀之一",
+                "severity": "MAJOR"
+            },
+            {
+                "id": "MAPPING_004",
+                "name": "内部功能号与类名一致性检查",
+                "description": "数组最后一个元素必须与Converter类名前缀一致",
+                "severity": "MAJOR"
+            }
+        ]
+    },
     "workspace_actual_banks": {
         "description": "当前 workspace 实际存在的银行清单（区别于上方历史支持银行）",
         "updated": "2026-06-02",

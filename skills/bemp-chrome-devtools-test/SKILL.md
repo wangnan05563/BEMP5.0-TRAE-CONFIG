@@ -23,6 +23,8 @@ triggers:
 | 弹窗/菜单交互 | [pitfalls](references/common-pitfalls.md) 陷阱2 | [advanced-workflows](references/advanced-workflows.md) §5 |
 | 状态流转验证 | [execution-checklist](references/execution-checklist.md) 阶段零+阶段六 | [advanced-workflows](references/advanced-workflows.md) §3 |
 | 缺陷回归验证 | [execution-checklist](references/execution-checklist.md) 快速模式 + 阶段九 | [pitfalls](references/common-pitfalls.md) §自动检测 |
+| API直接验证 | [advanced-workflows](references/advanced-workflows.md) §10 + [config](config/bemptest-config.json) api_validation | [pitfalls](references/common-pitfalls.md) 陷阱16 |
+| 批量用例执行 | [advanced-workflows](references/advanced-workflows.md) §10.4 | [config](config/bemptest-config.json) response_codes |
 | 全量回归 | [execution-checklist](references/execution-checklist.md) 全部 | 全部 references |
 | 生成报告 | [output-standards](references/output-standards.md) + [report-template](assets/verification-report-template.md) | — |
 
@@ -83,7 +85,25 @@ aotutests-devtools/                       项目根目录下的统一输出目�
 
 > 详细流程见 [tool-mapping.md 模式4](references/tool-mapping.md#模式4登录--导航一体)。**关键**：禁止 `fill_form`，HUI 组件必须 `evaluate_script` + `dispatchEvent('input')`。
 
-流程：填用户名 → dispatchEvent → 填密码 → dispatchEvent → click(登录) → 处理强制登录弹窗 → take_snapshot 确认。
+**登录多策略降级**（按优先级依次尝试）：
+
+| 策略 | 方法 | 适用场景 | 失败时降级到 |
+|------|------|---------|-------------|
+| A（首选） | 原生 setter + dispatchEvent | 大多数场景 | 策略B |
+| B（备选） | Vue 实例 handleLogin() | 策略A密码加密未触发时 | 策略C |
+| C（最终） | fill + dispatchEvent + blur | 策略B组件树查找失败时 | BLOCKED |
+
+**策略A 标准流程**：
+```
+evaluate_script(原生setter设置用户名) → dispatchEvent('input'+'change') → evaluate_script(原生setter设置密码) → dispatchEvent('input'+'change'+'blur') → click(登录按钮) → 处理强制登录弹窗 → take_snapshot确认
+```
+
+**强制登录弹窗处理**（必须检测）：
+```
+click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强制登录确认"弹窗 → click("是") → wait_for(networkidle) → take_snapshot确认
+```
+
+**密码来源**（禁止硬编码）：优先环境变量 → bemptest-config.json accounts → env-config.json 默认值。详见 [pitfalls](references/common-pitfalls.md) 陷阱25。
 
 ### 第三步：导航到目标页面
 
@@ -91,19 +111,77 @@ aotutests-devtools/                       项目根目录下的统一输出目�
 
 **方式B — 菜单点击**（Vue 懒加载路由必须）：见 [advanced-workflows.md §1](references/advanced-workflows.md#1-vue动态路由导航工作流)。核心：逐级点击菜单 → 每步 `wait_for(networkidle)` → 路由注册后可直接 `navigate_page`。
 
-**关键注意**：不同子菜单需分别点击注册；菜单文本因银行而异，先用 `take_snapshot` 确认。
+**菜单精确匹配**（避免歧义）：
+```
+1. 从 config selectors_by_bank.{bank_profile}.menu_tree 读取菜单层级
+2. evaluate_script 遍历 DOM 精确文本匹配（非模糊搜索）
+3. 每级菜单点击后 wait_for(networkidle)
+4. 若菜单文本不匹配 → take_snapshot 获取实际菜单文本 → 更新配置
+```
 
-### 第四步：执行功能操作
+**关键注意**：
+- 不同子菜单需分别点击注册；菜单文本因银行而异，先用 `take_snapshot` 确认
+- 点击一级菜单可能展开错误的子菜单（如点击"场内交易"却展开了"票据池"），需精确匹配菜单文本
+- 已注册路由在当前会话中有效，后续可直接 `navigate_page` 访问
+
+### 第四步-A：UI 操作模式
 
 操作模式速查（完整代码见 [tool-mapping.md §片段库](references/tool-mapping.md#evaluate_script-常用代码片段库)）：
 
-| 操作 | 模式 |
-|------|------|
-| 查询 | click(查询) → wait_for(networkidle) → take_screenshot |
-| 下拉选择 | click(触发器) → wait_for(列表) → click(选项) |
-| 弹窗CRUD | click(按钮) → wait_for(弹窗) → evaluate_script(填表) → click(确定) → wait_for(networkidle) |
-| 状态变更 | 操作前截图 → click(操作)→click(确认) → wait_for(networkidle) → 操作后截图 → 提取状态文本对比 |
-| 控制台检查 | list_console_messages → 过滤 TypeError/ReferenceError/ChunkLoadError |
+| 操作 | 模式 | 详见 |
+|------|------|------|
+| 查询 | click(查询) → wait_for(networkidle) → take_screenshot | — |
+| 下拉选择 | click(触发器) → wait_for(列表) → click(选项) | — |
+| 弹窗CRUD | click(按钮) → wait_for(弹窗) → evaluate_script(填表) → click(确定) → wait_for(networkidle) | — |
+| 状态变更 | 操作前截图 → click(操作)→click(确认) → wait_for(networkidle) → 操作后截图 → 提取状态文本对比 | — |
+| 控制台检查 | list_console_messages → 过滤 TypeError/ReferenceError/ChunkLoadError | — |
+| Dropdown操作 | evaluate_script(visible=true) → wait(300ms) → take_snapshot → click(下拉项) | [pitfalls](references/common-pitfalls.md) 陷阱20 / [tool-mapping](references/tool-mapping.md) 模式10 |
+| Window-Layer弹窗 | take_snapshot(检测) → evaluate_script(恢复最小化) → wait(500ms) → take_screenshot(确认) | [pitfalls](references/common-pitfalls.md) 陷阱21 / [tool-mapping](references/tool-mapping.md) 模式11 |
+| DataGrid行选中 | evaluate_script(同时设置selects+selectIds+currentSelectList) → $forceUpdate → wait(500ms) | [pitfalls](references/common-pitfalls.md) 陷阱23 / [tool-mapping](references/tool-mapping.md) 模式12 |
+| v-if条件字段 | evaluate_script(检测可见性) → 设置触发条件 → wait(500ms) → 设置字段值 | [pitfalls](references/common-pitfalls.md) 陷阱24 / [tool-mapping](references/tool-mapping.md) 模式13 |
+| 弹窗关闭后恢复 | click(关闭) → evaluate_script(检查URL) → 若跳转则navigate_page恢复 | [pitfalls](references/common-pitfalls.md) 陷阱22 / [tool-mapping](references/tool-mapping.md) 模式14 |
+
+### 第四步-B：API 直接验证模式
+
+> 详细工作流与代码模板见 [advanced-workflows.md §10](references/advanced-workflows.md#10-api直接验证工作流)。
+
+**适用场景**（优先于 UI 验证）：
+- 验证个性化 Controller/Service 的校验逻辑（如报备校验、参数校验）
+- 批量执行 P0/P1 测试用例（API 级别效率远高于 UI 操作）
+- UI 流程受阻但需确认后端逻辑是否正确
+- 数据准备/修复后快速验证
+
+**不适用场景**：
+- 需验证前端 UI 渲染效果、CSS 样式、布局
+- 需验证浏览器兼容性
+- 需验证 Vue 组件属性覆盖是否生效（需 evaluate_script 而非 fetch）
+
+**验证策略决策树**：
+
+```
+测试目标
+├─ 核心校验逻辑验证 → 优先 API 直接验证（高效、稳定、不受 UI 干扰）
+├─ UI 交互验证 → Chrome DevTools UI 操作（第四步-A）
+├─ Vue 组件属性覆盖验证 → evaluate_script 读取组件实例
+└─ 数据准备/修复 → Oracle MCP + 前端刷新
+```
+
+**标准流程**：
+
+```
+1. 确保已登录（有 Admin-Token cookie）
+2. evaluate_script: 构造 URLSearchParams 请求体
+3. evaluate_script: fetch(apiPath, {method:'POST', headers, body})
+4. 解析 response.json()，比对 retCode 和 retMsg 与预期值
+5. 记录结果：{pass, actual, expected}
+```
+
+**批量用例执行模板**：
+
+| 用例ID | apiPath | params | expected_retCode | expected_retMsg_contains | 实际结果 |
+|--------|---------|--------|------------------|-------------------------|---------|
+
+> 响应码映射见 [config](config/bemptest-config.json) `response_codes`。API 路径与代理配置见 `api_validation` 和 `proxy_paths`。
 
 ### 异常处理决策树
 
@@ -117,6 +195,11 @@ aotutests-devtools/                       项目根目录下的统一输出目�
 ├─ Vue路由未注册 → 改用菜单点击 → wait_for(networkidle) → 重试
 ├─ TypeError/ReferenceError → 截图留存 → 标记 FAIL → 评估是否影响后续
 ├─ 状态静默拒绝 → 标记 FAIL → 记录缺陷 → 跳过依赖步骤
+├─ Dropdown按钮无反应 → 检测是否为h-dropdown组件 → evaluate_script设置visible=true → 重试
+├─ 弹窗最小化(window-layer) → evaluate_script恢复minimized=false → 重试
+├─ DataGrid选中无效 → evaluate_script同时设置selects+selectIds+currentSelectList → $forceUpdate → 重试
+├─ 弹窗关闭后页面跳转 → evaluate_script检查URL → navigate_page恢复 → 重试
+├─ 表单字段不存在(v-if) → 检查触发条件值 → 先设置条件使字段可见 → 重试
 └─ 不可恢复(500/构建失败/DB异常) → 标记 BLOCKED → 跳过全部后续
 ```
 
@@ -163,6 +246,14 @@ aotutests-devtools/                       项目根目录下的统一输出目�
 | 6 | networkidle = 完成 | 每次操作后等待异步完毕 |
 | 7 | 菜单点击优先URL | Vue 懒加载路由需菜单触发注册 |
 | 8 | 选择后等500ms | DataGrid checkbox → currentSelectList 同步延迟 |
+| 9 | API验证优先校验逻辑 | 核心校验逻辑验证用 API 直接验证，UI 验证留给交互场景 |
+| 10 | 配置驱动无硬编码 | API路径/响应码/代理路径/修复SQL均从 config 读取 |
+| 11 | Dropdown需两步 | h-dropdown组件先设visible=true再点击下拉项 |
+| 12 | Window-Layer需恢复 | 检测最小化状态并恢复，不能假设弹窗自动可见 |
+| 13 | 选中需全属性 | DataGrid行选中需同时设置selects+selectIds+currentSelectList |
+| 14 | v-if字段先条件 | 条件渲染字段需先满足v-if条件再验证 |
+| 15 | 关弹窗后验URL | 弹窗关闭可能触发路由跳转，需验证并恢复 |
+| 16 | 密码禁止硬编码 | 从config/env-config读取，优先环境变量 |
 
 ---
 

@@ -315,7 +315,14 @@ class RequirementAnalyzer {
             appendix: {
                 references: [...(prof.references || ['项目开发规范文档']), `${moduleName || ''}需求规格说明书`],
                 glossary: this._buildGlossary(menuPath, moduleName, businessRules)
-            }
+            },
+            // 2026-06-17 修复：输出 businessSubmodules 字段供 Python 端使用
+            // Python 端 _fill_component_module_list 和 _fill_business_submodules 依赖此字段
+            businessSubmodules: modules.map(m => ({
+                name: m[0],
+                title: m[0],
+                description: m[2] || `${m[0]}功能模块`
+            }))
         };
     }
 
@@ -338,21 +345,32 @@ class RequirementAnalyzer {
 
     _extractModules(sections, menuPath) {
         const moduleMap = new Map();
-        const level3 = menuPath.level3 || '模块';
+        // 2026-06-17 修复：过滤掉"技术实现"章节下的条目（如"5.1 后端实现文件"、"5.2 前端实现文件"、"5.3 核心接口"）
+        // 这些是技术实现章节，不是业务模块，不应出现在"组件内部的模块列表及说明"中
+        const techSectionKeywords = ['后端实现文件', '前端实现文件', '核心接口', '技术实现'];
+        
         for (const sec of sections) {
-            // 2026-06-06 修复：业务子模块必须是 H4/H5 且有 H6 子节
-            // 仅有描述性 H5（如"业务模块额度使用规则"）不应被识别为业务子模块
-            const isCandidate = sec.level >= 4 && sec.level <= 5 && sec.title;
-            const hasSub = sec.level <= 4 || sec.hasSubsection === true;
-            if (isCandidate && hasSub) {
-                const parentTitle = sec.parentTitle || sec.title;
-                if (!moduleMap.has(parentTitle)) {
-                    moduleMap.set(parentTitle, [parentTitle, sec.content ? sec.content.substring(0, 60).trim() : '']);
+            // 2026-06-17 修复：实际业务模块在 H3/H4/H5 级别
+            // PRD结构：H2=分类标题（如"机构管理优化详情"），H3=业务模块（如"批量导入机构"）
+            // 关键：所有级别统一用 hasSubsection/hasContent 过滤，不再用 level<=3 跳过检查
+            const isCandidate = sec.level >= 3 && sec.level <= 5 && sec.title;
+            if (!isCandidate) continue;
+            
+            // 过滤技术实现章节
+            const isTechSection = techSectionKeywords.some(kw => sec.title && sec.title.includes(kw));
+            if (isTechSection) continue;
+            
+            const hasSub = sec.hasSubsection === true;
+            const hasContent = sec.content && sec.content.trim().length > 20;
+            if (hasSub || hasContent) {
+                // 用 sec.title 作为 Map key，确保每个模块独立成条目
+                if (!moduleMap.has(sec.title)) {
+                    moduleMap.set(sec.title, [sec.title, sec.content ? sec.content.substring(0, 80).trim() : '']);
                 }
             }
         }
         if (moduleMap.size === 0) {
-            // 硬编码默认值已移除：从 profile 读取，无配置时回退到空数组
+            // 从 profile 读取，无配置时回退到空数组
             const defaults = this.profile.defaultModules || [];
             for (const dm of defaults) moduleMap.set(dm[0], [dm[0], dm[1] || '']);
         }
@@ -898,16 +916,16 @@ class RequirementAnalyzer {
             });
         }
 
-        // 2026-06-06 修复：标注 H5 是否有 H6 子节
-        // 业务子模块的特征是"模块标题"下有 H6 子节（查询/新增/删除等）
-        // 仅有描述性 H5（如"业务模块额度使用规则"）不应被识别为业务子模块
+        // 2026-06-17 修复：标注 H3/H4/H5 是否有下级子节
+        // 业务子模块的特征是"模块标题"下有更低级别的子节
+        // 扩展范围：H3 检查 H4/H5/H6，H4 检查 H5/H6，H5 检查 H6
         for (let i = 0; i < sections.length; i++) {
             const sec = sections[i];
-            if (sec.level === 5) {
+            if (sec.level >= 3 && sec.level <= 5) {
                 let hasSubsection = false;
                 for (let k = i + 1; k < sections.length; k++) {
-                    if (sections[k].level <= 5) break; // 遇到同级或更高级标题，结束扫描
-                    if (sections[k].level === 6) { hasSubsection = true; break; }
+                    if (sections[k].level <= sec.level) break; // 遇到同级或更高级标题，结束扫描
+                    if (sections[k].level > sec.level) { hasSubsection = true; break; }
                 }
                 sec.hasSubsection = hasSubsection;
             }

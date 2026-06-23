@@ -34,6 +34,7 @@ except Exception:  # pragma: no cover - 缺 PyYAML 时优雅降级
     yaml = None
 
 _RULES_CACHE = None
+_PIPELINE_CONFIG_CACHE = None
 
 
 def _load_doc_rules():
@@ -66,6 +67,50 @@ def _load_doc_rules():
         print(f'[WARN] 加载 doc_rules.yaml 失败，使用内置默认: {e}', file=sys.stderr)
         _RULES_CACHE = {}
     return _RULES_CACHE
+
+
+def _load_pipeline_config():
+    """从 config/design-pipeline.yaml 加载管线配置
+
+    2026-06-17 新增：将章节分类关键词、H2别名映射、业务子模块识别参数
+    统一迁移到配置文件管理，代码中仅保留兜底默认值。
+    """
+    global _PIPELINE_CONFIG_CACHE
+    if _PIPELINE_CONFIG_CACHE is not None:
+        return _PIPELINE_CONFIG_CACHE
+    if yaml is None:
+        _PIPELINE_CONFIG_CACHE = {}
+        return _PIPELINE_CONFIG_CACHE
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', 'design-pipeline.yaml')
+    if not os.path.isfile(config_path):
+        _PIPELINE_CONFIG_CACHE = {}
+        return _PIPELINE_CONFIG_CACHE
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            _PIPELINE_CONFIG_CACHE = yaml.safe_load(f) or {}
+    except Exception as e:
+        print(f'[WARN] 加载 design-pipeline.yaml 失败，使用内置默认: {e}', file=sys.stderr)
+        _PIPELINE_CONFIG_CACHE = {}
+    return _PIPELINE_CONFIG_CACHE
+
+
+def _get_config_keywords(config_section, config_key, fallback_default):
+    """从管线配置中读取关键词列表，配置不存在时回退到内置默认值
+
+    Args:
+        config_section: 配置节名称（如 'chapter_classification'）
+        config_key: 配置键名称（如 'business_module_title'）
+        fallback_default: 内置默认值列表
+
+    Returns:
+        tuple: 关键词元组
+    """
+    cfg = _load_pipeline_config()
+    section = cfg.get(config_section, {})
+    values = section.get(config_key) if isinstance(section, dict) else None
+    if values and isinstance(values, list):
+        return tuple(values)
+    return fallback_default
 
 
 from doc_utils import (
@@ -214,39 +259,57 @@ TEMPLATE_CHAPTER_MAP = {
     '附录': ['附录'],
 }
 
-# 模块级H2映射：模板H2标题（去除编号前缀）→ JSON section标题（用于模块章节下的子节匹配）
-# 2026-06-05 新增：解决"模块1设计说明"下H2子节无法匹配JSON章节数据的问题
-MODULE_H2_SECTION_MAP = {
+
+# ==================== 2026-06-06 章节分类与 H1 填充函数 ====================
+
+# ==================== 2026-06-17 修复：关键词配置化 ====================
+# 所有关键词均从 config/design-pipeline.yaml 加载，代码中仅保留兜底默认值
+# 新增关键词只需修改配置文件，无需修改 Python 代码
+
+_BUSINESS_MODULE_TITLE_KEYWORDS = _get_config_keywords(
+    'chapter_classification', 'business_module_title',
+    ('模块设计说明', '功能模块', '业务模块', '功能子模块')
+)
+
+_BUSINESS_MODULE_H2_KEYWORDS = _get_config_keywords(
+    'chapter_classification', 'business_module_h2',
+    ('功能描述', '界面', '性能', '输入项', '输出项', '接口',
+     '类图', '顺序图', '活动图', '备注',
+     '功能职责', '功能', '输入', '输出', '参数',
+     '业务规则', '业务逻辑', '业务流程')
+)
+
+_OVERVIEW_TITLE_KEYWORDS = _get_config_keywords(
+    'chapter_classification', 'overview_title',
+    ('概述', '项目概述', '系统概述', '引言', '简介')
+)
+
+_CONSTRAINT_TITLE_KEYWORDS = _get_config_keywords(
+    'chapter_classification', 'constraint_title',
+    ('设计约束', '约束', '限制条件', '前提条件')
+)
+
+_COMPONENT_LIST_TITLE_KEYWORDS = _get_config_keywords(
+    'chapter_classification', 'component_list_title',
+    ('组件列表', '模块列表', '组件汇总', '模块清单')
+)
+
+_APPENDIX_TITLE_KEYWORDS = _get_config_keywords(
+    'chapter_classification', 'appendix_title',
+    ('附录', '附表', '附件')
+)
+
+# 模板 H2 别名映射（从配置文件加载）
+_MODULE_H2_SECTION_MAP = _load_pipeline_config().get('template_h2_alias_map', {
     '功能描述': ['模块职责', '功能描述', '模块划分'],
     '输入项': ['接口边界', '接口定义', '参数说明'],
     '输出项': ['接口边界', '接口定义', '参数说明'],
     '接口': ['接口边界', '接口定义', '接口列表'],
-    '类图': [],  # 由UML图表生成器填充
-    '顺序图': [],  # 由UML图表生成器填充
-    '活动图': [],  # 由UML图表生成器填充
-    '备注': [],  # 一般不需要填充
-}
-
-
-# ==================== 2026-06-06 章节分类与 H1 填充函数 ====================
-
-# 业务模块识别：业务模块 ch 通常含有"模块设计说明"/"功能模块"/"业务模块"等关键词
-_BUSINESS_MODULE_TITLE_KEYWORDS = ('模块设计说明', '功能模块', '业务模块', '功能子模块')
-# 业务模块的"标准 H2 子节"关键词集合（用于识别该 ch 是否为业务模块 ch）
-_BUSINESS_MODULE_H2_KEYWORDS = (
-    '功能描述', '界面', '性能', '输入项', '输出项', '接口',
-    '类图', '顺序图', '活动图', '备注',
-    '功能职责', '功能', '输入', '输出', '参数',
-    '业务规则', '业务逻辑', '业务流程',
-)
-# 概述类 ch 标题关键词
-_OVERVIEW_TITLE_KEYWORDS = ('概述', '项目概述', '系统概述', '引言', '简介')
-# 设计约束类 ch 标题关键词
-_CONSTRAINT_TITLE_KEYWORDS = ('设计约束', '约束', '限制条件', '前提条件')
-# 组件列表类 ch 标题关键词
-_COMPONENT_LIST_TITLE_KEYWORDS = ('组件列表', '模块列表', '组件汇总', '模块清单')
-# 附录类 ch 标题关键词
-_APPENDIX_TITLE_KEYWORDS = ('附录', '附表', '附件')
+    '类图': [],
+    '顺序图': [],
+    '活动图': [],
+    '备注': [],
+})
 
 
 def _strip_chapter_number(title):
@@ -361,9 +424,14 @@ def _insert_section_as_h2(after_para, sec):
     - 若 sec.content 为空 dict / None，且 sec 标题命中图表类关键词（类图/顺序图/时序图/
       活动图/状态图/界面/性能），插入"不涉及：本章节无图表内容"的灰色占位段落
     - 占位段落使用 Normal 样式 + 灰色字体（区别于正常内容）
+
+    2026-06-17 修复：sec_title 为空但有表格内容时，生成兜底 H2 标题
+    - 避免多个表格连续插入而没有标题分隔，导致文档不美观
+    - 兜底标题格式：优先使用 sec.id，其次使用表格首行首列内容
     """
     sec_title = (sec.get('title') or '').strip()
     sec_content = sec.get('content', {}) or {}
+    sec_id = (sec.get('id') or '').strip()
     insert_after = after_para
 
     try:
@@ -380,6 +448,25 @@ def _insert_section_as_h2(after_para, sec):
         new_h2 = _insert_paragraph_after(insert_after, sec_title, style='Heading 2')
         set_black(new_h2)
         insert_after = new_h2
+    else:
+        # 2026-06-17 修复：sec_title 为空但有表格内容时，生成兜底 H2 标题
+        # 避免多个表格连续插入而没有标题分隔
+        has_table_content = bool(sec_content.get('headers') and sec_content.get('rows'))
+        has_description = bool(sec_content.get('description'))
+        if has_table_content or has_description:
+            # 优先使用 sec.id 作为标题（如 "4.2"），其次使用表格首行首列内容
+            fallback_title = ''
+            if sec_id:
+                fallback_title = _strip_chapter_number(sec_id)
+            if not fallback_title and has_table_content:
+                rows = sec_content.get('rows', [])
+                if rows and rows[0]:
+                    fallback_title = str(rows[0][0])[:30]  # 取首行首列前30字符
+            if not fallback_title:
+                fallback_title = '补充说明'
+            new_h2 = _insert_paragraph_after(insert_after, fallback_title, style='Heading 2')
+            set_black(new_h2)
+            insert_after = new_h2
 
     # 2. 插入描述
     desc = sec_content.get('description') if isinstance(sec_content, dict) else None
@@ -1131,7 +1218,7 @@ def _get_h1_chapter_no(doc, h1_para):
     return chapter_no if chapter_no > 0 else None
 
 
-def _fill_business_module_h1(doc, h1_para, biz_ch, design_data=None, chapters=None, chapter_no=None):
+def _fill_business_module_h1(doc, h1_para, biz_ch, design_data=None, chapters=None, chapter_no=None, module_index=None):
     """填充 H1 = "模块1设计说明" / "模块2设计说明" / 动态追加的业务模块 H1
 
     工作流程：
@@ -1139,12 +1226,18 @@ def _fill_business_module_h1(doc, h1_para, biz_ch, design_data=None, chapters=No
     2. 剩余 sections 追加为 H2
     3. 若 biz_ch 自身没有 sections（结构异常），用其 content 兜底
     4. 若指定 chapter_no，则重编号 H2 子节（修复 4.1~4.10 模板硬编码问题）
+    5. 2026-06-17 修复：若指定 module_index，调用 _fill_business_submodules 插入对应子模块
 
     2026-06-06 修复：传入 chapter_no 后，会调用 _renumber_h2_under_h1
     将 H1 下的 H2 编号从模板硬编码值改为按 chapter_no 顺序编号。
     """
     if not biz_ch:
         return
+    
+    # 2026-06-17 修复：插入对应索引的业务子模块
+    if module_index is not None and design_data:
+        _fill_business_submodules(doc, h1_para, design_data, module_index=module_index)
+    
     sections = biz_ch.get('sections', []) or []
     if not sections:
         content = biz_ch.get('content', {})
@@ -1161,8 +1254,10 @@ def _fill_business_module_h1(doc, h1_para, biz_ch, design_data=None, chapters=No
                 _add_table_after_paragraph(insert_after, headers, rows)
         return
 
-    # 模板 H2 标准子节 → section 标题别名
-    h2_alias_map = {
+    # 模板 H2 标准子节 → section 标题别名（从配置文件加载）
+    h2_alias_map = {k: tuple(v) for k, v in _MODULE_H2_SECTION_MAP.items()}
+    # 补充配置文件中未定义的别名（兜底）
+    _fallback_aliases = {
         '功能描述': ('功能描述', '功能职责', '模块职责', '功能', '模块划分'),
         '界面': ('界面', '界面设计', '界面布局'),
         '性能': ('性能', '性能指标', '性能要求'),
@@ -1174,6 +1269,9 @@ def _fill_business_module_h1(doc, h1_para, biz_ch, design_data=None, chapters=No
         '活动图': ('活动图',),
         '备注': ('备注', '说明', '注释'),
     }
+    for k, v in _fallback_aliases.items():
+        if k not in h2_alias_map:
+            h2_alias_map[k] = v
 
     used_sec_ids = set()
 
@@ -1545,19 +1643,100 @@ def generate_design_from_template(template_path, design_data_path, output_path, 
                         break
                 # 2. 2026-06-05 新增：模块级标题关键词匹配（如"模块1设计说明"）
                 #    模板的"模块1设计说明"不直接对应JSON的章节标题，需要匹配到包含模块数据的章节
+                #    2026-06-17 修复：模块设计说明标题应该直接使用 businessSubmodules，不匹配通用章节
+                #    2026-06-17 修复：为每个模块创建专属章节数据，避免所有模块匹配到同一个章节
+                is_module_heading = False
+                module_idx = 0
                 if not chapter_data and '模块' in h1 and '设计说明' in h1:
-                    for ch in chapters:
-                        ch_title = ch.get('title', '')
-                        # 匹配"功能模块划分"、"模块划分"等含模块相关数据的章节
-                        if '模块' in ch_title or '功能模块' in ch_title:
-                            chapter_data = ch
-                            break
+                    is_module_heading = True
+                    module_match = re.search(r'模块(\d+)', h1)
+                    if module_match:
+                        module_idx = int(module_match.group(1)) - 1
+                    
+                    # 2026-06-17 调试日志
+                    _debug_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_debug_module_match.log')
+                    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                        _dbg.write(f'[MATCH] h1={h1}, module_idx={module_idx}\n')
+                        _dbg.flush()
+                    
+                    # 2026-06-17 修复：为每个模块创建专属的 chapter_data
+                    # 从 businessSubmodules 中提取对应索引的子模块，构造专属章节
+                    business_submodules = design_data.get('businessSubmodules') or []
+                    
+                    # 2026-06-17 调试日志
+                    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                        _dbg.write(f'[MATCH] business_submodules count={len(business_submodules)}\n')
+                        _dbg.flush()
+                    
+                    if module_idx < len(business_submodules):
+                        sub = business_submodules[module_idx]
+                        sub_name = sub.get('name') if isinstance(sub, dict) else str(sub)
+                        sub_desc = sub.get('description', '') if isinstance(sub, dict) else ''
+                        
+                        # 2026-06-17 调试日志
+                        with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                            _dbg.write(f'[MATCH] sub_name={sub_name}, sub_desc_len={len(sub_desc)}\n')
+                            _dbg.flush()
+                        
+                        # 构造模块专属章节，包含该模块的所有信息
+                        chapter_data = {
+                            'title': h1,
+                            'type': 'business',
+                            'sections': [
+                                {
+                                    'title': '功能描述',
+                                    'content': {
+                                        'description': sub_desc or f'{sub_name}功能模块的详细设计说明',
+                                        'headers': [],
+                                        'rows': []
+                                    }
+                                },
+                                {
+                                    'title': '模块职责',
+                                    'content': {
+                                        'description': f'{sub_name}模块负责实现相关功能',
+                                        'headers': [],
+                                        'rows': []
+                                    }
+                                }
+                            ]
+                        }
+                        
+                        # 2026-06-17 调试日志
+                        with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                            _dbg.write(f'[MATCH] chapter_data created with {len(chapter_data.get("sections", []))} sections\n')
+                            _dbg.flush()
+                    else:
+                        # 2026-06-17 调试日志
+                        with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                            _dbg.write(f'[MATCH] module_idx={module_idx} >= len(business_submodules)={len(business_submodules)}, NO chapter_data created\n')
+                            _dbg.flush()
+                
                 if chapter_data and chapter_data.get('sections'):
                     filled_contexts.add(context_key)
                     matched_json_chapters.add(chapter_data.get('title', ''))
-                    # 2026-06-05 修复：先插入业务子模块（如承兑行额度管理），再填充H2子节
-                    _fill_business_submodules(doc, p, design_data)
+                    
+                    # 2026-06-17 调试日志
+                    _debug_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_debug_fill.log')
+                    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                        _dbg.write(f'[FILL] h1={h1}, module_idx={module_idx}, sections_count={len(chapter_data.get("sections", []))}\n')
+                        _dbg.flush()
+                    
+                    # 2026-06-17 修复：从 h1 标题中提取模块编号，传入 module_index
+                    # 例如 "模块1设计说明" -> 0, "模块2设计说明" -> 1
+                    _fill_business_submodules(doc, p, design_data, module_index=module_idx)
+                    
+                    # 2026-06-17 调试日志
+                    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                        _dbg.write(f'[FILL] _fill_business_submodules called\n')
+                        _dbg.flush()
+                    
                     _fill_chapter_h1_sections(doc, p, chapter_data, design_data, chapters)
+                    
+                    # 2026-06-17 调试日志
+                    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                        _dbg.write(f'[FILL] _fill_chapter_h1_sections called\n')
+                        _dbg.flush()
                     # 2026-06-05 修复：将H1下所有H2的context_key也加入filled_contexts，
                     # 防止后续主循环中重复处理这些H2并覆盖已填充的内容
                     for j in range(i + 1, total):
@@ -1649,42 +1828,9 @@ def generate_design_from_template(template_path, design_data_path, output_path, 
                 _fill_component_module_list(doc, p, chapters, design_data)
                 continue
 
-            # 特殊处理：模块1设计说明 → 插入业务子模块 + 填充H2子节
-            if text and '模块1设计说明' in text:
-                filled_contexts.add(context_key)
-                _fill_business_submodules(doc, p, design_data)
-                # 2026-06-05 修复：同时填充H2子节（功能描述/输入项/输出项等）
-                # 找到匹配的章节数据（如"第二章 功能模块划分"）
-                module_chapter = None
-                for ch in chapters:
-                    ch_title = ch.get('title', '')
-                    if '模块' in ch_title or '功能模块' in ch_title:
-                        module_chapter = ch
-                        break
-                if module_chapter and module_chapter.get('sections'):
-                    _fill_chapter_h1_sections(doc, p, module_chapter, design_data, chapters)
-                # 标记H1下所有H2为已处理，防止后续主循环重复处理
-                # 2026-06-05 修复：对"界面"/"性能"H2也显式处理，然后统一标记为已填充
-                _refresh_paragraphs = doc.paragraphs
-                for j in range(i + 1, len(_refresh_paragraphs)):
-                    pp = _refresh_paragraphs[j]
-                    if pp.style and pp.style.name.startswith('Heading'):
-                        if pp.style.name == 'Heading 1':
-                            break
-                        if pp.style.name == 'Heading 2':
-                            h1c, h2c, h3c = get_heading_context(_refresh_paragraphs, j)
-                            ctx_key = f'{h1c}|{h2c}|{h3c}'
-                            h2_text = h2c or ''
-                            h2_clean = re.sub(r'^\d+(\.\d+)*\s*', '', h2_text)
-                            # 显式处理"界面"和"性能"（它们有独立的特殊处理逻辑）
-                            if h2_clean == '界面':
-                                _clear_content_between_headings(pp, _refresh_paragraphs)
-                                _fill_ui_description(doc, pp, design_data)
-                            elif h2_clean == '性能':
-                                _clear_content_between_headings(pp, _refresh_paragraphs)
-                                _fill_performance(doc, pp, design_data)
-                            filled_contexts.add(ctx_key)
-                continue
+            # 2026-06-17 修复：移除对"模块1设计说明"的特殊处理
+            # 原逻辑：第一轮遍历中对模块1特殊处理，导致所有子模块被塞入模块1
+            # 新逻辑：让第二轮分配循环统一处理所有模块，确保子模块按索引分配
 
             # 特殊处理：附录 → 从chapters汇总生成附录内容
             if text_clean == '附录' or '附录' in text_clean:
@@ -1826,10 +1972,23 @@ def generate_design_from_template(template_path, design_data_path, output_path, 
                 # 计算章节号 = 该 H1 在文档中所有 H1 的位置
                 chapter_no = _get_h1_chapter_no(doc, hp) or (idx + 2)
                 ctx = f'Heading 1|{hp.text.strip()}'
+                
+                # 2026-06-17 调试日志
+                _debug_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_debug_loop.log')
+                with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                    _dbg.write(f'[LOOP-{idx}] ctx={ctx}, in_filled={ctx in filled_contexts}, bch_title={bch.get("title","")}\n')
+                    _dbg.flush()
+                
                 if ctx not in filled_contexts:
                     filled_contexts.add(ctx)
                     matched_json_chapters.add(bch.get('title', ''))
-                    _fill_business_module_h1(doc, hp, bch, design_data, chapters, chapter_no=chapter_no)
+                    # 2026-06-17 修复：传入 module_index=idx，确保每个模块只插入对应索引的子模块
+                    _fill_business_module_h1(doc, hp, bch, design_data, chapters, chapter_no=chapter_no, module_index=idx)
+                    
+                    # 2026-06-17 调试日志：确认调用成功
+                    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+                        _dbg.write(f'[LOOP-{idx}] ✓ _fill_business_module_h1 called, module_index={idx}\n')
+                        _dbg.flush()
                     # 标记 H2 为已处理
                     for j, pp in enumerate(doc.paragraphs):
                         if pp is hp:
@@ -2054,10 +2213,23 @@ def _fill_chapter_h1_sections(doc, h1_para, chapter_data, design_data=None, chap
 
     2026-06-05 新增：design_data 和 chapters 参数，用于在无匹配section时
     从需求数据中提取"输入项"/"输出项"/"接口"的具体内容，避免回退到"不涉及"占位。
+    
+    2026-06-17 修复：当H1下没有H2标题时，动态创建标准H2标题
+    - 标准H2标题列表：功能描述、界面、性能、输入项、输出项、接口、类图、顺序图、活动图、备注
+    - 确保每个模块都有完整的结构
     """
+    # 2026-06-17 调试日志
+    _debug_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_debug_fill_chapter.log')
+    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+        _dbg.write(f'[ENTER] h1_text={h1_para.text.strip()[:50]}\n')
+        _dbg.flush()
+    
     h1_elem = h1_para._element
     h1_parent = h1_elem.getparent()
     if h1_parent is None:
+        with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+            _dbg.write(f'[EXIT] h1_parent is None\n')
+            _dbg.flush()
         return
 
     # 构建section标题→内容映射（支持多种匹配方式）
@@ -2097,6 +2269,55 @@ def _fill_chapter_h1_sections(doc, h1_para, chapter_data, design_data=None, chap
                     h2_elems.append((elem, h2_text))
         elem = elem.getnext()
 
+    # 2026-06-17 修复：确保标准H2标题始终存在
+    # _fill_business_submodules 可能已插入业务子模块H2，但标准H2（功能描述/界面等）仍缺失
+    # 策略：检查已有H2，补充缺失的标准H2标题
+    standard_h2_titles = ['功能描述', '界面', '性能', '输入项', '输出项', '接口', '类图', '顺序图', '活动图', '备注']
+    existing_h2_texts = set(t for _, t in h2_elems)
+    missing_h2_titles = [t for t in standard_h2_titles if t not in existing_h2_texts]
+    
+    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+        _dbg.write(f'[H2-CHECK] existing={len(h2_elems)}, missing={len(missing_h2_titles)}: {missing_h2_titles}\n')
+        _dbg.flush()
+    
+    if missing_h2_titles:
+        # 找到最后一个已有H2的位置，在其后插入缺失的标准H2
+        if h2_elems:
+            insert_after_elem = h2_elems[-1][0]
+            # 找到对应的段落对象
+            from docx.text.paragraph import Paragraph
+            insert_after = Paragraph(insert_after_elem, h1_para._parent)
+        else:
+            insert_after = h1_para
+        
+        for h2_title in missing_h2_titles:
+            new_h2 = _insert_paragraph_after(insert_after, h2_title, style='Heading2')
+            set_black(new_h2)
+            h2_elems.append((new_h2._element, h2_title))
+            insert_after = new_h2
+        
+        with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+            _dbg.write(f'[H2-CREATE] Created {len(missing_h2_titles)} missing standard H2 headings\n')
+            _dbg.flush()
+        
+        # 重新获取next_h1_elem（因为插入了新元素）
+        next_h1_elem = None
+        for j in range(h1_idx_in_parent + 1, len(list(h1_parent))):
+            elem = list(h1_parent)[j]
+            if elem.tag.endswith('}p'):
+                pPr = elem.find('.//' + qn('w:pPr') + '/' + qn('w:pStyle'))
+                if pPr is not None:
+                    style_val = pPr.get(qn('w:val'), '')
+                    if style_val in ['1', 'Heading1', 'heading1', 'heading 1', 'Heading 1']:
+                        next_h1_elem = elem
+                        break
+    
+    with open(_debug_log, 'a', encoding='utf-8') as _dbg:
+        _dbg.write(f'[FILL] Processing {len(h2_elems)} H2 headings\n')
+        for h2_elem, h2_text in h2_elems:
+            _dbg.write(f'  - H2: {h2_text}\n')
+        _dbg.flush()
+
     # 依次为每个H2填充内容
     for h2_elem, h2_text in h2_elems:
         # 1. 优先精确匹配（含编号的完整标题）
@@ -2115,8 +2336,8 @@ def _fill_chapter_h1_sections(doc, h1_para, chapter_data, design_data=None, chap
                     break
 
         # 3. 2026-06-05 新增：模块级H2映射（解决"模块1设计说明"下子节匹配问题）
-        if not matched_section and h2_normalized in MODULE_H2_SECTION_MAP:
-            aliases = MODULE_H2_SECTION_MAP[h2_normalized]
+        if not matched_section and h2_normalized in _MODULE_H2_SECTION_MAP:
+            aliases = _MODULE_H2_SECTION_MAP[h2_normalized]
             for alias in aliases:
                 if alias in section_map:
                     matched_section = section_map[alias]
@@ -3413,43 +3634,93 @@ def _fill_component_module_list(doc, heading_para, chapters, design_data):
         set_black(new_p)
 
 
-def _fill_business_submodules(doc, heading_para, design_data):
-    """在"模块1设计说明"下插入业务子模块（H2级别标题+描述）
+def _fill_business_submodules(doc, heading_para, design_data, module_index=0):
+    """在"模块X设计说明"下插入对应的业务子模块（H2级别标题+描述）
 
-    从 design_data 的 businessSubmodules 中提取业务子模块，
-    在标题后依次插入 H2 级别的子模块标题和简要描述。
+    从 design_data 的 businessSubmodules 中提取第 module_index 个子模块，
+    在标题后插入 H2 级别的子模块标题和简要描述。
     不清除模板中已有的 H2 子标题（功能描述/界面/性能等），子模块插入在它们之前。
+
+    2026-06-17 修复：支持按模块索引分配子模块
+    - 原逻辑：所有子模块都插入到模块1，导致模块2-7为空
+    - 新逻辑：每个模块只插入对应索引的子模块（module_index=0 -> 模块1，module_index=1 -> 模块2，...）
+    - 确保 businessSubmodules 与 business_chs 一一对应分配到各个模块 H1
+    
+    2026-06-17 修复：避免重复插入已存在的H2标题
+    - 在插入前检查是否已存在相同标题的H2
+    - 如果存在，则跳过插入
     """
     business_submodules = design_data.get('businessSubmodules') or []
     if not business_submodules:
         return
 
+    # 2026-06-17 修复：只取对应索引的子模块，而不是全部
+    if module_index >= len(business_submodules):
+        # 索引超出范围，不插入任何子模块
+        return
+
+    sub = business_submodules[module_index]
+    if isinstance(sub, dict):
+        sub_name = sub.get('name') or sub.get('title') or ''
+        sub_desc = sub.get('description') or ''
+        if isinstance(sub_desc, dict):
+            sub_desc = sub_desc.get('description', '')
+    elif isinstance(sub, str):
+        sub_name = sub
+        sub_desc = ''
+    else:
+        return
+
+    if not sub_name:
+        return
+
+    # 2026-06-17 修复：检查是否已存在相同标题的H2，避免重复
+    h1_elem = heading_para._element
+    h1_parent = h1_elem.getparent()
+    if h1_parent is None:
+        return
+    
+    # 找到下一个H1的位置作为边界
+    h1_idx = list(h1_parent).index(h1_elem)
+    next_h1_elem = None
+    for j in range(h1_idx + 1, len(list(h1_parent))):
+        elem = list(h1_parent)[j]
+        if elem.tag.endswith('}p'):
+            pPr = elem.find('.//' + qn('w:pPr') + '/' + qn('w:pStyle'))
+            if pPr is not None:
+                style_val = pPr.get(qn('w:val'), '')
+                if style_val in ['1', 'Heading1', 'heading1', 'heading 1', 'Heading 1']:
+                    next_h1_elem = elem
+                    break
+    
+    # 遍历H1下的所有H2，检查是否已存在相同标题
+    elem = h1_elem.getnext()
+    while elem is not None and elem is not next_h1_elem:
+        if elem.tag.endswith('}p'):
+            pPr = elem.find('.//' + qn('w:pPr') + '/' + qn('w:pStyle'))
+            if pPr is not None:
+                style_val = pPr.get(qn('w:val'), '')
+                if style_val in ['2', 'Heading2', 'heading2', 'heading 2', 'Heading 2']:
+                    # 提取文本
+                    text_elems = elem.findall('.//' + qn('w:t'))
+                    h2_text = ''.join(t.text or '' for t in text_elems).strip()
+                    # 如果已存在相同标题的H2，则跳过插入
+                    if h2_text == sub_name or h2_text.endswith(sub_name) or sub_name.endswith(h2_text):
+                        return
+        elem = elem.getnext()
+
     insert_after = heading_para
-    for sub in business_submodules:
-        if isinstance(sub, dict):
-            sub_name = sub.get('name') or sub.get('title') or ''
-            sub_desc = sub.get('description') or ''
-            if isinstance(sub_desc, dict):
-                sub_desc = sub_desc.get('description', '')
-        elif isinstance(sub, str):
-            sub_name = sub
-            sub_desc = ''
-        else:
-            continue
 
-        if not sub_name:
-            continue
+    # 插入 H2 级别子模块标题
+    new_heading = _insert_paragraph_after(insert_after, sub_name, style='Heading2')
+    set_black(new_heading)
+    insert_after = new_heading
 
-        # 插入 H2 级别子模块标题
-        new_heading = _insert_paragraph_after(insert_after, sub_name, style='Heading2')
-        set_black(new_heading)
-        insert_after = new_heading
-
-        # 插入子模块描述
-        if sub_desc:
-            new_p = _insert_paragraph_after(insert_after, sub_desc)
-            set_black(new_p)
-            insert_after = new_p
+    # 插入子模块描述
+    if sub_desc:
+        new_p = _insert_paragraph_after(insert_after, sub_desc)
+        set_black(new_p)
+        insert_after = new_p
 
 
 def _clear_content_between_headings(heading_para, paragraphs, stop_at_next_h1=True):

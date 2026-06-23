@@ -16,6 +16,19 @@
     "health_check_interval_seconds": 5,
     "health_check_endpoint": "/api/system/status"
   },
+  "sonar_scanner": {
+    "scanner_home": "${ENV:SONAR_SCANNER_HOME}",
+    "scanner_bin": "bin\\sonar-scanner.bat",
+    "project_properties_template": "sonar-project.properties.template",
+    "wait_timeout_seconds": 180,
+    "default_project_key": "${PROJECT_KEY}",
+    "default_sources": "src/main/java"
+  },
+  "mcp_check": {
+    "mcp_server_name": "mcp_SonarQube",
+    "fallback_enabled": true,
+    "fallback_message": "SonarQube MCP 未配置，将使用 sonar-scanner 命令行工具"
+  },
   "modules": {
     "hnnxbank-biz-as": {
       "path": "hnnxbank-biz-as/src/main/java/com/hundsun/bemp/hnnxbank",

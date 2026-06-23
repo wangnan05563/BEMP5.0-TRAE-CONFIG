@@ -12,7 +12,7 @@
       "maxWaitSeconds": 60,
       "pollIntervalSeconds": 10
     },
-    "springboot": {
+    "served": {
       "port": "${ENV:BEMP_BACKEND_PORT:8010}",
       "maxWaitSeconds": 600,
       "pollIntervalSeconds": 30,
@@ -20,6 +20,16 @@
         "checkDependencies": ["redis", "zookeeper"],
         "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
         "logFile": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/logs/bemp-served.log"
+      }
+    },
+    "adapter": {
+      "port": 8090,
+      "maxWaitSeconds": 300,
+      "pollIntervalSeconds": 20,
+      "diagnostics": {
+        "checkDependencies": ["zookeeper"],
+        "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
+        "logFile": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}adapter-deploy/target/bemp-adapter/logs/bemp-adapter.log"
       }
     },
     "frontend": {

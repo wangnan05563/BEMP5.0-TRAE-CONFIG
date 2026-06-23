@@ -181,5 +181,86 @@
     "优先: click(弹窗X按钮)",
     "其次: click(取消/关闭按钮)",
     "最后: new_page → 重新 login → navigate_page"
-  ]
+  ],
+
+  "api_validation": {
+    "method": "POST",
+    "content_type": "application/x-www-form-urlencoded",
+    "auth_source": "cookie",
+    "auth_cookie_name": "Admin-Token",
+    "request_body_type": "URLSearchParams",
+    "api_paths": {
+      "hnnxbank": {
+        "enterprise_account": "/hnnxbank/bemp/entCustAcct",
+        "credit_batch": "/hnnxbank/bemp/acceptBankCreditGrantBatch",
+        "credit_info": "/hnnxbank/bemp/acceptBankCreditGrantInfo",
+        "credit_recheck": "/hnnxbank/bemp/acceptBankCreditGrantInfoReCheck"
+      },
+      "default": {}
+    },
+    "batch_execution": {
+      "max_cases_per_run": 20,
+      "serial_execution": true,
+      "result_format": "json"
+    }
+  },
+
+  "response_codes": {
+    "SUCCESS": { "code": "000000", "meaning": "操作成功" },
+    "PARAM_INVALID": { "code": "0BE128800001", "meaning": "参数校验不通过（业务校验拦截）" },
+    "SYSTEM_ERROR": { "code": "000002", "meaning": "系统异常" },
+    "LEGAL_MISMATCH": { "code": "0BE229905037", "meaning": "法人不匹配" },
+    "ALREADY_LOGIN": { "code": "0BE229904073", "meaning": "用户已登录，需强制登录" },
+    "USER_LOCKED": { "code": "0BE229904013", "meaning": "用户被锁定" },
+    "NO_PERMISSION": { "code": "000005", "meaning": "权限不足" },
+    "LOGIN_SUCCESS": { "code": "000000", "meaning": "登录成功" }
+  },
+
+  "proxy_paths": {
+    "config_file": "deploy/bemp-front/config/index.js",
+    "config_key": "dev.proxyTable",
+    "target_backend": "http://127.0.0.1:8010",
+    "path_rewrite_template": "^/{bank_prefix}: /bemp-served/{bank_prefix}",
+    "banks": {
+      "hnnxbank": {
+        "proxy_path": "/hnnxbank",
+        "rewrite_to": "/bemp-served/hnnxbank",
+        "config_entry": {
+          "target": "http://127.0.0.1:8010",
+          "changeOrigin": true,
+          "pathRewrite": { "^/hnnxbank": "/bemp-served/hnnxbank" }
+        }
+      },
+      "default": {}
+    }
+  },
+
+  "test_data_fix": {
+    "description": "测试数据修复 SQL 模板，通过 Oracle MCP 执行。表名和字段值按需替换。",
+    "sql_templates": {
+      "fix_empty_cust_no": {
+        "description": "修复 CUST_NO 为空的记录",
+        "sql": "UPDATE {table_name} SET CUST_NO = '{correct_value}' WHERE ID = '{record_id}'",
+        "table_placeholder": "{table_name}",
+        "example": "UPDATE HNNX_ENT_CUST_ACCT SET CUST_NO = 'C20260001' WHERE ID = '12345'"
+      },
+      "fix_user_locked": {
+        "description": "解锁用户账号",
+        "sql": "UPDATE TM_USER SET IS_ENABLE = '1', PWD_ERR_TIMES = 0, LOGIN_STATUS = '0' WHERE USER_NO = '{user_no}'",
+        "example": "UPDATE TM_USER SET IS_ENABLE = '1', PWD_ERR_TIMES = 0, LOGIN_STATUS = '0' WHERE USER_NO = 'wangnan02'"
+      },
+      "fix_credit_status": {
+        "description": "修复额度记录状态为草稿",
+        "sql": "UPDATE {table_name} SET CREDIT_STATUS = '0' WHERE ID = '{record_id}'",
+        "example": "UPDATE HNNX_ACCBANK_CREDIT_BATCH SET CREDIT_STATUS = '0' WHERE ID = '100001'"
+      }
+    },
+    "pre_test_check": {
+      "description": "测试前数据完整性检查 SQL",
+      "checks": [
+        "SELECT COUNT(*) FROM {table_name} WHERE CUST_NO IS NULL OR CUST_NO = ''",
+        "SELECT COUNT(*) FROM TM_USER WHERE IS_ENABLE = '0' AND USER_NO IN ({test_user_list})"
+      ]
+    }
+  }
 }

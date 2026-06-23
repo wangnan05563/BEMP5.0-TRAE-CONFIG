@@ -293,7 +293,7 @@ function Start-SpringBootService {
     $mavenCommand = $config.mavenCommand
 
     # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - SpringBoot ($($config.port))"
+    Set-TerminalTitle "BEMP - $serviceName ($($config.port))"
     
     Show-TerminalWarning
 
@@ -399,7 +399,7 @@ function Start-SpringBootService {
         Write-Host ""
         
         # Re-set terminal title after Maven (Maven may override it)
-        Set-TerminalTitle "BEMP - SpringBoot ($($config.port))"
+        Set-TerminalTitle "BEMP - $serviceName ($($config.port))"
     }
 
     # Step 3: Check if WAR file exists after compilation
@@ -515,11 +515,14 @@ function Start-SpringBootInTerminal {
     # Get WAR path
     $warPath = Join-Path $projectPath "$modulePath\target\$warFile"
     
+    # Derive exploded WAR directory name from warFile (e.g. bemp-served.war -> bemp-served)
+    $warDirName = [System.IO.Path]::GetFileNameWithoutExtension($warFile)
+    
     # Get classes and lib directories (support both exploded WAR and standard WAR structure)
     $classesDir = Join-Path $projectPath "$modulePath\target\classes"
     $libDir = Join-Path $projectPath "$modulePath\target\lib"
-    $webinfClassesDir = Join-Path $projectPath "$modulePath\target\bemp-served\WEB-INF\classes"
-    $webinfLibDir = Join-Path $projectPath "$modulePath\target\bemp-served\WEB-INF\lib"
+    $webinfClassesDir = Join-Path $projectPath "$modulePath\target\$warDirName\WEB-INF\classes"
+    $webinfLibDir = Join-Path $projectPath "$modulePath\target\$warDirName\WEB-INF\lib"
     
     # Check directory structure and determine working directory and classpath
     if ((Test-Path $webinfClassesDir) -and (Test-Path $webinfLibDir)) {
@@ -527,7 +530,7 @@ function Start-SpringBootInTerminal {
         Write-Success "Using exploded WAR structure (WEB-INF)"
         $cpClasses = "WEB-INF\classes"
         $cpLib = "WEB-INF\lib\*"
-        $workingDir = Join-Path $projectPath "$modulePath\target\bemp-served"
+        $workingDir = Join-Path $projectPath "$modulePath\target\$warDirName"
     } elseif ((Test-Path $classesDir) -and (Test-Path $libDir)) {
         # Flat structure (classes and lib at target level)
         Write-Success "Using flat exploded structure"
@@ -539,7 +542,7 @@ function Start-SpringBootInTerminal {
         Write-Success "Using WAR file: $warPath"
         $cpClasses = "WEB-INF\classes"
         $cpLib = "WEB-INF\lib\*"
-        $workingDir = Join-Path $projectPath "$modulePath\target\bemp-served"
+        $workingDir = Join-Path $projectPath "$modulePath\target\$warDirName"
     }
 
     Write-Host ""
@@ -578,7 +581,7 @@ function Start-SpringBootInTerminal {
     Write-Host ""
 
     # Re-set terminal title before Java process starts
-    Set-TerminalTitle "BEMP - SpringBoot ($($config.port))"
+    Set-TerminalTitle "BEMP - $serviceName ($($config.port))"
 
     # Start Java process in foreground (like ZooKeeper)
     & $javaExe $javaArgs
@@ -778,11 +781,21 @@ function Show-Status {
         }
     }
     
-    if ($config.services.springboot.enabled) {
-        $status = Get-ServiceStatus -config $config.services.springboot
+    if ($config.services.served.enabled) {
+        $status = Get-ServiceStatus -config $config.services.served
         $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
         $services += [PSCustomObject]@{
-            Service = $config.services.springboot.name
+            Service = $config.services.served.name
+            Port = $status.Port
+            Status = $statusText
+        }
+    }
+    
+    if ($config.services.adapter.enabled) {
+        $status = Get-ServiceStatus -config $config.services.adapter
+        $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
+        $services += [PSCustomObject]@{
+            Service = $config.services.adapter.name
             Port = $status.Port
             Status = $statusText
         }
@@ -840,11 +853,18 @@ if ($Service -ne "") {
                 Write-Warning "ZooKeeper is disabled"
             }
         }
-        "springboot" {
-            if ($config.services.springboot.enabled) {
-                Start-SpringBootService -config $config.services.springboot -globalPaths $globalPaths -QuickStart:$QuickStart
+        "served" {
+            if ($config.services.served.enabled) {
+                Start-SpringBootService -config $config.services.served -globalPaths $globalPaths -QuickStart:$QuickStart
             } else {
-                Write-Warning "SpringBoot is disabled"
+                Write-Warning "Served is disabled"
+            }
+        }
+        "adapter" {
+            if ($config.services.adapter.enabled) {
+                Start-SpringBootService -config $config.services.adapter -globalPaths $globalPaths -QuickStart:$QuickStart
+            } else {
+                Write-Warning "Adapter is disabled"
             }
         }
         "frontend" {
@@ -856,7 +876,7 @@ if ($Service -ne "") {
         }
         default {
             Write-Error "Unknown service: $Service"
-            Write-Host "Available: redis, zookeeper, springboot, frontend"
+            Write-Host "Available: redis, zookeeper, served, adapter, frontend"
         }
     }
     Set-Location $originalLocation
@@ -868,7 +888,7 @@ Show-Status -config $config
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  每个服务需在独立终端启动，详见 SKILL.md" -ForegroundColor Yellow
-Write-Host "  命令: .\start-bemp-env.ps1 -Service <redis|zookeeper|springboot|frontend> [-QuickStart] [-ForceRestart] [-AutoRestart]" -ForegroundColor White
+Write-Host "  命令: .\start-bemp-env.ps1 -Service <redis|zookeeper|served|adapter|frontend> [-QuickStart] [-ForceRestart] [-AutoRestart]" -ForegroundColor White
 Write-Host "  状态: .\start-bemp-env.ps1 -Status" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor Cyan
 

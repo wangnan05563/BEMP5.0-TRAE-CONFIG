@@ -51,6 +51,49 @@ bemp-test-common/
 |:---|:---|
 | `bemp-testcase-generator` | 引用本技能的 references、test-cases、test-index.json 进行用例编写 |
 | `bemp-webapp-testing` | 引用本技能的 references、test-cases、test-index.json 进行用例执行 |
+| `bemp-chrome-devtools-test` | 二轮验证时引用本技能的 test-cases 和 references 进行缺陷确认和回归验证 |
 | `bemp-implementation-engineer` | 通过 Oracle/MySQL MCP 操作数据库，配合 test-data-management.md 准备测试数据 |
+
+## 共享操作模式
+
+以下操作模式从实战复盘中提炼，适用于所有测试技能（Playwright 和 Chrome DevTools），确保一致性：
+
+### 登录流程（配置驱动 + 多策略降级）
+
+```
+Step 1: 从配置读取账号密码（优先环境变量 → 配置文件 → 默认值，禁止硬编码）
+Step 2: 策略A - 原生setter + dispatchEvent（首选）
+Step 3: 检测强制登录弹窗 → 如有则确认
+Step 4: 验证登录态
+Step 5: 若策略A失败 → 降级策略B/C
+```
+
+### 菜单导航（精确匹配 + 逐级展开）
+
+```
+Step 1: 从配置读取菜单树层级
+Step 2: 精确文本匹配菜单项（非模糊搜索，避免歧义）
+Step 3: 逐级点击 → 每步等待加载完成
+Step 4: 确认目标页面已渲染
+```
+
+### DataGrid 行选中（全属性设置 + 双重验证）
+
+```
+Step 1: 定位目标行
+Step 2: 尝试 click checkbox/radio
+Step 3: 等待 500ms 后验证选中状态
+Step 4: 若选中无效 → 同时设置 selects + selectIds + currentSelectList + currentSelect
+Step 5: 触发 $forceUpdate → 再次验证
+```
+
+### v-if 条件字段（先条件后验证）
+
+```
+Step 1: 检测字段是否可见
+Step 2: 若不可见 → 先设置触发条件值（如交易类型）
+Step 3: 等待 500ms → 再次检测可见性
+Step 4: 字段可见后设置值并验证
+```
 
 > ⚠️ **已知设计权衡**：银行基础信息（`name`、`url_prefix`）在 `bemp-testcase-generator/config/generator-config.json` 和 `bemp-webapp-testing/config/test_config.json` 中各自维护，目前未提取到本技能。原因是两个配置的银行字段用途不同（generator 仅需 name/url_prefix，testing 还需 login/pages/component_base 等运行时字段），强行合并会导致配置臃肿。后续如冲突加剧可考虑将 name/url_prefix/active_bank 提取到本技能统一管理。

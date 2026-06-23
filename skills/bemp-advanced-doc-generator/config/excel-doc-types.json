@@ -1,0 +1,158 @@
+{
+  "version": "1.0.0",
+  "description": "定义从零生成的 Excel 文档类型，支持配置驱动的列定义、样式和数据源映射。与模板填充模式(excel-testcase/unit-test-report-xlsx)并存。",
+  "defaults": {
+    "styles": {
+      "header": {
+        "fill_color": "1F4E78",
+        "font_color": "FFFFFF",
+        "font_size": 12,
+        "font_name": "Arial",
+        "bold": true
+      },
+      "data": {
+        "font_size": 11,
+        "font_name": "Arial"
+      },
+      "zebra": {
+        "color1": "FFFFFF",
+        "color2": "F7F9FC"
+      },
+      "border": {
+        "style": "thin",
+        "color": "D9DEE7"
+      },
+      "row_height": {
+        "header": 30,
+        "data": 80
+      },
+      "alignment": {
+        "header_horizontal": "center",
+        "header_vertical": "center",
+        "data_horizontal_default": "left",
+        "vertical": "center",
+        "wrap_text": true
+      }
+    },
+    "output": {
+      "filename_pattern": "{module}-{docLabel}-{date}.xlsx",
+      "date_format": "%Y%m%d"
+    }
+  },
+  "doc_types": {
+    "test-case-custom": {
+      "description": "从MD测试用例文件生成格式化Excel，支持多Sheet和汇总Sheet",
+      "doc_label": "测试用例",
+      "data_source": {
+        "type": "md",
+        "parser": "test_case_md",
+        "case_id_pattern": "^## (TC-\\S+)",
+        "field_mappings": {
+          "用例编号": {"source": "case_id", "regex": null},
+          "用例名称": {"source": "field", "regex": "用例名称\\s*\\|\\s*([^|]+?)\\s*\\|"},
+          "优先级": {"source": "field", "regex": "优先级\\s*\\|\\s*(P[0-3])"},
+          "所属模块": {"source": "field", "regex": "所属模块\\s*\\|\\s*([^|]+?)\\s*\\|"},
+          "关联需求": {"source": "field", "regex": "关联需求\\s*\\|\\s*([^|]+?)\\s*\\|"},
+          "银行环境": {"source": "field", "regex": "银行环境\\s*\\|\\s*([^|]+?)\\s*\\|"},
+          "个性化路径": {"source": "field", "regex": "个性化路径\\s*\\|\\s*([^|]+?)\\s*\\|", "default": "-"},
+          "前置条件": {"source": "section", "section": "前置条件", "item_prefix": "- [.] "},
+          "测试步骤": {"source": "table", "section": "测试步骤", "format": "step"},
+          "预期结果": {"source": "section_text", "section": "预期结果"},
+          "验证点": {"source": "section", "section": "验证点", "item_prefix": "- [.] "}
+        }
+      },
+      "validation": {
+        "required_fields": ["用例编号", "用例名称", "优先级"],
+        "md_format_check": {
+          "must_contain": ["## TC-", "### 测试步骤"],
+          "warn_if_missing": ["### 前置条件", "### 验证点"]
+        }
+      },
+      "sheets": [
+        {
+          "name": "测试用例明细",
+          "title": "测试用例明细",
+          "columns": [
+            {"name": "用例编号", "width": 16, "align": "center"},
+            {"name": "用例名称", "width": 35, "align": "left"},
+            {"name": "优先级", "width": 8, "align": "center"},
+            {"name": "所属模块", "width": 18, "align": "center"},
+            {"name": "关联需求", "width": 20, "align": "center"},
+            {"name": "银行环境", "width": 12, "align": "center"},
+            {"name": "个性化路径", "width": 45, "align": "left"},
+            {"name": "前置条件", "width": 40, "align": "left"},
+            {"name": "测试步骤", "width": 60, "align": "left"},
+            {"name": "预期结果", "width": 45, "align": "left"},
+            {"name": "验证点", "width": 50, "align": "left"}
+          ],
+          "source_files_arg": "--md-files",
+          "source_files_required": true,
+          "source_files_multiple": true
+        }
+      ],
+      "summary_sheet": {
+        "enabled": true,
+        "name": "测试用例汇总",
+        "title": "测试用例汇总",
+        "group_by_field": "所属模块",
+        "count_field": "用例编号",
+        "priority_fields": ["P0", "P1", "P2", "P3"],
+        "columns": [
+          {"name": "模块", "width": 25, "align": "center"},
+          {"name": "用例数量", "width": 12, "align": "center"},
+          {"name": "P0", "width": 8, "align": "center"},
+          {"name": "P1", "width": 8, "align": "center"},
+          {"name": "P2", "width": 8, "align": "center"},
+          {"name": "P3", "width": 8, "align": "center"}
+        ]
+      }
+    },
+    "unit-test-report-custom": {
+      "description": "从JSON测试结果数据生成单元测试报告Excel",
+      "doc_label": "单元测试报告",
+      "data_source": {
+        "type": "json",
+        "parser": "unit_test_json"
+      },
+      "validation": {
+        "required_fields": ["测试类", "测试方法", "测试状态"],
+        "json_format_check": {
+          "must_be_array_or_have_test_cases_key": true
+        }
+      },
+      "sheets": [
+        {
+          "name": "测试结果明细",
+          "title": "单元测试结果明细",
+          "columns": [
+            {"name": "测试类", "width": 30, "align": "left"},
+            {"name": "测试方法", "width": 35, "align": "left"},
+            {"name": "测试状态", "width": 12, "align": "center"},
+            {"name": "耗时(ms)", "width": 12, "align": "center"},
+            {"name": "失败原因", "width": 50, "align": "left"}
+          ],
+          "source_files_arg": "--json-files",
+          "source_files_required": true,
+          "source_files_multiple": true
+        }
+      ],
+      "summary_sheet": {
+        "enabled": true,
+        "name": "测试结果汇总",
+        "title": "单元测试结果汇总",
+        "group_by_field": "测试类",
+        "count_field": "测试方法",
+        "priority_fields": ["PASS", "FAIL", "ERROR", "SKIPPED"],
+        "priority_field_source": "测试状态",
+        "columns": [
+          {"name": "测试类", "width": 30, "align": "center"},
+          {"name": "测试方法数", "width": 12, "align": "center"},
+          {"name": "PASS", "width": 8, "align": "center"},
+          {"name": "FAIL", "width": 8, "align": "center"},
+          {"name": "ERROR", "width": 8, "align": "center"},
+          {"name": "SKIPPED", "width": 8, "align": "center"}
+        ]
+      }
+    }
+  }
+}

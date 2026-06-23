@@ -1,15 +1,15 @@
 ---
 name: "bemp-automation-startserver"
-description: "BEMP项目开发环境启动Skill，用于在IDE终端中启动Redis、ZooKeeper、SpringBoot后端及前端开发服务器。所有服务进程以前台方式运行，日志直接显示在终端控制台"
-whenToUse: "需要启动BEMP项目开发环境，包括Redis、ZooKeeper、SpringBoot后端及前端开发服务器，执行测试用例、功能验证、回归测试前启动服务时，查询BEMP服务状态时调用"
+description: "BEMP项目开发环境启动Skill，用于在IDE终端中启动Redis、ZooKeeper、Served后端、Adapter适配器及前端开发服务器。所有服务进程以前台方式运行，日志直接显示在终端控制台"
+whenToUse: "需要启动BEMP项目开发环境，包括Redis、ZooKeeper、Served后端、Adapter适配器及前端开发服务器，执行测试用例、功能验证、回归测试前启动服务时，查询BEMP服务状态时调用"
 triggers: 
-    - "启动/快速启动/重启/检查 环境/Redis/ZooKeeper/SpringBoot/前端/服务/所有服务"
+    - "启动/快速启动/重启/检查 环境/Redis/ZooKeeper/Served/SpringBoot/Adapter/适配器/前端/服务/所有服务"
     - "查询服务状态"
 ---
 
 # BEMP 开发环境启动 Skill
 
-在 IDE 终端中启动 BEMP 项目所需的 Redis、ZooKeeper、SpringBoot 后端和前端开发服务器。
+在 IDE 终端中启动 BEMP 项目所需的 Redis、ZooKeeper、Served 后端、Adapter 适配器和前端开发服务器。
 
 ## 服务列表
 
@@ -17,7 +17,8 @@ triggers:
 |------|------|---------------|
 | Redis | 6379 | `redis` |
 | ZooKeeper | 2181 | `zookeeper` |
-| SpringBoot | 8010 | `springboot` |
+| Served | 8010 | `served` |
+| Adapter | 8090 | `adapter` |
 | Frontend | 8091 | `frontend` |
 
 ## 核心规则（必须遵守）
@@ -35,23 +36,25 @@ triggers:
 │  终端1: Redis (6379)                   │
 │  终端2: ZooKeeper (2181)               │
 └────────────────────────────────────────┘
-         ↓ (SpringBoot 依赖 Redis + ZK 就绪)
+         ↓ (Served/Adapter 依赖 Redis + ZK 就绪)
 ┌─ 应用层（并行启动，无需等待彼此） ────┐
-│  终端3: SpringBoot 后端 (8010)         │
-│  终端4: Frontend 前端 (8091)           │
+│  终端3: Served 后端 (8010)          │
+│  终端4: Adapter 适配器 (8090)          │
+│  终端5: Frontend 前端 (8091)           │
 └────────────────────────────────────────┘
 ```
 
 **依赖说明**：
 - Redis 和 ZooKeeper 之间无依赖，可并行启动
-- SpringBoot 依赖 Redis 和 ZooKeeper 就绪，需等待基础设施层启动完成
-- Frontend 与后端无启动依赖，可与 SpringBoot 并行启动
+- Served 依赖 Redis 和 ZooKeeper 就绪，需等待基础设施层启动完成
+- Adapter 依赖 ZooKeeper 就绪（注册中心），需等待基础设施层启动完成
+- Frontend 与后端无启动依赖，可与 Served/Adapter 并行启动
 
 ## 推荐启动方式
 
 ### 方式一：全量并行启动（推荐，节省约50%等待时间）
 
-同时启动4个终端，基础设施层先就绪后应用层自动连接：
+同时启动5个终端，基础设施层先就绪后应用层自动连接：
 
 ```powershell
 # 终端1: Redis
@@ -60,10 +63,13 @@ triggers:
 # 终端2: ZooKeeper（与Redis同时启动）
 .\start-bemp-env.ps1 -Service zookeeper
 
-# 终端3: SpringBoot（Redis/ZK启动后立即启动）
-.\start-bemp-env.ps1 -Service springboot -QuickStart
+# 终端3: Served（Redis/ZK启动后立即启动）
+.\start-bemp-env.ps1 -Service served -QuickStart
 
-# 终端4: Frontend（与SpringBoot同时启动）
+# 终端4: Adapter（与Served同时启动）
+.\start-bemp-env.ps1 -Service adapter -QuickStart
+
+# 终端5: Frontend（与Served同时启动）
 .\start-bemp-env.ps1 -Service frontend -QuickStart
 ```
 
@@ -80,8 +86,9 @@ triggers:
 .\start-bemp-env.ps1 -Status
 
 # 第三步：应用层（并行）
-.\start-bemp-env.ps1 -Service springboot -QuickStart   # 终端3
-.\start-bemp-env.ps1 -Service frontend -QuickStart      # 终端4
+.\start-bemp-env.ps1 -Service served -QuickStart   # 终端3
+.\start-bemp-env.ps1 -Service adapter -QuickStart       # 终端4
+.\start-bemp-env.ps1 -Service frontend -QuickStart      # 终端5
 ```
 
 ## 命令模板
@@ -90,10 +97,10 @@ triggers:
 
 ```powershell
 # 启动服务（每个在新终端执行）
-.\start-bemp-env.ps1 -Service <redis|zookeeper|springboot|frontend>
+.\start-bemp-env.ps1 -Service <redis|zookeeper|served|adapter|frontend>
 
 # 快速启动（跳过编译/依赖检查，日常推荐）
-.\start-bemp-env.ps1 -Service <springboot|frontend> -QuickStart
+.\start-bemp-env.ps1 -Service <served|adapter|frontend> -QuickStart
 
 # 查看状态
 .\start-bemp-env.ps1 -Status
@@ -108,7 +115,7 @@ triggers:
 |------|---------|------|
 | `-Service` | 全部 | 指定要启动的服务 |
 | `-Status` | 全部 | 查看所有服务运行状态 |
-| `-QuickStart` | springboot, frontend | 跳过编译/依赖检查，直接启动 |
+| `-QuickStart` | served, adapter, frontend | 跳过编译/依赖检查，直接启动 |
 | `-ForceRestart` | 全部 | 强制停止占用端口的进程后重启 |
 | `-AutoRestart` | 全部 | 智能模式：检测服务是否运行，运行中则自动停止后重启，未运行则正常启动 |
 
@@ -136,10 +143,10 @@ Copy-Item "{targetClassesDir}/{packagePath}/{className}.class" "{warClassesDir}/
 - 当步骤1的 `-d` 直接指向 `warClassesDir` 时，此步骤可跳过
 - 当编译输出到 `targetClassesDir` 时，必须将class文件复制到WAR包中
 
-### 步骤3：重启SpringBoot
+### 步骤3：重启Served
 
 ```powershell
-.\start-bemp-env.ps1 -Service springboot -QuickStart -ForceRestart
+.\start-bemp-env.ps1 -Service served -QuickStart -ForceRestart
 ```
 
 - `-QuickStart`：跳过Maven全量编译，仅使用步骤1的增量编译结果
@@ -177,7 +184,7 @@ Copy-Item "{targetClassesDir}/{packagePath}/{className}.class" "{warClassesDir}/
 |------|---------|
 | 编译失败（语法错误） | 输出javac错误信息，不执行后续步骤 |
 | class文件复制失败 | 检查目标目录是否存在，提示用户确认WAR包是否已解压 |
-| SpringBoot重启失败 | 执行健康检查诊断（见下一节），根据诊断结果修复后重试 |
+| Served重启失败 | 执行健康检查诊断（见下一节），根据诊断结果修复后重试 |
 
 ## 服务启动后自动健康检查
 
@@ -213,7 +220,8 @@ exit 1
   "services": {
     "redis": {"port": 6379, "maxWaitSeconds": 30, "pollIntervalSeconds": 5},
     "zookeeper": {"port": 2181, "maxWaitSeconds": 60, "pollIntervalSeconds": 10},
-    "springboot": {"port": 8010, "maxWaitSeconds": 600, "pollIntervalSeconds": 30},
+    "served": {"port": 8010, "maxWaitSeconds": 600, "pollIntervalSeconds": 30},
+    "adapter": {"port": 8090, "maxWaitSeconds": 300, "pollIntervalSeconds": 20},
     "frontend": {"port": 8091, "maxWaitSeconds": 600, "pollIntervalSeconds": 30}
   }
 }
@@ -223,24 +231,24 @@ exit 1
 |------|------|
 | `port` | 服务监听端口号 |
 | `maxWaitSeconds` | 最大等待时间（秒），超时视为启动失败 |
-| `pollIntervalSeconds` | 轮询间隔（秒），SpringBoot较长是因为启动耗时3~7分钟 |
+| `pollIntervalSeconds` | 轮询间隔（秒），Served较长是因为启动耗时3~7分钟 |
 
-### SpringBoot启动失败自动诊断
+### Served/Adapter启动失败自动诊断
 
-当SpringBoot启动超时（8010端口未监听）时，按以下顺序自动检查：
+当Served(8010)或Adapter(8090)启动超时时，按以下顺序自动检查：
 
 1. **Redis是否运行**：检查6379端口，未运行则先启动Redis
 2. **ZooKeeper是否运行**：检查2181端口，未运行则先启动ZooKeeper
-3. **日志异常扫描**：在SpringBoot日志中搜索 `Exception`、`ERROR`、`SessionExpired`、`ConnectionLoss` 关键词
-4. **ZK Session过期处理**：若日志包含 `SessionExpired` 或 `ConnectionLoss`，需先重启ZooKeeper，再重启SpringBoot
+3. **日志异常扫描**：在对应服务日志中搜索 `Exception`、`ERROR`、`SessionExpired`、`ConnectionLoss` 关键词
+4. **ZK Session过期处理**：若日志包含 `SessionExpired` 或 `ConnectionLoss`，需先重启ZooKeeper，再重启对应服务
 
 诊断执行流程：
 
 ```
-SpringBoot启动超时
-  ├─ Redis未运行 → 启动Redis → 重启SpringBoot
-  ├─ ZooKeeper未运行 → 启动ZK → 重启SpringBoot
-  ├─ 日志含SessionExpired → 重启ZK → 重启SpringBoot
+Served/Adapter启动超时
+  ├─ Redis未运行 → 启动Redis → 重启对应服务
+  ├─ ZooKeeper未运行 → 启动ZK → 重启对应服务
+  ├─ 日志含SessionExpired → 重启ZK → 重启对应服务
   ├─ 日志含其他ERROR → 输出错误摘要，由用户判断
   └─ 无明显错误 → 输出日志最后50行，由用户判断
 ```
@@ -249,8 +257,8 @@ SpringBoot启动超时
 
 | 场景 | 处理策略 |
 |------|---------|
-| 基础设施未就绪 | 先启动缺失的依赖服务（Redis/ZK），再重启SpringBoot |
-| ZK Session过期 | 必须先重启ZooKeeper再重启SpringBoot，顺序不可颠倒 |
+| 基础设施未就绪 | 先启动缺失的依赖服务（Redis/ZK），再重启Served |
+| ZK Session过期 | 必须先重启ZooKeeper再重启Served，顺序不可颠倒 |
 | 日志有ERROR但非Session相关 | 输出错误摘要，不自动重启，由用户判断 |
 | 超时且无日志 | 提示检查JVM参数和磁盘空间，可能是OOM或磁盘满 |
 

@@ -9,13 +9,22 @@ BEMP 测试体系采用**三层架构**，智能体以 `bemp-test-common` 为数
                 ┌── 智能体统一调度 ──┐
                 │                    │
     bemp-testcase-generator    bemp-webapp-testing
-      （用例编写）                （用例执行）
+      （用例编写）                （用例执行-Playwright）
                 │                    │
                 └──────┬─────────────┘
                        │
                   bemp-test-common
               （共享资源：用例文档 + 参考指南 + 用例索引）
 ```
+
+### 测试执行双轨制
+
+| 轨道 | 技能 | 工具链 | 适用场景 |
+|------|------|--------|---------|
+| 一轮测试 | `bemp-webapp-testing` | Playwright MCP | 首轮功能测试、批量回归、脚本化E2E |
+| 二轮/调试测试 | `bemp-chrome-devtools-test` | Chrome DevTools MCP | 二轮回归、缺陷复现、探索性测试、弹窗验证、状态流转验证 |
+
+> **铁律：使用 Chrome DevTools MCP 工具时，必须先调用 `bemp-chrome-devtools-test` 技能加载规范**，禁止直接使用 Chrome DevTools MCP 工具裸操作。该技能包含登录规范（禁止fill_form、必须evaluate_script+dispatchEvent）、导航规范（Vue懒加载路由必须菜单点击）、异常处理决策树等关键知识，跳过将导致登录失败、路由未注册等反复踩坑。
 ## 技能绑定
 | 任务 | 调用目标 | 说明 |
 |------|---------|------|
@@ -25,8 +34,8 @@ BEMP 测试体系采用**三层架构**，智能体以 `bemp-test-common` 为数
 | 制作功能地图/构建优先级矩阵 | `bemp-testcase-generator` | 制作功能地图需先通过 `bemp-webapp-testing` 登录 |
 | 执行脚本化测试（冒烟/健康检查/E2E） | `bemp-webapp-testing` | 通过 run_test.py 或 test_accept_bank_credit.py |
 | 首轮测试/回归测试/功能验证 | `bemp-webapp-testing` | 支持 --bank 多银行切换 |
-| 复杂交互测试（脚本未覆盖） | Playwright MCP 直接操作 | 批量导入、弹窗交互、多步业务流程 |
-| 二轮回归验证 | `bemp-chrome-devtools-test` | 基于 Chrome DevTools MCP |
+| 复杂交互测试（脚本未覆盖） | `bemp-chrome-devtools-test` | 基于 Chrome DevTools MCP，**必须先调用技能加载规范** |
+| 二轮回归验证 | `bemp-chrome-devtools-test` | 基于 Chrome DevTools MCP，**必须先调用技能加载规范** |
 | 修复代码问题 | `bemp-personalized-dev` | 按规范修改代码 |
 | 数据库操作/测试数据准备 | `bemp-implementation-engineer` | 通过 MCP 连接 Oracle/MySQL |
 
@@ -34,8 +43,10 @@ BEMP 测试体系采用**三层架构**，智能体以 `bemp-test-common` 为数
 ```
 ① 查阅共享资源（bemp-test-common）
 ② 编写测试用例（bemp-testcase-generator）→ 自校验 → 提交评审
-③ 执行测试（bemp-webapp-testing / Playwright MCP）
-④ 缺陷修复与回归（bemp-personalized-dev + bemp-webapp-testing）
+③ 执行测试
+   ├─ 一轮功能测试：调用 bemp-webapp-testing 技能（Playwright MCP）
+   └─ 二轮/调试测试：调用 bemp-chrome-devtools-test 技能（Chrome DevTools MCP）
+④ 缺陷修复与回归（bemp-personalized-dev + bemp-webapp-testing / bemp-chrome-devtools-test）
 ```
 
 ## 用例编制自校验（提交评审前必须执行）
@@ -105,7 +116,7 @@ BEMP 测试体系采用**三层架构**，智能体以 `bemp-test-common` 为数
 - 前端：http://127.0.0.1:8091/#/login
 - 后端：http://127.0.0.1:8010
 - 测试账号详见 `bemp-webapp-testing/config/test_config.json` → `banks.{bank_id}.login`
-- 必须通过 Playwright MCP 在浏览器中操作登录表单
+- 一轮测试通过 Playwright MCP 操作；二轮/调试测试通过 Chrome DevTools MCP 操作，**必须先调用 `bemp-chrome-devtools-test` 技能**
 
 ## 禁止事项
 - ❌ 禁止不按决策树调用技能，不得跳过或混淆
@@ -113,6 +124,7 @@ BEMP 测试体系采用**三层架构**，智能体以 `bemp-test-common` 为数
 - ❌ 禁止编造测试执行结果
 - ❌ 禁止修改代码时不调用 `bemp-personalized-dev` 技能
 - ❌ 禁止测试工程师直接修改代码：发现缺陷后应记录缺陷信息（复现步骤、根因分析、修复建议），交由个性化开发工程师（bemp-personalized-developer）修复，测试工程师仅负责验证修复结果
+- ❌ **禁止直接使用 Chrome DevTools MCP 工具裸操作**：使用前必须先调用 `bemp-chrome-devtools-test` 技能加载规范（登录方式、导航规范、异常处理决策树等），否则将因 fill_form 不可信、Vue 懒加载路由未注册等问题反复踩坑
 
 ## 阶段交接
 - 测试用例编制完成 → 用例评审

@@ -96,6 +96,25 @@ Do NOT use this skill when:
    - 外围交易码从 mock-msg 或接口文档获取
    - 产品功能号即类名前缀（PICE/BICE/POPC 等）
 
+   **格式校验规则**（查 bank-config.json mapping_validation 配置）:
+   - 数组长度必须 >= `mapping_validation.min_length`（默认2）
+   - 每个元素必须是独立字符串，禁止逗号写在字符串内部
+   - 外部服务码必须匹配 `mapping_validation.ext_code_prefixes` 中的前缀之一
+   - 最后一个元素（内部功能号）必须与类名前缀一致
+
+   ```java
+   // ✅ 正确：两个独立元素
+   return new String[]{"EBBS.12402060.01", "PICE070701"};
+
+   // ❌ 错误：逗号在字符串内部，数组长度=1，基类 afterPropertiesSet() 不注册映射
+   return new String[]{"EBBS.12402060.01,PICE070701"};
+   ```
+
+   **基类注册逻辑**（AbstractMessageApplyResponseConverter.afterPropertiesSet）:
+   - size == 2 → `FUNCTION_ID_MAP.put(array[0], array[1])`
+   - size > 2 → 前面所有元素作为 key 映射到最后一个元素
+   - size < 2 → 打印"无效映射关系"，映射表为空，运行时报"功能号映射关系查找失败"
+
 ### Step 4: 基于 mock-msg 编写 Test
 
 1. 继承对应测试基类（查 bank-config.json test_config 或 style_enum.test_template）
@@ -252,6 +271,7 @@ Client -> JSON:AbstractMessageRequestReplyConverter / HTTP:AbstractHttpMessageRe
 - [ ] 单测: mvn test -pl banks/ext-<bk>/<bk>-adapter-as/ -Dtest=<Name>Test
 - [ ] 覆盖率达标
 - [ ] Spring启动无Bean失败
+- [ ] 映射格式: getFunctionIdMapping数组长度>=2，无逗号写在字符串内部
 - [ ] 路由可达（WS类型验证WSDL可下载）
 - [ ] 联调通过
 - [ ] 提交: git commit -m 【<银行名>】个性化开发【<func><功能名>】
@@ -277,6 +297,8 @@ Client -> JSON:AbstractMessageRequestReplyConverter / HTTP:AbstractHttpMessageRe
 | mock报文字段全null | 报文节点路径与实际不匹配 | 对照mock-msg逐步调试getNode路径 |
 | Test假绿（断言未执行） | mock-msg为空JSON或占位符 | mock-msg必须含真实业务值（M8规则） |
 | 联调字段缺失 | mock-msg缺少生产报文中的字段 | 联调后补充缺失字段到mock-msg并回归 |
+| 功能号映射关系查找失败 | getFunctionIdMapping数组格式错误：逗号写在字符串内部导致数组长度=1，基类afterPropertiesSet()不注册映射 | 拆分为独立字符串元素：`new String[]{"EBBS.xxx.01", "PICEyyy"}` |
+| getFunctionIdMapping无效映射 | 数组长度<2，基类打印"无效映射关系" | 确保数组>=2个元素，参考mapping_validation配置 |
 
 ## 命名规范
 

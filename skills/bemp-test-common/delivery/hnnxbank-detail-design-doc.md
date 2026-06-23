@@ -4,8 +4,8 @@
 |---------|---------|
 | 项目名称 | BEMP5.0 河南农信个性化小需求项目 |
 | 银行标识 | hnnxbank |
-| 文档版本 | V1.0 |
-| 编写日期 | 2026-05-26 |
+| 文档版本 | V2.0 |
+| 编写日期 | 2026-06-13 |
 | 文档状态 | 已定稿 |
 
 ---
@@ -15,6 +15,7 @@
 | 版本 | 日期 | 修订内容 | 修订人 |
 |------|------|---------|--------|
 | V1.0 | 2026-05-26 | 初始版本，覆盖5个需求模块 | 文档交付工程师 |
+| V2.0 | 2026-06-13 | 新增"修改票据回购记账逻辑"模块（模块六） | 文档交付工程师 |
 
 ---
 
@@ -61,7 +62,7 @@
 
 ### 2.1 模块总览
 
-本项目包含5个需求模块，涉及8个前端文件的修改：
+本项目包含6个需求模块，涉及12个前端文件的修改/新建：
 
 | 序号 | 需求模块 | 涉及页面 | 修改文件数 |
 |------|---------|---------|-----------|
@@ -70,6 +71,7 @@
 | 3 | 企业客户管理优化 | 企业客户维护、企业账号管理 | 0(后端) |
 | 4 | 分理处机构业务办理优化 | 机构管理、企业信息报备系列页面 | 1 |
 | 5 | 承兑行额度管理 | 额度申请、批复明细、额度复核 | 2 |
+| 6 | 修改票据回购记账逻辑 | 对话报价申请（卖出端/回购端） | 4 |
 
 ### 2.2 模块一：机构管理和管理员管理功能优化
 
@@ -209,6 +211,62 @@
 - 复核确认框文字统一：`confirmReCheck`、`confirmCancelReCheck`、`confirmReCheckWithTransfer`从"确定"统一为"确认"
 - 结转复核特殊提示：`confirmReCheckWithTransfer`包含"本次复核需要结转历史额度流水，时间较长，建议在业务低谷期再执行此操作"
 
+### 2.7 模块六：修改票据回购记账逻辑
+
+#### 2.7.1 模块职责
+
+修改票据系统中质押式回购的记账逻辑，使回购金额与票面总额的校验规则可配置化，前端回购金额灰显不可修改并自动同步票面总额，与票交所开展业务的描述一致。
+
+#### 2.7.2 设计决策
+
+| 决策点 | 方案 | 理由 |
+|--------|------|------|
+| 回购金额字段控制 | 前端灰显(readonly=true) + watch自动同步 | 防止用户手动修改回购金额，确保数据一致性 |
+| 后端校验策略 | 通过产品参数bt02_amt_eq_buyamt控制 | 不同银行对回购金额与票面总额的校验要求不同，参数化配置灵活适配 |
+| 个性化覆盖方式 | 新建同名组件覆盖产品化版本 | BEMP标准个性化机制，webpack动态导入优先加载banks/hnnxbank/下的组件 |
+| 参数默认值 | 0（关闭校验） | 兼容其他银行默认行为，河南农信通过DML脚本开启 |
+
+#### 2.7.3 关键实现
+
+**正回购卖出端（BT02.vue）**（[BT02.vue](file:///d:/code/QJ/BEMP5.0DEV/frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/sale/BT02.vue)）：
+
+- 产品化基线：`common-type-field`组件无`:readonly`属性，回购金额可编辑
+- 个性化覆盖：添加`:readonly="true"`，回购金额灰显不可修改
+- watch监听`formItem.totalAmt`变化，自动同步`formItem.buyBackTotalAmt`
+- 同步逻辑：当totalAmt有值时赋值给buyBackTotalAmt，为空时清空
+
+**逆回购回购端（RBT02.vue）**（[RBT02.vue](file:///d:/code/QJ/BEMP5.0DEV/frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/rebuy/RBT02.vue)）：
+
+- 产品化基线：`common-type-field`组件无`:readonly`属性，回购金额可编辑
+- 个性化覆盖：添加`:readonly="true"`，回购金额灰显不可修改
+- watch监听`formItem.totalAmt`变化，自动同步`formItem.buyBackTotalAmt`
+- 同步逻辑与BT02.vue一致
+
+**组件引用路径变更（quoteSaleInput.vue）**（[quoteSaleInput.vue](file:///d:/code/QJ/BEMP5.0DEV/frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/sale/quoteSaleInput.vue)）：
+
+- BT02组件引用从产品化路径`@/views/bizViews/be/market/quote/sale/BT02`改为个性化路径`@/views/bizViews/banks/hnnxbank/be/market/quote/sale/BT02`
+- 使用webpackChunkName确保代码分割正确
+
+**组件引用路径变更（quoteRebuyInput.vue）**（[quoteRebuyInput.vue](file:///d:/code/QJ/BEMP5.0DEV/frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/rebuy/quoteRebuyInput.vue)）：
+
+- RBT02组件引用从产品化路径`@/views/bizViews/be/market/quote/rebuy/RBT02`改为个性化路径`@/views/bizViews/banks/hnnxbank/be/market/quote/rebuy/RBT02`
+- 使用静态import方式引入
+
+**后端校验逻辑**：
+
+- 参数键：`be.market.bt02_amt_eq_buyamt`
+- 参数值为1时：逆回购/卖出端提交校验回购金额必须等于票面总额
+- 参数值为0时：不校验，允许回购金额小于票面总额
+- 校验失败返回错误码`0BE320500158`，提示"回购金额必须与票据(包)总额一致"
+
+**数据库参数下发**（[V202301.02.089_202606121100_T202606121001_质押式回购金额校验开关参数下发.dml.sql](file:///d:/code/QJ/BEMP5.0DEV/deploy/bemp-script/src/main/resources/banks/河南农信/V202301.02.089_202606121100_T202606121001_质押式回购金额校验开关参数下发.dml.sql)）：
+
+```sql
+UPDATE TM_BUSINESS_PARAMETER SET PARAM_VALUE='1'
+WHERE PARAM_KEY='be.market.bt02_amt_eq_buyamt' AND LEGAL_NO='000000';
+COMMIT;
+```
+
 ---
 
 ## 三、数据设计
@@ -263,6 +321,19 @@ function findSignBranch(branch):
 
 **设计理由**：分理处（简单机构）不具备独立签约能力，其客户账号的签约机构应归属到上级第一个非简单机构（如县行营业部），支持多层简单机构嵌套场景。
 
+#### 3.2.2 回购金额自动同步算法
+
+```
+watch totalAmt(val):
+    if busiType === 'BT02':
+        if val is not undefined/null/empty:
+            buyBackTotalAmt = val + ''  // 转为字符串赋值
+        else:
+            buyBackTotalAmt = ''  // 清空
+```
+
+**设计理由**：通过Vue的watch机制监听票面总额(totalAmt)变化，自动同步回购金额(buyBackTotalAmt)，确保两者始终一致。转为字符串赋值是因为表单字段类型为字符串，避免类型不一致导致的显示问题。
+
 ---
 
 ## 四、接口设计
@@ -307,7 +378,16 @@ function findSignBranch(branch):
 |---------|---------|---------|------|
 | 导出Excel | /hnnxbank/pc/risk/white/exportExcel | POST | 白名单导出 |
 
-### 4.6 接口调用规范
+### 4.6 回购记账逻辑相关接口
+
+| 接口名称 | 请求路径 | 请求方式 | 说明 |
+|---------|---------|---------|------|
+| 逆回购提交 | /bemp-served/hnnxbank/rebuy/commitApply | POST | 逆回购报价提交，后端校验回购金额(bt02_amt_eq_buyamt=1时) |
+| 卖出端提交 | /bemp-served/hnnxbank/sale/commitApply | POST | 卖出端报价提交，后端校验回购金额(bt02_amt_eq_buyamt=1时) |
+
+**校验规则**：当参数`be.market.bt02_amt_eq_buyamt=1`时，提交接口校验buyBackTotalAmt必须等于totalAmt，校验失败返回错误码`0BE320500158`。
+
+### 4.7 接口调用规范
 
 - 所有个性化接口使用`/hnnxbank/`前缀，区别于标准版`/sm/`或`/banks/`前缀
 - 请求方式统一为POST
@@ -385,6 +465,29 @@ function findSignBranch(branch):
     +-- 失败 --> 提示错误信息
 ```
 
+### 5.4 质押式回购报价提交流程
+
+```
+用户填写报价信息 -> 选择票据 -> 票面总额自动计算
+    |
+    v
+回购金额自动同步为票面总额（灰显不可修改）
+    |
+    v
+用户点击提交按钮
+    |
+    v
+前端发送提交请求（buyBackTotalAmt = totalAmt）
+    |
+    v
+后端校验（当bt02_amt_eq_buyamt=1时）
+    |
+    +-- buyBackTotalAmt == totalAmt --> 校验通过 --> 提交成功
+    +-- buyBackTotalAmt != totalAmt --> 校验失败 --> 返回错误码0BE320500158，提示"回购金额必须与票据(包)总额一致"
+```
+
+**设计说明**：前端灰显+自动同步确保正常操作下回购金额始终等于票面总额，后端校验作为安全兜底防止绕过前端直接提交。
+
 ---
 
 ## 六、偏差记录
@@ -435,3 +538,8 @@ function findSignBranch(branch):
 | 10 | banks/ext-hnnxbank/.../HnnxBankBranchRoleController.java | @RequestMapping从"/hnnx/"改为"/hnnxbank/"（4个接口：新增角色、修改角色、校验分配角色、复制分配角色） | 需求2 |
 | 11 | banks/ext-hnnxbank/.../HnnxRiskWhiteRollInfoController.java | @RequestMapping从"hnnx/"改为"/hnnxbank/"（6个接口：白名单查询、导出、删除、提交、回滚等） | 需求5 |
 | 12 | banks/ext-hnnxbank/.../HnnxBillLabelOperLogController.java | @RequestMapping从"/banks/hnnx"改为"/banks/hnnxbank" | 需求5 |
+| 13 | frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/sale/BT02.vue | 新建：卖出端正回购个性化覆盖，buyBackTotalAmt灰显(readonly=true)+watch totalAmt同步 | 需求6 |
+| 14 | frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/rebuy/RBT02.vue | 新建：回购端逆回购个性化覆盖，buyBackTotalAmt灰显(readonly=true)+watch totalAmt同步 | 需求6 |
+| 15 | frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/sale/quoteSaleInput.vue | 修改：BT02组件引用路径从产品化目录改为个性化目录 | 需求6 |
+| 16 | frontend/src/views/bizViews/banks/hnnxbank/be/market/quote/rebuy/quoteRebuyInput.vue | 修改：RBT02组件引用路径从产品化目录改为个性化目录 | 需求6 |
+| 17 | deploy/bemp-script/.../V202301.02.089_202606121100_T202606121001_质押式回购金额校验开关参数下发.dml.sql | 新建：UPDATE TM_BUSINESS_PARAMETER SET PARAM_VALUE='1' WHERE PARAM_KEY='be.market.bt02_amt_eq_buyamt' | 需求6 |

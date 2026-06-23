@@ -1,9 +1,9 @@
 ---
 name: "bemp-advanced-doc-generator"
-description: "BEMP项目技术文档自动生成：基于.docx模板和代码扫描数据，填充生成概要设计说明书、详细设计文档。支持单元测试报告(xlsx/Word)、测试用例、测试报告的模板驱动生成。触发时机：用户要求生成/编制/撰写BEMP项目的概要设计、详细设计、测试文档，或要求基于模板填充文档内容。"
+description: "BEMP项目技术文档自动生成：基于.docx模板和代码扫描数据，填充生成概要设计说明书、详细设计文档。支持单元测试报告(xlsx/Word)、测试用例、测试报告的模板驱动生成。支持配置驱动的Excel从零生成（excel-custom）。触发时机：用户要求生成/编制/撰写BEMP项目的概要设计、详细设计、测试文档，或要求基于模板填充文档内容，或要求将MD/JSON数据源转为格式化Excel。"
 ---
 
-# BEMP 高级文档生成器 v10.0
+# BEMP 高级文档生成器 v11.0
 
 ## 触发条件
 
@@ -11,6 +11,7 @@ Use this skill when:
 - 用户要求**基于模板生成/填充** BEMP 概要设计说明书或详细设计文档（核心场景）
 - 用户要求生成 BEMP 单元测试报告（Word 或基于 xlsx 模板填充）
 - 用户要求从需求文档生成 BEMP 测试用例或测试报告
+- 用户要求将 MD/JSON 数据源转为格式化 Excel（`excel-custom` 类型）
 - 用户明确提到"以XX模板为准"、"按模板填充"、"生成XX设计文档"等关键词
 
 Do NOT use this skill when:
@@ -23,7 +24,7 @@ Do NOT use this skill when:
 ## 输入输出
 
 Input:
-- `--type` (string): 文档类型，必选一：`outline-design`|`design`|`unit-test-report`|`unit-test-report-xlsx`|`testcase`|`testreport`
+- `--type` (string): 文档类型，必选一：`outline-design`|`design`|`unit-test-report`|`unit-test-report-xlsx`|`testcase`|`testreport`|`excel-custom`
 - `--module` (string): 模块/银行名称，必填
 - `--requirement` (string): 需求文档路径（Markdown）或项目根目录（outline-design）
 - `--template` (string): 自定义 .docx 模板路径，可选，默认使用内置模板
@@ -284,6 +285,11 @@ enforceDiagramGate 门禁检查（三图齐全 + 大小 > 10KB）
 | 模板不含 TOC 域 | 警告 | 模板设计缺目录 | 自动 `force_insert_toc` 插入动态域 |
 | 模板不含 UML 图表标题 | 信息 | 模板版本差异 | 自动 `_insert_uml_placeholders` 创建 H2+占位 |
 | 空章节检测误判 | 警告 | 仅有表格无段落 | 双重检测（段落+表格）已修复，但仍需人工复核 |
+| excel-custom 配置文件不存在 | 阻断 | excel-doc-types.json 缺失 | 终止，提示检查 config/excel-doc-types.json |
+| excel-custom Python 脚本执行失败 | 阻断 | openpyxl 未安装或 Python 错误 | 终止，输出 stderr 供诊断 |
+| MD 格式校验未通过（缺必要结构） | 警告 | MD 文件不符合预期格式 | 继续解析，输出警告日志 |
+| 必填字段缺失（用例编号/名称/优先级） | 警告 | MD 解析后字段为空 | 继续生成，在结果 JSON 的 validation 中标注缺失数 |
+| MD 单条用例解析异常 | 警告 | 正则匹配失败或格式变体 | 跳过该条用例，输出警告，不影响其他用例 |
 
 ## 注意事项
 
@@ -334,6 +340,12 @@ node scripts/cli.js -t testcase -f excel -r "需求文件.md" -m "模块名称" 
 
 # 测试报告
 node scripts/cli.js -t testreport -m "模块名称"
+
+# Excel 从零生成（配置驱动，从 MD 测试用例生成格式化 Excel）
+node scripts/cli.js -t excel-custom --excel-doc-type test-case-custom --md-files "用例1.md" "用例2.md" -m "模块名称" --json
+
+# Excel 从零生成（从 JSON 数据生成单元测试报告）
+node scripts/cli.js -t excel-custom --excel-doc-type unit-test-report-custom --json-files "结果.json" -m "模块名称" --json
 ```
 
 ### 新增参数（v8.1 — 2026-06-07）
@@ -342,6 +354,14 @@ node scripts/cli.js -t testreport -m "模块名称"
 |------|------|------|
 | `--design-data` | string | 直接传入预生成的 design_data JSON 路径，跳过 RequirementAnalyzer |
 | `--preserve` | flag | 显式启用保留模式，仅替换封面字段，保留模板全部正文内容 |
+
+### 新增参数（v11.0 — 2026-06-17）
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `--excel-doc-type` | string | excel-custom 子类型：`test-case-custom`（默认）\|`unit-test-report-custom` |
+| `--md-files` | string[] | MD 数据源文件路径（excel-custom 类型，支持多个） |
+| `--json-files` | string[] | JSON 数据源文件路径（excel-custom 类型，支持多个） |
 
 ## 复盘与优化总结 (v8.1 — 2026-06-07)
 
@@ -452,3 +472,33 @@ config/banks/
 4. 配置 `testSource.unitTestPaths` 和 `testSource.testFilters`
 5. 调整 `qualityGate` 阈值（可选，默认值已内置）
 6. 使用 `--bank {bankCode}` 即可
+
+## Excel 从零生成管线（v11.0 — 2026-06-17）
+
+与模板填充模式（excel-testcase/unit-test-report-xlsx）并存的配置驱动 Excel 生成管线。所有列定义、样式、数据源映射均从 `config/excel-doc-types.json` 读取，零硬编码。
+
+### 管线架构
+
+```
+[1] ExcelDocTypeConfig  → 加载 excel-doc-types.json
+[2] ParserFactory       → 根据 data_source.type 创建解析器（MD/JSON）
+[3] DataValidator       → 必填字段校验 + MD 格式校验
+[4] ExcelBuilder        → 组装 Sheet + 写入数据 + 应用样式 + 输出 xlsx
+```
+
+### 核心设计原则
+
+1. **配置驱动**：列数/列名/列宽/样式/数据源映射/校验规则全部从配置读取
+2. **解析器可扩展**：通过 `ParserFactory` 支持新增数据源类型（MD/JSON/CSV）
+3. **校验分层**：MD 格式校验（解析前）+ 必填字段校验（解析后），校验结果写入 JSON 输出
+4. **单条容错**：单条用例解析失败不影响其他用例，输出警告后跳过
+5. **汇总自动生成**：`summary_sheet.enabled=true` 时自动按分组字段统计
+
+### 新增文档类型扩展流程
+
+1. 在 `config/excel-doc-types.json` 的 `doc_types` 下新增文档类型定义
+2. 定义 `data_source`（type/parser/field_mappings）
+3. 定义 `validation`（required_fields/md_format_check 或 json_format_check）
+4. 定义 `sheets`（列定义）和 `summary_sheet`（汇总配置）
+5. 如需新解析器，在 `ParserFactory.create` 中注册
+6. 通过 `--excel-doc-type <新类型>` 即可使用

@@ -278,7 +278,195 @@ BEMP 系统基于机构号(brchNo)实现数据隔离，不同用户类型的可�
 
 ```
 1. click(批量复制角色) → wait_for(弹窗)
-2. click(确定) → wait_for(500ms)
-3. evaluate_script(检查校验提示) → 验证必输校验
-4. take_screenshot(记录校验结果)
+2.3. click(确定) → wait_for(500ms)
+4. evaluate_script(检查校验提示) → 验证必输校验
+5. take_screenshot(记录校验结果)
 ```
+
+---
+
+## 10. API 直接验证工作流
+
+### 问题背景
+
+BEMP 个性化功能的校验逻辑通常在后端 Controller/Service 层实现。通过 UI 操作验证校验逻辑效率低、不稳定（受 HUI 组件、路由注册、数据状态等多重因素干扰）。通过前端 `fetch` API 直接调用后端接口，可以高效、稳定地验证核心校验逻辑，尤其适合批量 P0/P1 用例执行。
+
+### 10.1 API 验证标准流程
+
+```
+前置: 确保已登录（有 Admin-Token cookie）
+步骤1: evaluate_script 构造 URLSearchParams 请求体
+步骤2: evaluate_script 执行 fetch(apiPath, {method:'POST', headers, body})
+步骤3: 解析 response.json()，提取 retCode / retMsg / retData
+步骤4: 比对实际结果与预期值，记录 PASS/FAIL
+```
+
+**单次 API 验证代码模板**：
+
+```javascript
+// evaluate_script: 单次 API 验证
+(async () => {
+    const apiPath = '{api_path}';  // 从 config.api_validation.api_paths 读取
+    const params = {               // 从测试用例构造
+        param1: 'value1',
+        param2: 'value2'
+    };
+
+    const body = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => body.append(k, v));
+
+    const resp = await fetch(apiPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+    });
+    const data = await resp.json();
+
+    return {
+        retCode: data.retCode,
+        retMsg: data.retMsg,
+        retData: data.retData,
+        pass: data.retCode === '{expected_retCode}'  // 从 config.response_codes 读取
+    };
+})()
+```
+
+### 10.2 BEMP API 响应码判断逻辑
+
+响应码映射见 [config](../config/bemptest-config.json) `response_codes`。核心判断逻辑：
+
+```javascript
+// evaluate_script: 响应码判断
+((retCode) => {
+    const codes = {
+        SUCCESS: '000000',           // 操作成功
+        PARAM_INVALID: '0BE128800001', // 参数校验不通过（业务校验拦截）
+        SYSTEM_ERROR: '000002',       // 系统异常
+        LEGAL_MISMATCH: '0BE229905037', // 法人不匹配
+        ALREADY_LOGIN: '0BE229904073',  // 用户已登录
+        USER_LOCKED: '0BE229904013',    // 用户被锁定
+        NO_PERMISSION: '000005'         // 权限不足
+    };
+
+    if (retCode === codes.SUCCESS) return { status: 'SUCCESS', meaning: '操作成功' };
+    if (retCode === codes.PARAM_INVALID) return { status: 'PARAM_INVALID', meaning: '业务校验拦截' };
+    if (retCode === codes.SYSTEM_ERROR) return { status: 'SYSTEM_ERROR', meaning: '系统异常' };
+    if (retCode === codes.LEGAL_MISMATCH) return { status: 'LEGAL_MISMATCH', meaning: '法人不匹配' };
+    if (retCode === codes.ALREADY_LOGIN) return { status: 'ALREADY_LOGIN', meaning: '用户已登录' };
+    if (retCode === codes.USER_LOCKED) return { status: 'USER_LOCKED', meaning: '用户被锁定' };
+    if (retCode === codes.NO_PERMISSION) return { status: 'NO_PERMISSION', meaning: '权限不足' };
+    return { status: 'UNKNOWN', meaning: '未知响应码: ' + retCode };
+})('{actual_retCode}')
+```
+
+### 10.3 Vue 组件属性验证模板
+
+当需要验证 Vue 组件属性覆盖是否生效时（如 submitForm 方法是否被个性化覆盖），使用 evaluate_script 递归查找组件：
+
+```javascript
+// evaluate_script: 递归查找 Vue 组件并验证属性
+(() => {
+    const findComponent = (root, componentName, depth = 0) => {
+        if (depth > 15) return null;  // 防止无限递归
+        if (root.$options && root.$options.name === componentName) return root;
+        if (!root.$children) return null;
+        for (const child of root.$children) {
+            const found = findComponent(child, componentName, depth + 1);
+            if (found) return found;
+        }
+        return null;
+    };
+
+    const app = document.querySelector('#app').__vue__;
+    const comp = findComponent(app, '{componentName}');
+    if (!comp) return { found: false, error: '组件未找到' };
+
+    // 验证属性值
+    const actualValue = comp.{propertyPath};
+    const expectedValue = '{expectedValue}';
+    return {
+        found: true,
+        actual: String(actualValue),
+        expected: expectedValue,
+        match: String(actualValue) === expectedValue
+    };
+})()
+```
+
+### 10.4 批量用例执行脚本模板
+
+批量执行多个 API 测试用例，收集所有结果后统一输出：
+
+```javascript
+// evaluate_script: 批量 API 用例执行
+(async () => {
+    // 用例列表 - 从 config.api_validation 读取 apiPath，用例参数按需构造
+    const testCases = [
+        {
+            id: 'TC01',
+            name: '正常报备-应通过',
+            apiPath: '{api_path}',
+            params: { /* 参数组合1 */ },
+            expected: { retCode: '000000', retMsgContains: '成功' }
+        },
+        {
+            id: 'TC02',
+            name: '缺少必填字段-应拦截',
+            apiPath: '{api_path}',
+            params: { /* 参数组合2 - 缺少必填项 */ },
+            expected: { retCode: '0BE128800001', retMsgContains: '' }
+        }
+        // ... 更多用例
+    ];
+
+    const results = [];
+    for (const tc of testCases) {
+        const body = new URLSearchParams();
+        Object.entries(tc.params).forEach(([k, v]) => body.append(k, v));
+
+        try {
+            const resp = await fetch(tc.apiPath, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body
+            });
+            const data = await resp.json();
+
+            const codeMatch = data.retCode === tc.expected.retCode;
+            const msgMatch = !tc.expected.retMsgContains ||
+                (data.retMsg && data.retMsg.includes(tc.expected.retMsgContains));
+
+            results.push({
+                id: tc.id,
+                name: tc.name,
+                pass: codeMatch && msgMatch,
+                actual: { retCode: data.retCode, retMsg: data.retMsg },
+                expected: tc.expected
+            });
+        } catch (e) {
+            results.push({
+                id: tc.id,
+                name: tc.name,
+                pass: false,
+                error: e.message
+            });
+        }
+    }
+
+    const summary = {
+        total: results.length,
+        passed: results.filter(r => r.pass).length,
+        failed: results.filter(r => !r.pass).length,
+        details: results
+    };
+    return JSON.stringify(summary);
+})()
+```
+
+### 关键发现
+
+- API 直接验证效率是 UI 操作的 5-10 倍，且不受 HUI 组件状态、路由注册等干扰
+- 前端代理路径必须包含个性化路径（如 `/hnnxbank`），否则 API 调用返回 404（见 [pitfalls](common-pitfalls.md) 陷阱16）
+- `fetch` 请求会自动携带当前域的 cookie（包括 Admin-Token），无需手动设置认证头
+- 请求体使用 `URLSearchParams` 而非 JSON，因为 BEMP 后端默认接收 `application/x-www-form-urlencoded`
+- 批量用例在单个 evaluate_script 中串行执行，避免多次 CDP 调用的开销

@@ -87,6 +87,7 @@ const paths = {
     outputDir: path.join(SKILL_ROOT, 'output'),
     libDir: path.join(SKILL_ROOT, 'scripts', 'lib'),
     scriptsDir: path.join(SKILL_ROOT, 'scripts'),
+    configDir: path.join(SKILL_ROOT, 'config'),
     // 概要设计模板路径：优先环境变量 BEMP_OUTLINE_TEMPLATE，否则使用通用默认模板
     get outlineDesignTemplate() {
         const envTpl = process.env.BEMP_OUTLINE_TEMPLATE;
@@ -115,7 +116,7 @@ const paths = {
     }
 };
 
-const validTypes = ['design', 'testcase', 'testreport', 'testcase-excel', 'testcase-md', 'testreport-md', 'design-md', 'outline-design', 'unit-test-report', 'unit-test-report-xlsx'];
+const validTypes = ['design', 'testcase', 'testreport', 'testcase-excel', 'testcase-md', 'testreport-md', 'design-md', 'outline-design', 'unit-test-report', 'unit-test-report-xlsx', 'excel-custom'];
 const validFormats = ['docx', 'md', 'excel'];
 
 const defaultTemplateMap = {

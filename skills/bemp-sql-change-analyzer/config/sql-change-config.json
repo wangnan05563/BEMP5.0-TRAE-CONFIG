@@ -1,0 +1,132 @@
+{
+  "sql_dir": "docs/脚本",
+  "template_file": "docs/表机构调整-20250917.xlsx",
+  "output_dir": "docs",
+  "output_filename_pattern": "表机构调整-增量脚本变更汇总.xlsx",
+  "project_root_env": "BEMP_PROJECT_ROOT",
+  "encoding": "utf-8",
+  "sheets": {
+    "ddl": {
+      "name": "DDL字段变更",
+      "headers": ["数据库表名", "字段名", "字段中文名称", "长度", "操作类型", "是否影响下游", "核心是否已升级"],
+      "col_widths": [35, 25, 25, 20, 12, 15, 15]
+    },
+    "index": {
+      "name": "索引变更",
+      "headers": ["数据库表名", "索引名", "索引字段", "操作类型", "是否影响下游", "核心是否已升级"],
+      "col_widths": [35, 40, 25, 12, 15, 15]
+    },
+    "dml": {
+      "name": "DML配置数据变更",
+      "headers": ["配置表名", "操作类型", "变更内容摘要", "涉及ID/KEY", "是否影响下游", "核心是否已升级"],
+      "col_widths": [28, 15, 55, 50, 15, 15]
+    }
+  },
+  "sql_patterns": {
+    "ddl_file_suffix": ".ddl.sql",
+    "dml_file_suffix": ".dml.sql",
+    "alter_add": "(?i)ALTER\\s+TABLE\\s+(\\S+)\\s+ADD\\s*\\(",
+    "alter_add_single": "(?i)ALTER\\s+TABLE\\s+(\\S+)\\s+ADD\\s+(?!\\()(\\S+)\\s+",
+    "alter_modify": "(?i)ALTER\\s+TABLE\\s+(\\S+)\\s+MODIFY\\s*\\(",
+    "alter_drop_column": "(?i)ALTER\\s+TABLE\\s+(\\S+)\\s+DROP\\s+COLUMN\\s+(\\S+)",
+    "create_table": "(?i)CREATE\\s+TABLE\\s+(\\S+)\\s*\\(",
+    "create_index": "(?i)CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+(\\S+)\\s+ON\\s+(\\S+)\\s*\\(",
+    "drop_table": "(?i)DROP\\s+TABLE\\s+(\\S+)",
+    "drop_index": "(?i)DROP\\s+INDEX\\s+(\\S+)",
+    "comment_on_column": "(?i)COMMENT\\s+ON\\s+COLUMN\\s+(\\S+)\\.(\\S+)\\s+IS\\s+'([^']*)'",
+    "comment_on_table": "(?i)COMMENT\\s+ON\\s+TABLE\\s+(\\S+)\\s+IS\\s+'([^']*)'",
+    "insert_into": "(?i)INSERT\\s+INTO\\s+(\\S+)",
+    "update_table": "(?i)UPDATE\\s+(\\S+)\\s+SET",
+    "delete_from": "(?i)DELETE\\s+FROM\\s+(\\S+)"
+  },
+  "field_type_map": {
+    "VARCHAR2": "varchar2",
+    "NUMBER": "number",
+    "CHAR": "char",
+    "DATE": "date",
+    "CLOB": "clob",
+    "BLOB": "blob",
+    "TIMESTAMP": "timestamp"
+  },
+  "operation_type_map": {
+    "alter_add": "新增",
+    "alter_add_single": "新增",
+    "alter_modify": "修改",
+    "alter_drop_column": "删除",
+    "create_table": "新增表",
+    "create_index": "新增索引",
+    "create_index_on_new_table": "新增表索引",
+    "drop_table": "删除表",
+    "drop_index": "删除索引",
+    "insert": "DELETE+INSERT",
+    "update": "UPDATE",
+    "delete_insert": "DELETE+INSERT"
+  },
+  "merge_rules": {
+    "delete_insert_same_table": true,
+    "delete_insert_max_gap_lines": 5
+  },
+  "styles": {
+    "header": {
+      "fill_color": "#1F4E78",
+      "font_color": "#FFFFFF",
+      "bold": true,
+      "size": 12,
+      "alignment": "center",
+      "vertical": "center"
+    },
+    "data": {
+      "default": {
+        "font_color": "#000000",
+        "size": 11
+      },
+      "column_styles": {
+        "数据库表名": {
+          "font_color": "#C0504D",
+          "bold": true
+        },
+        "字段名": {
+          "font_color": "#404040",
+          "bold": true
+        },
+        "配置表名": {
+          "font_color": "#C0504D",
+          "bold": true
+        },
+        "索引名": {
+          "font_color": "#404040",
+          "bold": false
+        },
+        "索引字段": {
+          "font_color": "#404040",
+          "bold": false
+        },
+        "字段中文名称": {
+          "font_color": "#548235",
+          "bold": true
+        },
+        "操作类型": {
+          "font_color": "#404040",
+          "bold": true
+        },
+        "变更内容摘要": {
+          "font_color": "#548235",
+          "bold": true
+        },
+        "长度": {
+          "font_color": "#1F4E79",
+          "bold": true,
+          "parentheses_color": "#9CC3E5"
+        }
+      }
+    },
+    "border": {
+      "style": "thin",
+      "color": "#808080"
+    },
+    "row_height": {
+      "header": 25,
+      "data": 20
+    }
+  }
+}

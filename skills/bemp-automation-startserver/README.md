@@ -1,6 +1,6 @@
 # BEMP 开发环境启动工具
 
-BEMP 项目开发环境自动化启动工具，用于在 IDE 终端中一键启动和管理 Redis、ZooKeeper、SpringBoot 后端及前端开发服务器。
+BEMP 项目开发环境自动化启动工具，用于在 IDE 终端中一键启动和管理 Redis、ZooKeeper、Served 后端、Adapter 适配器及前端开发服务器。
 
 ## 目录结构
 
@@ -51,10 +51,13 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 # 终端 2 - ZooKeeper
 .\start-bemp-env.ps1 -Service zookeeper
 
-# 终端 3 - SpringBoot（Terminal 模式）
-.\start-bemp-env.ps1 -Service springboot -QuickStart
+# 终端 3 - Served（Terminal 模式）
+.\start-bemp-env.ps1 -Service served -QuickStart
 
-# 终端 4 - 前端
+# 终端 4 - Adapter 适配器
+.\start-bemp-env.ps1 -Service adapter -QuickStart
+
+# 终端 5 - 前端
 .\start-bemp-env.ps1 -Service frontend -QuickStart
 ```
 
@@ -77,7 +80,8 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 |------|------|------|----------|
 | **Redis** | 6379 | 缓存数据库 | 直接启动 redis-server.exe |
 | **ZooKeeper** | 2181 | 分布式协调服务 | 直接启动 zkServer.cmd |
-| **SpringBoot** | 8010 / Debug:5005 | Java 后端应用 | Terminal 模式或 F5 Debug 模式 |
+| **Served** | 8010 / Debug:5005 | Java 后端应用 | Terminal 模式或 F5 Debug 模式 |
+| **Adapter** | 8090 | 适配器服务（外围系统对接） | Terminal 模式 |
 | **Frontend** | 8091 | 前端开发服务器 | npm run dev |
 
 ## 配置文件详解
@@ -117,15 +121,27 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
       "executable": "D:\\code\\apache-zookeeper-3.8.3-bin\\bin\\zkServer.cmd",
       "port": 2181
     },
-    "springboot": {
+    "served": {
       "enabled": true,
-      "name": "SpringBoot",
+      "name": "Served",
       "mainClass": "com.hundsun.bemp.BempServedAppStarter",
       "modulePath": "${ENV:BANK_MODULE_PREFIX}served-deploy",
       "warFile": "bemp-served.war",
       "port": 8010,
       "debugPort": 5005,
       "jvmOptions": "-server -Xms2048m -Xmx4096m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
+      "launchMode": "terminal",
+      "autoCompile": true,
+      "mavenCommand": "clean install -DskipTests=true"
+    },
+    "adapter": {
+      "enabled": true,
+      "name": "Adapter",
+      "mainClass": "com.hundsun.bemp.BempAdapterAppStarter",
+      "modulePath": "${ENV:BANK_MODULE_PREFIX}adapter-deploy",
+      "warFile": "bemp-adapter.war",
+      "port": 8090,
+      "jvmOptions": "-server -Xms512m -Xmx1024m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
       "launchMode": "terminal",
       "autoCompile": true,
       "mavenCommand": "clean install -DskipTests=true"
@@ -148,20 +164,20 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
 | `enabled` | 是否启用该服务 |
 | `executable` | 可执行文件完整路径（Redis/ZooKeeper） |
 | `port` | 服务监听端口 |
-| `projectPath` | 项目根目录（SpringBoot/前端） |
-| `traePath` | Trae IDE 可执行文件路径（SpringBoot 调试必需） |
+| `projectPath` | 项目根目录（Served/前端） |
+| `traePath` | Trae IDE 可执行文件路径（Served 调试必需） |
 | `nodePath` | Node.js 可执行文件路径（前端，可选） |
 | `javaHome` | JDK 安装路径 |
 | `mavenPath` | Maven 可执行文件路径 |
 | `jvmOptions` | JVM 启动参数 |
-| `warFile` | WAR 文件名（SpringBoot 编译产物） |
-| `launchMode` | SpringBoot 启动模式：`terminal` 或 `debug` |
-| `autoCompile` | 是否自动编译（SpringBoot） |
+| `warFile` | WAR 文件名（Served/Adapter 编译产物） |
+| `launchMode` | Served 启动模式：`terminal` 或 `debug` |
+| `autoCompile` | 是否自动编译（Served/Adapter） |
 | `nodeMemoryLimit` | Node.js 内存限制（MB） |
 
-## SpringBoot 启动模式
+## Served 启动模式
 
-SpringBoot 服务支持两种启动模式，通过 `config.json` 中的 `launchMode` 配置：
+Served 服务支持两种启动模式，通过 `config.json` 中的 `launchMode` 配置：
 
 ### Terminal 模式（推荐）
 - **配置**: `"launchMode": "terminal"`
@@ -175,17 +191,20 @@ SpringBoot 服务支持两种启动模式，通过 `config.json` 中的 `launchM
 
 ## 快速启动模式（-QuickStart）
 
-SpringBoot 和前端服务均支持快速启动模式，跳过编译/依赖检查：
+Served、Adapter 和前端服务均支持快速启动模式，跳过编译/依赖检查：
 
 ```powershell
-# SpringBoot: 跳过 Maven 编译
-.\start-bemp-env.ps1 -Service springboot -QuickStart
+# Served: 跳过 Maven 编译
+.\start-bemp-env.ps1 -Service served -QuickStart
+
+# Adapter: 跳过 Maven 编译
+.\start-bemp-env.ps1 -Service adapter -QuickStart
 
 # 前端: 跳过 npm 依赖检查
 .\start-bemp-env.ps1 -Service frontend -QuickStart
 ```
 
-> **注意**：SpringBoot QuickStart 需确保 WAR 文件已编译存在；前端 QuickStart 需确保 `node_modules` 目录已存在。代码/依赖有变更时请使用正常启动模式。
+> **注意**：Served/Adapter QuickStart 需确保 WAR 文件已编译存在；前端 QuickStart 需确保 `node_modules` 目录已存在。代码/依赖有变更时请使用正常启动模式。
 
 ## 前端内存配置
 
@@ -234,7 +253,8 @@ Service           Port Status
 -------           ---- ------
 Redis             6379 [OK] Running
 ZooKeeper         2181 [--] Stopped
-SpringBoot        8010 [--] Stopped
+Served        8010 [--] Stopped
+Adapter           8090 [--] Stopped
 Frontend          8091 [--] Stopped
 ```
 
@@ -244,7 +264,12 @@ Frontend          8091 [--] Stopped
 
 ```powershell
 cd d:\code\QJ\BEMP5.0DEV\banks\ext-${ENV:BANK_PROJECT_DIR}
+
+# 编译 Served 后端
 mvn clean install -DskipTests=true -pl ${ENV:BANK_MODULE_PREFIX}served-deploy -am
+
+# 编译 Adapter 适配器
+mvn clean install -DskipTests=true -pl ${ENV:BANK_MODULE_PREFIX}adapter-deploy -am
 ```
 
 ## 故障排查
@@ -252,7 +277,7 @@ mvn clean install -DskipTests=true -pl ${ENV:BANK_MODULE_PREFIX}served-deploy -a
 常见问题及解决方案请参阅 [docs/troubleshooting.md](./docs/troubleshooting.md)，包括：
 
 - ZooKeeper 文件访问错误 / AdminServer 端口冲突
-- SpringBoot WAR 文件不存在
+- Served WAR 文件不存在
 - 前端 OpenSSL 兼容性错误
 - 端口占用问题
 - 内存不足调整
@@ -260,6 +285,12 @@ mvn clean install -DskipTests=true -pl ${ENV:BANK_MODULE_PREFIX}served-deploy -a
 - 前端启动慢 / npm install 耗时长
 
 ## 更新日志
+
+### v6.0.0 (2026-05-17)
+- 新增 Adapter 适配器服务支持（端口 8090，主类 BempAdapterAppStarter）
+- 复用 Java WAR 启动逻辑，Served 与 Adapter 共用启动函数
+- 终端标题动态化：使用配置中的 name 替代硬编码服务名
+- 健康检查、编译部署配置同步增加 Adapter 支持
 
 ### v5.9.0 (2026-04-17)
 - 新增终端窗口标题自动设置功能

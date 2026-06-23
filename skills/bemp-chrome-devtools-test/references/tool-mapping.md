@@ -87,6 +87,25 @@
 | 获取单元格文本 | `evaluate_script` | 定位 tr:nth-child(X) td:nth-child(Y) | |
 | 排序 | `click` | 列头 | |
 | 分页 | `click` | 分页组件页码按钮 | |
+| 强制选中行 | `evaluate_script` | 同时设置selects+selectIds+currentSelectList+$forceUpdate | click无效时使用，见模式12 |
+
+## Dropdown 组件交互
+
+| BEMP 操作 | CDP 工具 | 参数/用法 | 说明 |
+|-----------|---------|----------|------|
+| 展开下拉 | `evaluate_script` | `dropdown.__vue__.visible = true` | 必须通过Vue实例设置，直接click无效 |
+| 等待展开 | `wait_for_timeout` | 300ms | 等待下拉动画完成 |
+| 点击下拉项 | `click` | take_snapshot获取UID后点击 | |
+| 检测Dropdown | `evaluate_script` | 查找`.h-dropdown`元素 | 确认按钮是否为Dropdown组件 |
+
+## Window-Layer 弹窗交互
+
+| BEMP 操作 | CDP 工具 | 参数/用法 | 说明 |
+|-----------|---------|----------|------|
+| 检测弹窗 | `take_snapshot` | 查找`.window-layer`元素 | 区分h-modal和window-layer |
+| 恢复最小化 | `evaluate_script` | `layer.__vue__.minimized = false` + `$emit('on-restore')` | |
+| 强制显示 | `evaluate_script` | CSS设置display/visibility/opacity | Vue实例方式无效时降级 |
+| 确认可见 | `take_screenshot` | 截图确认弹窗内容可见 | |
 
 ## 关键工具组合模式
 
@@ -146,6 +165,41 @@ evaluate_script(获取Vue实例和$http) → evaluate_script(调用API并返回�
 ```
 
 适用场景：前端界面无对应菜单但需要执行后端操作（如解锁用户、查询特定数据）。需要已登录用户的会话。
+
+### 模式10：Dropdown 组件操作
+```
+evaluate_script(设置dropdown.visible=true) → wait_for_timeout(300ms) → take_snapshot(获取下拉选项) → click(目标下拉项) → wait_for(networkidle)
+```
+
+适用场景：BEMP 操作按钮使用 `h-dropdown` 组件（如"新增"含多个子类型、"导出"含多种格式）。直接 click Dropdown 按钮不会展开下拉菜单，必须先通过 Vue 实例设置 `visible=true`。详见 [pitfalls](common-pitfalls.md) 陷阱20。
+
+### 模式11：Window-Layer 弹窗恢复
+```
+click(操作按钮) → take_snapshot(检测window-layer) → evaluate_script(恢复最小化窗口) → wait_for_timeout(500ms) → take_screenshot(确认弹窗可见) → 弹窗内操作
+```
+
+适用场景：BEMP 部分弹窗使用 `window-layer` 组件而非标准 `h-modal`，可能默认最小化打开。需要检测并恢复窗口状态。详见 [pitfalls](common-pitfalls.md) 陷阱21。
+
+### 模式12：DataGrid 行选中（Vue 实例直设）
+```
+evaluate_script(定位目标行数据) → evaluate_script(同时设置currentSelectList+selects+selectIds+currentSelect) → $forceUpdate() → wait_for_timeout(500ms) → evaluate_script(验证选中状态) → click(操作按钮)
+```
+
+适用场景：click checkbox/radio 后 Vue 数据未同步，或仅设置 `currentSelectList` 后操作按钮仍无反应。需同时设置所有选中相关属性。详见 [pitfalls](common-pitfalls.md) 陷阱23。
+
+### 模式13：v-if 条件字段验证
+```
+evaluate_script(检测字段可见性) → 若不可见：evaluate_script(设置触发条件值) → wait_for_timeout(500ms) → evaluate_script(再次检测可见性) → evaluate_script(设置字段值)
+```
+
+适用场景：BEMP 表单使用 `v-if` 条件渲染，字段是否显示取决于其他表单值（如交易类型决定"回购总金额"是否显示）。测试时必须先满足 v-if 条件再验证字段。详见 [pitfalls](common-pitfalls.md) 陷阱24。
+
+### 模式14：弹窗关闭后路由恢复
+```
+click(弹窗关闭按钮) → wait_for_timeout(300ms) → evaluate_script(检查当前URL) → 若URL跳转：navigate_page(目标页面) → wait_for(networkidle) → take_snapshot(确认页面)
+```
+
+适用场景：关闭弹窗后页面 URL 意外跳转（如跳转到 mainIndex），需检测并恢复到目标页面。详见 [pitfalls](common-pitfalls.md) 陷阱22。
 
 ---
 
@@ -384,6 +438,124 @@ document.querySelectorAll('.h-modal-mask, .h-msg-box-wrapper').forEach(el => el.
         result.push({ label, isMultiple, isSingle, classes: s.className });
     });
     return JSON.stringify(result);
+})()
+```
+
+### Dropdown 组件操作
+
+```javascript
+// 展开 Dropdown 下拉列表并点击目标项
+(() => {
+    const dropdowns = document.querySelectorAll('.h-dropdown');
+    for (const dropdown of dropdowns) {
+        const trigger = dropdown.querySelector('.h-dropdown-rel button, .h-dropdown-rel a');
+        if (trigger && trigger.textContent.trim().includes('{按钮文本}')) {
+            const vueInstance = dropdown.__vue__;
+            if (vueInstance) {
+                vueInstance.visible = true;
+                return 'Dropdown 已展开，请 take_snapshot 获取下拉选项后 click 目标项';
+            }
+            trigger.click();
+            return '已点击 Dropdown 触发器';
+        }
+    }
+    return '未找到目标 Dropdown';
+})()
+```
+
+### Window-Layer 弹窗恢复
+
+```javascript
+// 检测并恢复 window-layer 最小化弹窗
+(() => {
+    const layers = document.querySelectorAll('.window-layer');
+    if (layers.length === 0) return '未找到 window-layer';
+
+    const results = [];
+    layers.forEach((layer, index) => {
+        const vueInstance = layer.__vue__;
+        if (vueInstance) {
+            const isMinimized = vueInstance.minimized || layer.classList.contains('window-layer-minimized');
+            if (isMinimized) {
+                vueInstance.minimized = false;
+                vueInstance.$emit('on-restore');
+                results.push({ index, restored: true });
+            } else {
+                results.push({ index, restored: false, state: 'normal' });
+            }
+        }
+    });
+    return JSON.stringify(results);
+})()
+```
+
+### DataGrid 行选中（Vue 实例直设，完整版）
+
+```javascript
+// 完整设置 DataGrid 行选中状态（同时设置所有选中属性）
+(() => {
+    const grid = document.querySelector('.h-datagrid');
+    if (!grid) return '未找到 DataGrid';
+    const vueInstance = grid.__vue__;
+    if (!vueInstance) return '未找到 Vue 实例';
+
+    // 获取目标行数据
+    const rows = vueInstance.data || vueInstance.bodyData || [];
+    const targetRow = rows.find(row => row.{keyField} === '{targetValue}');
+    if (!targetRow) return '未找到目标行';
+
+    const rowId = targetRow.id || targetRow.ID || targetRow._index;
+
+    // 同时设置所有选中相关属性
+    if (vueInstance.currentSelectList !== undefined) vueInstance.currentSelectList = [targetRow];
+    if (vueInstance.selects !== undefined) vueInstance.selects = [targetRow];
+    if (vueInstance.selectIds !== undefined) vueInstance.selectIds = [rowId];
+    if (vueInstance.currentSelect !== undefined) vueInstance.currentSelect = targetRow;
+
+    vueInstance.$forceUpdate();
+
+    return JSON.stringify({
+        setSelectList: vueInstance.currentSelectList?.length || 0,
+        setSelects: vueInstance.selects?.length || 0,
+        setSelectIds: vueInstance.selectIds?.length || 0,
+        hasCurrentSelect: !!vueInstance.currentSelect,
+        rowId: rowId
+    });
+})()
+```
+
+### v-if 条件字段检测
+
+```javascript
+// 检测 v-if 条件字段是否可见
+(() => {
+    const fieldLabel = '{fieldLabel}';  // 如 "回购总金额"
+    const formItems = document.querySelectorAll('.h-form-item');
+    for (const item of formItems) {
+        const label = item.querySelector('label');
+        if (label && label.textContent.includes(fieldLabel)) {
+            const isVisible = getComputedStyle(item).display !== 'none';
+            return JSON.stringify({ found: true, visible: isVisible, label: label.textContent.trim() });
+        }
+    }
+    return JSON.stringify({ found: false, visible: false, reason: 'DOM元素不存在(v-if=false)' });
+})()
+```
+
+### 弹窗关闭后 URL 验证
+
+```javascript
+// 弹窗关闭后检查 URL 是否跳转
+(() => {
+    const currentHash = window.location.hash;
+    const expectedPath = '{expected_route}';  // 如 /pc/be/market
+    const isJumped = !currentHash.includes(expectedPath);
+    return JSON.stringify({
+        currentHash,
+        expectedPath,
+        isJumped,
+        needRecovery: isJumped
+    });
 })()
 ```
 

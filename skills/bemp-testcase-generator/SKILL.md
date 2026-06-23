@@ -231,6 +231,7 @@ bemp-testcase-generator/
 | `priority` | P0-P3 优先级定义 |
 | `risk_levels` | 高/中/低风险等级定义 |
 | `output` | 输出路径配置 |
+| `excel_output` | Excel 输出配置（enabled/doc_type/auto_generate/output_dir/filename_pattern/cli_command） |
 | `banks` | 多银行配置（active_bank + 各银行 url_prefix） |
 | `case_id_prefixes` | 24 个模块缩写与编号规则 |
 
@@ -244,3 +245,29 @@ bemp-testcase-generator/
 | `bemp-webapp-testing` | 用例执行验证；提供 LoginManager、组件交互参考 |
 | `bemp-implementation-engineer` | Oracle/MySQL MCP 数据库操作 |
 | `bemp-personalized-developer` | 功能开发 → 用例编写环节 |
+| `bemp-advanced-doc-generator` | Excel 输出：将 MD 测试用例转为格式化 Excel（excel-custom 管线） |
+
+## Excel 输出协作流程
+
+测试用例编写完成后，可通过 `bemp-advanced-doc-generator` 的 `excel-custom` 管线将 MD 用例转为格式化 Excel。
+
+### 自动触发条件
+
+当 `config/generator-config.json` 中 `excel_output.enabled=true` 且 `excel_output.auto_generate=true` 时，用例编写完成后自动调用 Excel 生成。
+
+### 手动调用方式
+
+```bash
+node .trae/skills/bemp-advanced-doc-generator/scripts/cli.js \
+  -t excel-custom \
+  --excel-doc-type test-case-custom \
+  --md-files "用例文件1.md" "用例文件2.md" \
+  -m "模块名称" --json
+```
+
+### 输出规范
+
+| 产出物 | 路径 | 格式 |
+|:---|:---|:---|
+| 测试用例 Excel | `bemp-test-common/test-cases/excel/{module}-SIT测试用例-{date}.xlsx` | xlsx |
+| Excel 内 Sheet | 测试用例明细 + 测试用例汇总 | 双 Sheet |

@@ -20,7 +20,7 @@ if (Test-Path $ConfigPath) {
         Write-Host "   ✅ 配置加载成功" -ForegroundColor Green
         Write-Host "   Redis 路径: $($config.services.redis.executable)" -ForegroundColor White
         Write-Host "   ZooKeeper 路径: $($config.services.zookeeper.executable)" -ForegroundColor White
-        Write-Host "   项目路径: $($config.services.springboot.projectPath)" -ForegroundColor White
+        Write-Host "   项目路径: $($config.services.served.projectPath)" -ForegroundColor White
     } catch {
         Write-Host "   ❌ 配置解析失败: $_" -ForegroundColor Red
         exit 1
@@ -114,7 +114,7 @@ Write-Host "   启动 ZooKeeper:" -ForegroundColor White
 Write-Host "     .\start-bemp-env.ps1 -Service zookeeper" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "   启动 SpringBoot:" -ForegroundColor White
-Write-Host "     .\start-bemp-env.ps1 -Service springboot" -ForegroundColor Yellow
+Write-Host "     .\start-bemp-env.ps1 -Service served" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "   启动前端:" -ForegroundColor White
 Write-Host "     .\start-bemp-env.ps1 -Service frontend" -ForegroundColor Yellow

@@ -324,6 +324,21 @@ Step 4: 配置检查 → API参数格式是否正确？legalNo是否与测试数
 - **地址必须使用 127.0.0.1，禁止使用 localhost**：Windows 环境下 localhost 可能因 DNS 解析或 IPv6 优先导致连接超时或失败，所有 URL（前端、后端、API）统一使用 127.0.0.1
 - **测试结束后必须关闭浏览器页面**：所有测试用例执行完毕后，必须调用 `playwright_close` 关闭浏览器页面，释放资源，避免残留窗口占用内存和端口
 
+### HUI 组件操作注意事项（实战复盘提炼）
+
+以下注意事项从"修改票据回购记账逻辑"等需求的自动化测试复盘中提炼，避免重复踩坑：
+
+| 组件 | 注意事项 | 详细参考 |
+|------|---------|---------|
+| h-dropdown | "新增"等按钮可能是Dropdown组件，需先设`visible=true`再点击下拉项，直接click无效 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱20 |
+| window-layer | 部分弹窗使用window-layer而非h-modal，可能默认最小化，需检测并恢复 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱21 |
+| h-datagrid | 行选中需同时设置`selects`+`selectIds`+`currentSelectList`，仅设一项操作按钮可能无反应 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱23 |
+| v-if字段 | 条件渲染字段需先满足v-if条件（如交易类型）再验证，否则字段不存在 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱24 |
+| 弹窗关闭 | 关闭弹窗后需验证URL未跳转，若跳转需重新导航回目标页面 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱22 |
+| 登录密码 | 禁止硬编码密码，从config/env-config读取，默认密码'888888' | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱25 |
+| 强制登录 | 登录时可能出现"强制登录确认"弹窗，必须检测并处理 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱12 |
+| 菜单导航 | 菜单文本需精确匹配，模糊搜索可能导航到错误页面 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱3 |
+
 ## 参考文件
 
 | 文件 | 说明 |

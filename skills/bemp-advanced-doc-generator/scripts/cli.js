@@ -105,8 +105,22 @@ function parseArgs(args) {
                 options.testSource = args[++i]; lastFlagConsumed = true; break;
             case '--test-cases':
                 options.testCasesPath = args[++i]; lastFlagConsumed = true; break;
+            case '--md-files':
+                options.mdFiles = []; lastFlagConsumed = true;
+                while (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+                    options.mdFiles.push(args[++i]);
+                }
+                break;
+            case '--json-files':
+                options.jsonFiles = []; lastFlagConsumed = true;
+                while (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+                    options.jsonFiles.push(args[++i]);
+                }
+                break;
             case '--mode':
                 options.mode = args[++i]; lastFlagConsumed = true; break;
+            case '--excel-doc-type':
+                options.excelDocType = args[++i]; lastFlagConsumed = true; break;
             case '--requirement': case '-r':
                 options.requirementPath = args[++i]; lastFlagConsumed = true; break;
             case '--requirement-md': case '--requirementMD':
@@ -179,6 +193,9 @@ function parseArgs(args) {
     if (options.type === 'unit-test-report-xlsx') {
         options.format = 'xlsx';
     }
+    if (options.type === 'excel-custom') {
+        options.format = 'excel-custom';
+    }
 
     return options;
 }
@@ -190,7 +207,7 @@ function printHelp() {
 用法: node cli.js [选项]
 
 选项:
-  -t, --type <类型>        文档类型: design|testcase|testreport|outline-design|unit-test-report (默认: design)
+  -t, --type <类型>        文档类型: design|testcase|testreport|outline-design|unit-test-report|excel-custom (默认: design)
   -m, --module <模块>      模块名称
   -f, --format <格式>      输出格式: docx|md|excel (默认: docx)
   -o, --output <路径>      输出文件路径
@@ -214,6 +231,9 @@ function printHelp() {
   --mode <模式>            xlsx报告模式: unit|functional（默认根据参数自动推断）
   --bank <银行代码>        银行级配置代码（如 <银行代码>），自动加载 testSource/template/filter
   --test-filter <关键词>   测试类名过滤（逗号分隔），仅扫描类名包含关键词的测试类
+  --excel-doc-type <类型>  excel-custom子类型: test-case-custom|unit-test-report-custom (默认: test-case-custom)
+  --md-files <路径...>     MD数据源文件（excel-custom类型，支持多个）
+  --json-files <路径...>   JSON数据源文件（excel-custom类型，支持多个）
   -h, --help               显示帮助信息
 
 示例:
@@ -227,6 +247,8 @@ function printHelp() {
   node cli.js -t unit-test-report-xlsx -m "模块名称" --xlsx-template "模板.xlsx" --test-cases "用例.md" --mode functional --json
   node cli.js -t unit-test-report-xlsx -m "模块名称" --bank <银行代码> --json
   node cli.js -t unit-test-report-xlsx -m "模块名称" --bank <银行代码> --test-filter "ClassNameA,ClassNameB" --json
+  node cli.js -t excel-custom --excel-doc-type test-case-custom --md-files "用例1.md" "用例2.md" -m "模块名称" --json
+  node cli.js -t excel-custom --excel-doc-type unit-test-report-custom --json-files "结果.json" -m "模块名称"
   node cli.js --list
 `);
 }
@@ -397,6 +419,10 @@ async function generateDocument(options) {
             else lines.push(`  ✓ 质量审核 7 项全部通过`);
         }
         return lines;
+    }
+
+    if (options.type === 'excel-custom' || options.format === 'excel-custom') {
+        return await generateExcelCustom(options, jsonMode, moduleName);
     }
 
     const { DocumentBuilder } = require('./lib/doc-builder');
@@ -1317,6 +1343,97 @@ async function generateOutlineDesign(options, outputDir, profile, jsonMode) {
         }
     }
     return results;
+}
+
+/**
+ * excel-custom 类型处理：调用 Python 通用 Excel 生成器
+ * 配置驱动，所有列定义/样式/数据源映射从 config/excel-doc-types.json 读取
+ * 与模板填充模式(excel-testcase/unit-test-report-xlsx)并存
+ */
+async function generateExcelCustom(options, jsonMode, moduleName) {
+    const { execFileSync } = require('child_process');
+    const { paths, BempDocError, ERROR_CODES } = require('../config/default');
+
+    const docType = options.excelDocType || 'test-case-custom';
+    const configPath = path.join(paths.configDir, 'excel-doc-types.json');
+    if (!fs.existsSync(configPath)) {
+        throw new BempDocError(ERROR_CODES.TEMPLATE_NOT_FOUND, `Excel文档类型配置不存在: ${configPath}`);
+    }
+
+    const generatorScript = path.join(paths.scriptsDir, 'excel_generators', 'excel_generator.py');
+    if (!fs.existsSync(generatorScript)) {
+        throw new BempDocError(ERROR_CODES.TEMPLATE_NOT_FOUND, `Excel生成器脚本不存在: ${generatorScript}`);
+    }
+
+    // 组装 Python 脚本参数（全部通过 CLI 参数传递，无硬编码）
+    const pyArgs = [generatorScript, '--doc-type', docType, '--config', configPath, '--module', moduleName || ''];
+    if (options.mdFiles && options.mdFiles.length > 0) {
+        pyArgs.push('--md-files', ...options.mdFiles);
+    }
+    if (options.jsonFiles && options.jsonFiles.length > 0) {
+        pyArgs.push('--json-files', ...options.jsonFiles);
+    }
+    if (options.outputPath) {
+        pyArgs.push('--output', options.outputPath);
+    }
+
+    console.log(`[excel-custom] 文档类型: ${docType}`);
+    console.log(`[excel-custom] 配置文件: ${configPath}`);
+    if (options.mdFiles) console.log(`[excel-custom] MD数据源: ${options.mdFiles.length} 个文件`);
+    if (options.jsonFiles) console.log(`[excel-custom] JSON数据源: ${options.jsonFiles.length} 个文件`);
+
+    let pyResult;
+    try {
+        pyResult = execFileSync('python', pyArgs, {
+            encoding: 'utf-8',
+            maxBuffer: 20 * 1024 * 1024,
+            cwd: paths.scriptsDir,
+        });
+    } catch (pyErr) {
+        const stderr = pyErr.stderr ? pyErr.stderr.toString('utf-8') : pyErr.message;
+        throw new BempDocError(ERROR_CODES.GENERATION_FAILED, `Excel生成器执行失败: ${stderr}`);
+    }
+
+    // 从 stdout 提取最后一个 JSON 对象（支持多行 JSON）
+    let resultJson = null;
+    const lastBrace = pyResult.lastIndexOf('}');
+    if (lastBrace !== -1) {
+        // 从最后一个 } 向前找匹配的 {
+        let depth = 0;
+        for (let i = lastBrace; i >= 0; i--) {
+            if (pyResult[i] === '}') depth++;
+            else if (pyResult[i] === '{') depth--;
+            if (depth === 0) {
+                const jsonStr = pyResult.slice(i, lastBrace + 1);
+                try {
+                    resultJson = JSON.parse(jsonStr);
+                    break;
+                } catch (_) { /* continue searching */ }
+            }
+        }
+    }
+    if (!resultJson) {
+        throw new BempDocError(ERROR_CODES.GENERATION_FAILED, 'Excel生成器未返回有效JSON结果');
+    }
+
+    if (jsonMode) {
+        return {
+            success: true,
+            type: 'excel-custom',
+            docType: resultJson.docType,
+            outputPath: resultJson.outputPath,
+            totalRecords: resultJson.totalRecords,
+            sheets: resultJson.sheets,
+            summarySheet: resultJson.summarySheet
+        };
+    }
+
+    const lines_out = [
+        `✓ Excel文档已生成: ${resultJson.outputPath}`,
+        `  文档类型: ${resultJson.docType} | 记录数: ${resultJson.totalRecords}`,
+        `  Sheet列表: ${resultJson.sheets.join(', ')}${resultJson.summarySheet ? ' + 汇总Sheet' : ''}`
+    ];
+    return lines_out;
 }
 
 function loadTemplateData(templatePath, fallbackType) {

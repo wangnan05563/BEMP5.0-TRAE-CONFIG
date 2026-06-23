@@ -556,6 +556,485 @@ $sqlFile = "unlock_user.sql"
 
 ---
 
+## 陷阱16：前端代理缺少个性化路径导致 API 404（P0 级影响）
+
+**现象**：
+通过 `evaluate_script` 调用 `fetch` 访问个性化 Controller 接口时，返回 404 Not Found。
+
+**根因**：
+BEMP 前端开发服务器（webpack-dev-server）的 `proxyTable` 配置中未包含银行个性化路径（如 `/hnnxbank`）。前端代理只转发已配置的路径到后端，未配置的路径由前端自身处理，导致 404。
+
+**标准解决方案**：
+
+1. **检查前端代理配置**：查看 `deploy/bemp-front/config/index.js` 中 `dev.proxyTable` 是否包含个性化路径
+2. **添加缺失的代理路径**：
+
+```javascript
+// deploy/bemp-front/config/index.js → dev.proxyTable
+// 添加个性化路径代理（路径从 config proxy_paths 读取）
+'/hnnxbank': {
+    target: 'http://127.0.0.1:8010',
+    changeOrigin: true,
+    pathRewrite: { '^/hnnxbank': '/bemp-served/hnnxbank' }
+}
+```
+
+3. **重启前端开发服务器**使配置生效
+
+**验证代理是否生效**：
+
+```javascript
+// evaluate_script: 验证 API 路径可达
+(async () => {
+    try {
+        const resp = await fetch('/{bank_url_prefix}/{api_path}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams()
+        });
+        return { status: resp.status, ok: resp.ok };
+    } catch (e) {
+        return { error: e.message };
+    }
+})()
+```
+
+**预防措施**：
+- 每次切换银行个性化环境时，检查 `proxyTable` 是否包含对应路径
+- 代理路径配置集中管理在 [config](../config/bemptest-config.json) `proxy_paths` 中
+
+---
+
+## 陷阱17：数据库脏数据导致测试结果不可靠（P1 级影响）
+
+**现象**：
+测试执行结果与预期不符，但代码逻辑正确。例如查询返回的数据字段为空或与预期不一致。
+
+**根因**：
+测试环境中数据库数据不稳定，可能存在历史脏数据（如 CUST_NO 字段为空、关联字段不匹配等）。这些数据在正常业务流程中不会出现，但在测试环境中可能因手动操作或数据迁移遗留。
+
+**标准解决方案**：
+
+1. **测试前通过 Oracle MCP 修复脏数据**（修复 SQL 模板见 [config](../config/bemptest-config.json) `test_data_fix`）：
+
+```sql
+-- 示例：修复 CUST_NO 为空的记录
+UPDATE {table_name} SET CUST_NO = '{correct_value}' WHERE ID = '{record_id}';
+COMMIT;
+```
+
+2. **刷新页面验证修复**：
+
+```
+navigate_page(当前页面URL) → wait_for(networkidle) → take_screenshot → 验证数据
+```
+
+3. **API 直接验证绕过脏数据**：当 UI 数据受脏数据影响时，改用 API 直接验证核心逻辑
+
+**预防措施**：
+- 每次测试前通过 Oracle MCP 检查关键表的数据完整性
+- 常用修复 SQL 模板维护在 [config](../config/bemptest-config.json) `test_data_fix.sql_templates` 中
+- 对脏数据敏感的测试用例，优先使用 API 验证而非 UI 验证
+
+---
+
+## 陷阱18：Maven 编译内存不足导致打包失败（P2 级影响）
+
+**现象**：
+执行 `mvn install` 或 `mvn package` 时报 `OutOfMemoryError` 或进程被系统杀掉。
+
+**根因**：
+系统内存紧张时，Maven 默认的堆内存配置不足以完成编译。尤其在同时运行 Redis、ZooKeeper、后端服务、前端服务的情况下，可用内存更少。
+
+**标准解决方案**：
+
+**方案A - 降低 Maven 内存配置**：
+
+```powershell
+$env:MAVEN_OPTS = "-Xms256m -Xmx512m"
+mvn clean package -DskipTests
+```
+
+**方案B - 直接复制已编译的 jar**（跳过重新打包）：
+
+```powershell
+# 如果之前已成功编译，直接复制 jar 到部署目录
+Copy-Item -Path "deploy/bemp-served/target/bemp-served.jar" -Destination "{deploy_dir}" -Force
+```
+
+**方案C - 关闭非必要服务释放内存**：
+
+```powershell
+# 临时关闭前端开发服务器，释放内存给 Maven 编译
+# 编译完成后再重新启动
+```
+
+**预防措施**：
+- 编译前检查系统可用内存，低于 2GB 时先关闭非必要服务
+- 优先使用增量编译（`mvn compile`）而非全量（`mvn clean compile`）
+- 日常开发中保持一次成功的编译产物，避免重复编译
+
+---
+
+## 陷阱19：Chrome DevTools MCP 页面变为 about:blank（P1 级影响）
+
+**现象**：
+正在操作的页面突然变为 `about:blank`，所有页面上下文丢失，evaluate_script 返回空结果。
+
+**根因**：
+Chrome DevTools MCP 在某些操作（如 `navigate_page` 超时、`click` 触发了页面导航、CDP 连接中断）后，可能将页面重置为 `about:blank`。这是 CDP 协议的边界行为，非 BEMP 系统问题。
+
+**标准解决方案**：
+
+1. **重新导航到目标页面**：
+
+```
+navigate_page → http://127.0.0.1:8091 → wait_for(networkidle)
+```
+
+2. **如果需要重新登录**：执行第二步登录流程
+
+3. **通过菜单重新导航到目标页面**（如果直接 URL 导航因路由未注册而失败）
+
+**预防措施**：
+- 每次关键操作前 `take_screenshot` 留存证据，避免页面丢失后无法回溯
+- 避免在页面加载过程中执行 `click` 操作
+- 长时间测试会话中，定期（每 5 步）检查当前 URL 是否正确
+
+---
+
+## 陷阱20：Dropdown 组件操作需两步触发（P0 级影响）
+
+**现象**：
+点击"新增"等按钮后无反应，take_snapshot 发现按钮是 HUI Dropdown 组件而非普通按钮，下拉菜单未展开。
+
+**根因**：
+BEMP 部分操作按钮使用 HUI 的 `h-dropdown` 组件实现。Dropdown 不是简单的 click 触发，需要先设置 `dropdown.visible = true` 展开下拉列表，再点击具体的下拉项。直接 click Dropdown 按钮不会展开下拉菜单。
+
+**标准解决方案**：
+
+```javascript
+// 步骤1：展开 Dropdown 下拉列表
+(() => {
+    const dropdowns = document.querySelectorAll('.h-dropdown');
+    for (const dropdown of dropdowns) {
+        const trigger = dropdown.querySelector('.h-dropdown-rel button, .h-dropdown-rel a');
+        if (trigger && trigger.textContent.trim().includes('{按钮文本}')) {
+            const vueInstance = dropdown.__vue__;
+            if (vueInstance) {
+                vueInstance.visible = true;
+                return 'Dropdown 已展开';
+            }
+            // 降级：直接点击触发器
+            trigger.click();
+            return '已点击 Dropdown 触发器';
+        }
+    }
+    return '未找到目标 Dropdown';
+})()
+
+// 步骤2：等待下拉展开
+wait_for_timeout(300ms)
+
+// 步骤3：take_snapshot 获取下拉选项后 click 目标项
+click → 目标下拉项
+
+// 步骤4：等待操作完成
+wait_for(networkidle)
+```
+
+**不推荐方案**：
+- 直接 `click(Dropdown按钮)` → 下拉不展开，操作无效
+- `fill_form` → 不适用于 Dropdown 组件
+
+**适用范围**：所有使用 `h-dropdown` 组件的操作按钮，常见于"新增"（含多个子类型）、"导出"（含多种格式）等场景。
+
+---
+
+## 陷阱21：Window-Layer 弹窗被最小化（P1 级影响）
+
+**现象**：
+点击"新增"或"修改"按钮后，take_snapshot 显示出现了 `window-layer` 元素，但页面上看不到弹窗内容，弹窗被最小化在底部任务栏。
+
+**根因**：
+BEMP 部分弹窗使用 `window-layer` 组件（而非标准 `h-modal`/`h-msg-box`），该组件默认可能以最小化状态打开，需要手动恢复窗口。
+
+**标准解决方案**：
+
+```javascript
+// 检测并恢复 window-layer 弹窗
+(() => {
+    const layers = document.querySelectorAll('.window-layer');
+    if (layers.length === 0) return '未找到 window-layer';
+
+    const results = [];
+    layers.forEach((layer, index) => {
+        const vueInstance = layer.__vue__;
+        if (vueInstance) {
+            // 检查是否最小化
+            const isMinimized = vueInstance.minimized || layer.classList.contains('window-layer-minimized');
+            if (isMinimized) {
+                vueInstance.minimized = false;
+                vueInstance.$emit('on-restore');
+                results.push({ index, restored: true });
+            } else {
+                results.push({ index, restored: false, state: 'normal' });
+            }
+        }
+    });
+    return JSON.stringify(results);
+})()
+
+// 恢复后等待渲染
+wait_for_timeout(500ms)
+take_screenshot → 确认弹窗可见
+```
+
+**降级方案**（Vue 实例方式无效时）：
+
+```javascript
+// 通过 CSS 强制恢复 window-layer
+(() => {
+    const layers = document.querySelectorAll('.window-layer');
+    layers.forEach(layer => {
+        layer.style.display = 'block';
+        layer.style.visibility = 'visible';
+        layer.style.opacity = '1';
+        const content = layer.querySelector('.window-layer-content');
+        if (content) {
+            content.style.display = 'block';
+            content.style.transform = 'none';
+        }
+    });
+    return `已处理 ${layers.length} 个 window-layer`;
+})()
+```
+
+**预防措施**：
+- 点击操作按钮后，先 `take_snapshot` 检查是否出现 `window-layer`
+- 若出现，立即检测是否最小化并恢复
+- 恢复后 `take_screenshot` 确认弹窗内容可见
+
+---
+
+## 陷阱22：弹窗关闭导致页面路由跳转（P1 级影响）
+
+**现象**：
+关闭弹窗（点击X或取消按钮）后，页面 URL 发生变化，跳转到了 `mainIndex` 或其他非目标页面，后续操作在错误页面上执行。
+
+**根因**：
+BEMP 弹窗关闭事件可能触发了 Vue Router 的导航守卫或 `router.push()`，导致路由变化。这在 `window-layer` 类弹窗和某些嵌套弹窗场景中尤为常见。
+
+**标准解决方案**：
+
+```javascript
+// 弹窗关闭后验证 URL 是否跳转
+(() => {
+    const currentHash = window.location.hash;
+    const expectedPath = '#{expected_route}';
+    const isJumped = !currentHash.includes(expectedPath);
+    return JSON.stringify({
+        currentHash,
+        expectedPath,
+        isJumped,
+        needRecovery: isJumped
+    });
+})()
+
+// 若 URL 已跳转，重新导航回目标页面
+navigate_page → http://127.0.0.1:8091/{expected_route}
+wait_for(networkidle)
+take_snapshot → 确认回到目标页面
+```
+
+**预防措施**：
+- 每次关闭弹窗后，立即检查当前 URL 是否正确
+- 关闭弹窗使用弹窗内的关闭按钮，而非浏览器级别的 `close_page`
+- 若频繁出现跳转，考虑使用 `evaluate_script` 直接操作 DOM 关闭弹窗而非点击按钮
+
+---
+
+## 陷阱23：DataGrid 行选中需同时设置 selects 和 selectIds（P0 级影响）
+
+**现象**：
+通过 `evaluate_script` 设置了 DataGrid 的 `currentSelectList`，但点击"修改"等操作按钮仍无反应，或操作时提示"请选择一条记录"。
+
+**根因**：
+HUI DataGrid 的选中状态由多个内部属性共同维护：
+- `currentSelectList`：选中的数据对象数组
+- `selects`：选中的数据对象数组（部分组件使用）
+- `selectIds`：选中的行 ID 数组
+- `currentSelect`：单选时的选中对象（radio 模式）
+
+仅设置其中一项不足以触发完整的选中状态。操作按钮的事件处理函数通常检查 `selectIds` 或 `currentSelect`，而非 `currentSelectList`。
+
+**标准解决方案**：
+
+```javascript
+// 完整设置 DataGrid 行选中状态
+(() => {
+    const grid = document.querySelector('.h-datagrid');
+    if (!grid) return '未找到 DataGrid';
+    const vueInstance = grid.__vue__;
+    if (!vueInstance) return '未找到 Vue 实例';
+
+    // 获取目标行数据
+    const rows = vueInstance.data || vueInstance.bodyData || [];
+    const targetRow = rows.find(row => row.{keyField} === '{targetValue}');
+    if (!targetRow) return `未找到目标行: {keyField}={targetValue}`;
+
+    // 同时设置所有选中相关属性
+    const rowId = targetRow.id || targetRow.ID || targetRow._index;
+
+    // 多选模式
+    if (vueInstance.currentSelectList !== undefined) {
+        vueInstance.currentSelectList = [targetRow];
+    }
+    if (vueInstance.selects !== undefined) {
+        vueInstance.selects = [targetRow];
+    }
+    if (vueInstance.selectIds !== undefined) {
+        vueInstance.selectIds = [rowId];
+    }
+
+    // 单选模式
+    if (vueInstance.currentSelect !== undefined) {
+        vueInstance.currentSelect = targetRow;
+    }
+
+    // 触发 Vue 响应式更新
+    vueInstance.$forceUpdate();
+
+    return JSON.stringify({
+        setSelectList: !!vueInstance.currentSelectList,
+        setSelects: !!vueInstance.selects,
+        setSelectIds: !!vueInstance.selectIds,
+        setCurrentSelect: !!vueInstance.currentSelect,
+        rowId: rowId
+    });
+})()
+
+// 设置后等待 Vue 更新
+wait_for_timeout(500ms)
+
+// 验证选中状态
+evaluate_script:
+(() => {
+    const grid = document.querySelector('.h-datagrid');
+    const vueInstance = grid?.__vue__;
+    return JSON.stringify({
+        selectListLength: vueInstance?.currentSelectList?.length || 0,
+        selectsLength: vueInstance?.selects?.length || 0,
+        selectIdsLength: vueInstance?.selectIds?.length || 0,
+        currentSelect: !!vueInstance?.currentSelect
+    });
+})()
+```
+
+**不推荐方案**：
+- 仅设置 `currentSelectList` → 操作按钮可能检查 `selectIds`，仍无反应
+- 仅 click checkbox → Vue 数据同步延迟，可能来不及
+- 仅设置 `selectIds` → 操作按钮可能需要完整行数据
+
+---
+
+## 陷阱24：v-if 条件字段验证需区分场景（P1 级影响）
+
+**现象**：
+测试用例要求验证某个表单字段（如"回购总金额" buyBackTotalAmt），但该字段在页面上找不到，或设置了值但提交时该字段不存在。
+
+**根因**：
+BEMP 表单大量使用 `v-if` 条件渲染，字段是否显示取决于其他表单值。例如 `buyBackTotalAmt` 仅在交易类型为 BT02（买入返售）时显示，BT03（卖出回购）时隐藏。测试用例若未区分场景，会在错误条件下验证不存在的字段。
+
+**标准解决方案**：
+
+```javascript
+// 步骤1：检测 v-if 条件字段是否可见
+(() => {
+    const field = document.querySelector('[prop="{fieldName}"]') ||
+                  document.querySelector('label:has-text("{fieldLabel}")');
+    if (!field) return JSON.stringify({ visible: false, reason: 'DOM元素不存在(v-if=false)' });
+
+    const formItem = field.closest('.h-form-item');
+    const isVisible = formItem ? getComputedStyle(formItem).display !== 'none' : true;
+    return JSON.stringify({ visible: isVisible, reason: isVisible ? '字段可见' : '字段隐藏(v-if=false)' });
+})()
+
+// 步骤2：若字段不可见，先设置触发条件值
+// 例如：设置交易类型为 BT02 使 buyBackTotalAmt 可见
+evaluate_script: 设置触发字段的值 → dispatchEvent → wait_for(500ms)
+
+// 步骤3：再次检测字段可见性
+evaluate_script: 重复步骤1
+
+// 步骤4：字段可见后设置值
+evaluate_script: 通过 Vue 实例设置字段值
+```
+
+**测试用例设计原则**：
+- 每个测试用例必须明确前置条件（哪些字段值决定了 v-if 的真假）
+- v-if 字段的验证应分为两组用例：条件为 true 时验证字段存在且可操作；条件为 false 时验证字段不存在
+- 用例文档中应标注 `[v-if]` 标记，提醒执行者注意条件依赖
+
+---
+
+## 陷阱25：登录密码禁止硬编码，必须从配置读取（P0 级影响）
+
+**现象**：
+测试脚本或 prompt 中直接使用密码 '1' 或 '123456'，登录失败提示"密码不能小于6位"或"用户名或密码错误"。
+
+**根因**：
+1. BEMP 默认密码为 '888888'（配置在 `env-config.json` 的 `environmentDefaults.default_password`）
+2. 不同银行环境可能使用不同密码
+3. 密码可能被定期更换
+4. 硬编码密码在脚本中存在安全风险且难以维护
+
+**标准解决方案**：
+
+```
+密码获取优先级：
+1. 环境变量 ${ENV:BEMP_TEST_PASSWORD}（最高优先级，CI/CD 环境使用）
+2. bemptest-config.json accounts.{role}.password（配置文件，开发环境使用）
+3. env-config.json environmentDefaults.default_password（回退默认值）
+4. 禁止在 prompt 或脚本中硬编码任何密码值
+```
+
+**登录流程中的密码处理**：
+
+```javascript
+// evaluate_script: 使用配置中的密码登录
+// 密码值从 config 读取，不在代码中硬编码
+(() => {
+    const username = '{username_from_config}';
+    const password = '{password_from_config}';  // 从 bemptest-config.json accounts 读取
+
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    const usernameInput = document.querySelector('input[placeholder*="用户名"]');
+    const tempPwdInput = document.querySelector('input[placeholder*="密码"]');
+
+    if (!usernameInput || !tempPwdInput) return '未找到登录输入框';
+
+    nativeSetter.call(usernameInput, username);
+    usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    usernameInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+    nativeSetter.call(tempPwdInput, password);
+    tempPwdInput.dispatchEvent(new Event('input', { bubbles: true }));
+    tempPwdInput.dispatchEvent(new Event('change', { bubbles: true }));
+    tempPwdInput.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    return { username: usernameInput.value, passwordSet: !!tempPwdInput.value };
+})()
+```
+
+**预防措施**：
+- 测试前检查 `bemptest-config.json` 中 accounts 配置是否完整
+- 密码字段使用 `${ENV:BEMP_TEST_PASSWORD}` 占位符，运行时解析
+- 环境变量未设置时，回退到 `env-config.json` 的默认密码
+- 代码评审时检查是否有硬编码密码
+
+---
+
 ## 快速问题排查索引
 
 | 症状 | 可能原因 | 参考陷阱 |
@@ -575,3 +1054,13 @@ $sqlFile = "unlock_user.sql"
 | 账号锁定无法解锁 | 数据库地址不一致 | 陷阱13 |
 | 弹窗重叠无法关闭 | 弹窗状态管理缺陷 | 陷阱14 |
 | MCP解锁无效 | 后端数据库与MCP不同 | 陷阱15 |
+| API调用返回404 | 前端代理缺少个性化路径 | 陷阱16 |
+| 测试结果不可靠 | 数据库脏数据 | 陷阱17 |
+| Maven打包失败 | 编译内存不足 | 陷阱18 |
+| 页面变为about:blank | Chrome DevTools MCP异常 | 陷阱19 |
+| 新增按钮点击无反应 | Dropdown组件需两步操作 | 陷阱20 |
+| 弹窗出现但不可见 | Window-Layer被最小化 | 陷阱21 |
+| 关闭弹窗后页面跳转 | 弹窗关闭触发路由变化 | 陷阱22 |
+| 设置选中后操作无反应 | DataGrid需同时设置selects和selectIds | 陷阱23 |
+| 表单字段找不到 | v-if条件字段需先设置触发条件 | 陷阱24 |
+| 登录失败密码过短 | 密码硬编码，需从配置读取 | 陷阱25 |
