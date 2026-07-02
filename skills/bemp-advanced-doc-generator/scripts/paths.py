@@ -35,7 +35,10 @@ else:
 
 # ── 派生路径 ──────────────────────────────────────────────
 SCRIPTS_DIR = SKILL_ROOT / 'scripts'
-OUTPUT_DIR = Path(os.environ.get('BEMP_OUTPUT_DIR', str(SKILL_ROOT / 'output'))).resolve()
+# 2026-07-02 优化：输出目录统一收敛到项目根 output
+# 优先级：环境变量 BEMP_OUTPUT_DIR > PROJECT_ROOT/output > SKILL_ROOT/output（兜底）
+_default_output = os.environ.get('BEMP_OUTPUT_DIR') or str(PROJECT_ROOT / 'output') or str(SKILL_ROOT / 'output')
+OUTPUT_DIR = Path(_default_output).resolve()
 ASSETS_DIR = SKILL_ROOT / 'assets'
 CONFIG_DIR = SKILL_ROOT / 'config'
 DIAGRAMS_DIR = OUTPUT_DIR / 'diagrams'
@@ -69,13 +72,21 @@ def outline_design_template():
 
 def detail_design_template():
     """详细设计模板路径（优先使用环境变量指定的模板）"""
-    env_tpl = os.environ.get('BEMP_DETAIL_TEMPLATE')
+    # 2026-07-02 修复：环境变量名误用 BEMP_DETAIL_TEMPLATE（实际项目用 BEMP_DESIGN_TEMPLATE）
+    env_tpl = os.environ.get('BEMP_DESIGN_TEMPLATE') or os.environ.get('BEMP_DETAIL_TEMPLATE')
     if env_tpl:
         p = Path(env_tpl)
         if p.is_absolute():
             return p
         return (SKILL_ROOT / p).resolve()
-    return ASSETS_DIR / 'template-outline-design.docx'
+    # 修正回退逻辑：项目内 docs/07 标准模板 > skill 内置差异化模板 > null
+    project_tpl = PROJECT_ROOT / 'docs' / '07【模板】详细设计说明书.docx'
+    if project_tpl.exists():
+        return project_tpl
+    inner_tpl = SKILL_ROOT / 'assets' / 'templates' / 'XX银行-XX项目-差异化需求详细设计模板.docx'
+    if inner_tpl.exists():
+        return inner_tpl
+    return None
 
 def scan_data_path():
     """扫描数据缓存路径"""
@@ -108,6 +119,58 @@ def resolve_path(path_str, base=None):
     return p.resolve()
 
 
+# ── 2026-07-02 新增：输出路径校验（与 Node 端 paths.js validateOutputPath 语义一致） ──
+class OutputPathInvalid(Exception):
+    """输出路径不合法时抛出的异常"""
+    def __init__(self, message, allowed_root=None, actual_path=None):
+        super().__init__(message)
+        self.code = 'OUTPUT_PATH_INVALID'
+        self.allowed_root = allowed_root
+        self.actual_path = actual_path
+
+
+def validate_output_path(output_path, explicit_root=False):
+    """
+    校验 output_path 是否在 PROJECT_ROOT/output 下。
+    explicit_root=True 时放行任意绝对路径（用户显式声明）。
+    返回规范化后的绝对路径(Path)；不合法时抛 OutputPathInvalid。
+    """
+    if not output_path or not isinstance(output_path, (str, Path)):
+        raise OutputPathInvalid('validate_output_path: output_path 必须是非空字符串')
+    p = Path(os.path.expandvars(os.path.expanduser(str(output_path))))
+    if not p.is_absolute():
+        p = (Path.cwd() / p).resolve()
+    else:
+        p = p.resolve()
+    if explicit_root:
+        return p
+    allowed_root = (PROJECT_ROOT / 'output').resolve()
+    # Windows: 大小写不敏感
+    if str(p).lower().startswith(str(allowed_root).lower()):
+        return p
+    raise OutputPathInvalid(
+        f'输出路径必须在 {allowed_root} 下，当前为 {p}。'
+        f'如需显式指定其他位置，请使用 --output-root 参数并显式声明。',
+        allowed_root=str(allowed_root),
+        actual_path=str(p),
+    )
+
+
+def detect_dual_output():
+    """检测技能内 output 与项目根 output 是否同时存在"""
+    skill_output = (SKILL_ROOT / 'output').resolve()
+    project_output = (PROJECT_ROOT / 'output').resolve()
+    both_exist = (
+        skill_output.exists() and project_output.exists()
+        and str(skill_output).lower() != str(project_output).lower()
+    )
+    return {
+        'skill_output': str(skill_output),
+        'project_output': str(project_output),
+        'both_exist': both_exist,
+    }
+
+
 # ── 打印路径信息（调试用） ────────────────────────────────
 if __name__ == '__main__':
     print(f'SKILL_ROOT     = {SKILL_ROOT}')
@@ -121,3 +184,5 @@ if __name__ == '__main__':
     print(f'outline_tpl    = {outline_design_template()}')
     print(f'detail_tpl     = {detail_design_template()}')
     print(f'scan_data      = {scan_data_path()}')
+    print(f'project_output = {PROJECT_ROOT / "output"}')
+    print(f'dual_output    = {detect_dual_output()}')

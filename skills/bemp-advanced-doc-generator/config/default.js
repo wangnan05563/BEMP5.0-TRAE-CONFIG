@@ -81,10 +81,20 @@ function createBempDocError(code, message, detail) {
 
 const paths = {
     skillRoot: SKILL_ROOT,
+    // 2026-07-02 修正：paths.projectRoot 从 SKILL_ROOT 往上 3 级
+    // (.trae/skills/bemp-advanced-doc-generator -> .trae/skills -> .trae -> BEMP5.0DEV)
     projectRoot: path.resolve(SKILL_ROOT, '..', '..', '..'),
     templateDir: path.join(SKILL_ROOT, 'assets', 'templates'),
     assetDir: path.join(SKILL_ROOT, 'assets'),
-    outputDir: path.join(SKILL_ROOT, 'output'),
+    // 2026-07-02 优化：outputDir 收敛到项目根 output
+    // 优先级：环境变量 BEMP_OUTPUT_DIR > projectRoot/output > skillRoot/output（兜底）
+    get outputDir() {
+        return path.resolve(
+            process.env.BEMP_OUTPUT_DIR
+            || path.join(this.projectRoot, 'output')
+            || path.join(this.skillRoot, 'output')
+        );
+    },
     libDir: path.join(SKILL_ROOT, 'scripts', 'lib'),
     scriptsDir: path.join(SKILL_ROOT, 'scripts'),
     configDir: path.join(SKILL_ROOT, 'config'),
@@ -116,14 +126,15 @@ const paths = {
     }
 };
 
-const validTypes = ['design', 'testcase', 'testreport', 'testcase-excel', 'testcase-md', 'testreport-md', 'design-md', 'outline-design', 'unit-test-report', 'unit-test-report-xlsx', 'excel-custom'];
+const validTypes = ['design', 'testcase', 'testreport', 'testcase-excel', 'testcase-md', 'testreport-md', 'design-md', 'outline-design', 'unit-test-report', 'unit-test-report-xlsx', 'excel-custom', 'srs'];
 const validFormats = ['docx', 'md', 'excel'];
 
 const defaultTemplateMap = {
     design: path.join(SKILL_ROOT, 'assets', '详细设计文档模板.json'),
     testcase: path.join(SKILL_ROOT, 'assets', '测试用例模板.json'),
     testreport: path.join(SKILL_ROOT, 'assets', '测试报告模板.json'),
-    'unit-test-report': path.join(SKILL_ROOT, 'assets', '单元测试报告模板.json')
+    'unit-test-report': path.join(SKILL_ROOT, 'assets', '单元测试报告模板.json'),
+    srs: path.join(SKILL_ROOT, 'assets', '需求规格说明书模板.json')
 };
 
 const processon = {

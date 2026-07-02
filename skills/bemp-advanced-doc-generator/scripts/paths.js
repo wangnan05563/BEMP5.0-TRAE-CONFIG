@@ -32,7 +32,13 @@ PROJECT_ROOT = path.resolve(PROJECT_ROOT);
 
 // ── 派生路径 ──────────────────────────────────────────────
 const SCRIPTS_DIR = path.join(SKILL_ROOT, 'scripts');
-const OUTPUT_DIR = path.resolve(process.env.BEMP_OUTPUT_DIR || path.join(SKILL_ROOT, 'output'));
+// 2026-07-02 优化：输出目录统一收敛到项目根 output，避免技能内/项目根双输出
+// 优先级：环境变量 BEMP_OUTPUT_DIR > PROJECT_ROOT/output > SKILL_ROOT/output（兜底）
+const OUTPUT_DIR = path.resolve(
+    process.env.BEMP_OUTPUT_DIR
+    || path.join(PROJECT_ROOT, 'output')
+    || path.join(SKILL_ROOT, 'output')
+);
 const ASSETS_DIR = path.join(SKILL_ROOT, 'assets');
 const CONFIG_DIR = path.join(SKILL_ROOT, 'config');
 const DIAGRAMS_DIR = path.join(OUTPUT_DIR, 'diagrams');
@@ -49,7 +55,7 @@ const BANK_REQUIREMENTS_DIR = _defaultReqCandidates.find(d => fs.existsSync(d))
 
 // ── 常用文件路径（函数形式，延迟求值） ──────────────────────
 // 模板路径优先级：环境变量 > 通用默认模板
-// 环境变量：BEMP_OUTLINE_TEMPLATE / BEMP_DETAIL_TEMPLATE
+// 环境变量：BEMP_OUTLINE_TEMPLATE / BEMP_DESIGN_TEMPLATE
 // 用户应在对话中通过 --template 参数或环境变量指定银行特定模板
 function outlineDesignTemplate() {
     const envTpl = process.env.BEMP_OUTLINE_TEMPLATE;
@@ -59,12 +65,22 @@ function outlineDesignTemplate() {
     return path.join(ASSETS_DIR, 'template-outline-design.docx');
 }
 
+// 2026-07-02 修复：环境变量名误用 BEMP_DETAIL_TEMPLATE（实际项目用 BEMP_DESIGN_TEMPLATE）
+// 修正回退逻辑：docs/07 标准模板 > skill 内置差异化模板 > null
 function detailDesignTemplate() {
-    const envTpl = process.env.BEMP_DETAIL_TEMPLATE;
+    const envTpl = process.env.BEMP_DESIGN_TEMPLATE || process.env.BEMP_DETAIL_TEMPLATE;
     if (envTpl) {
         return path.isAbsolute(envTpl) ? envTpl : path.resolve(SKILL_ROOT, envTpl);
     }
-    return path.join(ASSETS_DIR, 'template-outline-design.docx');
+    const projectTpl = path.join(PROJECT_ROOT, 'docs', '07【模板】详细设计说明书.docx');
+    if (fs.existsSync(projectTpl)) {
+        return projectTpl;
+    }
+    const innerTpl = path.join(SKILL_ROOT, 'assets', 'templates', 'XX银行-XX项目-差异化需求详细设计模板.docx');
+    if (fs.existsSync(innerTpl)) {
+        return innerTpl;
+    }
+    return null;
 }
 
 function scanDataPath() {
@@ -98,6 +114,52 @@ function resolvePath(p, base) {
     return path.resolve(p);
 }
 
+/**
+ * 2026-07-02 新增：校验输出路径合法性
+ * 默认要求 outputPath 位于 PROJECT_ROOT/output 子路径下
+ * - options.explicitRoot === true 时,放行任意绝对路径(用户显式指定)
+ * - 其他情况:outputPath 必须在 PROJECT_ROOT/output 下,否则抛出错误
+ * @param {string} outputPath - 待校验的输出路径
+ * @param {Object} [options] - { explicitRoot?: boolean }
+ * @returns {string} - 规范化后的绝对路径
+ */
+function validateOutputPath(outputPath, options = {}) {
+    if (!outputPath || typeof outputPath !== 'string') {
+        throw new Error('validateOutputPath: outputPath 必须是非空字符串');
+    }
+    const absPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(process.cwd(), outputPath);
+    if (options.explicitRoot === true) {
+        return absPath;
+    }
+    const allowedRoot = path.resolve(PROJECT_ROOT, 'output');
+    // Windows: 大小写不敏感比较
+    const isUnder = absPath.toLowerCase().startsWith(allowedRoot.toLowerCase());
+    if (!isUnder) {
+        const err = new Error(
+            `输出路径必须在 ${allowedRoot} 下，当前为 ${absPath}。` +
+            `如需显式指定其他位置，请使用 --output-root 参数并显式声明。`
+        );
+        err.code = 'OUTPUT_PATH_INVALID';
+        err.allowedRoot = allowedRoot;
+        err.actualPath = absPath;
+        throw err;
+    }
+    return absPath;
+}
+
+/**
+ * 2026-07-02 新增：检测技能内 output 与项目根 output 是否同时存在
+ * 若同时存在,提示用户收敛到项目根 output(不强制迁移,仅提示)
+ * @returns {{ skillOutput: string, projectOutput: string, bothExist: boolean }}
+ */
+function detectDualOutput() {
+    const skillOutput = path.resolve(SKILL_ROOT, 'output');
+    const projectOutput = path.resolve(PROJECT_ROOT, 'output');
+    const bothExist = fs.existsSync(skillOutput) && fs.existsSync(projectOutput)
+        && skillOutput.toLowerCase() !== projectOutput.toLowerCase();
+    return { skillOutput, projectOutput, bothExist };
+}
+
 module.exports = {
     SKILL_ROOT,
     PROJECT_ROOT,
@@ -116,4 +178,6 @@ module.exports = {
     mcpChartConfigsPath,
     ensureOutputDir,
     resolvePath,
+    validateOutputPath,
+    detectDualOutput,
 };

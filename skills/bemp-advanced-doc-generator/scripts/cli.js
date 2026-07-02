@@ -10,6 +10,7 @@ function _ts() {
 const _originalLog = console.log.bind(console);
 console.log = (...args) => _originalLog(`  ${_ts()}`, ...args);
 const { paths, BempDocError, ERROR_CODES, validTypes: VALID_TYPES, validFormats: VALID_FORMATS, defaultTemplateMap: DEFAULT_TEMPLATE_MAP } = require('../config/default');
+const pathsLite = require('./paths'); // 2026-07-02 优化：使用统一的 Node 端路径工具
 
 /**
  * 解析封面占位文字映射
@@ -175,6 +176,12 @@ function parseArgs(args) {
                 options.useAntV = false; break;
             case '--uml-engine':
                 options.umlEngine = args[++i]; lastFlagConsumed = true; break;
+            // 2026-07-02 新增：显式指定输出根目录（启用后允许非 PROJECT_ROOT/output 路径）
+            case '--output-root':
+                options.outputRoot = args[++i]; lastFlagConsumed = true;
+                process.env.BEMP_OUTPUT_DIR = path.resolve(options.outputRoot);
+                console.log(`  [output-root] 已显式指定输出根目录: ${process.env.BEMP_OUTPUT_DIR}`);
+                break;
             case '--help': case '-h':
                 printHelp(); process.exit(0);
             default:
@@ -225,6 +232,7 @@ function printHelp() {
   --no-update-fields       禁止自动注入 updateFields=true（默认注入）
   --no-antv                禁用 AntV 引擎，强制走 matplotlib（用于离线环境）
   --uml-engine <引擎>      UML图表引擎: graphviz(默认,生成5种专业图)/ mermaid(旧版兼容)
+  --output-root <路径>     2026-07-02 新增：显式指定输出根目录(需配合 --output 使用,允许非项目根 output 路径)
   --xlsx-template <路径>   xlsx模板文件路径（unit-test-report-xlsx 类型必填）
   --test-source <路径>     Java测试代码目录（unit 模式必填）
   --test-cases <路径>      功能测试用例MD文件路径（functional 模式必填）
@@ -718,6 +726,33 @@ async function generateDocument(options) {
             case 'unit-test-report':
                 await builder.generateUnitTestReportDocument(moduleName, outputPath, templateData);
                 break;
+            case 'srs':
+                // 需求规格说明书：JSON 模板填充模式
+                // 1) --template 指向 .docx：调用 Python design-generator.py 模板填充模式
+                // 2) --template 指向 .json：直接使用 templateData 渲染（docx 库）
+                // 3) 未指定 --template：回退到 defaultTemplateMap['srs']（.json）
+                let srsTemplatePath = options.templatePath;
+                if (srsTemplatePath && srsTemplatePath.toLowerCase().endsWith('.docx')) {
+                    // .docx 模板：复用 design 分支的 Python 脚本填充模式
+                    const { execFileSync: execSrsPy } = require('child_process');
+                    const srsDataPath = path.join(outputDir, `_srs-data-${date}.json`);
+                    let srsData = templateData || builder._getDefaultTemplateData(moduleName, 'srs');
+                    if (moduleName && !srsData.moduleName) {
+                        srsData = { ...srsData, moduleName };
+                    }
+                    fs.writeFileSync(srsDataPath, JSON.stringify(srsData, null, 2), 'utf-8');
+                    const resolvedTemplate = path.isAbsolute(srsTemplatePath) ? srsTemplatePath : path.resolve(process.cwd(), srsTemplatePath);
+                    console.log(`  [srs] 使用 .docx 模板: ${resolvedTemplate}`);
+                } else {
+                    // JSON 模板或无模板：使用 docx 库直接生成
+                    // 当 --design-data 显式传入时，templateData 已加载；否则回退 defaultTemplateMap
+                    if (!templateData) {
+                        templateData = builder._getDefaultTemplateData(moduleName, 'srs');
+                    }
+                    console.log(`  [srs] 使用 JSON 模板数据渲染（chapters: ${(templateData && templateData.chapters || []).length}）`);
+                    await builder.generateDesignDocument(moduleName, outputPath, templateData);
+                }
+                break;
         }
     }
 
@@ -733,6 +768,17 @@ async function generateDocument(options) {
         } catch (vizError) {
             vizResult = { error: vizError.message };
         }
+    }
+
+    // 2026-07-02 优化：校验 outputPath 必须在 PROJECT_ROOT/output 下
+    // 例外：--output-root 显式指定时放行
+    try {
+        pathsLite.validateOutputPath(outputPath, { explicitRoot: !!options.outputRoot });
+    } catch (e) {
+        if (e.code === 'OUTPUT_PATH_INVALID') {
+            throw new BempDocError(ERROR_CODES.OUTPUT_PATH_INVALID, e.message, { allowedRoot: e.allowedRoot, actualPath: e.actualPath });
+        }
+        throw e;
     }
 
     if (jsonMode) {
@@ -1282,6 +1328,16 @@ async function generateOutlineDesign(options, outputDir, profile, jsonMode) {
         }
     }
 
+    // 2026-07-02 优化：校验 outputPath 必须在 PROJECT_ROOT/output 下（在 jsonMode 之前，确保两种模式都校验）
+    try {
+        pathsLite.validateOutputPath(outputPath, { explicitRoot: !!options.outputRoot });
+    } catch (e) {
+        if (e.code === 'OUTPUT_PATH_INVALID') {
+            throw new BempDocError(ERROR_CODES.OUTPUT_PATH_INVALID, e.message, { allowedRoot: e.allowedRoot, actualPath: e.actualPath });
+        }
+        throw e;
+    }
+
     if (jsonMode) {
         return {
             success: true,
@@ -1467,12 +1523,49 @@ function getDefaultTemplateData(type) {
     }
 }
 
+/**
+ * 2026-07-02 新增：output-guard
+ * 在 CLI 启动时检测技能内 output 与项目根 output 是否同时存在
+ * 若同时存在,提示用户收敛到项目根 output(不强制迁移,仅警告)
+ * @returns {{ converged: boolean, skillOutput: string, projectOutput: string, warnings: string[] }}
+ */
+function checkOutputGuard() {
+    const dual = pathsLite.detectDualOutput();
+    const warnings = [];
+    if (dual.bothExist) {
+        warnings.push(`检测到技能内 output 与项目根 output 同时存在:`);
+        warnings.push(`  技能内: ${dual.skillOutput}`);
+        warnings.push(`  项目根: ${dual.projectOutput}`);
+        warnings.push(`  → 已自动收敛到项目根: ${paths.outputDir}`);
+        warnings.push(`  → 建议: 使用 scripts/migrate_output.py 将技能内 output 旧文件迁移到项目根 output`);
+    }
+    if (paths.outputDir !== dual.projectOutput && !process.env.BEMP_OUTPUT_DIR) {
+        // 输出目录已收敛,但不在项目根（理论上不应该发生,除非 PROJECT_ROOT 推算异常）
+        warnings.push(`输出目录未收敛到项目根: ${paths.outputDir}`);
+    }
+    return {
+        converged: true,
+        skillOutput: dual.skillOutput,
+        projectOutput: dual.projectOutput,
+        bothExist: dual.bothExist,
+        warnings,
+    };
+}
+
 async function main() {
     const args = process.argv.slice(2);
 
     if (args.length === 0) {
         printHelp();
         process.exit(0);
+    }
+
+    // 2026-07-02 优化：output-guard 启动检查
+    const guard = checkOutputGuard();
+    if (guard.bothExist) {
+        console.log(`\n[output-guard] 输出目录已收敛至: ${paths.outputDir}`);
+        for (const w of guard.warnings) console.log(`  ⚠ ${w}`);
+        console.log('');
     }
 
     const options = parseArgs(args);

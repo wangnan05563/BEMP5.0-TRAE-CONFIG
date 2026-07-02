@@ -350,6 +350,14 @@ class DocumentBuilder {
                     md += `${section.title}\n\n`;
                     md += this._renderContentToMarkdown(section.content);
                     md += '\n';
+                    // 2026-07-02 新增：渲染 subSections（4.7.1 / 4.11.1 等三级标题）
+                    if (Array.isArray(section.subSections) && section.subSections.length > 0) {
+                        for (const sub of section.subSections) {
+                            md += `${sub.title}\n\n`;
+                            md += this._renderContentToMarkdown(sub.content);
+                            md += '\n';
+                        }
+                    }
                 }
             }
             if (chapter.bodyTexts) {
@@ -398,6 +406,15 @@ class DocumentBuilder {
                 children.push(this.heading2(section.title));
                 if (section.content) {
                     children.push(...this._renderSectionContent(section.content));
+                }
+                // 2026-07-02 新增：渲染 subSections（4.7.1 / 4.11.1 等三级标题）
+                if (Array.isArray(section.subSections) && section.subSections.length > 0) {
+                    section.subSections.forEach(sub => {
+                        children.push(this.heading3(sub.title));
+                        if (sub.content) {
+                            children.push(...this._renderSectionContent(sub.content));
+                        }
+                    });
                 }
             });
         }
