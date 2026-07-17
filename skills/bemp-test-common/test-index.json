@@ -371,23 +371,63 @@
       "case_count": 12,
       "scripts": [],
       "description": "同步保存时报备状态校验：已报备+客户号不一致→拦截(1)、已报备+客户号一致→允许(1)、未报备→允许(1)、报备中→允许(1)、多账号部分拦截(1)、空列表(1)、空客户号(1)、空账号编号(1)、多签约记录(1)、ECIF合并豁免(1)、单笔同步入口(1)、个性化路径(1)、法人编号为空(1)；P0:4 P1:6 P2:2"
+    },
+    {
+      "id": "TC-BRANCH-030",
+      "file": "aotutests-devtools/sync-org-tree-validation.md",
+      "subsystem": "sm",
+      "feature": "同步机构树数据并校验-机构管理模块",
+      "priority": "P0",
+      "case_count": 12,
+      "scripts": [],
+      "description": "数据库表验证(3): PJGCS/PJGGX表结构+索引；定时任务(4): CBS文件读取/解析/写入/降级/清空；建立机构校验(4): 存在性+状态+批量导入；回归(1)；P0:7 P1:3 P2:2"
+    },
+    {
+      "id": "TC-DISCOUNT-010",
+      "file": "aotutests-devtools/sync-org-tree-validation.md",
+      "subsystem": "ce",
+      "feature": "同步机构树数据并校验-贴现业务模块",
+      "priority": "P0",
+      "case_count": 4,
+      "scripts": [],
+      "description": "贴现业务提交账务机构校验(3): 账务机构通过/非账务机构拒绝/仅贴现校验；回归(1)；P0:2 P1:1 P2:1"
+    },
+    {
+      "id": "TC-ADMIN-010",
+      "file": "aotutests-devtools/sync-org-tree-validation.md",
+      "subsystem": "sm",
+      "feature": "同步机构树数据并校验-机构管理员模块",
+      "priority": "P0",
+      "case_count": 9,
+      "scripts": [],
+      "description": "法人管理员权限校验(1)、密码有效期参数化(2)、密码错误次数参数化(2)、POBM010304身份验证(3)、回归(1)；P0:3 P1:6"
+    },
+    {
+      "id": "TC-ROLE-020",
+      "file": "aotutests-devtools/sync-org-tree-validation.md",
+      "subsystem": "sm",
+      "feature": "同步机构树数据并校验-角色精确报错",
+      "priority": "P1",
+      "case_count": 2,
+      "scripts": [],
+      "description": "机构不具备角色精确报错(2): 单角色精确报错/多角色聚合返回；P1:2"
     }
   ],
   "summary": {
-    "total_cases": 34,
-    "total_estimated_count": 442,
+    "total_cases": 38,
+    "total_estimated_count": 469,
     "by_subsystem": {
       "common": 2,
-      "sm": 5,
+      "sm": 9,
       "bm": 18,
       "be": 4,
-      "ce": 3,
+      "ce": 4,
       "adapter": 2
     },
     "by_priority": {
-      "P0": 24,
-      "P1": 10,
-      "P2": 2,
+      "P0": 27,
+      "P1": 14,
+      "P2": 3,
       "P3": 0,
       "unknown": 0
     },

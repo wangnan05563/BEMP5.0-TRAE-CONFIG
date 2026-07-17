@@ -1,5 +1,5 @@
 {
-  "_envConfigNote": "路径使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析。未设置时回退到 _shared/env-config.json 的 environmentDefaults",
+  "_doc": "BEMP服务启动配置 - 所有路径通过 ${ENV:VAR_NAME} 占位符解析，回退到 _shared/env-config.json",
   "globalPaths": {
     "workspaceRoot": "${ENV:BEMP_WORKSPACE_ROOT}",
     "banksProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}",
@@ -13,18 +13,23 @@
     "redis": {
       "enabled": true,
       "name": "Redis",
+      "type": "redis",
       "executable": "${ENV:REDIS_EXE}",
-      "port": 6379
+      "port": 6379,
+      "dependencies": []
     },
     "zookeeper": {
       "enabled": true,
       "name": "ZooKeeper",
+      "type": "zookeeper",
       "executable": "${ENV:ZOOKEEPER_EXE}",
-      "port": 2181
+      "port": 2181,
+      "dependencies": []
     },
     "served": {
       "enabled": true,
       "name": "Served",
+      "type": "springboot",
       "mainClass": "com.hundsun.bemp.BempServedAppStarter",
       "modulePath": "${ENV:BANK_MODULE_PREFIX}served-deploy",
       "warFile": "bemp-served.war",
@@ -33,11 +38,18 @@
       "jvmOptions": "-server -Xms1024m -Xmx2048m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
       "launchMode": "terminal",
       "autoCompile": true,
-      "mavenCommand": "clean install -DskipTests=true"
+      "mavenCommand": "clean install -DskipTests=true",
+      "dependencies": ["redis", "zookeeper"],
+      "diagnostics": {
+        "checkDependencies": ["redis", "zookeeper"],
+        "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
+        "logFile": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\logs\\bemp-served.log"
+      }
     },
     "adapter": {
       "enabled": true,
       "name": "Adapter",
+      "type": "springboot",
       "mainClass": "com.hundsun.bemp.BempAdapterAppStarter",
       "modulePath": "${ENV:BANK_MODULE_PREFIX}adapter-deploy",
       "warFile": "bemp-adapter.war",
@@ -45,14 +57,22 @@
       "jvmOptions": "-server -Xms512m -Xmx1024m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
       "launchMode": "terminal",
       "autoCompile": true,
-      "mavenCommand": "clean install -DskipTests=true"
+      "mavenCommand": "clean install -DskipTests=true",
+      "dependencies": ["redis", "zookeeper"],
+      "diagnostics": {
+        "checkDependencies": ["zookeeper", "redis"],
+        "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
+        "logFile": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}adapter-deploy\\target\\bemp-adapter\\logs\\bemp-adapter.log"
+      }
     },
     "frontend": {
       "enabled": true,
       "name": "Frontend",
+      "type": "frontend",
       "startCommand": "npm run dev",
       "port": 8091,
       "nodeMemoryLimit": 6096,
+      "dependencies": [],
       "_quickStartNote": "使用 -QuickStart 参数可跳过依赖安装检查, 适合 dependencies 未变更的日常启动"
     }
   }

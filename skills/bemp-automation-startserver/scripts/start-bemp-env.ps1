@@ -1,5 +1,6 @@
-# BEMP Development Environment Startup Script
-# Function: Check service status, start services in IDE terminal
+﻿# BEMP Development Environment Startup Script
+# Function: Check service status, start services in IDE or external PowerShell terminal
+# Optimized: PowerShell external terminal, config-driven defaults, unified lifecycle, dep-wait, health-check, log-tee
 
 param(
     [string]$ConfigPath = "$PSScriptRoot\..\config\config.json",
@@ -7,23 +8,31 @@ param(
     [switch]$Status,
     [switch]$ForceRestart,
     [switch]$QuickStart,
-    [switch]$AutoRestart
+    [switch]$AutoRestart,
+    [switch]$ExternalTerminal,
+    [switch]$WaitForDeps,
+    [string]$LaunchMode = ""
 )
 
 $originalLocation = Get-Location
+$script:LastStartupLogPath = ""
 
 . (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
 
+# ──────────────────────────── 通用工具函数 ────────────────────────────
+
 function Set-ConsoleEncoding {
-    try {
-        chcp 65001 > $null 2>&1
-    } catch {}
+    try { chcp 65001 > $null 2>&1 } catch {}
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-    [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
     $OutputEncoding = [System.Text.Encoding]::UTF8
 }
-
 Set-ConsoleEncoding
+
+function Write-Step($message)    { Write-Host "[INFO] $message" -ForegroundColor Cyan }
+function Write-Success($message) { Write-Host "[OK]   $message" -ForegroundColor Green }
+function Write-Warning($message) { Write-Host "[WARN] $message" -ForegroundColor Yellow }
+function Write-Error($message)   { Write-Host "[ERROR]$message" -ForegroundColor Red }
 
 function Write-Header {
     Write-Host ""
@@ -33,789 +42,691 @@ function Write-Header {
     Write-Host ""
 }
 
-function Write-Step($message) {
-    Write-Host "[INFO] $message" -ForegroundColor Cyan
-}
-
-function Write-Success($message) {
-    Write-Host "[OK] $message" -ForegroundColor Green
-}
-
-function Write-Warning($message) {
-    Write-Host "[WARN] $message" -ForegroundColor Yellow
-}
-
-function Write-Error($message) {
-    Write-Host "[ERROR] $message" -ForegroundColor Red
-}
+# ──────────────────────────── 端口与进程管理 ────────────────────────────
 
 function Test-PortListening {
-    param([int]$port)
+    param([int]$Port)
     try {
-        $ipv4 = Get-NetTCPConnection -LocalPort $port -AddressFamily IPv4 -State Listen -ErrorAction SilentlyContinue
-        $ipv6 = Get-NetTCPConnection -LocalPort $port -AddressFamily IPv6 -State Listen -ErrorAction SilentlyContinue
-        return ($null -ne $ipv4 -and $ipv4.Count -gt 0) -or ($null -ne $ipv6 -and $ipv6.Count -gt 0)
+        $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+        # 单个对象时Count可能为$null，用@()强制转为数组
+        return ($null -ne $conn -and @($conn).Count -gt 0)
     } catch {
         try {
-            $result = netstat -ano | findstr ":$port " | findstr "LISTENING"
+            $result = netstat -ano | findstr ":$Port " | findstr "LISTENING"
             return ($null -ne $result -and $result -ne "")
-        } catch {
-            return $false
-        }
+        } catch { return $false }
     }
 }
 
 function Stop-ServiceByPort {
-    param([int]$port, [string]$serviceName)
-    if (Test-PortListening -port $port) {
-        $processIds = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
-        if ($processIds) {
-            foreach ($processId in $processIds) {
-                try {
-                    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-                    if ($process) {
-                        Write-Warning "Stopping $serviceName (PID: $processId)..."
-                        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
-                    }
-                } catch {}
+    param([int]$Port, [string]$ServiceName)
+    if (-not (Test-PortListening -Port $Port)) { return }
+    # 用 $procIds 代替 $pids/$pid，避免与 PowerShell 只读变量 $PID 冲突
+    $procIds = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+               Select-Object -ExpandProperty OwningProcess -Unique
+    foreach ($procId in $procIds) {
+        try {
+            $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+            if ($proc) {
+                Write-Warning "Stopping $ServiceName (PID: $procId)..."
+                Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
             }
-            Start-Sleep -Seconds 2
-        }
+        } catch {}
     }
+    Start-Sleep -Seconds 2
 }
 
-function Get-ServiceStatus {
-    param([object]$config)
-    
-    $serviceName = $config.name
-    
-    if ($config.ports -is [array]) {
-        foreach ($port in $config.ports) {
-            if (Test-PortListening -port $port) {
-                return @{ Status = "Running"; Port = $port }
-            }
-        }
-        return @{ Status = "Stopped"; Port = ($config.ports -join ", ") }
-    } else {
-        $port = $config.port
-        if (Test-PortListening -port $port) {
-            return @{ Status = "Running"; Port = $port }
-        } else {
-            return @{ Status = "Stopped"; Port = $port }
-        }
+function Get-PortProcessInfo {
+    param([int]$Port)
+    $procIds = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+               Select-Object -ExpandProperty OwningProcess -Unique
+    foreach ($procId in $procIds) {
+        try {
+            $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+            if ($proc) { return @{ Name = $proc.Name; PID = $procId } }
+        } catch {}
     }
+    return $null
 }
 
-function Set-TerminalTitle {
-    param([string]$title)
-    try {
-        $host.UI.RawUI.WindowTitle = $title
-    } catch {}
-    $esc = [char]27
-    $bel = [char]7
-    Write-Host -NoNewline "$esc]0;$title$bel"
-}
+# ──────────────────────────── 依赖等待 ────────────────────────────
 
-function Show-TerminalWarning {
-    Write-Host ""
-    Write-Host "[!] IMPORTANT: This terminal will be occupied by the service." -ForegroundColor Yellow
-    Write-Host "   Do NOT run other commands in this terminal after starting the service." -ForegroundColor Yellow
-    Write-Host "   Use a separate terminal for status checks or other operations." -ForegroundColor Gray
-    Write-Host ""
-}
-
-function Test-PortConflict {
-    param([int]$port, [string]$serviceName)
-    
-    if (Test-PortListening -port $port) {
-        $processIds = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
-        if ($processIds) {
-            foreach ($processId in $processIds) {
-                try {
-                    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-                    if ($process) {
-                        $processName = $process.Name
-                        Write-Warning "Port $port is already in use by process: $processName (PID: $processId)"
-                        return @{ HasConflict = $true; ProcessName = $processName; ProcessId = $processId }
-                    }
-                } catch {}
-            }
-        }
-    }
-    return @{ HasConflict = $false }
-}
-
-function Start-RedisService {
-    param([object]$config)
-    
-    $executable = $config.executable
-    $serviceName = $config.name
-    
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - Redis ($($config.port))"
-    
-    Show-TerminalWarning
-    
-    Write-Step "Checking $serviceName status..."
-    
-    $isRunning = $false
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
-    foreach ($port in $checkPorts) {
-        if (Test-PortListening -port $port) {
-            $isRunning = $true
-            break
-        }
-    }
-    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
-    
-    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
-        Write-Success "$serviceName is running (ports: $portsText)"
-        return $true
-    }
-    
-    if ($ForceRestart -or $AutoRestart) {
-        foreach ($port in $checkPorts) {
-            Stop-ServiceByPort -port $port -serviceName $serviceName
-        }
-    }
-    
-    if (-not (Test-Path $executable)) {
-        Write-Error "$serviceName executable not found: $executable"
-        return $false
-    }
-    
-    $redisDir = Split-Path -Parent $executable
-    $redisExeName = Split-Path -Leaf $executable
-    
-    Write-Step "Starting $serviceName..."
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  $serviceName Log" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "Working Dir: $redisDir" -ForegroundColor Gray
-    Write-Host "Command: .\$redisExeName" -ForegroundColor Gray
-    Write-Host ""
-    
-    Set-Location $redisDir
-    
-    # Re-set terminal title before process starts
-    Set-TerminalTitle "BEMP - Redis ($($config.port))"
-    
-    & ".\$redisExeName"
-    
-    return $true
-}
-
-function Start-ZooKeeperService {
-    param([object]$config)
-
-    $executable = $config.executable
-    $serviceName = $config.name
-
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - ZooKeeper ($($config.port))"
-    
-    Show-TerminalWarning
-
-    Write-Step "Checking $serviceName status..."
-    
-    $isRunning = $false
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
-    foreach ($port in $checkPorts) {
-        if (Test-PortListening -port $port) {
-            $isRunning = $true
-            break
-        }
-    }
-    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
-    
-    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
-        Write-Success "$serviceName is running (ports: $portsText)"
-        return $true
-    }
-    
-    if ($ForceRestart -or $AutoRestart) {
-        foreach ($port in $checkPorts) {
-            Stop-ServiceByPort -port $port -serviceName $serviceName
-        }
-    }
-    
-    if (-not (Test-Path $executable)) {
-        Write-Error "$serviceName executable not found: $executable"
-        return $false
-    }
-    
-    $zkDir = Split-Path -Parent $executable
-    $zkExeName = Split-Path -Leaf $executable
-    
-    Write-Step "Starting $serviceName..."
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  $serviceName Log" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "Working Dir: $zkDir" -ForegroundColor Gray
-    Write-Host "Command: .\$zkExeName" -ForegroundColor Gray
-    Write-Host ""
-    
-    Set-Location $zkDir
-    
-    $env:JAVA_TOOL_OPTIONS = "-Dfile.encoding=UTF-8"
-    
-    # Re-set terminal title before process starts
-    Set-TerminalTitle "BEMP - ZooKeeper ($($config.port))"
-    
-    & ".\$zkExeName"
-    
-    return $true
-}
-
-function Start-SpringBootService {
+function Wait-Dependencies {
     param(
-        [object]$config,
-        [object]$globalPaths,
-        [switch]$QuickStart
+        [string[]]$DepServices,
+        [object]$AllServices,
+        [int]$MaxWaitSeconds = 120,
+        [int]$PollIntervalSeconds = 5
+    )
+    if ($DepServices.Count -eq 0) { return $true }
+
+    foreach ($dep in $DepServices) {
+        $svcConfig = $null
+        if ($AllServices.PSObject.Properties.Name -contains $dep) {
+            $svcConfig = $AllServices.$dep
+        }
+        if (-not $svcConfig) {
+            Write-Warning "Dependency '$dep' not found in config, skipping wait"
+            continue
+        }
+
+        $port = if ($svcConfig.ports -is [array]) { $svcConfig.ports[0] } else { $svcConfig.port }
+        $elapsed = 0
+        Write-Step "Waiting for $dep (port $port)..."
+
+        while ($elapsed -lt $MaxWaitSeconds) {
+            if (Test-PortListening -Port $port) {
+                Write-Success "$dep is ready (port $port)"
+                break
+            }
+            Write-Host "  [WAIT] $dep port $port not ready... ($elapsed/${MaxWaitSeconds}s)" -ForegroundColor Gray
+            Start-Sleep -Seconds $PollIntervalSeconds
+            $elapsed += $PollIntervalSeconds
+        }
+        if ($elapsed -ge $MaxWaitSeconds) {
+            Write-Error "$dep not ready after ${MaxWaitSeconds}s"
+            return $false
+        }
+    }
+    return $true
+}
+
+# ──────────────────────────── 健康检查 ────────────────────────────
+
+function Wait-ServiceReady {
+    param(
+        [int]$Port,
+        [string]$ServiceName,
+        [int]$MaxWaitSeconds = 300,
+        [int]$PollIntervalSeconds = 15
+    )
+    $elapsed = 0
+    while ($elapsed -lt $MaxWaitSeconds) {
+        if (Test-PortListening -Port $Port) {
+            Write-Success "$ServiceName is ready (port $Port)"
+            return $true
+        }
+        # 统一进度反馈风格，与Wait-Dependencies保持一致
+        Write-Host "  [WAIT] $ServiceName port $Port not ready... ($elapsed/${MaxWaitSeconds}s)" -ForegroundColor Gray
+        Start-Sleep -Seconds $PollIntervalSeconds
+        $elapsed += $PollIntervalSeconds
+    }
+    Write-Error "$ServiceName not ready after ${MaxWaitSeconds}s on port $Port"
+    return $false
+}
+
+function Invoke-Diagnostics {
+    param(
+        [string]$ServiceName,
+        [int]$Port,
+        [string[]]$DepServices,
+        [object]$AllServices,
+        [string]$AppLogFile,
+        [string]$StartupLog,
+        [string[]]$LogKeywords
+    )
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "  Diagnostic: $ServiceName" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+
+    # 检查依赖服务
+    foreach ($dep in $DepServices) {
+        $svcConfig = $null
+        if ($AllServices.PSObject.Properties.Name -contains $dep) {
+            $svcConfig = $AllServices.$dep
+        }
+        if ($svcConfig) {
+            $depPort = if ($svcConfig.ports -is [array]) { $svcConfig.ports[0] } else { $svcConfig.port }
+            if (-not (Test-PortListening -Port $depPort)) {
+                Write-Error "Dependency $dep (port $depPort) is NOT running. Start it first."
+            } else {
+                Write-Success "Dependency $dep (port $depPort) is running"
+            }
+        }
+    }
+
+    # 扫描启动日志（外部终端的console输出）
+    if ($StartupLog -and (Test-Path $StartupLog)) {
+        Write-Step "Scanning startup log: $StartupLog"
+        _ScanLogFile -Path $StartupLog -Keywords $LogKeywords -ServiceName $ServiceName -ServicePort $Port
+    }
+
+    # 扫描应用日志（服务自身写的log文件）
+    if ($AppLogFile -and (Test-Path $AppLogFile)) {
+        Write-Step "Scanning app log: $AppLogFile"
+        _ScanLogFile -Path $AppLogFile -Keywords $LogKeywords -ServiceName $ServiceName -ServicePort $Port
+    }
+
+    if (($StartupLog -and -not (Test-Path $StartupLog)) -or ($AppLogFile -and -not (Test-Path $AppLogFile))) {
+        Write-Warning "Log file not found. Startup: $StartupLog, App: $AppLogFile"
+    }
+
+    # 端口占用检查
+    $portInfo = Get-PortProcessInfo -Port $Port
+    if ($portInfo) {
+        Write-Warning "Port $Port is occupied by: $($portInfo.Name) (PID: $($portInfo.PID))"
+    } else {
+        Write-Warning "Port $Port is not occupied - service may have exited"
+    }
+
+    Write-Host ""
+}
+
+function _ScanLogFile {
+    param([string]$Path, [string[]]$Keywords, [string]$ServiceName, [int]$ServicePort = 0)
+    foreach ($keyword in $Keywords) {
+        $hits = Select-String -Path $Path -Pattern $keyword -SimpleMatch -ErrorAction SilentlyContinue |
+                Select-Object -Last 5
+        if ($hits) {
+            Write-Warning "Found '$keyword':"
+            foreach ($m in $hits) {
+                Write-Host "  $($m.Line)" -ForegroundColor Gray
+            }
+            if ($keyword -in @("SessionExpired", "ConnectionLoss")) {
+                Write-Warning "ZK session expired detected. Try: restart ZooKeeper first, then restart $ServiceName"
+            }
+            # BindException: 检测Windows Hyper-V端口保留是否导致端口冲突
+            if ($keyword -in @("Exception", "BindException")) {
+                $bindHits = Select-String -Path $Path -Pattern "BindException" -ErrorAction SilentlyContinue
+                if ($bindHits -and $ServicePort -gt 0) {
+                    Write-Warning "BindException detected — checking if port $ServicePort is in Windows exclusion range..."
+                    $exclRanges = netsh interface ipv4 show excludedportrange protocol=tcp 2>$null
+                    foreach ($line in $exclRanges) {
+                        if ($line -match "^\s+(\d+)\s+(\d+)\s*$") {
+                            $exclStart = [int]$Matches[1]; $exclEnd = [int]$Matches[2]
+                            if ($ServicePort -ge $exclStart -and $ServicePort -le $exclEnd) {
+                                Write-Error "Port $ServicePort is in Windows exclusion range ($exclStart-$exclEnd). Hyper-V/WSL reserves this port."
+                                Write-Warning "Solution 1: Reboot after running 'netsh interface ipv4 set dynamicport tcp start=49152 num=16384' (admin)"
+                                Write-Warning "Solution 2: Disable Hyper-V temporarily, or use a different port"
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+# ──────────────────────────── 日志文件管理 ────────────────────────────
+
+function Get-StartupLogPath {
+    param([string]$ServiceName)
+    $logDir = Join-Path $PSScriptRoot "..\logs"
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    return Join-Path $logDir "${ServiceName}_startup_${timestamp}.log"
+}
+
+# 清理过期的launcher脚本和启动日志（清理时间通过health-check.json的defaults.logCleanupHours配置）
+function Clear-OldLauncherScripts {
+    param([object]$HConfig = $null)
+    $logDir = Join-Path $PSScriptRoot "..\logs"
+    if (-not (Test-Path $logDir)) { return }
+    # 从配置读取清理时间，默认24小时
+    $cleanupHours = Get-HealthConfigValue -HConfig $HConfig -ServiceKey "" -Property "logCleanupHours" -Default 24
+    $cutoff = (Get-Date).AddHours(-$cleanupHours)
+    Get-ChildItem -Path $logDir -Filter "launcher_*.ps1" -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -lt $cutoff } |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path $logDir -Filter "*_startup_*.log" -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -lt $cutoff } |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+}
+# 注意：Clear-OldLauncherScripts 在加载 healthConfig 后调用，以读取配置的清理时间
+
+# ──────────────────────────── 健康检查配置读取（配置驱动，无硬编码） ────────────────────────────
+
+function Get-HealthConfigValue {
+    param(
+        [object]$HConfig,
+        [string]$ServiceKey,
+        [string]$Property,
+        [string]$ServiceType = "",
+        $Default = $null
+    )
+    # 四级优先级：服务级配置 > byType类型默认 > defaults节 > 传入默认值
+    # Level 1: 服务级配置（health-check.json → services.{ServiceKey}.{Property}）
+    if ($HConfig -and $HConfig.PSObject.Properties.Name -contains "services" -and
+        $HConfig.services.PSObject.Properties.Name -contains $ServiceKey -and
+        $HConfig.services.$ServiceKey.PSObject.Properties.Name -contains $Property) {
+        return $HConfig.services.$ServiceKey.$Property
+    }
+    # Level 2: 按服务类型的默认值（health-check.json → byType.{ServiceType}.{Property}）
+    if ($HConfig -and $ServiceType -ne "" -and
+        $HConfig.PSObject.Properties.Name -contains "byType" -and
+        $HConfig.byType.PSObject.Properties.Name -contains $ServiceType -and
+        $HConfig.byType.$ServiceType.PSObject.Properties.Name -contains $Property) {
+        return $HConfig.byType.$ServiceType.$Property
+    }
+    # Level 3: 全局默认值（health-check.json → defaults.{Property}）
+    if ($HConfig -and $HConfig.PSObject.Properties.Name -contains "defaults" -and
+        $HConfig.defaults.PSObject.Properties.Name -contains $Property) {
+        return $HConfig.defaults.$Property
+    }
+    # Level 4: 代码默认值
+    return $Default
+}
+
+# ──────────────────────────── 外部终端启动脚本生成 ────────────────────────────
+# 使用PowerShell替代CMD，解决tee-object不可用问题
+# 生成.ps1启动脚本，在独立PowerShell窗口中运行服务并实时输出日志
+
+function Build-ExternalTerminalScript {
+    param(
+        [object]$StartInfo,
+        [string]$LogPath,
+        [string]$TerminalTitle,
+        [string]$ServiceName
     )
 
-    # Use global paths from config
-    $projectPath = $globalPaths.banksProjectPath
-    $workspaceRoot = $globalPaths.workspaceRoot
-    $traePath = $globalPaths.traePath
-    $javaHome = $globalPaths.javaHome
-    $mavenPath = $globalPaths.mavenPath
-    
-    $modulePath = $config.modulePath
-    $warFile = $config.warFile
-    $serviceName = $config.name
-    $mainClass = $config.mainClass
-    $jvmOptions = $config.jvmOptions
-    $launchMode = $config.launchMode
-    $autoCompile = $config.autoCompile
-    $mavenCommand = $config.mavenCommand
+    $logDir = Join-Path $PSScriptRoot "..\logs"
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $scriptPath = Join-Path $logDir "launcher_${ServiceName}_${timestamp}.ps1"
 
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - $serviceName ($($config.port))"
-    
-    Show-TerminalWarning
+    $sb = [System.Text.StringBuilder]::new()
 
-    Write-Step "Checking $serviceName status..."
+    [void]$sb.AppendLine("# BEMP Launcher: $ServiceName - Auto-generated")
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("chcp 65001 | Out-Null")
+    [void]$sb.AppendLine("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8")
+    [void]$sb.AppendLine("`$host.UI.RawUI.WindowTitle = '$TerminalTitle'")
+    [void]$sb.AppendLine("")
 
-    $isRunning = $false
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
-    foreach ($port in $checkPorts) {
-        if (Test-PortListening -port $port) {
-            $isRunning = $true
-            break
+    # 环境变量
+    if ($StartInfo.EnvVars) {
+        foreach ($kv in $StartInfo.EnvVars.GetEnumerator()) {
+            [void]$sb.AppendLine("`$env:$($kv.Key) = '$($kv.Value)'")
         }
-    }
-    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
-
-    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
-        Write-Success "$serviceName is running (ports: $portsText)"
-        return $true
+        [void]$sb.AppendLine("")
     }
 
-    # Check for port conflicts with other services before starting
-    Write-Step "Checking for port conflicts..."
-    $conflicts = @()
-    foreach ($port in $checkPorts) {
-        $conflict = Test-PortConflict -port $port -serviceName $serviceName
-        if ($conflict.HasConflict -and $conflict.ProcessName -ne "java") {
-            $conflicts += @{ Port = $port; Process = $conflict.ProcessName; PID = $conflict.ProcessId }
-        }
-    }
-    
-    if ($conflicts.Count -gt 0 -and -not $ForceRestart -and -not $AutoRestart) {
-        Write-Host ""
-        Write-Host "========================================" -ForegroundColor Red
-        Write-Host "  [!] PORT CONFLICT DETECTED" -ForegroundColor Red
-        Write-Host "========================================" -ForegroundColor Red
-        Write-Host ""
-        foreach ($c in $conflicts) {
-            Write-Error "Port $($c.Port) is occupied by: $($c.Process) (PID: $($c.PID))"
-        }
-        Write-Host ""
-        Write-Host "Options:" -ForegroundColor Yellow
-        Write-Host "  1. Use -ForceRestart to stop conflicting processes and restart" -ForegroundColor Gray
-        Write-Host "  2. Manually stop the conflicting services and try again" -ForegroundColor Gray
-        Write-Host ""
-        return $false
+    [void]$sb.AppendLine("Set-Location '$($StartInfo.WorkingDir)'")
+    [void]$sb.AppendLine("Write-Host '========================================' -ForegroundColor Cyan")
+    [void]$sb.AppendLine("Write-Host '  $TerminalTitle' -ForegroundColor Cyan")
+    [void]$sb.AppendLine("Write-Host '========================================' -ForegroundColor Cyan")
+    [void]$sb.AppendLine("Write-Host 'Log: $LogPath' -ForegroundColor Gray")
+    [void]$sb.AppendLine("Write-Host ''")
+    [void]$sb.AppendLine("")
+
+    # 执行服务命令 + Tee-Object同时输出到终端和日志文件
+    # 使用参数数组直接传递给可执行文件，避免PowerShell解析特殊字符(;=)
+    # 数组在launcher脚本中会自动展开为独立参数
+    if ($StartInfo.CommandArgs -is [array] -and $StartInfo.CommandArgs.Count -gt 0) {
+        # 生成参数数组声明：$cmdArgs = @('arg1', 'arg2', ...)
+        $argsStr = ($StartInfo.CommandArgs | ForEach-Object {
+            $escaped = $_ -replace "'", "''"
+            "'$escaped'"
+        }) -join ', '
+        [void]$sb.AppendLine("`$cmdArgs = @($argsStr)")
+        [void]$sb.AppendLine("& '$($StartInfo.Command)' @cmdArgs 2>&1 | Tee-Object -FilePath '$LogPath' -Append")
+    } elseif ($StartInfo.CommandLine) {
+        [void]$sb.AppendLine("& $($StartInfo.CommandLine) 2>&1 | Tee-Object -FilePath '$LogPath' -Append")
     }
 
-    if ($ForceRestart -or $AutoRestart) {
-        foreach ($port in $checkPorts) {
-            Stop-ServiceByPort -port $port -serviceName $serviceName
-        }
-    }
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("Write-Host ''")
+    [void]$sb.AppendLine("Write-Host '[Service exited] Press any key to close...' -ForegroundColor Yellow")
+    [void]$sb.AppendLine("`$null = [Console]::ReadKey(`$true)")
 
-    Write-Step "Starting $serviceName..."
+    $sb.ToString() | Set-Content -Path $scriptPath -Encoding UTF8
+    return $scriptPath
+}
+
+# ──────────────────────────── 统一服务启动 ────────────────────────────
+
+function Start-BempService {
+    param(
+        [string]$ServiceKey,
+        [object]$SvcConfig,
+        [object]$GlobalPaths,
+        [object]$HealthConfig,
+        [object]$AllServices
+    )
+
+    $serviceName    = $SvcConfig.name
+    $serviceType    = $SvcConfig.type
+    $port           = if ($SvcConfig.ports -is [array]) { $SvcConfig.ports[0] } else { $SvcConfig.port }
+    $useExternal    = $ExternalTerminal
+
+    # 终端标题
+    $terminalTitle = "BEMP - $serviceName ($port)"
+    try { $host.UI.RawUI.WindowTitle = $terminalTitle } catch {}
+    $esc = [char]27; $bel = [char]7
+    Write-Host -NoNewline "$esc]0;$terminalTitle$bel"
+
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "  $serviceName Startup" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
+    if ($useExternal) { Write-Host "  Mode: External PowerShell Terminal" -ForegroundColor Yellow }
     Write-Host ""
 
-    # Step 1: Check if project path exists
-    if (-not (Test-Path $projectPath)) {
-        Write-Error "Project path not found: $projectPath"
+    # ── Step 1: 检查运行状态 ──
+    Write-Step "Checking $serviceName status..."
+    $isRunning = Test-PortListening -Port $port
+
+    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
+        Write-Success "$serviceName is running (port $port)"
+        return $true
+    }
+
+    # ── Step 2: 处理端口冲突 ──
+    if ($isRunning) {
+        $portInfo = Get-PortProcessInfo -Port $port
+        if ($portInfo) {
+            if ($ForceRestart -or $AutoRestart) {
+                Write-Warning "Stopping existing process: $($portInfo.Name) (PID: $($portInfo.PID))"
+                Stop-ServiceByPort -Port $port -ServiceName $serviceName
+            } else {
+                Write-Error "Port $port is occupied by $($portInfo.Name) (PID: $($portInfo.PID))"
+                Write-Host "  Use -ForceRestart to stop and restart" -ForegroundColor Yellow
+                return $false
+            }
+        }
+    }
+
+    # ── Step 3: 等待依赖（仅 SpringBoot 类型） ──
+    if ($WaitForDeps -and $serviceType -eq "springboot") {
+        $deps = @()
+        if ($SvcConfig.PSObject.Properties.Name -contains "dependencies") {
+            $deps = @($SvcConfig.dependencies)
+        } elseif ($SvcConfig.PSObject.Properties.Name -contains "diagnostics" -and
+                  $SvcConfig.diagnostics.PSObject.Properties.Name -contains "checkDependencies") {
+            $deps = @($SvcConfig.diagnostics.checkDependencies)
+        }
+        if ($deps.Count -gt 0) {
+            $depWait = Get-HealthConfigValue -HConfig $HealthConfig -ServiceKey $ServiceKey -Property "depWaitSeconds" -ServiceType $serviceType -Default 120
+            $ok = Wait-Dependencies -DepServices $deps -AllServices $AllServices -MaxWaitSeconds $depWait
+            if (-not $ok) {
+                Write-Error "Dependencies not ready, aborting $serviceName start"
+                return $false
+            }
+        }
+    }
+
+    # ── Step 4: 构建启动命令 ──
+    $startInfo = Build-StartCommand -ServiceType $serviceType -SvcConfig $SvcConfig -GlobalPaths $GlobalPaths
+    if (-not $startInfo) {
+        Write-Error "Failed to build start command for $serviceName"
         return $false
     }
 
-    # Step 2: Auto compile with Maven if enabled
-    if ($QuickStart) {
-        Write-Warning "QuickStart mode enabled: Skipping Maven compilation"
-        Write-Warning "Make sure the project was previously compiled"
-    } elseif ($autoCompile) {
-        Write-Step "Auto-compiling project with Maven..."
-        Write-Host ""
-        Write-Host "========================================" -ForegroundColor Cyan
-        Write-Host "  Maven Compilation" -ForegroundColor Cyan
-        Write-Host "========================================" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "Working Dir: $projectPath" -ForegroundColor Gray
-        Write-Host "Maven: $mavenPath" -ForegroundColor Gray
-        Write-Host "Command: $mavenPath $mavenCommand -pl $modulePath -am" -ForegroundColor Gray
-        Write-Host ""
-        
-        if (-not (Test-Path $mavenPath)) {
-            Write-Error "Maven not found: $mavenPath"
-            Write-Host "Please check mavenPath in config.json" -ForegroundColor Yellow
-            return $false
-        }
-        
-        Set-Location $projectPath
-        
-        # Parse maven command and arguments
-        $mavenArgs = $mavenCommand.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
-        
-        # Add module arguments
-        $mavenArgs += "-pl", $modulePath, "-am"
-        
-        & $mavenPath @mavenArgs
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Maven compilation failed!"
-            return $false
-        }
-        Write-Success "Maven compilation completed"
-        Write-Host ""
-        
-        # Re-set terminal title after Maven (Maven may override it)
-        Set-TerminalTitle "BEMP - $serviceName ($($config.port))"
-    }
+    # ── Step 5: 执行启动 ──
+    $logPath = Get-StartupLogPath -ServiceName $serviceName
+    $script:LastStartupLogPath = $logPath
 
-    # Step 3: Check if WAR file exists after compilation
-    $warPath = Join-Path $projectPath "$modulePath\target\$warFile"
-    if (-not (Test-Path $warPath)) {
-        Write-Error "WAR file not found: $warPath"
-        Write-Host ""
-        Write-Host "Please compile the project first:" -ForegroundColor Yellow
-        Write-Host "  cd $projectPath" -ForegroundColor Gray
-        Write-Host "  $mavenPath $mavenCommand -pl $modulePath -am" -ForegroundColor Gray
-        Write-Host ""
-        return $false
-    }
-
-    Write-Success "WAR file found: $warPath"
-    Write-Host ""
-
-    # Check launch mode: "terminal" for direct terminal launch, "debug" for F5 debug mode
-    if ($launchMode -eq "terminal") {
-        return Start-SpringBootInTerminal -config $config -globalPaths $globalPaths
+    if ($useExternal) {
+        # 外部终端模式：生成.ps1启动脚本，在独立PowerShell窗口运行
+        # 原生支持Tee-Object，终端实时显示服务日志
+        $launcherScript = Build-ExternalTerminalScript -StartInfo $startInfo -LogPath $logPath `
+            -TerminalTitle $terminalTitle -ServiceName $serviceName
+        Write-Step "Launching in external PowerShell: $serviceName"
+        Write-Host "  Log: $logPath" -ForegroundColor Gray
+        Write-Host "  Script: $launcherScript" -ForegroundColor Gray
+        # PowerShell 5.1 的 Start-Process -ArgumentList 需要单字符串，逗号分隔会导致类型转换错误
+        $psArgs = "-NoExit -ExecutionPolicy Bypass -File `"$launcherScript`""
+        Start-Process -FilePath "powershell.exe" -ArgumentList $psArgs
+        Start-Sleep -Seconds 2
     } else {
-        # Default to F5 Debug Mode (Trae IDE)
-        return Start-SpringBootWithDebug -config $config -globalPaths $globalPaths
-    }
-}
+        # IDE终端模式：前台运行
+        Show-TerminalWarning
+        Write-Host "Working Dir: $($startInfo.WorkingDir)" -ForegroundColor Gray
+        Write-Host "Command: $($startInfo.CommandLine)" -ForegroundColor Gray
+        if ($logPath) { Write-Host "Log: $logPath" -ForegroundColor Gray }
+        Write-Host ""
 
-function Start-SpringBootWithDebug {
-    param([object]$config, [object]$globalPaths)
+        Set-Location $startInfo.WorkingDir
 
-    $projectPath = $globalPaths.banksProjectPath
-    $modulePath = $config.modulePath
-    $mainClass = $config.mainClass
-    $serviceName = $config.name
-    $workspaceRoot = $globalPaths.workspaceRoot
-    $traePath = $globalPaths.traePath
-
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  $serviceName Debug Launch" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host ""
-
-    Write-Host "Debug Configuration:" -ForegroundColor Green
-    Write-Host "  Name: Spring Boot-后端调试" -ForegroundColor Gray
-    Write-Host "  Main Class: $mainClass" -ForegroundColor Gray
-    Write-Host "  Project: $modulePath" -ForegroundColor Gray
-    Write-Host ""
-
-    Write-Host "Starting Debug Session in Trae IDE..." -ForegroundColor Green
-    Write-Host ""
-
-    # Trigger Trae IDE debug session using CLI
-    try {
-        # Validate Trae path
-        if (-not (Test-Path $traePath)) {
-            Write-Error "Trae IDE not found at: $traePath"
-            Write-Host "Please check the traePath configuration in config.json" -ForegroundColor Yellow
-            return $false
+        # 设置环境变量
+        if ($startInfo.EnvVars) {
+            foreach ($kv in $startInfo.EnvVars.GetEnumerator()) {
+                Set-Item -Path "env:$($kv.Key)" -Value $kv.Value
+            }
         }
 
-        # Convert paths for URI
-        $workspaceUri = "file:///$($workspaceRoot.Replace('\', '/'))"
-        $mainClassPath = "$projectPath/$modulePath/src/test/java/$($mainClass.Replace('.', '/')).java"
-
-        Write-Host "Using Trae IDE: $traePath" -ForegroundColor Gray
-
-        # Open the workspace folder in Trae
-        $traeProcess = Start-Process -FilePath $traePath -ArgumentList "--folder-uri", $workspaceUri, "--goto", $mainClassPath -PassThru -WindowStyle Hidden
-
-        Write-Host "Workspace opened in Trae IDE (PID: $($traeProcess.Id))" -ForegroundColor Green
-
-        Write-Host ""
-        Write-Host "========================================" -ForegroundColor Cyan
-        Write-Host "  SpringBoot Debug Ready" -ForegroundColor Cyan
-        Write-Host "========================================" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "Trae IDE has been opened with the workspace." -ForegroundColor Green
-        Write-Host ""
-        Write-Host "To start debugging SpringBoot:" -ForegroundColor Yellow
-        Write-Host "  1. Switch to Trae IDE window" -ForegroundColor White
-        Write-Host "  2. Press F5 (or click Run → Start Debugging)" -ForegroundColor White
-        Write-Host ""
-        Write-Host "Debug Features:" -ForegroundColor Cyan
-        Write-Host "  [v] Auto-detect compilation status" -ForegroundColor Green
-        Write-Host "  [v] Auto-compile if needed" -ForegroundColor Green
-        Write-Host "  [v] Start SpringBoot with debugger attached" -ForegroundColor Green
-        Write-Host "  [v] Hot-reload support enabled" -ForegroundColor Green
-        Write-Host ""
-
-    } catch {
-        Write-Error "Failed to launch Trae IDE: $_"
-        Write-Host "Please manually open the project and press F5 to debug" -ForegroundColor Yellow
+        # 通过 Tee-Object 同时输出到终端和日志文件
+        if ($startInfo.CommandArgs -is [array]) {
+            & $startInfo.Command $startInfo.CommandArgs 2>&1 | Tee-Object -FilePath $logPath -Append
+        } else {
+            & $startInfo.CommandLine 2>&1 | Tee-Object -FilePath $logPath -Append
+        }
     }
 
     return $true
 }
 
-function Start-SpringBootInTerminal {
-    param([object]$config, [object]$globalPaths)
-
-    $projectPath = $globalPaths.banksProjectPath
-    $modulePath = $config.modulePath
-    $warFile = $config.warFile
-    $mainClass = $config.mainClass
-    $jvmOptions = $config.jvmOptions
-    $serviceName = $config.name
-    $javaHome = $globalPaths.javaHome
-
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  $serviceName Terminal Launch" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
+function Show-TerminalWarning {
     Write-Host ""
+    Write-Host "[!] This terminal is occupied by the service. Do NOT run other commands." -ForegroundColor Yellow
+    Write-Host "    Use a separate terminal for status checks." -ForegroundColor Gray
+    Write-Host ""
+}
 
-    # Get WAR path
-    $warPath = Join-Path $projectPath "$modulePath\target\$warFile"
-    
-    # Derive exploded WAR directory name from warFile (e.g. bemp-served.war -> bemp-served)
+# ──────────────────────────── 各类型启动命令构建 ────────────────────────────
+
+function Build-StartCommand {
+    param([string]$ServiceType, [object]$SvcConfig, [object]$GlobalPaths)
+
+    switch ($ServiceType) {
+        "redis"      { return Build-RedisCommand -SvcConfig $SvcConfig }
+        "zookeeper"  { return Build-ZooKeeperCommand -SvcConfig $SvcConfig }
+        "springboot" { return Build-SpringBootCommand -SvcConfig $SvcConfig -GlobalPaths $GlobalPaths }
+        "frontend"   { return Build-FrontendCommand -SvcConfig $SvcConfig -GlobalPaths $GlobalPaths }
+        default {
+            Write-Error "Unknown service type: $ServiceType"
+            return $null
+        }
+    }
+}
+
+function Build-RedisCommand {
+    param([object]$SvcConfig)
+    $exe = $SvcConfig.executable
+    if (-not (Test-Path $exe)) {
+        Write-Error "Redis executable not found: $exe"
+        return $null
+    }
+    return @{
+        WorkingDir   = Split-Path -Parent $exe
+        Command      = Join-Path (Split-Path -Parent $exe) (Split-Path -Leaf $exe)
+        CommandArgs  = @()
+        CommandLine  = ".\$(Split-Path -Leaf $exe)"
+        EnvVars      = @{}
+    }
+}
+
+function Build-ZooKeeperCommand {
+    param([object]$SvcConfig)
+    $exe = $SvcConfig.executable
+    if (-not (Test-Path $exe)) {
+        Write-Error "ZooKeeper executable not found: $exe"
+        return $null
+    }
+    return @{
+        WorkingDir   = Split-Path -Parent $exe
+        Command      = Join-Path (Split-Path -Parent $exe) (Split-Path -Leaf $exe)
+        CommandArgs  = @()
+        CommandLine  = ".\$(Split-Path -Leaf $exe)"
+        EnvVars      = @{ "JAVA_TOOL_OPTIONS" = "-Dfile.encoding=UTF-8" }
+    }
+}
+
+function Build-SpringBootCommand {
+    param([object]$SvcConfig, [object]$GlobalPaths)
+
+    $projectPath  = $GlobalPaths.banksProjectPath
+    $modulePath   = $SvcConfig.modulePath
+    $warFile      = $SvcConfig.warFile
+    $mainClass    = $SvcConfig.mainClass
+    $jvmOptions   = $SvcConfig.jvmOptions
+    $javaHome     = $GlobalPaths.javaHome
+    $mavenPath    = $GlobalPaths.mavenPath
+    $mavenCommand = $SvcConfig.mavenCommand
+    $autoCompile  = $SvcConfig.autoCompile
+    $launchMode   = if ($LaunchMode -ne "") { $LaunchMode } else { $SvcConfig.launchMode }
+
+    # 编译检查
+    if ($QuickStart) {
+        Write-Warning "QuickStart: Skipping Maven compilation"
+    } elseif ($autoCompile) {
+        Write-Step "Compiling with Maven..."
+        if (-not (Test-Path $mavenPath)) {
+            Write-Error "Maven not found: $mavenPath"
+            return $null
+        }
+        Set-Location $projectPath
+        $mavenArgs = $mavenCommand.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+        $mavenArgs += "-pl", $modulePath, "-am"
+        & $mavenPath @mavenArgs
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Maven compilation failed!"
+            return $null
+        }
+        Write-Success "Maven compilation completed"
+    }
+
+    # 检查 WAR 目录
     $warDirName = [System.IO.Path]::GetFileNameWithoutExtension($warFile)
-    
-    # Get classes and lib directories (support both exploded WAR and standard WAR structure)
-    $classesDir = Join-Path $projectPath "$modulePath\target\classes"
-    $libDir = Join-Path $projectPath "$modulePath\target\lib"
-    $webinfClassesDir = Join-Path $projectPath "$modulePath\target\$warDirName\WEB-INF\classes"
-    $webinfLibDir = Join-Path $projectPath "$modulePath\target\$warDirName\WEB-INF\lib"
-    
-    # Check directory structure and determine working directory and classpath
-    if ((Test-Path $webinfClassesDir) -and (Test-Path $webinfLibDir)) {
-        # Standard Maven WAR exploded structure (WEB-INF/classes and WEB-INF/lib)
-        Write-Success "Using exploded WAR structure (WEB-INF)"
-        $cpClasses = "WEB-INF\classes"
-        $cpLib = "WEB-INF\lib\*"
-        $workingDir = Join-Path $projectPath "$modulePath\target\$warDirName"
-    } elseif ((Test-Path $classesDir) -and (Test-Path $libDir)) {
-        # Flat structure (classes and lib at target level)
-        Write-Success "Using flat exploded structure"
-        $cpClasses = "..\classes"
-        $cpLib = "..\lib\*"
-        $workingDir = Split-Path -Parent $classesDir
-    } else {
-        # Fall back to WAR file
-        Write-Success "Using WAR file: $warPath"
-        $cpClasses = "WEB-INF\classes"
-        $cpLib = "WEB-INF\lib\*"
-        $workingDir = Join-Path $projectPath "$modulePath\target\$warDirName"
-    }
+    $webinfClasses = Join-Path $projectPath "$modulePath\target\$warDirName\WEB-INF\classes"
+    $webinfLib     = Join-Path $projectPath "$modulePath\target\$warDirName\WEB-INF\lib"
+    $flatClasses   = Join-Path $projectPath "$modulePath\target\classes"
+    $flatLib       = Join-Path $projectPath "$modulePath\target\lib"
 
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  $serviceName Log" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "Working Dir: $workingDir" -ForegroundColor Gray
-    Write-Host "Main Class: $mainClass" -ForegroundColor Gray
-    Write-Host "JVM Options: $jvmOptions" -ForegroundColor Gray
+    $envVars = @{}
     if ($javaHome) {
-        Write-Host "JAVA_HOME: $javaHome" -ForegroundColor Gray
-    }
-    Write-Host ""
-
-    Set-Location $workingDir
-
-    # Build Java command
-    $javaArgs = @()
-    if ($javaHome) {
-        $env:JAVA_HOME = $javaHome
-        $env:PATH = "$javaHome\bin;$env:PATH"
+        $envVars["JAVA_HOME"] = $javaHome
         $javaExe = Join-Path $javaHome "bin\java.exe"
     } else {
         $javaExe = "java"
     }
 
-    $javaArgs += $jvmOptions.Split(' ')
-    $javaArgs += "-Dfile.encoding=UTF-8"
-    $javaArgs += "-Dsun.stdout.encoding=UTF-8"
-    $javaArgs += "-Dsun.stderr.encoding=UTF-8"
-    $javaArgs += "-cp"
-    $javaArgs += "$cpClasses;$cpLib"
-    $javaArgs += $mainClass
+    if ((Test-Path $webinfClasses) -and (Test-Path $webinfLib)) {
+        $workingDir = Join-Path $projectPath "$modulePath\target\$warDirName"
+        $cpClasses  = "WEB-INF\classes"
+        $cpLib      = "WEB-INF\lib\*"
+        Write-Success "Using exploded WAR structure"
+    } elseif ((Test-Path $flatClasses) -and (Test-Path $flatLib)) {
+        $workingDir = Join-Path $projectPath "$modulePath\target"
+        $cpClasses  = "classes"
+        $cpLib      = "lib\*"
+        Write-Success "Using flat target structure"
+    } else {
+        Write-Error "No compiled classes found. Run without -QuickStart first."
+        return $null
+    }
 
-    Write-Host "Command: $javaExe $($javaArgs -join ' ')" -ForegroundColor Gray
-    Write-Host ""
+    $allArgs = @()
+    $allArgs += $jvmOptions.Split(' ')
+    $allArgs += @("-Dfile.encoding=UTF-8", "-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8")
+    $allArgs += @("-cp", "$cpClasses;$cpLib", $mainClass)
 
-    # Re-set terminal title before Java process starts
-    Set-TerminalTitle "BEMP - $serviceName ($($config.port))"
-
-    # Start Java process in foreground (like ZooKeeper)
-    & $javaExe $javaArgs
-
-    return $true
+    return @{
+        WorkingDir   = $workingDir
+        Command      = $javaExe
+        CommandArgs  = $allArgs
+        CommandLine  = "$javaExe $($allArgs -join ' ')"
+        EnvVars      = $envVars
+    }
 }
 
-function Start-FrontendService {
-    param([object]$config, [object]$globalPaths, [switch]$QuickStart)
+function Build-FrontendCommand {
+    param([object]$SvcConfig, [object]$GlobalPaths)
 
-    $projectPath = $globalPaths.frontendProjectPath
-    $startCommand = $config.startCommand
-    $nodePath = $globalPaths.nodePath
-    $serviceName = $config.name
-    $nodeMemoryLimit = $config.nodeMemoryLimit
+    $projectPath    = $GlobalPaths.frontendProjectPath
+    $nodePath       = $GlobalPaths.nodePath
+    $nodeMemLimit   = $SvcConfig.nodeMemoryLimit
 
-    # 设置终端窗口标题
-    Set-TerminalTitle "BEMP - Frontend ($($config.port))"
-    
-    Show-TerminalWarning
-
-    Write-Step "Checking $serviceName status..."
-    
-    $isRunning = $false
-    $checkPorts = if ($config.ports -is [array]) { $config.ports } else { @($config.port) }
-    foreach ($port in $checkPorts) {
-        if (Test-PortListening -port $port) {
-            # 验证是否真的是前端服务（检查进程名）
-            $processIds = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
-            foreach ($processId in $processIds) {
-                try {
-                    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-                    if ($process -and ($process.Name -eq "node" -or $process.Name -eq "node.exe")) {
-                        $isRunning = $true
-                        break
-                    }
-                } catch {}
-            }
-            if ($isRunning) { break }
-        }
-    }
-    $portsText = if ($config.ports -is [array]) { ($config.ports -join ", ") } else { $config.port }
-    
-    if ($isRunning -and -not $ForceRestart -and -not $AutoRestart) {
-        Write-Success "$serviceName is running (ports: $portsText)"
-        return $true
-    }
-    
-    if ($ForceRestart -or $AutoRestart) {
-        foreach ($port in $checkPorts) {
-            Stop-ServiceByPort -port $port -serviceName $serviceName
-        }
-    }
-    
-    Write-Step "Starting $serviceName..."
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  $serviceName Startup" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host ""
-    
-    # Step 1: Check if project path exists
     if (-not (Test-Path $projectPath)) {
-        Write-Error "Project path not found: $projectPath"
-        return $false
+        Write-Error "Frontend project not found: $projectPath"
+        return $null
     }
-    
-    # Step 2: Check if Node.js path is configured and exists
-    if ($nodePath) {
-        if (-not (Test-Path $nodePath)) {
-            Write-Error "Node.js executable not found: $nodePath"
-            Write-Host "Please check the nodePath configuration in config.json" -ForegroundColor Yellow
-            return $false
-        }
-        
-        Write-Success "Using configured Node.js: $nodePath"
-        $nodeExe = $nodePath
-    } else {
-        Write-Warning "No Node.js path configured, using system default"
-        $nodeExe = "node"
-    }
-    
-    # Step 3: Execute npm command with specified Node.js
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  Frontend Development Server" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Working Dir: $projectPath" -ForegroundColor Gray
-    Write-Host "Node.js: $nodeExe" -ForegroundColor Gray
-    Write-Host "Command: $startCommand" -ForegroundColor Gray
-    
-    if ($nodeMemoryLimit) {
-        Write-Host "Node Memory Limit: ${nodeMemoryLimit}MB" -ForegroundColor Gray
-    }
-    Write-Host ""
-    
-    # Get npm path from the configured Node.js installation
+
+    $nodeExe = if ($nodePath -and (Test-Path $nodePath)) { $nodePath } else { "node" }
     $nodeDir = Split-Path -Parent $nodeExe
-    $npmCmd = Join-Path $nodeDir "npm.cmd"
-    
-    # Temporarily prepend Node.js directory to PATH for npm to find the correct node
-    $originalPath = $env:PATH
-    $env:PATH = "$nodeDir;$env:PATH"
-    
-    # Set NODE_OPTIONS for memory limit (matching package.json build config)
-    $originalNodeOptions = $env:NODE_OPTIONS
-    if ($nodeMemoryLimit) {
-        $env:NODE_OPTIONS = "--max_old_space_size=$nodeMemoryLimit"
-        Write-Step "Setting NODE_OPTIONS=$env:NODE_OPTIONS"
-    }
-    
-    # Install dependencies if needed
+    $npmCmd  = Join-Path $nodeDir "npm.cmd"
+
+    # 依赖检查
     Set-Location $projectPath
-    
     if ($QuickStart) {
-        Write-Warning "QuickStart mode: Skipping dependency installation check"
         if (-not (Test-Path "node_modules")) {
-            Write-Error "QuickStart failed: node_modules not found, run without -QuickStart first"
-            $env:PATH = $originalPath
-            return $false
+            Write-Error "QuickStart failed: node_modules not found"
+            return $null
         }
-        Write-Success "node_modules found, proceeding with startup"
     } elseif (-not (Test-Path "node_modules")) {
-        Write-Host "First run, installing dependencies (optimized)..." -ForegroundColor Yellow
-        
-        # 跳过二进制文件下载以加速安装（项目中用不到这些可选依赖）
+        Write-Step "Installing dependencies..."
         $env:PUPPETEER_SKIP_DOWNLOAD = "true"
         $env:ELECTRON_SKIP_BINARY_DOWNLOAD = "true"
-        
-        # --prefer-offline: 优先使用本地缓存，减少网络请求
-        # --no-audit: 跳过安全审计，节省约 5-15 秒
-        # --no-fund: 跳过赞助信息输出
-        # --scripts-prepend-node-path: 确保 npm scripts 使用正确的 Node
         & $npmCmd install --prefer-offline --no-audit --no-fund --scripts-prepend-node-path
-        
-        # 清理临时环境变量
         Remove-Item Env:PUPPETEER_SKIP_DOWNLOAD -ErrorAction SilentlyContinue
         Remove-Item Env:ELECTRON_SKIP_BINARY_DOWNLOAD -ErrorAction SilentlyContinue
-        
         if ($LASTEXITCODE -ne 0) {
-            $env:PATH = $originalPath
-            $env:NODE_OPTIONS = $originalNodeOptions
-            Write-Host "Dependency install failed!" -ForegroundColor Red
-            return $false
+            Write-Error "npm install failed"
+            return $null
         }
-        Write-Success "Dependencies installed"
-        Write-Host ""
-    } else {
-        Write-Success "node_modules exists, skipping install"
     }
-    
-    # Start frontend service
-    # Re-set terminal title before process starts
-    Set-TerminalTitle "BEMP - Frontend ($($config.port))"
-    
-    # 显式设置 NODE_ENV，确保 webpack-dev-server 使用正确的环境
-    $env:NODE_ENV = "development"
-    
-    # --scripts-prepend-node-path: 确保子进程使用配置的 Node.js
-    & $npmCmd run dev --scripts-prepend-node-path
-    
-    # Restore original PATH and NODE_OPTIONS
-    $env:PATH = $originalPath
-    $env:NODE_OPTIONS = $originalNodeOptions
-    
-    return $true
+
+    $envVars = @{
+        "NODE_ENV" = "development"
+    }
+    if ($nodeMemLimit) {
+        $envVars["NODE_OPTIONS"] = "--max_old_space_size=$nodeMemLimit"
+    }
+
+    return @{
+        WorkingDir   = $projectPath
+        Command      = $npmCmd
+        CommandArgs  = @("run", "dev", "--scripts-prepend-node-path")
+        CommandLine  = "$npmCmd run dev --scripts-prepend-node-path"
+        EnvVars      = $envVars
+    }
+}
+
+# ──────────────────────────── 状态展示（动态读取配置，无硬编码） ────────────────────────────
+
+function Get-ServiceStatus {
+    param([object]$SvcConfig)
+    $ports = if ($SvcConfig.ports -is [array]) { $SvcConfig.ports } else { @($SvcConfig.port) }
+    foreach ($port in $ports) {
+        if (Test-PortListening -Port $port) {
+            return @{ Status = "Running"; Port = $port }
+        }
+    }
+    return @{ Status = "Stopped"; Port = ($ports -join ", ") }
 }
 
 function Show-Status {
-    param([object]$config)
-    
+    param([object]$Config)
+
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "  Service Status" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
-    
+
     $services = @()
-    
-    if ($config.services.redis.enabled) {
-        $status = Get-ServiceStatus -config $config.services.redis
-        $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
-        $services += [PSCustomObject]@{
-            Service = $config.services.redis.name
-            Port = $status.Port
-            Status = $statusText
+    # 从配置动态读取服务列表，不硬编码
+    foreach ($key in $Config.services.PSObject.Properties.Name) {
+        if ($Config.services.$key.enabled) {
+            $svc = $Config.services.$key
+            $status = Get-ServiceStatus -SvcConfig $svc
+            $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
+            $services += [PSCustomObject]@{
+                Service = $svc.name
+                Port    = $status.Port
+                Status  = $statusText
+            }
         }
     }
-    
-    if ($config.services.zookeeper.enabled) {
-        $status = Get-ServiceStatus -config $config.services.zookeeper
-        $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
-        $services += [PSCustomObject]@{
-            Service = $config.services.zookeeper.name
-            Port = $status.Port
-            Status = $statusText
-        }
-    }
-    
-    if ($config.services.served.enabled) {
-        $status = Get-ServiceStatus -config $config.services.served
-        $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
-        $services += [PSCustomObject]@{
-            Service = $config.services.served.name
-            Port = $status.Port
-            Status = $statusText
-        }
-    }
-    
-    if ($config.services.adapter.enabled) {
-        $status = Get-ServiceStatus -config $config.services.adapter
-        $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
-        $services += [PSCustomObject]@{
-            Service = $config.services.adapter.name
-            Port = $status.Port
-            Status = $statusText
-        }
-    }
-    
-    if ($config.services.frontend.enabled) {
-        $status = Get-ServiceStatus -config $config.services.frontend
-        $statusText = if ($status.Status -eq "Running") { "[OK] Running" } else { "[--] Stopped" }
-        $services += [PSCustomObject]@{
-            Service = $config.services.frontend.name
-            Port = $status.Port
-            Status = $statusText
-        }
-    }
-    
+
     $services | Format-Table -AutoSize
-    
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
 }
+
+# ──────────────────────────── 主流程 ────────────────────────────
 
 Write-Header
 
@@ -828,68 +739,167 @@ $config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $config = Resolve-AllConfigPlaceholders $config
 Write-Success "Config loaded"
 
+# 加载健康检查配置
+$healthConfigPath = Join-Path $PSScriptRoot "..\config\health-check.json"
+$healthConfig = $null
+if (Test-Path $healthConfigPath) {
+    $healthConfig = Get-Content $healthConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $healthConfig = Resolve-AllConfigPlaceholders $healthConfig
+}
+
+# 清理过期日志和launcher脚本（在healthConfig加载后调用，以读取配置的清理时间）
+Clear-OldLauncherScripts -HConfig $healthConfig
+
 if ($Status) {
-    Show-Status -config $config
+    Show-Status -Config $config
     Set-Location $originalLocation
     exit 0
 }
 
 if ($Service -ne "") {
-    # Extract global paths from config
     $globalPaths = $config.globalPaths
-    
-    switch ($Service.ToLower()) {
-        "redis" {
-            if ($config.services.redis.enabled) {
-                Start-RedisService -config $config.services.redis
-            } else {
-                Write-Warning "Redis is disabled"
-            }
+    $serviceKey  = $Service.ToLower()
+
+    # 支持逗号分隔的多服务启动
+    $serviceKeys = $serviceKey -split "," | ForEach-Object { $_.Trim() }
+
+    # ── 阶段1：启动所有服务进程（不等待就绪，快速返回） ──
+    # 多服务时先全部启动进程，再统一等健康检查，避免健康检查等待时间叠加
+    $pendingChecks = @()
+    foreach ($sKey in $serviceKeys) {
+        if ($config.services.PSObject.Properties.Name -notcontains $sKey) {
+            Write-Error "Unknown service: $sKey"
+            Write-Host "Available: $($config.services.PSObject.Properties.Name -join ', ')" -ForegroundColor Gray
+            continue
         }
-        "zookeeper" {
-            if ($config.services.zookeeper.enabled) {
-                Start-ZooKeeperService -config $config.services.zookeeper
-            } else {
-                Write-Warning "ZooKeeper is disabled"
-            }
+        $svcConfig = $config.services.$sKey
+        if (-not $svcConfig.enabled) {
+            Write-Warning "$($svcConfig.name) is disabled"
+            continue
         }
-        "served" {
-            if ($config.services.served.enabled) {
-                Start-SpringBootService -config $config.services.served -globalPaths $globalPaths -QuickStart:$QuickStart
-            } else {
-                Write-Warning "Served is disabled"
+
+        $script:LastStartupLogPath = ""
+        $result = Start-BempService -ServiceKey $sKey -SvcConfig $svcConfig -GlobalPaths $globalPaths `
+                                    -HealthConfig $healthConfig -AllServices $config.services
+
+        # 收集需要健康检查的服务信息，阶段2统一处理
+        if ($result -and $ExternalTerminal) {
+            $port = if ($svcConfig.ports -is [array]) { $svcConfig.ports[0] } else { $svcConfig.port }
+            $svcType = $svcConfig.type
+            $maxWait = Get-HealthConfigValue -HConfig $healthConfig -ServiceKey $sKey -Property "maxWaitSeconds" -ServiceType $svcType -Default 120
+            $pollInterval = Get-HealthConfigValue -HConfig $healthConfig -ServiceKey $sKey -Property "pollIntervalSeconds" -ServiceType $svcType -Default 15
+
+            # 收集诊断所需信息
+            $deps = @()
+            $appLogFile = ""
+            $logKeywords = @("Exception", "ERROR", "SessionExpired", "ConnectionLoss")
+            if ($svcConfig.PSObject.Properties.Name -contains "diagnostics") {
+                $diag = $svcConfig.diagnostics
+                if ($diag.PSObject.Properties.Name -contains "checkDependencies") {
+                    $deps = @($diag.checkDependencies)
+                }
+                if ($diag.PSObject.Properties.Name -contains "logFile") {
+                    $appLogFile = $diag.logFile
+                }
+                if ($diag.PSObject.Properties.Name -contains "logKeywords") {
+                    $logKeywords = @($diag.logKeywords)
+                }
             }
-        }
-        "adapter" {
-            if ($config.services.adapter.enabled) {
-                Start-SpringBootService -config $config.services.adapter -globalPaths $globalPaths -QuickStart:$QuickStart
-            } else {
-                Write-Warning "Adapter is disabled"
+
+            $pendingChecks += @{
+                ServiceKey   = $sKey
+                ServiceName  = $svcConfig.name
+                Port         = $port
+                MaxWait      = $maxWait
+                PollInterval = $pollInterval
+                Deps         = $deps
+                AppLogFile   = $appLogFile
+                StartupLog   = $script:LastStartupLogPath
+                LogKeywords  = $logKeywords
             }
-        }
-        "frontend" {
-            if ($config.services.frontend.enabled) {
-                Start-FrontendService -config $config.services.frontend -globalPaths $globalPaths -QuickStart:$QuickStart
-            } else {
-                Write-Warning "Frontend is disabled"
-            }
-        }
-        default {
-            Write-Error "Unknown service: $Service"
-            Write-Host "Available: redis, zookeeper, served, adapter, frontend"
         }
     }
+
+    # ── 阶段2：统一并行健康检查（轮询所有待检查服务的端口） ──
+    # 多服务并行等待，取最长超时时间作为总等待上限
+    if ($pendingChecks.Count -gt 0) {
+        Write-Host ""
+        Write-Step "Phase 2: Health check for $($pendingChecks.Count) service(s)..."
+
+        # 多服务时取最大超时作为总等待上限，避免逐个叠加
+        # hashtable的键不能用Measure-Object -Property，需直接遍历取值
+        $globalMaxWait = 0
+        $globalPoll = [int]::MaxValue
+        foreach ($pc in $pendingChecks) {
+            if ($pc.MaxWait -gt $globalMaxWait) { $globalMaxWait = $pc.MaxWait }
+            if ($pc.PollInterval -lt $globalPoll) { $globalPoll = $pc.PollInterval }
+        }
+        if ($globalPoll -lt 10) { $globalPoll = 10 }
+        if ($globalMaxWait -le 0) { $globalMaxWait = 120 }
+        $globalElapsed = 0
+
+        while ($globalElapsed -lt $globalMaxWait) {
+            $allReady = $true
+            $anyTimedOut = $false
+            foreach ($pc in $pendingChecks) {
+                # 已就绪的跳过
+                if ($pc.ContainsKey("_ready") -and $pc._ready) { continue }
+                # 已超时的跳过
+                if ($pc.ContainsKey("_timedOut") -and $pc._timedOut) { continue }
+                # 个人超时检查
+                if ($globalElapsed -ge $pc.MaxWait) {
+                    $pc._timedOut = $true
+                    $anyTimedOut = $true
+                    continue
+                }
+                if (Test-PortListening -Port $pc.Port) {
+                    Write-Success "$($pc.ServiceName) is ready (port $($pc.Port))"
+                    $pc._ready = $true
+                } else {
+                    $allReady = $false
+                }
+            }
+            if ($allReady) { break }
+
+            # 检查是否所有服务都已确定状态（就绪或超时）
+            $allDone = $true
+            foreach ($pc in $pendingChecks) {
+                if (-not ($pc.ContainsKey("_ready") -or $pc.ContainsKey("_timedOut"))) { $allDone = $false; break }
+            }
+            if ($allDone) { break }
+
+            # 进度提示：列出未就绪的服务
+            $pendingNames = ($pendingChecks | Where-Object { -not ($_.ContainsKey("_ready") -and $_._ready) -and -not ($_.ContainsKey("_timedOut") -and $_._timedOut) } |
+                            ForEach-Object { "$($_.ServiceName):$($_.Port)" }) -join ", "
+            Write-Host "  [WAIT] Waiting for: $pendingNames ($globalElapsed/${globalMaxWait}s)" -ForegroundColor Gray
+
+            Start-Sleep -Seconds $globalPoll
+            $globalElapsed += $globalPoll
+        }
+
+        # 诊断超时失败的服务
+        foreach ($pc in $pendingChecks) {
+            if ($pc.ContainsKey("_timedOut") -and $pc._timedOut) {
+                Write-Error "$($pc.ServiceName) not ready after $($pc.MaxWait)s on port $($pc.Port)"
+                Invoke-Diagnostics -ServiceName $pc.ServiceName -Port $pc.Port `
+                                   -DepServices $pc.Deps -AllServices $config.services `
+                                   -AppLogFile $pc.AppLogFile -StartupLog $pc.StartupLog `
+                                   -LogKeywords $pc.LogKeywords
+            }
+        }
+    }
+
     Set-Location $originalLocation
     exit 0
 }
 
-Show-Status -config $config
-
+# 无参数：显示状态
+Show-Status -Config $config
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  每个服务需在独立终端启动，详见 SKILL.md" -ForegroundColor Yellow
-Write-Host "  命令: .\start-bemp-env.ps1 -Service <redis|zookeeper|served|adapter|frontend> [-QuickStart] [-ForceRestart] [-AutoRestart]" -ForegroundColor White
-Write-Host "  状态: .\start-bemp-env.ps1 -Status" -ForegroundColor Gray
+Write-Host "  Each service needs its own terminal." -ForegroundColor Yellow
+Write-Host "  Command: .\start-bemp-env.ps1 -Service <name> [-QuickStart] [-ForceRestart] [-ExternalTerminal] [-WaitForDeps]" -ForegroundColor White
+Write-Host "  Status:  .\start-bemp-env.ps1 -Status" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor Cyan
 
 Set-Location $originalLocation

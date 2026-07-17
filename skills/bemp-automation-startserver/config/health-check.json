@@ -1,39 +1,93 @@
 {
-  "_doc": "服务启动后自动健康检查配置。包含端口轮询等待参数和SpringBoot启动失败自动诊断策略",
+  "_doc": "服务启动后自动健康检查配置。包含默认值、按类型默认值、端口轮询等待参数、依赖等待参数、启动分组编排和SpringBoot启动失败自动诊断策略",
   "_ref": "端口和路径引用 _shared/env-config.json 的 services 节，通过 ${ENV:} 占位符解析",
-  "services": {
+  "defaults": {
+    "_doc": "所有服务的默认健康检查参数，byType可覆盖，服务级配置可再覆盖",
+    "maxWaitSeconds": 120,
+    "pollIntervalSeconds": 15,
+    "depWaitSeconds": 120,
+    "logCleanupHours": 24
+  },
+  "byType": {
+    "_doc": "按服务类型区分的默认健康检查参数，优先级高于defaults但低于服务级配置",
     "redis": {
-      "port": "${ENV:BEMP_BACKEND_PORT_REDIS:6379}",
       "maxWaitSeconds": 30,
-      "pollIntervalSeconds": 5
+      "pollIntervalSeconds": 5,
+      "depWaitSeconds": 0
     },
     "zookeeper": {
-      "port": "${ENV:BEMP_BACKEND_PORT_ZK:2181}",
       "maxWaitSeconds": 60,
-      "pollIntervalSeconds": 10
+      "pollIntervalSeconds": 10,
+      "depWaitSeconds": 0
     },
-    "served": {
-      "port": "${ENV:BEMP_BACKEND_PORT:8010}",
+    "springboot": {
       "maxWaitSeconds": 600,
       "pollIntervalSeconds": 30,
+      "depWaitSeconds": 120
+    },
+    "frontend": {
+      "maxWaitSeconds": 600,
+      "pollIntervalSeconds": 30,
+      "depWaitSeconds": 0
+    }
+  },
+  "startupGroups": {
+    "_doc": "启动分组编排，定义服务启动的分层和并行策略。智能体可读取此配置自动编排启动顺序",
+    "groups": [
+      {
+        "name": "infrastructure",
+        "description": "基础设施层，无依赖，可并行启动",
+        "services": ["redis", "zookeeper"],
+        "parallel": true,
+        "waitForDeps": false
+      },
+      {
+        "name": "application",
+        "description": "应用层，依赖基础设施就绪，可并行启动",
+        "services": ["served", "adapter", "frontend"],
+        "parallel": true,
+        "waitForDeps": true,
+        "dependsOn": "infrastructure"
+      }
+    ]
+  },
+  "services": {
+    "redis": {
+      "port": 6379,
+      "diagnostics": {
+        "logKeywords": ["Error", "ERROR"]
+      }
+    },
+    "zookeeper": {
+      "port": 2181,
+      "diagnostics": {
+        "logKeywords": ["Error", "ERROR", "SessionExpired", "ConnectionLoss"]
+      }
+    },
+    "served": {
+      "port": 8010,
+      "maxWaitSeconds": 600,
+      "pollIntervalSeconds": 30,
+      "depWaitSeconds": 120,
       "diagnostics": {
         "checkDependencies": ["redis", "zookeeper"],
         "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
-        "logFile": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/logs/bemp-served.log"
+        "logFile": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\logs\\bemp-served.log"
       }
     },
     "adapter": {
       "port": 8090,
       "maxWaitSeconds": 300,
       "pollIntervalSeconds": 20,
+      "depWaitSeconds": 120,
       "diagnostics": {
-        "checkDependencies": ["zookeeper"],
+        "checkDependencies": ["zookeeper", "redis"],
         "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
-        "logFile": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}adapter-deploy/target/bemp-adapter/logs/bemp-adapter.log"
+        "logFile": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}adapter-deploy\\target\\bemp-adapter\\logs\\bemp-adapter.log"
       }
     },
     "frontend": {
-      "port": "${ENV:BEMP_FRONTEND_PORT:8091}",
+      "port": 8091,
       "maxWaitSeconds": 600,
       "pollIntervalSeconds": 30,
       "maxRetries": 3,

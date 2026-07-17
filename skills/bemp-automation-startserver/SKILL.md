@@ -1,344 +1,336 @@
 ---
 name: "bemp-automation-startserver"
-description: "BEMP项目开发环境启动Skill，用于在IDE终端中启动Redis、ZooKeeper、Served后端、Adapter适配器及前端开发服务器。所有服务进程以前台方式运行，日志直接显示在终端控制台"
+description: "BEMP项目开发环境启动Skill，支持IDE终端和外部PowerShell终端两种模式，统一服务生命周期管理，含依赖等待、健康检查、自动诊断、日志并行输出、两阶段并行启动"
 whenToUse: "需要启动BEMP项目开发环境，包括Redis、ZooKeeper、Served后端、Adapter适配器及前端开发服务器，执行测试用例、功能验证、回归测试前启动服务时，查询BEMP服务状态时调用"
-triggers: 
+triggers:
     - "启动/快速启动/重启/检查 环境/Redis/ZooKeeper/Served/SpringBoot/Adapter/适配器/前端/服务/所有服务"
     - "查询服务状态"
+    - "外部终端启动"
 ---
 
 # BEMP 开发环境启动 Skill
 
-在 IDE 终端中启动 BEMP 项目所需的 Redis、ZooKeeper、Served 后端、Adapter 适配器和前端开发服务器。
+支持 IDE 终端和外部 PowerShell 终端两种模式启动 BEMP 项目所需服务，统一服务生命周期管理。
 
 ## 服务列表
 
-| 服务 | 端口 | -Service 参数 |
-|------|------|---------------|
-| Redis | 6379 | `redis` |
-| ZooKeeper | 2181 | `zookeeper` |
-| Served | 8010 | `served` |
-| Adapter | 8090 | `adapter` |
-| Frontend | 8091 | `frontend` |
+| 服务 | 类型 | 端口 | -Service 参数 | 依赖 |
+|------|------|------|---------------|------|
+| Redis | redis | 6379 | `redis` | 无 |
+| ZooKeeper | zookeeper | 2181 | `zookeeper` | 无 |
+| Served | springboot | 8010 | `served` | redis, zookeeper |
+| Adapter | springboot | 8090 | `adapter` | redis, zookeeper |
+| Frontend | frontend | 8091 | `frontend` | 无 |
 
-## 核心规则（必须遵守）
+## 核心规则
 
-1. **每个服务必须在独立的 IDE 终端中启动**，服务运行后不要在该终端执行其他命令
-2. **并行启动**：前端与后端无启动依赖，应同时启动以节省等待时间
-3. **状态检查使用独立终端**
-4. **启动前必须检测**：启动任何服务前，必须先检测该服务是否已在运行。若已运行且用户未要求重启，则跳过启动并报告状态
-5. **重启即强制**：当用户要求"重启"或"重新启动"时，等价于 `-ForceRestart`，自动停止旧进程后重新启动
+1. **外部终端优先**：使用 `-ExternalTerminal` 在独立PowerShell窗口启动服务，释放IDE终端用于诊断
+2. **终端隔离**：IDE模式下每个服务独占终端，严禁复用运行中服务的终端
+3. **依赖等待**：使用 `-WaitForDeps` 让SpringBoot服务自动等待基础设施就绪
+4. **启动前检测**：启动前自动检测端口，已运行则跳过（除非 -ForceRestart）
+5. **重启即强制**："重启"等价于 `-ForceRestart`
+6. **两阶段启动**：多服务逗号分隔时，先全部启动进程，再统一并行健康检查
+
+## 启动模式
+
+### 模式A：外部PowerShell终端（推荐，解决终端数量限制）
+
+服务在独立PowerShell窗口运行，终端实时显示服务日志，IDE终端完全空闲：
+
+```powershell
+.\start-bemp-env.ps1 -Service redis -ExternalTerminal
+.\start-bemp-env.ps1 -Service zookeeper -ExternalTerminal
+.\start-bemp-env.ps1 -Service served -QuickStart -ExternalTerminal -WaitForDeps
+.\start-bemp-env.ps1 -Service adapter -QuickStart -ExternalTerminal -WaitForDeps
+.\start-bemp-env.ps1 -Service frontend -QuickStart -ExternalTerminal
+```
+
+或一次性启动（两阶段：先启进程，再并行等健康检查）：
+
+```powershell
+.\start-bemp-env.ps1 -Service "redis,zookeeper" -ExternalTerminal
+.\start-bemp-env.ps1 -Service "served,adapter,frontend" -QuickStart -ExternalTerminal -WaitForDeps
+```
+
+优势：
+- 不受IDE终端数量（5个）限制
+- IDE终端完全空闲，可随时执行 `-Status` 诊断
+- PowerShell原生支持Tee-Object，终端实时显示服务日志
+- 自动健康检查和诊断（启动日志+应用日志双扫描）
+- 外部窗口独立运行，IDE断连不影响服务
+- 多服务并行健康检查，不叠加等待时间
+
+### 模式B：IDE终端（传统模式）
+
+服务在IDE终端前台运行，每个终端被独占：
+
+```powershell
+# 每个服务需独立终端：target_terminal: "new", blocking: false
+.\start-bemp-env.ps1 -Service redis
+.\start-bemp-env.ps1 -Service zookeeper
+.\start-bemp-env.ps1 -Service served -QuickStart
+.\start-bemp-env.ps1 -Service adapter -QuickStart
+.\start-bemp-env.ps1 -Service frontend -QuickStart
+```
 
 ## 启动分组与依赖关系
 
 ```
-┌─ 基础设施层（并行启动） ─────────────┐
-│  终端1: Redis (6379)                   │
-│  终端2: ZooKeeper (2181)               │
-└────────────────────────────────────────┘
-         ↓ (Served/Adapter 依赖 Redis + ZK 就绪)
-┌─ 应用层（并行启动，无需等待彼此） ────┐
-│  终端3: Served 后端 (8010)          │
-│  终端4: Adapter 适配器 (8090)          │
-│  终端5: Frontend 前端 (8091)           │
-└────────────────────────────────────────┘
+┌─ 基础设施层（并行启动，无依赖） ────────┐
+│  Redis (6379)      type: redis           │
+│  ZooKeeper (2181)  type: zookeeper       │
+└──────────────────────────────────────────┘
+         ↓ (-WaitForDeps 自动等待)
+┌─ 应用层（可并行，依赖基础设施就绪） ────┐
+│  Served (8010)     type: springboot      │
+│  Adapter (8090)    type: springboot      │
+│  Frontend (8091)   type: frontend        │
+└──────────────────────────────────────────┘
 ```
 
-**依赖说明**：
-- Redis 和 ZooKeeper 之间无依赖，可并行启动
-- Served 依赖 Redis 和 ZooKeeper 就绪，需等待基础设施层启动完成
-- Adapter 依赖 ZooKeeper 就绪（注册中心），需等待基础设施层启动完成
-- Frontend 与后端无启动依赖，可与 Served/Adapter 并行启动
-
-## 推荐启动方式
-
-### 方式一：全量并行启动（推荐，节省约50%等待时间）
-
-同时启动5个终端，基础设施层先就绪后应用层自动连接：
-
-```powershell
-# 终端1: Redis
-.\start-bemp-env.ps1 -Service redis
-
-# 终端2: ZooKeeper（与Redis同时启动）
-.\start-bemp-env.ps1 -Service zookeeper
-
-# 终端3: Served（Redis/ZK启动后立即启动）
-.\start-bemp-env.ps1 -Service served -QuickStart
-
-# 终端4: Adapter（与Served同时启动）
-.\start-bemp-env.ps1 -Service adapter -QuickStart
-
-# 终端5: Frontend（与Served同时启动）
-.\start-bemp-env.ps1 -Service frontend -QuickStart
-```
-
-### 方式二：分层启动（稳妥，适合首次启动）
-
-先启动基础设施层，确认就绪后再启动应用层：
-
-```powershell
-# 第一步：基础设施层（并行）
-.\start-bemp-env.ps1 -Service redis        # 终端1
-.\start-bemp-env.ps1 -Service zookeeper     # 终端2
-
-# 第二步：确认基础设施就绪
-.\start-bemp-env.ps1 -Status
-
-# 第三步：应用层（并行）
-.\start-bemp-env.ps1 -Service served -QuickStart   # 终端3
-.\start-bemp-env.ps1 -Service adapter -QuickStart       # 终端4
-.\start-bemp-env.ps1 -Service frontend -QuickStart      # 终端5
-```
+分组编排可通过 `config/health-check.json` 的 `startupGroups` 配置。
 
 ## 命令模板
 
 脚本路径：`d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts\start-bemp-env.ps1`
 
 ```powershell
-# 启动服务（每个在新终端执行）
+# 启动服务
 .\start-bemp-env.ps1 -Service <redis|zookeeper|served|adapter|frontend>
 
-# 快速启动（跳过编译/依赖检查，日常推荐）
-.\start-bemp-env.ps1 -Service <served|adapter|frontend> -QuickStart
+# 外部终端启动（推荐）
+.\start-bemp-env.ps1 -Service <name> -ExternalTerminal
+
+# 快速启动 + 依赖等待 + 外部终端（日常推荐组合）
+.\start-bemp-env.ps1 -Service served -QuickStart -ExternalTerminal -WaitForDeps
+
+# 逗号分隔多服务启动（两阶段并行健康检查）
+.\start-bemp-env.ps1 -Service "redis,zookeeper" -ExternalTerminal
 
 # 查看状态
 .\start-bemp-env.ps1 -Status
 
-# 强制重启（端口被占用时）
-.\start-bemp-env.ps1 -Service <服务名> -ForceRestart
+# 强制重启
+.\start-bemp-env.ps1 -Service <name> -ForceRestart -ExternalTerminal
 ```
 
 ## 参数说明
 
 | 参数 | 适用服务 | 作用 |
 |------|---------|------|
-| `-Service` | 全部 | 指定要启动的服务 |
+| `-Service` | 全部 | 指定要启动的服务，支持逗号分隔多服务 |
 | `-Status` | 全部 | 查看所有服务运行状态 |
-| `-QuickStart` | served, adapter, frontend | 跳过编译/依赖检查，直接启动 |
+| `-QuickStart` | springboot, frontend | 跳过编译/依赖检查，直接启动 |
 | `-ForceRestart` | 全部 | 强制停止占用端口的进程后重启 |
-| `-AutoRestart` | 全部 | 智能模式：检测服务是否运行，运行中则自动停止后重启，未运行则正常启动 |
+| `-AutoRestart` | 全部 | 智能模式：运行中则停止后重启，未运行则正常启动 |
+| `-ExternalTerminal` | 全部 | 在独立PowerShell窗口启动，释放IDE终端 |
+| `-WaitForDeps` | springboot | 启动前自动等待依赖服务端口就绪 |
+| `-LaunchMode` | springboot | 覆盖配置的launchMode（terminal/debug） |
 
-## 编译后自动部署（Java代码修改后必执行）
+## 两阶段并行启动（多服务逗号分隔时）
 
-当修改Java源代码后，需要执行以下3步才能使修改生效。**跳过任何一步都会导致旧代码仍在运行。**
+逗号分隔启动多服务时，脚本自动分两阶段执行：
 
-### 步骤1：编译
+**阶段1**：循环启动所有服务进程（仅Start-Process，不等待就绪）
+**阶段2**：统一轮询所有服务端口，并行等待就绪
 
-```powershell
-cd "{moduleDir}"
-& "{javacPath}" -encoding UTF-8 -cp "{warClassesDir};{warLibDir}*" -d "{warClassesDir}" "{sourceFile}"
+```
+[INFO] Phase 2: Health check for 3 service(s)...
+  [WAIT] Waiting for: Served:8010, Adapter:8090, Frontend:8091 (0/600s)
+  [WAIT] Waiting for: Served:8010, Adapter:8090, Frontend:8091 (30/600s)
+[OK]   Adapter is ready (port 8090)
+[OK]   Frontend is ready (port 8091)
+  [WAIT] Waiting for: Served:8010 (60/600s)
+[OK]   Served is ready (port 8010)
 ```
 
-- `-cp` 指向WAR包的classes和lib目录，确保编译时能找到所有依赖
-- `-d` 直接输出到WAR的classes目录，避免后续复制步骤（当编译目录与WAR目录相同时）
-- `{sourceFile}` 为被修改的Java源文件相对于 `sourceDir` 的完整路径
+优势：
+- 多服务健康检查并行进行，总等待时间 = max(各服务超时)，而非 sum
+- 快服务先就绪先输出，慢服务不阻塞其他服务
+- 每个服务有独立的超时时间（个人超时后触发诊断）
 
-### 步骤2：复制class到WAR（仅当编译输出目录与WAR classes目录不同时）
+## 启动后自动健康检查（外部终端模式）
 
-```powershell
-Copy-Item "{targetClassesDir}/{packagePath}/{className}.class" "{warClassesDir}/{packagePath}/{className}.class" -Force
+使用 `-ExternalTerminal` 时，脚本启动服务后自动轮询端口等待就绪：
+
+```
+[INFO] Launching in external PowerShell: Served
+[INFO] Log: scripts/../logs/Served_startup_20260717_093000.log
+[INFO] Script: scripts/../logs/launcher_Served_20260717_093000.ps1
+  [WAIT] Served port 8010 not ready... (0/600s)
+  [WAIT] Served port 8010 not ready... (30/600s)
+[OK]   Served is ready (port 8010)
 ```
 
-- 当步骤1的 `-d` 直接指向 `warClassesDir` 时，此步骤可跳过
-- 当编译输出到 `targetClassesDir` 时，必须将class文件复制到WAR包中
-
-### 步骤3：重启Served
-
-```powershell
-.\start-bemp-env.ps1 -Service served -QuickStart -ForceRestart
-```
-
-- `-QuickStart`：跳过Maven全量编译，仅使用步骤1的增量编译结果
-- `-ForceRestart`：停止旧进程后重新启动，确保加载最新class
-
-### 配置项
-
-路径：`config/compile-deploy.json`
-
-```json
-{
-  "javacPath": "${ENV:JAVA_HOME}\\bin\\javac",
-  "modules": {
-    "{modulePrefix}biz-as": {
-      "sourceDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-as/src/main/java",
-      "targetClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-as/target/classes",
-      "warClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/classes",
-      "warLibDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/lib"
-    }
-  }
-}
-```
-
-| 字段 | 说明 |
-|------|------|
-| `javacPath` | javac编译器路径，支持 `${ENV:JAVA_HOME}` 占位符 |
-| `modules.{name}.sourceDir` | 模块Java源码根目录（相对于workspaceRoot） |
-| `modules.{name}.targetClassesDir` | 模块编译输出目录（相对于workspaceRoot） |
-| `modules.{name}.warClassesDir` | WAR包WEB-INF/classes目录（相对于workspaceRoot） |
-| `modules.{name}.warLibDir` | WAR包WEB-INF/lib目录（相对于workspaceRoot） |
-
-### 失败处理
-
-| 场景 | 处理策略 |
-|------|---------|
-| 编译失败（语法错误） | 输出javac错误信息，不执行后续步骤 |
-| class文件复制失败 | 检查目标目录是否存在，提示用户确认WAR包是否已解压 |
-| Served重启失败 | 执行健康检查诊断（见下一节），根据诊断结果修复后重试 |
-
-## 服务启动后自动健康检查
-
-服务启动后，自动轮询端口直到监听成功或超时。避免手动反复执行netstat检查。
-
-### 端口轮询等待
-
-在独立终端中执行等待脚本，监控服务端口状态：
-
-```powershell
-$port = {port}; $maxWait = {maxWaitSeconds}; $interval = {pollIntervalSeconds}
-$elapsed = 0
-while ($elapsed -lt $maxWait) {
-    $result = netstat -ano | findstr ":$port " | findstr "LISTEN"
-    if ($result) {
-        Write-Output "[OK] Port $port is listening after ${elapsed}s"
-        exit 0
-    }
-    Write-Output "[WAIT] Port $port not yet listening... (${elapsed}s/${maxWait}s)"
-    Start-Sleep -Seconds $interval
-    $elapsed += $interval
-}
-Write-Output "[TIMEOUT] Port $port not listening after ${maxWait}s"
-exit 1
-```
+超时后自动执行诊断（双日志扫描）：
+- 检查依赖服务端口
+- 扫描**启动日志**（控制台输出日志）
+- 扫描**应用日志**（服务自身的log文件）
+- 检测端口占用情况
+- ZK Session过期时提示重启顺序
 
 ### 健康检查配置
 
 路径：`config/health-check.json`
 
-```json
-{
-  "services": {
-    "redis": {"port": 6379, "maxWaitSeconds": 30, "pollIntervalSeconds": 5},
-    "zookeeper": {"port": 2181, "maxWaitSeconds": 60, "pollIntervalSeconds": 10},
-    "served": {"port": 8010, "maxWaitSeconds": 600, "pollIntervalSeconds": 30},
-    "adapter": {"port": 8090, "maxWaitSeconds": 300, "pollIntervalSeconds": 20},
-    "frontend": {"port": 8091, "maxWaitSeconds": 600, "pollIntervalSeconds": 30}
-  }
-}
-```
+**四级优先级**：服务级配置 > byType类型默认 > defaults节 > 代码默认值
 
 | 字段 | 说明 |
 |------|------|
-| `port` | 服务监听端口号 |
-| `maxWaitSeconds` | 最大等待时间（秒），超时视为启动失败 |
-| `pollIntervalSeconds` | 轮询间隔（秒），Served较长是因为启动耗时3~7分钟 |
+| `defaults.maxWaitSeconds` | 全局默认端口就绪最大等待时间（秒） |
+| `defaults.pollIntervalSeconds` | 全局默认轮询间隔（秒） |
+| `defaults.logCleanupHours` | 日志文件清理时间（小时） |
+| `byType.{type}.maxWaitSeconds` | 按服务类型的默认超时 |
+| `byType.{type}.pollIntervalSeconds` | 按服务类型的默认轮询间隔 |
+| `services.{name}.maxWaitSeconds` | 服务级覆盖 |
+| `services.{name}.depWaitSeconds` | 服务级依赖等待覆盖 |
 
-### Served/Adapter启动失败自动诊断
+当前 byType 默认值：
 
-当Served(8010)或Adapter(8090)启动超时时，按以下顺序自动检查：
+| 类型 | maxWaitSeconds | pollIntervalSeconds |
+|------|---------------|-------------------|
+| redis | 30 | 5 |
+| zookeeper | 60 | 10 |
+| springboot | 600 | 30 |
+| frontend | 600 | 30 |
 
-1. **Redis是否运行**：检查6379端口，未运行则先启动Redis
-2. **ZooKeeper是否运行**：检查2181端口，未运行则先启动ZooKeeper
-3. **日志异常扫描**：在对应服务日志中搜索 `Exception`、`ERROR`、`SessionExpired`、`ConnectionLoss` 关键词
-4. **ZK Session过期处理**：若日志包含 `SessionExpired` 或 `ConnectionLoss`，需先重启ZooKeeper，再重启对应服务
+### 启动分组编排（startupGroups）
 
-诊断执行流程：
+`health-check.json` 中的 `startupGroups.groups` 定义了服务的分层启动策略：
+
+| 字段 | 说明 |
+|------|------|
+| `name` | 分组名称 |
+| `services` | 分组包含的服务列表 |
+| `parallel` | 是否可并行启动 |
+| `waitForDeps` | 是否等待依赖就绪 |
+| `dependsOn` | 依赖的上游分组名称 |
+
+### 诊断流程
 
 ```
 Served/Adapter启动超时
-  ├─ Redis未运行 → 启动Redis → 重启对应服务
-  ├─ ZooKeeper未运行 → 启动ZK → 重启对应服务
-  ├─ 日志含SessionExpired → 重启ZK → 重启对应服务
-  ├─ 日志含其他ERROR → 输出错误摘要，由用户判断
-  └─ 无明显错误 → 输出日志最后50行，由用户判断
+  ├─ Redis未运行   → 提示先启动Redis
+  ├─ ZK未运行      → 提示先启动ZK
+  ├─ 启动日志含ERROR → 输出错误摘要
+  ├─ 应用日志含SessionExpired → 提示重启ZK后再重启本服务
+  └─ 无明显错误    → 输出端口占用信息
 ```
 
-### 失败处理
+## 日志文件
 
-| 场景 | 处理策略 |
-|------|---------|
-| 基础设施未就绪 | 先启动缺失的依赖服务（Redis/ZK），再重启Served |
-| ZK Session过期 | 必须先重启ZooKeeper再重启Served，顺序不可颠倒 |
-| 日志有ERROR但非Session相关 | 输出错误摘要，不自动重启，由用户判断 |
-| 超时且无日志 | 提示检查JVM参数和磁盘空间，可能是OOM或磁盘满 |
+启动日志自动写入 `scripts/../logs/` 目录：
+- **启动日志**：`{ServiceName}_startup_{timestamp}.log` — 控制台输出
+- **启动脚本**：`launcher_{ServiceName}_{timestamp}.ps1` — 外部终端启动脚本
+- **自动清理**：超过 `logCleanupHours`（默认24小时）的日志和launcher脚本自动清理
+- IDE模式：通过 Tee-Object 同时输出到终端和日志文件
+- 外部模式：PowerShell窗口实时显示 + Tee-Object写入日志文件
+- 诊断时扫描启动日志和应用日志双源
 
-## 前端编译断连自动恢复
+## 编译后自动部署
 
-### 问题
-
-前端webpack编译过程中，IDE终端可能因超时断开连接，导致编译中断。表现为8091端口未监听但终端已无进程。
-
-### 自动恢复逻辑
-
-1. 前端启动命令执行后，在独立终端启动端口监控
-2. 监控脚本检测到8091端口未监听时，检查是否有node进程在运行
-3. 若无node进程（终端断连），自动重新启动前端服务
-4. 最多重试 `maxRetries` 次，每次间隔 `retryDelaySeconds` 秒
-
-### 监控脚本
+Java代码修改后三步生效：
 
 ```powershell
-$maxRetries = {maxRetries}; $retryDelay = {retryDelaySeconds}; $port = {port}
-$retryCount = 0
-while ($retryCount -lt $maxRetries) {
-    $listening = netstat -ano | findstr ":$port " | findstr "LISTEN"
-    if ($listening) {
-        Write-Output "[OK] Frontend running on port $port"
-        exit 0
-    }
-    $nodeProcess = Get-Process -Name "node" -ErrorAction SilentlyContinue
-    if (-not $nodeProcess) {
-        $retryCount++
-        Write-Output "[RETRY] Frontend disconnected, restarting... ($retryCount/$maxRetries)"
-        Start-Sleep -Seconds $retryDelay
-        # 重新启动前端（在新的终端中执行）
-        # .\start-bemp-env.ps1 -Service frontend -QuickStart
-    } else {
-        Write-Output "[WAIT] Frontend compiling... node process active"
-        Start-Sleep -Seconds 30
-    }
-}
-Write-Output "[FAIL] Frontend failed to start after $maxRetries retries"
-exit 1
+# 步骤1：增量编译
+cd "{moduleDir}"
+& "{javacPath}" -encoding UTF-8 -cp "{warClassesDir};{warLibDir}*" -d "{warClassesDir}" "{sourceFile}"
+
+# 步骤2：跳过（当-d直接指向warClassesDir时）
+
+# 步骤3：重启
+.\start-bemp-env.ps1 -Service served -QuickStart -ForceRestart -ExternalTerminal
 ```
 
 ### 配置项
 
-路径：`config/health-check.json` 中的 `frontend` 节点
-
-```json
-{
-  "frontend": {
-    "port": 8091,
-    "maxWaitSeconds": 600,
-    "pollIntervalSeconds": 30,
-    "maxRetries": 3,
-    "retryDelaySeconds": 10
-  }
-}
-```
+路径：`config/compile-deploy.json`
 
 | 字段 | 说明 |
 |------|------|
-| `maxRetries` | 断连后最大重试次数 |
-| `retryDelaySeconds` | 重试前等待时间（秒），给端口释放留出时间 |
-
-### 失败处理
-
-| 场景 | 处理策略 |
-|------|---------|
-| 重试次数耗尽 | 输出失败信息，提示用户手动检查npm缓存和node_modules |
-| 端口被非node进程占用 | 提示端口冲突，建议使用 `-ForceRestart` |
-| npm编译错误 | 检查终端输出的webpack错误信息，修复代码后重试 |
+| `javacPath` | javac编译器路径 |
+| `modules.{name}.sourceDir` | 模块Java源码根目录 |
+| `modules.{name}.targetClassesDir` | 编译输出目录 |
+| `modules.{name}.warClassesDir` | WAR包classes目录 |
+| `modules.{name}.warLibDir` | WAR包lib目录 |
 
 ## 配置文件
 
-位置：`config/config.json`，可配置服务路径、端口、JVM 参数、Node.js 路径等。
-
 | 配置文件 | 用途 |
 |---------|------|
-| `config/config.json` | 服务路径、端口、JVM参数等基础配置 |
-| `config/compile-deploy.json` | Java编译后自动部署的模块路径配置 |
-| `config/health-check.json` | 健康检查端口轮询参数和诊断策略配置 |
+| `config/config.json` | 服务定义、类型、端口、依赖、JVM参数等 |
+| `config/health-check.json` | 健康检查默认值、byType、startupGroups、服务级覆盖、诊断策略 |
+| `config/compile-deploy.json` | Java编译后自动部署配置 |
+| `_shared/env-config.json` | 全局环境变量默认值 |
 
-> 详细配置说明、启动模式选择、故障排查请参阅 [README.md](./README.md) 和 [docs/troubleshooting.md](./docs/troubleshooting.md)。
+## 智能体操作指南
+
+### 推荐启动流程（外部PowerShell终端模式）
+
+**第一步：状态检查**
+
+```
+RunCommand: cd "scripts" ; .\start-bemp-env.ps1 -Status
+→ target_terminal: "new"（或复用空闲终端）, blocking: true
+```
+
+**第二步：分批启动（按startupGroups配置）**
+
+```
+# 基础设施层
+RunCommand: -Service "redis,zookeeper" -ExternalTerminal → blocking: true
+
+# 应用层（待基础设施就绪后）
+RunCommand: -Service "served,adapter,frontend" -QuickStart -ExternalTerminal -WaitForDeps → blocking: true
+```
+
+**第三步：确认状态**
+
+```
+RunCommand: cd "scripts" ; .\start-bemp-env.ps1 -Status
+→ target_terminal: 任意空闲终端, blocking: true
+```
+
+### IDE终端模式注意事项
+
+| 操作 | 终端策略 | 原因 |
+|------|---------|------|
+| 启动服务 | `target_terminal: "new"` | 服务独占终端 |
+| 检查状态 | `target_terminal: "new"` | 复用会杀死服务 |
+| 查看日志 | `CheckCommandStatus` | 只读，安全 |
+
+**致命错误**：在已运行服务的终端执行新命令会终止服务进程。
+
+### 常见错误及避免
+
+| 错误行为 | 后果 | 正确做法 |
+|---------|------|---------|
+| 不指定 `-ExternalTerminal` 且终端已满 | 无法启动更多服务 | 优先使用 `-ExternalTerminal` |
+| 状态检查复用服务终端 | 杀死服务 | 始终用新终端或外部终端模式 |
+| 不加 `-WaitForDeps` 直接启动Served | 基础设施未就绪导致启动失败 | 使用 `-WaitForDeps` |
+| 多服务用同一终端 | 后启动杀死先启动 | 每服务独立终端 |
+
+### 故障排查
+
+| 场景 | 处理策略 |
+|------|---------|
+| 终端数量不足 | 使用 `-ExternalTerminal` 启动到PowerShell窗口 |
+| 基础设施未就绪 | 使用 `-WaitForDeps`，或分层启动 |
+| ZK Session过期 | 先重启ZK再重启Served/Adapter，顺序不可颠倒 |
+| 日志有ERROR | 查看启动日志：`logs/{Service}_startup_*.log` 和应用日志 |
+| 外部终端日志 | 查看PowerShell窗口或启动日志文件 |
+| 端口冲突（进程占用） | 使用 `-ForceRestart` 强制重启 |
+| 端口冲突（Windows保留） | 诊断自动检测 BindException+端口排除范围；需管理员执行 `netsh interface ipv4 set dynamicport tcp start=49152 num=16384` 后重启电脑 |
+| 旧日志/launcher脚本堆积 | 自动清理 `logCleanupHours`（默认24小时）前的文件 |
+
+### 复盘经验与陷阱
+
+| 陷阱 | 后果 | 根因 | 防范 |
+|------|------|------|------|
+| JSON嵌套层级查找 | 配置值永远读不到，fallback到默认值 | `$HConfig.$ServiceKey` 未进入 `services` 嵌套节 | 使用 `$HConfig.services.$ServiceKey`，四级优先级链 |
+| Spring Boot超时不足 | Served启动5-8分钟，120秒远不够 | 缺少byType默认值，新服务忘记配服务级超时 | byType.springboot.maxWaitSeconds=600 |
+| 逗号分隔多服务健康检查叠加 | 总等待=sum(各服务超时)，可能超15分钟 | 健康检查顺序执行 | 两阶段启动：先启进程，再并行健康检查 |
+| `$PID`只读变量冲突 | Stop-ServiceByPort报错 | PowerShell `$PID` 是只读自动变量 | 使用 `$procId` 替代 |
+| `Get-NetTCPConnection`单对象Count | `Test-PortListening`始终返回False | 单对象`.Count`为`$null` | `@($conn).Count` 强制转数组 |
+| Java参数中`;`和`=` | PowerShell解析为语句分隔符 | classpath含`;`，JVM参数含`=` | 使用`@cmdArgs`数组展开运算符 |
+| ForceRestart后不检查健康 | 重启后不知道服务是否真的启动了 | 条件中排除ForceRestart | ForceRestart后也执行健康检查 |
