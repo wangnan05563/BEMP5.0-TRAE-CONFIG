@@ -1,0 +1,446 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BEMP 文档图表工具混合方案配置",
+  "description": "合并原 chart-config.json + diagram-config.json，定义12种图表类型的生成策略。drawio-skill + mcp-server-chart 混合方案，5级降级链确保图表生成可靠性。",
+  "version": "2.0.0",
+  "createdAt": "2026-07-22",
+  "updatedAt": "2026-07-22",
+  "_comment": "本文件为图表生成的唯一配置源。原 chart-config.json 和 diagram-config.json 的内容已合并至此，后续以本文件为准。",
+
+  "configInheritance": {
+    "_comment": "配置继承机制：技能级配置（默认）→ 项目级配置（覆盖）→ 银行级配置（覆盖）",
+    "levels": [
+      {
+        "level": "skill",
+        "description": "技能级默认配置（本文件）",
+        "path": "config/chart-tools.json",
+        "priority": 1
+      },
+      {
+        "level": "project",
+        "description": "项目级覆盖配置（可选）",
+        "path": "config/chart-tools.override.json",
+        "priority": 2
+      },
+      {
+        "level": "bank",
+        "description": "银行级覆盖配置（通过 bank config 的 chartTools 字段）",
+        "path": "config/banks/<银行代码>.json -> chartTools",
+        "priority": 3
+      }
+    ],
+    "mergeStrategy": "deep-merge，子级覆盖父级同名字段，数组整体替换不合并"
+  },
+
+  "engines": {
+    "drawio": {
+      "description": "drawio-skill：通过 Skill 工具调用 drawio-skill 生成 .drawio XML，再渲染为 PNG",
+      "skillName": "drawio-skill",
+      "outputFormat": "png",
+      "agentDriven": true,
+      "agentDrivenNote": "脚本层无法调用 Skill 工具，必须由智能体在文档生成前通过 Skill 工具调用 drawio-skill 生成 PNG，脚本检测到已生成 PNG 后跳过",
+      "presets": {
+        "architecture": "系统部署架构预设",
+        "erd": "实体关系图预设",
+        "uml-class": "UML 类图预设",
+        "sequence": "时序图预设",
+        "flowchart": "活动图/流程图预设"
+      },
+      "availabilityCheck": "检查 Skill 工具列表中是否包含 drawio-skill"
+    },
+    "mcp": {
+      "description": "mcp-server-chart：通过 run_mcp 调用 mcp_mcp-server-chart 生成图表URL，下载为本地PNG",
+      "serverName": "mcp_mcp-server-chart",
+      "outputFormat": "url-to-png",
+      "urlDownloadTimeout": 30,
+      "agentDriven": true,
+      "agentDrivenNote": "脚本层无法调用 run_mcp，必须由智能体在文档生成前通过 run_mcp 调用并下载 URL 为本地 PNG",
+      "availabilityCheck": "检查 run_mcp 工具中 mcp_mcp-server-chart 是否可用",
+      "theme": "academy"
+    },
+    "graphviz": {
+      "description": "Graphviz：通过 dot 命令本地渲染 PNG",
+      "command": "dot",
+      "outputFormat": "png",
+      "availabilityCheck": "检查 PATH 中 dot 命令是否存在",
+      "renderScript": "scripts/lib/graphviz-renderer.js"
+    },
+    "antv": {
+      "description": "AntV：通过 AntVClient 调用 antv-studio.alipay.com 接口渲染",
+      "outputFormat": "png",
+      "timeout": 60000,
+      "maxRetries": 2,
+      "availabilityCheck": "检查环境变量 BEMP_ANTV_AVAILABLE=1",
+      "clientScript": "scripts/lib/antv-client.js"
+    },
+    "matplotlib": {
+      "description": "Matplotlib：Python 降级方案，通过 diagram-generator.py 执行",
+      "outputFormat": "png",
+      "availabilityCheck": "检查 Python matplotlib 模块是否可导入",
+      "renderScript": "scripts/diagram-generator.py"
+    },
+    "placeholder": {
+      "description": "占位文字兜底：所有引擎均不可用时使用",
+      "outputFormat": "text",
+      "message": "【图表待补充】"
+    }
+  },
+
+  "fallbackChain": {
+    "_comment": "5级降级链：drawio -> mcp -> graphviz -> antv -> matplotlib -> 占位文字。每个图表类型可定义自己的降级顺序，未定义时使用此默认链。",
+    "default": ["drawio", "mcp", "graphviz", "antv", "matplotlib", "placeholder"],
+    "stopOnSuccess": true
+  },
+
+  "preGeneration": {
+    "_comment": "智能体前置图表生成流程：drawio/mcp 引擎由智能体调用，脚本无法直接调用。智能体在运行文档生成脚本前，应先执行此流程生成首选图表 PNG，脚本检测到已存在 PNG 后跳过该图表类型。",
+    "enabled": true,
+    "executedBy": "document-delivery-engineer 智能体",
+    "timing": "文档生成脚本执行前",
+    "steps": [
+      {
+        "step": 1,
+        "action": "读取 chart-tools.json 的 chartTypes，识别 preferredEngine 为 drawio 或 mcp 的图表类型",
+        "output": "待生成的图表类型清单"
+      },
+      {
+        "step": 2,
+        "action": "对 preferredEngine=drawio 的图表类型，通过 Skill 工具调用 drawio-skill，传入对应 preset 和数据，生成 PNG 到 output/diagrams/ 目录",
+        "applicableChartTypes": ["deployment", "er-diagram", "uml-class", "sequence-diagram", "activity-diagram"],
+        "outputDir": "output/diagrams/"
+      },
+      {
+        "step": 3,
+        "action": "对 preferredEngine=mcp 的图表类型，检查 mcp_mcp-server-chart 是否可用；可用则通过 run_mcp 调用对应工具，下载 URL 为本地 PNG；不可用则跳过，由脚本降级处理",
+        "applicableChartTypes": ["system-architecture", "network-topology", "component-structure", "pie-chart", "line-chart", "sankey-chart", "fishbone-diagram"],
+        "fallbackOnUnavailable": "脚本降级到 antv/matplotlib"
+      },
+      {
+        "step": 4,
+        "action": "运行文档生成脚本，脚本检测 output/diagrams/ 已存在的 PNG 并跳过，仅处理未生成的图表类型",
+        "scriptBehavior": { "skipExisting": true }
+      }
+    ],
+    "qualityCheck": "生成完成后执行 enforceDiagramGate 门禁检查（三图齐全 + 大小 > 10KB）"
+  },
+
+  "chartTypes": {
+    "system-architecture": {
+      "label": "系统架构图",
+      "description": "系统整体架构、子系统关系、数据流图",
+      "preferredEngine": "mcp",
+      "fallbackChain": ["mcp", "drawio", "graphviz", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "mcp": "generate_flow_diagram",
+        "drawio": "architecture",
+        "graphviz": "digraph",
+        "antv": "flow",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "nodes-edges",
+        "schema": {
+          "nodes": "array of { name: string }",
+          "edges": "array of { source: string, target: string, name?: string }"
+        }
+      },
+      "applicableDocs": ["outline-design", "design"],
+      "outputFile": "architecture-diagram.png"
+    },
+
+    "network-topology": {
+      "label": "网络结构图",
+      "description": "服务依赖关系图、网络拓扑图、智能体调用关系图",
+      "preferredEngine": "mcp",
+      "fallbackChain": ["mcp", "drawio", "graphviz", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "mcp": "generate_network_graph",
+        "drawio": "architecture",
+        "graphviz": "graph",
+        "antv": "network",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "nodes-edges",
+        "schema": {
+          "nodes": "array of { name: string }",
+          "edges": "array of { source: string, target: string, name?: string }"
+        }
+      },
+      "applicableDocs": ["outline-design"],
+      "outputFile": "network-topology.png"
+    },
+
+    "deployment": {
+      "label": "部署图",
+      "description": "服务器部署图、服务拓扑图、环境部署架构",
+      "preferredEngine": "drawio",
+      "fallbackChain": ["drawio", "mcp", "graphviz", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "drawio": "architecture",
+        "mcp": "generate_organization_chart",
+        "graphviz": "digraph",
+        "antv": "tree",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "hierarchy",
+        "schema": {
+          "root": "string",
+          "children": "array of { name: string, children?: array }"
+        }
+      },
+      "applicableDocs": ["outline-design"],
+      "outputFile": "deployment-diagram.png"
+    },
+
+    "component-structure": {
+      "label": "组件结构图",
+      "description": "模块分解图、功能树状图、组件层次结构",
+      "preferredEngine": "mcp",
+      "fallbackChain": ["mcp", "drawio", "graphviz", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "mcp": "generate_mind_map",
+        "drawio": "flowchart",
+        "graphviz": "digraph",
+        "antv": "tree",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "tree",
+        "schema": {
+          "name": "string",
+          "children": "array of { name: string, children?: array }"
+        }
+      },
+      "applicableDocs": ["outline-design", "design"],
+      "outputFile": "component-structure.png"
+    },
+
+    "er-diagram": {
+      "label": "ER图",
+      "description": "实体关系图、数据库表结构关系图",
+      "preferredEngine": "drawio",
+      "fallbackChain": ["drawio", "graphviz", "mcp", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "drawio": "erd",
+        "graphviz": "digraph",
+        "mcp": "generate_network_graph",
+        "antv": "er",
+        "matplotlib": "er-diagram-renderer.py"
+      },
+      "dataFormat": {
+        "type": "entities-relations",
+        "schema": {
+          "entities": "array of { name: string, attributes: array of { name, type, isPrimaryKey } }",
+          "relations": "array of { from: string, to: string, type: string, label?: string }"
+        }
+      },
+      "applicableDocs": ["design", "outline-design"],
+      "outputFile": "ER_{table_name}.png"
+    },
+
+    "uml-class": {
+      "label": "UML类图",
+      "description": "Java 类结构图、接口继承关系图",
+      "preferredEngine": "drawio",
+      "fallbackChain": ["drawio", "graphviz", "mcp", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "drawio": "uml-class",
+        "graphviz": "digraph",
+        "mcp": "generate_class_diagram",
+        "antv": "class",
+        "matplotlib": "uml-renderer.py"
+      },
+      "dataFormat": {
+        "type": "classes",
+        "schema": {
+          "classes": "array of { name, attributes: array, methods: array, extends?: string, implements?: array }"
+        }
+      },
+      "applicableDocs": ["design"],
+      "outputFile": "class-diagram.png"
+    },
+
+    "sequence-diagram": {
+      "label": "时序图",
+      "description": "接口调用时序图、业务流程时序图",
+      "preferredEngine": "drawio",
+      "fallbackChain": ["drawio", "graphviz", "mcp", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "drawio": "sequence",
+        "graphviz": "digraph",
+        "mcp": "generate_sequence_diagram",
+        "antv": "sequence",
+        "matplotlib": "uml-renderer.py"
+      },
+      "dataFormat": {
+        "type": "sequence",
+        "schema": {
+          "participants": "array of { name: string }",
+          "messages": "array of { from: string, to: string, message: string, type?: string }"
+        }
+      },
+      "applicableDocs": ["design"],
+      "outputFile": "sequence-diagram.png"
+    },
+
+    "activity-diagram": {
+      "label": "活动图",
+      "description": "业务流程活动图、状态流转图",
+      "preferredEngine": "drawio",
+      "fallbackChain": ["drawio", "mcp", "graphviz", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "drawio": "flowchart",
+        "mcp": "generate_flow_diagram",
+        "graphviz": "digraph",
+        "antv": "flow",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "nodes-edges",
+        "schema": {
+          "nodes": "array of { name: string, type?: string }",
+          "edges": "array of { source: string, target: string, condition?: string }"
+        }
+      },
+      "applicableDocs": ["design"],
+      "outputFile": "activity-diagram.png"
+    },
+
+    "pie-chart": {
+      "label": "饼图",
+      "description": "缺陷分布、优先级分布、用例类型占比",
+      "preferredEngine": "mcp",
+      "fallbackChain": ["mcp", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "mcp": "generate_pie_chart",
+        "antv": "pie",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "name-value",
+        "schema": {
+          "data": "array of { name: string, value: number }"
+        }
+      },
+      "applicableDocs": ["testreport"],
+      "outputFile": "pie-chart.png"
+    },
+
+    "line-chart": {
+      "label": "趋势图",
+      "description": "测试进度趋势、缺陷修复趋势、用例执行趋势",
+      "preferredEngine": "mcp",
+      "fallbackChain": ["mcp", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "mcp": "generate_line_chart",
+        "antv": "line",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "time-series",
+        "schema": {
+          "data": "array of { time: string, value: number, category?: string }"
+        }
+      },
+      "applicableDocs": ["testreport"],
+      "outputFile": "line-chart.png"
+    },
+
+    "sankey-chart": {
+      "label": "桑基图",
+      "description": "数据流向图、资源分配图、用例覆盖流向",
+      "preferredEngine": "mcp",
+      "fallbackChain": ["mcp", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "mcp": "generate_sankey_chart",
+        "antv": "sankey",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "source-target-value",
+        "schema": {
+          "data": "array of { source: string, target: string, value: number }"
+        }
+      },
+      "applicableDocs": ["testreport", "outline-design"],
+      "outputFile": "sankey-chart.png"
+    },
+
+    "fishbone-diagram": {
+      "label": "鱼骨图",
+      "description": "缺陷根因分析、问题排查图",
+      "preferredEngine": "mcp",
+      "fallbackChain": ["mcp", "antv", "matplotlib", "placeholder"],
+      "toolMapping": {
+        "mcp": "generate_fishbone_diagram",
+        "antv": "fishbone",
+        "matplotlib": "diagram-generator.py"
+      },
+      "dataFormat": {
+        "type": "fishbone",
+        "schema": {
+          "problem": "string",
+          "categories": "array of { name: string, causes: array of string }"
+        }
+      },
+      "applicableDocs": ["testreport"],
+      "outputFile": "fishbone-diagram.png"
+    }
+  },
+
+  "docTypeMapping": {
+    "_comment": "文档类型到图表的自动映射。生成文档时根据此映射自动选择需要的图表。",
+    "outline-design": {
+      "label": "概要设计说明书",
+      "charts": ["system-architecture", "network-topology", "deployment"]
+    },
+    "design": {
+      "label": "详细设计文档",
+      "charts": ["component-structure", "er-diagram", "uml-class", "sequence-diagram", "activity-diagram"]
+    },
+    "testreport": {
+      "label": "测试报告",
+      "charts": ["pie-chart", "line-chart", "sankey-chart", "fishbone-diagram"]
+    },
+    "testcase": {
+      "label": "测试用例",
+      "charts": []
+    },
+    "unit-test-report": {
+      "label": "单元测试报告",
+      "charts": ["pie-chart", "line-chart"]
+    },
+    "excel-custom": {
+      "label": "自定义Excel",
+      "charts": []
+    }
+  },
+
+  "qualityGate": {
+    "_comment": "图表质量门禁，所有引擎生成的图表均需通过此检查",
+    "minFileSizeKB": 10,
+    "requiredTypes": ["system-architecture", "network-topology", "deployment"],
+    "checkOnInsert": true
+  },
+
+  "urlDownload": {
+    "_comment": "mcp-server-chart 返回 HTTP URL，需下载为本地 PNG 后才能插入 docx",
+    "outputDir": "output/diagrams/",
+    "fileNamingPattern": "{chartType}-{moduleName}.png",
+    "timeout": 30,
+    "retryCount": 2
+  },
+
+  "themeConfig": {
+    "_comment": "mcp-server-chart 主题配置",
+    "default": "default",
+    "recommended": "academy",
+    "options": {
+      "default": "默认主题，一般文档",
+      "academy": "学术主题，正式交付文档（推荐）",
+      "dark": "暗色主题，演示文稿"
+    }
+  }
+}

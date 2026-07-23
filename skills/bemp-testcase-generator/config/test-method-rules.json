@@ -1,0 +1,271 @@
+{
+  "_comment": "测试方式选择判断规则配置。根据用例特征自动推荐测试方式（代码审查/Playwright/数据库查询/运行时测试），支持多方式组合。所有规则均可通过配置继承机制覆盖。",
+  "version": "1.0.0",
+  "config_inheritance": {
+    "description": "配置继承机制：技能级配置（默认）→ 项目级配置（覆盖）→ 银行级配置（覆盖）",
+    "levels": [
+      {
+        "level": "skill",
+        "path": "bemp-testcase-generator/config/test-method-rules.json",
+        "description": "技能级默认配置，所有项目通用的判断规则"
+      },
+      {
+        "level": "project",
+        "path": "bemp-test-common/config/test-method-rules-override.json",
+        "description": "项目级覆盖配置，针对当前项目的定制化规则（可选）"
+      },
+      {
+        "level": "bank",
+        "path": "bemp-test-common/config/{bank_id}/test-method-rules-override.json",
+        "description": "银行级覆盖配置，针对特定银行的定制化规则（可选）"
+      }
+    ],
+    "merge_strategy": "deep_merge",
+    "merge_rule": "同路径配置项按层级递进覆盖，数组类型追加而非替换，对象类型逐字段合并"
+  },
+  "test_methods": {
+    "code_review": {
+      "name": "代码审查",
+      "description": "通过Read源代码方式验证功能逻辑、注解值、错误文案、配置引用等",
+      "tools": ["SearchCodebase", "Read", "rg (Shell)"],
+      "prerequisites": [
+        "源代码已拉取到本地工作区",
+        "已知目标文件路径或搜索关键词"
+      ],
+      "advantages": ["无需启动服务", "可精确定位代码行", "执行速度快"],
+      "limitations": ["无法验证运行时行为", "无法验证UI表现", "无法验证数据实际持久化结果"]
+    },
+    "playwright": {
+      "name": "Playwright自动化测试",
+      "description": "通过浏览器自动化验证页面加载、UI交互、功能流程等",
+      "tools": ["Playwright MCP", "bemp-webapp-testing"],
+      "prerequisites": [
+        "后端服务已启动",
+        "前端服务已启动",
+        "已登录系统"
+      ],
+      "advantages": ["验证真实用户体验", "可验证端到端流程", "可截图留存"],
+      "limitations": ["依赖服务可用性", "执行速度较慢", "无法验证代码内部逻辑"]
+    },
+    "database_query": {
+      "name": "数据库查询验证",
+      "description": "通过SQL查询验证表结构、数据持久化结果、数据一致性等",
+      "tools": ["Oracle MCP", "MySQL MCP", "bemp-db-operator"],
+      "prerequisites": [
+        "数据库连接可用",
+        "已知目标表名和字段名"
+      ],
+      "advantages": ["直接验证数据层", "可验证表结构", "可做数据一致性比对"],
+      "limitations": ["无法验证业务逻辑", "无法验证UI表现", "需数据库访问权限"]
+    },
+    "runtime_test": {
+      "name": "运行时测试",
+      "description": "通过实际运行服务验证定时任务执行、文件系统操作等需要运行时环境的功能",
+      "tools": ["Shell", "bemp-automation-startserver", "日志检查"],
+      "prerequisites": [
+        "服务已启动",
+        "已知触发方式（定时配置/手动触发API）",
+        "日志路径已知"
+      ],
+      "advantages": ["验证真实运行行为", "可验证异步任务", "可验证文件系统副作用"],
+      "limitations": ["依赖完整环境", "定时任务需等待触发", "调试难度较高"]
+    }
+  },
+  "selection_rules": {
+    "description": "测试方式选择规则，按优先级从高到低排列。匹配时取第一个命中的规则，未命中则使用default_method",
+    "rules": [
+      {
+        "rule_id": "RULE-01",
+        "feature": "功能逻辑验证",
+        "description": "验证方法调用链、条件分支、返回值等代码内部逻辑",
+        "match_keywords": ["方法调用链", "条件分支", "返回值", "调用顺序", "逻辑验证", "if分支", "switch分支", "循环逻辑"],
+        "match_patterns": ["验证.*方法.*调用", "验证.*逻辑.*分支", "验证.*调用链"],
+        "recommended_method": ["code_review"],
+        "priority": 1,
+        "confidence": "high",
+        "rationale": "代码内部逻辑只能通过阅读源码验证，运行时无法观察到方法调用链和分支选择"
+      },
+      {
+        "rule_id": "RULE-02",
+        "feature": "注解值验证",
+        "description": "验证Java注解（@CloudFunction等）的属性值是否正确",
+        "match_keywords": ["注解", "@CloudFunction", "@CloudComponent", "@CloudEvent", "@RequestMapping", "注解值", "funcCode", "compCode"],
+        "match_patterns": ["验证.*@\\w+", "验证.*注解.*值"],
+        "recommended_method": ["code_review"],
+        "priority": 2,
+        "confidence": "high",
+        "rationale": "注解属性值是编译期常量，只能通过Read源码验证，运行时注解已被处理无法直接查看原始值"
+      },
+      {
+        "rule_id": "RULE-03",
+        "feature": "错误文案验证",
+        "description": "验证错误信息文案是否与规格要求一致（字符串常量匹配）",
+        "match_keywords": ["错误文案", "错误信息", "错误提示", "异常消息", "retMsg", "errorMsg", "提示语"],
+        "match_patterns": ["验证.*错误.*文案", "验证.*提示.*信息", "验证.*异常.*消息"],
+        "recommended_method": ["code_review"],
+        "priority": 3,
+        "confidence": "high",
+        "rationale": "错误文案通常是代码中的字符串常量，通过Read源码可精确定位并逐字比对，无需启动服务触发错误"
+      },
+      {
+        "rule_id": "RULE-04",
+        "feature": "配置引用验证",
+        "description": "验证配置key引用、默认值、降级逻辑是否正确",
+        "match_keywords": ["配置key", "配置项", "默认值", "降级", "@Value", "@ConfigurationProperties", "application.yml", "application.properties"],
+        "match_patterns": ["验证.*配置.*key", "验证.*默认值", "验证.*降级.*逻辑"],
+        "recommended_method": ["code_review"],
+        "priority": 4,
+        "confidence": "high",
+        "rationale": "配置引用和默认值在代码中静态定义，通过Read源码可完整验证引用关系和降级逻辑"
+      },
+      {
+        "rule_id": "RULE-05",
+        "feature": "DAO/Mapper SQL验证",
+        "description": "验证DAO层SQL语句的正确性（语法、逻辑、参数绑定）",
+        "match_keywords": ["DAO", "Mapper", "SQL", "MyBatis", "XML映射", "注解SQL", "查询语句", "更新语句"],
+        "match_patterns": ["验证.*DAO.*SQL", "验证.*Mapper.*SQL", "验证.*MyBatis"],
+        "recommended_method": ["code_review", "database_query"],
+        "priority": 5,
+        "confidence": "high",
+        "rationale": "SQL语句正确性需通过Read源码验证语法和逻辑，同时通过数据库查询验证SQL实际执行结果和数据一致性"
+      },
+      {
+        "rule_id": "RULE-06",
+        "feature": "表结构验证",
+        "description": "验证数据库表结构（字段类型、索引、约束等）",
+        "match_keywords": ["表结构", "字段类型", "索引", "约束", "主键", "外键", "DDL", "建表语句"],
+        "match_patterns": ["验证.*表结构", "验证.*字段.*类型", "验证.*索引"],
+        "recommended_method": ["database_query"],
+        "priority": 6,
+        "confidence": "high",
+        "rationale": "表结构是数据库元数据，只能通过查询数据库系统表（如USER_TAB_COLUMNS）验证"
+      },
+      {
+        "rule_id": "RULE-07",
+        "feature": "原有功能不受影响验证",
+        "description": "验证新功能开发后原有功能仍正常工作（回归测试）",
+        "match_keywords": ["原有功能", "不受影响", "回归", "已有功能", "存量功能"],
+        "match_patterns": ["验证.*原有.*功能.*不受影响", "验证.*回归"],
+        "recommended_method": ["playwright"],
+        "priority": 7,
+        "confidence": "high",
+        "rationale": "原有功能是否受影响需要通过实际操作验证端到端流程，Playwright可自动化执行回归测试"
+      },
+      {
+        "rule_id": "RULE-08",
+        "feature": "页面加载验证",
+        "description": "验证页面是否正常加载、路由是否正确",
+        "match_keywords": ["页面加载", "路由", "页面跳转", "首屏", "页面渲染", "菜单导航"],
+        "match_patterns": ["验证.*页面.*加载", "验证.*路由", "验证.*页面.*跳转"],
+        "recommended_method": ["playwright"],
+        "priority": 8,
+        "confidence": "high",
+        "rationale": "页面加载行为是运行时表现，必须通过浏览器实际访问验证"
+      },
+      {
+        "rule_id": "RULE-09",
+        "feature": "UI交互验证",
+        "description": "验证按钮点击、表单提交、弹窗交互等UI操作",
+        "match_keywords": ["UI交互", "按钮点击", "表单提交", "弹窗", "下拉选择", "列表操作", "分页", "搜索", "上传", "下载"],
+        "match_patterns": ["验证.*UI.*交互", "验证.*按钮.*点击", "验证.*表单.*提交", "验证.*弹窗"],
+        "recommended_method": ["playwright"],
+        "priority": 9,
+        "confidence": "high",
+        "rationale": "UI交互是运行时行为，必须通过浏览器实际操作验证"
+      },
+      {
+        "rule_id": "RULE-10",
+        "feature": "定时任务实际执行验证",
+        "description": "验证定时任务是否按配置正确执行、数据是否正确同步",
+        "match_keywords": ["定时任务", "定时执行", "Cron", "调度任务", "批量任务", "定时同步"],
+        "match_patterns": ["验证.*定时.*任务.*执行", "验证.*调度.*任务"],
+        "recommended_method": ["runtime_test"],
+        "priority": 10,
+        "confidence": "high",
+        "rationale": "定时任务需要实际触发执行才能验证行为，需启动服务并等待或手动触发任务"
+      },
+      {
+        "rule_id": "RULE-11",
+        "feature": "文件系统操作验证",
+        "description": "验证文件读写、文件生成、文件解析等文件系统操作",
+        "match_keywords": ["文件读取", "文件写入", "文件生成", "文件解析", "文件系统", "CSV", "Excel导出", "文件上传"],
+        "match_patterns": ["验证.*文件.*读取", "验证.*文件.*写入", "验证.*文件.*生成", "验证.*文件.*解析"],
+        "recommended_method": ["runtime_test"],
+        "priority": 11,
+        "confidence": "medium",
+        "rationale": "文件系统操作需实际执行才能验证文件是否正确生成和内容是否正确，部分场景可配合代码审查验证逻辑"
+      }
+    ],
+    "default_method": {
+      "description": "当所有规则都未命中时的默认测试方式",
+      "method": "playwright",
+      "rationale": "默认采用Playwright，因为大多数功能测试通过UI操作验证最直接"
+    },
+    "multi_method_strategy": {
+      "description": "当一条用例推荐多种测试方式时的执行策略",
+      "strategy": "parallel",
+      "options": {
+        "parallel": "多种方式并行执行，结果取交集（全部通过才算通过）",
+        "sequential": "按推荐顺序依次执行，前一种通过后执行下一种",
+        "primary_first": "以第一种方式为主，其余作为补充验证"
+      },
+      "default_option": "primary_first"
+    }
+  },
+  "selection_workflow": {
+    "description": "测试方式选择判断流程",
+    "steps": [
+      {
+        "step": 1,
+        "action": "提取用例特征",
+        "description": "从用例名称、测试步骤、验证点中提取关键词和模式"
+      },
+      {
+        "step": 2,
+        "action": "规则匹配",
+        "description": "将提取的特征与 selection_rules.rules 中的 match_keywords 和 match_patterns 逐一比对，按 priority 从小到大排序"
+      },
+      {
+        "step": 3,
+        "action": "确定测试方式",
+        "description": "取第一个命中的规则的 recommended_method 作为推荐测试方式；若未命中任何规则，使用 default_method"
+      },
+      {
+        "step": 4,
+        "action": "多方式处理",
+        "description": "若推荐多种测试方式，按 multi_method_strategy 中配置的策略确定执行方式"
+      },
+      {
+        "step": 5,
+        "action": "标注用例",
+        "description": "在用例的'测试方式'字段标注推荐结果，并附注匹配的规则ID和置信度"
+      }
+    ]
+  },
+  "self_check_rules": {
+    "description": "测试方式选择的自校验规则",
+    "check_items": [
+      {
+        "id": "METHOD-01",
+        "name": "测试方式标注完整性检查",
+        "rule": "每条用例必须标注'测试方式'字段，不得为空",
+        "auto_fix": true,
+        "severity": "major"
+      },
+      {
+        "id": "METHOD-02",
+        "name": "测试方式合理性检查",
+        "rule": "标注的测试方式必须与用例验证内容匹配，不得出现'验证UI交互'却标注'代码审查'的情况",
+        "auto_fix": false,
+        "severity": "major"
+      },
+      {
+        "id": "METHOD-03",
+        "name": "前置条件一致性检查",
+        "rule": "用例的前置条件必须与标注的测试方式所需 prerequisites 一致",
+        "auto_fix": false,
+        "severity": "minor"
+      }
+    ]
+  }
+}

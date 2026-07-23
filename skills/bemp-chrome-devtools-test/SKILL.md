@@ -32,12 +32,39 @@ triggers:
 
 基于 Chrome DevTools MCP 在真实浏览器中逐步骤验证 BEMP 业务功能。与 `bemp-webapp-testing`(Playwright) 互补：Playwright 用于一轮测试/批量回归；本 Skill 用于二轮验证/缺陷确认/探索性测试。
 
+### 接收 Playwright 工具切换用例（FP-08）
+
+> **完整策略文档**：[_shared/tool-switching-strategy.md](../_shared/tool-switching-strategy.md)
+
+当 Playwright MCP 因 HUI 组件能力限制导致用例 BLOCKED 时，本 Skill 接收移交用例并完成验证：
+
+**接收场景**（与 Playwright 能力互补）：
+- HUI隐藏组件操作（h-typefield/h-select 包裹的 input，需 evaluate_script + 原生setter + dispatchEvent）
+- Vue响应式表单（fill 后未触发更新，需 evaluate_script + dispatchEvent('input')）
+- 文件上传/下载（HUI 文件组件，需 evaluate_script 模拟）
+- 复杂弹窗（h-dropdown 两步操作、window-layer 恢复最小化）
+- DataGrid行选中（需同时设置 selects+selectIds+currentSelectList）
+
+**移交信息接收流程**：
+```
+[1] 接收 bemp-auto-tester 生成的用例移交信息（JSON格式）
+[2] 解析移交信息：用例ID/失败步骤/推荐模式/已完成步骤/目标URL
+[3] 重建登录态（Playwright 会话不共享，需在 Chrome DevTools 中重新登录）
+[4] 从失败步骤开始执行（跳过已完成步骤）
+[5] 执行完成后回填结果到原用例（PASS/FAIL/BLOCKED）
+[6] 记录使用的 evaluate_script 片段到 references/tool-mapping.md 片段库
+```
+
+**验证闭环要求**：切换后的结果必须回填到原用例（bemp-test-common/test-cases/），确保测试报告完整性。
+
 ## 目录结构
 
 ```
 bemp-chrome-devtools-test/
 ├── SKILL.md                             本文件（执行框架 + 加载指引）
-├── config/bemptest-config.json          环境/账号/超时/选择器/输出路径
+├── config/
+│   ├── bemptest-config.json          环境/账号/超时/选择器/输出路径
+│   └── defect-classification-rules.json  缺陷自动分类规则（8类+修复推荐）
 ├── references/
 │   ├── execution-checklist.md           分阶段检查清单（含快速模式）
 │   ├── common-pitfalls.md               已知陷阱 + 自动检测脚本
@@ -233,6 +260,47 @@ click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强�
 完整标准见 [output-standards.md](references/output-standards.md)。
 
 ---
+
+## 智能体操作指南：缺陷自动分类
+
+二轮调试时，根据失败现象自动分类缺陷并推荐修复智能体，提升缺陷分派效率：
+
+### 执行步骤
+
+1. **读取配置**：加载 `config/defect-classification-rules.json`
+2. **匹配规则**：对每个失败用例的错误信息，与 `classification_rules[].pattern` 做正则匹配
+3. **执行检查**：对匹配到的规则，按 `checks` 列表逐项验证，确认分类
+4. **检查备选分类**：若 `alternative_classification.condition` 满足，切换到备选分类
+5. **生成分类结果**：
+   - 缺陷编号：BUG-{序号}
+   - 严重度：按 `output_format.severity_rules` 判定
+   - 分类：code_defect / test_defect / data_defect / env_defect / config_defect
+   - 推荐修复智能体：`classification_summary` 中对应的 `fix_agent`
+   - 推荐修复技能：`classification_summary` 中对应的 `fix_skill`
+6. **输出缺陷报告**：按 `output_format.defect_report_entry` 格式输出
+
+### 分类决策流程
+
+```
+失败现象
+├─ 匹配RULE-01(弹窗未出现) → test_defect → 检查前置步骤 → 满足备选条件则code_defect
+├─ 匹配RULE-02(按钮名称不匹配) → data_defect → 检查实现是否缺失 → 满足备选条件则code_defect
+├─ 匹配RULE-03(strict violation) → test_defect → 修复选择器
+├─ 匹配RULE-04(遮罩层残留) → code_defect → 修复前端关闭事件
+├─ 匹配RULE-05(超时/端口不可达) → env_defect → 启动服务
+├─ 匹配RULE-06(JS运行时错误) → code_defect → 修复代码
+├─ 匹配RULE-07(数据不存在) → data_defect → 准备数据
+├─ 匹配RULE-08(接口返回异常) → code_defect → 检查参数则config_defect
+└─ 无匹配 → code_defect(默认归因，需人工复核)
+```
+
+### 新增配置文件
+
+| 文件 | 说明 |
+|------|------|
+| `config/defect-classification-rules.json` | 分类规则 + 检查清单 + 严重度判定 + 修复推荐 |
+
+> 新增分类规则时，只需在 `classification_rules` 数组中追加条目，无需修改技能逻辑。
 
 ## 关键设计原则
 

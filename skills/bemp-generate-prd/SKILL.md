@@ -312,6 +312,8 @@ AI 自动解析并生成新版本：
 ```
 bemp-generate-prd/
 ├── SKILL.md                          # 主技能文件
+├── config/
+│   └── prd-assumptions-config.json   # 测试假设自动推演配置
 ├── references/
 │   ├── bill-business-rules.md        # 票据业务专家规则库
 │   ├── compliance-rules.md           # 票交所合规审查规则库
@@ -320,6 +322,35 @@ bemp-generate-prd/
 │   └── document-templates.md         # 输出文档模板
 └── output/                           # 默认输出目录（仅用于直接粘贴文本场景）
 ```
+
+## 智能体操作指南：测试假设自动推演
+
+当 Phase 4 三角色审查产出阻塞项时，自动执行以下推演步骤，将不确定项转化为可执行的测试假设：
+
+### 执行步骤
+
+1. **读取配置**：加载 `config/prd-assumptions-config.json`
+2. **匹配模板**：对每个阻塞项，用关键词匹配 `assumption_templates` 中最相关的条目
+3. **生成测试假设**：按 `assumption_application_rules` 中对应级别的输出格式生成
+   - 阻塞项(🔴)：`Q-{序号}：{问题描述} → 测试假设：{default_assumption}（{reason}）`
+   - 建议项(🟡)：附推荐假设但不强制
+   - 提示项(🟢)：直接应用默认假设
+4. **写入待确认清单**：将测试假设写入待确认清单，标注"测试假设"来源
+
+### 匹配规则
+
+- 逐条扫描阻塞项描述，提取关键词
+- 与 `assumption_templates[].keywords` 做交集匹配，取匹配数最多的条目
+- 若无匹配，使用"接口/配置取值不确定"作为默认模板
+- 匹配结果列在待确认清单的"推荐假设"列
+
+### 配置文件
+
+| 文件 | 说明 |
+|------|------|
+| `config/prd-assumptions-config.json` | 假设模板库 + 应用规则 |
+
+> 新增假设类型时，只需在 `assumption_templates` 数组中追加条目，无需修改技能逻辑。
 
 ## 核心设计原则
 

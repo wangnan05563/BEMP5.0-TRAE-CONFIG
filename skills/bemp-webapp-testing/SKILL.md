@@ -29,7 +29,8 @@ bemp-webapp-testing/
 ├── config/
 │   ├── test_config.json              核心配置（银行/服务/选择器/会话/错误过滤）
 │   ├── test_config.schema.json       JSON Schema 校验定义
-│   └── health-check.json             服务健康检查配置（端口/超时/轮询间隔）
+│   ├── health-check.json             服务健康检查配置（端口/超时/轮询间隔）
+│   └── data-readiness-check.json     数据就绪度预检配置（检查类型+SQL模板+SKIP原因）
 ├── scripts/
 │   ├── common.py                     公共工具函数（选择器解析、截图、日志等）
 │   ├── health_check.py               服务健康检查 + 配置校验 (--validate-only)
@@ -314,6 +315,79 @@ Step 4: 配置检查 → API参数格式是否正确？legalNo是否与测试数
 
 > 用例配置中的 `failure_category_hint` 字段提供默认分类提示，诊断结果可覆盖
 
+## 智能体操作指南：数据就绪度预检
+
+功能测试执行前，自动检查所需数据是否就绪，避免执行阶段才发现数据未准备导致大量SKIP：
+
+### 执行步骤
+
+1. **读取配置**：加载 `config/data-readiness-check.json`
+2. **提取数据依赖**：从测试用例文件中提取每条用例的数据依赖（表名、记录条件、文件路径、接口地址等）
+3. **逐项检查**：按 `checks` 配置的类型执行检查
+   - `database_table`：通过 Oracle/MySQL MCP 查询表存在性和记录数
+   - `database_record`：查询满足条件的记录数
+   - `file_exists`：通过 PowerShell Test-Path 检查文件
+   - `api_available`：通过 HTTP 请求检查接口可用性
+   - `config_value`：读取配置文件校验值
+4. **标注SKIP**：数据未就绪的用例自动标注SKIP原因（从 `skip_reasons` 中取模板）
+5. **生成报告**：按 `readiness_report.template` 格式输出数据就绪度报告
+
+### 与现有流程的集成
+
+- 在"执行步骤概要"的 Step 0b（数据一致性校验）之后增加 Step 0c（数据就绪度预检）
+- 预检不通过不阻塞执行，仅标注SKIP用例和输出报告
+- 报告输出路径：`aotutests-playwright/reports/{bank_id}/{date}/data-readiness-report.md`
+
+### 新增配置文件
+
+| 文件 | 说明 |
+|------|------|
+| `config/data-readiness-check.json` | 检查类型 + SQL模板 + SKIP原因模板 + 报告模板 |
+
+> 新增检查类型时，只需在 `checks` 数组中追加条目，无需修改技能逻辑。
+
+## Vue懒加载路由处理（菜单导航模式）
+
+解决F-05问题：Vue懒加载路由未注册时，直接URL导航被路由守卫回退到主页，必须通过菜单点击注册路由后才能访问目标页面。
+
+| 策略 | 说明 | 适用场景 |
+|:---|:---|:---|
+| `auto` | 先URL跳转，检测到回退后自动切换菜单导航（默认） | 通用场景 |
+| `url_first` | 仅URL跳转，失败报错不回退 | 已确认路由已注册 |
+| `menu_only` | 仅菜单点击导航，跳过URL跳转 | 已知懒加载路由 |
+
+`auto` 策略回退检测：导航后等待 `fallback_detection.wait_after_navigation_ms`（默认2000ms）比较URL，若被重定向到主页（匹配 `home_url_patterns`）则自动切换菜单导航。菜单导航按 `menu_paths.{page_id}.menu_path` 逐级点击，每级等待 `click_wait_ms`，到达后验证 `page_ready_indicator`。
+
+> 完整配置见 `config/menu-navigation.json`（导航策略/回退检测/11个页面菜单路径映射/银行级覆盖/workflow步骤）
+
+## 弹窗自动检测与处理
+
+解决强制登录弹窗未处理问题：当账号已在其他会话登录时，系统弹出"强制登录确认"弹窗，需点击"确定"继续。本能力通过配置驱动自动检测和处理各类弹窗。
+
+| 弹窗ID | 名称 | 检测时机 | 处理动作 |
+|:---|:---|:---|:---|
+| `force_login` | 强制登录确认 | after_login | 点击"是"/"确定" |
+| `session_expired` | 会话过期 | after_navigation | 点击确认后重新登录 |
+| `generic_confirm` | 通用确认 | after_action | 点击"确定" |
+
+处理流程：检测时机触发扫描 → 按 `match_logic` 匹配（选择器可见+文本匹配） → 截图 → 按 `action_selectors` 顺序点击 → 等待 `post_action_wait_ms` 验证关闭 → 失败重试（不超过 `max_retries`）→ 超限执行 `on_failure` 策略。
+
+> 完整配置见 `config/dialog-handlers.json`（3类弹窗定义/检测策略/处理动作/银行级覆盖/workflow步骤）
+
+## 控制台错误分类
+
+解决WebSocket连接失败被误报为业务错误的问题：将控制台错误分为三类，避免环境噪音干扰测试结果判定。
+
+| 分类 | 说明 | 处理策略 | 是否FAIL |
+|:---|:---|:---|:---|
+| `business` | TypeError/ReferenceError/ChunkLoadError/Vue渲染错误 | 报告 | 是 |
+| `environment` | WebSocket失败/favicon缺失/SourceMap缺失 | 忽略 | 否 |
+| `network` | API超时/连接拒绝/5xx错误 | 警告 | 否（视情况升级） |
+
+分类规则按 `classification_rules` 数组顺序匹配（`pattern_type`: contains/regex/equals），未匹配的默认归为 `business`（确保未知错误不被静默忽略）。典型场景：`WebSocket connection failed`（端口9080未开放）→ environment；`TypeError` → business；`NET:ERR_TIMEOUT` → network。
+
+> 完整配置见 `config/ignorable-errors.json`（三分类定义/11条分类规则/报告格式/银行级覆盖/workflow步骤）
+
 ## 最佳实践
 
 - **将捆绑脚本作为黑盒使用** - 要完成任务时，考虑 `scripts/` 中可用的脚本是否可以帮助你。这些脚本可靠地处理常见的复杂工作流，而不会弄乱上下文窗口。使用 `--help` 查看用法，然后直接调用。
@@ -339,6 +413,35 @@ Step 4: 配置检查 → API参数格式是否正确？legalNo是否与测试数
 | 强制登录 | 登录时可能出现"强制登录确认"弹窗，必须检测并处理 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱12 |
 | 菜单导航 | 菜单文本需精确匹配，模糊搜索可能导航到错误页面 | bemp-chrome-devtools-test/references/common-pitfalls.md 陷阱3 |
 
+### 工具切换策略（FP-08）
+
+> **完整策略文档**：[_shared/tool-switching-strategy.md](../_shared/tool-switching-strategy.md)
+
+当 Playwright MCP 因 HUI 组件能力限制导致用例 BLOCKED 时，应按标准化流程切换到 Chrome DevTools MCP：
+
+**切换触发条件**（满足任一即切换）：
+- 元素不可见：`fill`/`click` 报"element not visible"或"element not interactable"
+- HUI隐藏组件：input 被 h-typefield/h-select 包裹，Playwright 无法直接 fill
+- Vue响应式未触发：fill 后 Vue 组件未更新（datagrid 未刷新、表单未提交）
+- 文件上传/下载：`set_input_files`/下载管理对 HUI 组件无效
+- 复杂弹窗：h-dropdown（两步操作）、window-layer（可能最小化）
+- DataGrid行选中：click checkbox 后 `currentSelectList` 未更新
+
+**不触发切换的场景**（Playwright 可处理）：
+- 标准button/input操作、页面导航、会话复用、批量回归、断言失败（属测试失败诊断，非工具限制）
+
+**切换流程**：
+```
+[1] 标记用例状态为"TOOL_SWITCH_REQUIRED"，记录失败表现
+[2] 匹配切换触发条件 → 生成用例移交信息（用例ID/失败步骤/推荐模式/已完成步骤）
+[3] 移交到 bemp-chrome-devtools-test 技能执行
+[4] Chrome DevTools 完成后回填结果到原用例
+```
+
+**核心经验**：HUI组件框架的隐藏input和Vue响应式更新机制与Playwright fill不兼容，这是系统性问题而非偶发问题。遇到HUI组件应直接切换Chrome DevTools，无需反复尝试Playwright。
+
+**切换规则配置**：`config/tool-switch-rules.json`（新建）定义触发条件与推荐模式映射，零硬编码。
+
 ## 参考文件
 
 | 文件 | 说明 |
@@ -358,26 +461,13 @@ Step 4: 配置检查 → API参数格式是否正确？legalNo是否与测试数
 | `config/test_config.json` | 核心配置（选择器/超时/银行/会话） |
 | `config/test_config.schema.json` | 配置 JSON Schema 校验定义 |
 | `config/health-check.json` | 服务健康检查配置（端口/超时/轮询/银行覆盖） |
+| `config/menu-navigation.json` | Vue懒加载路由导航配置（菜单路径/导航策略/回退检测/银行覆盖） |
+| `config/dialog-handlers.json` | 弹窗自动检测与处理配置（强制登录/会话过期/通用确认） |
+| `config/ignorable-errors.json` | 控制台错误分类配置（业务/环境/网络三分类规则） |
 | `test-data/test-accounts.json` | 测试账号配置（按银行和角色） |
 
 ## 测试用例基准
 
-| 子系统 | 文件 | 用例数 | 覆盖 |
-|:---|:---|:---|:---|
-| 通用 | bemp-test-common/test-cases/common/login-session.md | 21 | 密码登录、强制登录、会话管理 |
-| 系统管理 | bemp-test-common/test-cases/sm/role-permission.md | 12 | 角色分配、机构业务权限 |
-| 系统管理 | bemp-test-common/test-cases/sm/clearing/clearing.md | 17 | 清算明细、排队管理、结算同步 |
-| 系统管理 | bemp-test-common/test-cases/sm/branch/ | - | 机构管理、简版机构 |
-| 业务管理 | bemp-test-common/test-cases/bm/approval/approval-accounting.md | 21 | 审批路线、分录配置、科目维护 |
-| 业务管理 | bemp-test-common/test-cases/bm/payment/payment.md | 13 | 支付申请、支付复核 |
-| 业务管理 | bemp-test-common/test-cases/bm/cust/ | - | 企业客户查询、账号同步 |
-| 业务管理 | bemp-test-common/test-cases/bm/sign/ | - | 企业报备、复核、记录查询 |
-| 场内交易 | bemp-test-common/test-cases/be/trust/trust.md | 32 | 提示付款、质押/解质押 |
-| 场内交易 | bemp-test-common/test-cases/be/market/market.md | 32 | 买入、卖出、再贴现、回购、返售 |
-| 场外交易 | bemp-test-common/test-cases/ce/acceptance/acceptance.md | 25 | 电票签发、承兑记账、付款登记、到期扣款 |
-| 场外交易 | bemp-test-common/test-cases/ce/discount/discount.md | 19 | 贴现申请、贴现记账、计息复核 |
-| 场外交易 | bemp-test-common/test-cases/ce/pledge/pledge.md | 15 | 提示付款、质押、解质押 |
-
-> 详细索引（脚本覆盖/缺失标注）见 `bemp-test-common/test-index.json` | 用例合计约 288 条
->
-> 注：上表为概要视图，部分目录行（如 `bm/cust/`、`bm/sign/`）包含多个用例文件。完整条目以 test-index.json 为准。
+> 完整用例索引（含脚本覆盖/缺失标注、用例数、覆盖范围）详见 `bemp-test-common/test-index.json`。
+> 用例文件位于 `bemp-test-common/test-cases/` 目录下，按子系统（common/sm/bm/be/ce）组织。
+> 用例合计约 288 条，25 条目。详细条目以 test-index.json 为准，不在本文件重复列举。

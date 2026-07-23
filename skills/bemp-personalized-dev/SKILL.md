@@ -45,7 +45,11 @@ triggers:
 bemp-personalized-dev/
 ├── SKILL.md                          # 本文件 - Skill 定义
 ├── config/
-│   └── compile-deploy.json           # 编译→部署→重启路径配置
+│   ├── config.json                   # 技能主配置（环境变量引用、编码规范、增量原则）
+│   ├── compile-deploy.json           # 编译→部署→重启路径配置
+│   ├── function-id-rules.json        # @CloudFunction功能号冲突检查规则
+│   ├── file-integrity-rules.json     # 文件写入完整性校验规则
+│   └── spec-consistency-checklist.json # spec一致性检查清单
 ├── assets/
 │   ├── guides/                       # 开发指南（规范+模板合并）
 │   │   ├── frontend-guide.md         # 前端开发指南（规范+模板）
@@ -84,6 +88,24 @@ bemp-personalized-dev/
 | Override模式 | [override-patterns.md](references/override-patterns.md) | 响应DTO字段传递、Bean注入方式、编译部署重启闭环 |
 | HUI组件文档 | `hui_doc` MCP | H-UI 组件属性、方法、事件、使用示例及最佳实践 |
 | FAQ | [faq.md](references/faq.md) | 常见问题解答、最佳实践 |
+
+## 配置文件
+
+所有配置文件位于 `config/` 目录下，支持三级配置继承：技能级（默认）→ 项目级（覆盖）→ 银行级（覆盖）。
+
+| 配置文件 | 用途 | 继承支持 |
+|---------|------|---------|
+| [config.json](config/config.json) | 技能主配置：环境变量引用、编码规范、增量原则 | 是 |
+| [compile-deploy.json](config/compile-deploy.json) | 编译→部署→重启路径配置 | 是 |
+| [function-id-rules.json](config/function-id-rules.json) | @CloudFunction 功能号冲突检查规则：前缀、序号范围、排除列表 | 是 |
+| [file-integrity-rules.json](config/file-integrity-rules.json) | 文件写入完整性校验规则：大括号匹配、标签匹配、修复策略 | 是 |
+| [spec-consistency-checklist.json](config/spec-consistency-checklist.json) | Spec 一致性检查清单：日志级别、异常处理、任务隔离、错误文案 | 是 |
+
+**配置继承机制**：
+- 技能级配置（`.trae/skills/bemp-personalized-dev/config/`）：默认配置，适用于所有银行
+- 项目级配置（项目根目录 `config/`）：覆盖技能级配置
+- 银行级配置（`banks/ext-{BANK_CODE}/config/`）：优先级最高，覆盖前两级
+- 合并策略：对象类型深度合并（deepMerge），数组类型整体替换（replace）
 
 ## 执行步骤
 
@@ -126,6 +148,21 @@ bemp-personalized-dev/
    - 禁止凭记忆或猜测使用组件 API，必须以官方文档为准
 
 ### 第二阶段：开发实施
+
+**前置检查：@CloudFunction 功能号冲突检查【强制】**
+- **触发条件**：新增或修改 @CloudFunction 注解的 Job 服务时
+- **配置文件**：[function-id-rules.json](config/function-id-rules.json)，禁止硬编码功能号
+- **检查步骤**：
+  1. 从代码中提取 @CloudFunction 注解的 funcNo 值（正则：`@CloudFunction\s*\(.*funcNo\s*=\s*"([^"]+)"`）
+  2. 读取 [function-id-rules.json](config/function-id-rules.json) 获取检查目标表名和字段名
+  3. 执行查询：`SELECT COUNT(1) AS CNT FROM TT_TASK WHERE TASK_FUNCNO = '{提取的功能号}'`
+  4. 若 COUNT > 0：功能号已被占用，按配置的 `conflictHandling.strategies` 处理（默认 block）
+  5. 若功能号在 `excludeList` 中：提示排除命中，要求更换
+  6. 若配置为 `autoReassign` 策略：从 `seqRange` 中自动分配下一个可用功能号
+- **常见遗漏**：
+  - 仅凭记忆认为功能号未占用 → 必须查询数据库验证
+  - 复制其他银行代码未改功能号 → 必须检查功能号唯一性
+  - 功能号格式不规范 → 按 `generationRules.format` 规则生成
 
 1. **后端开发 (必须在 banks/ext-{BANK_CODE} 目录下)**
    - **指南参考**: 先参考 [后端开发指南](assets/guides/backend-guide.md) 中的代码模板章节
@@ -215,6 +252,26 @@ bemp-personalized-dev/
    - 确认敏感数据未在日志中明文输出
    - 验证权限校验逻辑是否完整
 
+**检查项：文件写入完整性校验【强制】**
+- **触发条件**：使用 Edit/Write 工具修改文件后（onEdit / onWrite / onCreate 均触发）
+- **配置文件**：[file-integrity-rules.json](config/file-integrity-rules.json)，所有检查规则通过配置管理
+- **检查步骤**：
+  1. 读取 [file-integrity-rules.json](config/file-integrity-rules.json) 获取文件类型对应的检查规则
+  2. 根据文件扩展名匹配 `fileTypes.rules`（如 `.java` → braceMatch + parenMatch + semicolonTail）
+  3. 读取修改后的文件内容，按检查规则统计开闭字符数量
+  4. 若 `ignoreInString` 为 true：跳过字符串字面量内的字符
+  5. 若 `ignoreInComment` 为 true：跳过注释内的字符
+  6. 比较开闭字符数量，差值超过 `tolerance` 则判定为不匹配
+  7. 不匹配时按 `repairStrategy.defaultStrategy` 处理：
+     - `warn`：输出警告，列出差异详情（开=N 闭=M 差值=X）
+     - `autoFix`：在文件末尾追加缺失的闭合字符（最多 `maxAutoFixCount` 个），追加后重新校验
+     - `block`：阻止后续操作，要求人工修复
+- **常见遗漏**：
+  - Edit 工具修改大文件时截断 → 大括号不匹配是典型症状，必须检查
+  - 只检查了 Java 文件 → Vue/JS/XML 文件同样需要检查（按配置的 fileTypes）
+  - 自动修复后未重新校验 → autoFix 后必须重新执行检查确认修复有效
+  - 忽略了字符串/注释内的括号 → 必须按配置的 ignoreInString/ignoreInComment 规则排除
+
 10. **代码修改后的编译→部署→重启流程【强制】**
     - **触发条件**：修改Java源代码后，必须执行以下3步才能使修改生效
     - **配置文件**：路径和参数统一管理在 [compile-deploy.json](config/compile-deploy.json) 中，禁止硬编码
@@ -244,3 +301,37 @@ bemp-personalized-dev/
     - **判断逻辑**：
       - 代码中遍历List并取第一个匹配项 → 提示顺序不确定性
       - 测试预期值指定了具体账号/名称 → 建议改为"包含"断言
+
+### 第三阶段：Spec 一致性检查【强制】
+
+开发实施完成后，必须执行 Spec 一致性检查，验证代码实现与需求规格说明（spec）的一致性。
+
+- **配置文件**：[spec-consistency-checklist.json](config/spec-consistency-checklist.json)，所有检查项通过配置管理
+- **触发时机**：
+  - 开发实施完成后（`onDevComplete`）
+  - 代码评审阶段（`onCodeReview`）
+  - 缺陷修复后验证（`onFixVerify`）
+
+**检查步骤**：
+1. **定位 Spec 文档**：按 `specSource.searchPaths` 和 `filePatterns` 搜索需求规格文档
+2. **加载检查清单**：读取 [spec-consistency-checklist.json](config/spec-consistency-checklist.json) 的 `checklist.items`
+3. **逐项执行检查**：
+   - **LOG-001 日志级别一致性**（major）：Spec 中出现的日志级别关键词必须与代码中实际使用的日志方法一致。例：Spec 要求 error，代码使用 warn → 不一致
+   - **EXC-001 异常处理一致性**（critical）：Spec 要求抛异常时代码不得使用 return，反之亦然。例：Spec 要求 throw，代码使用 return → 不一致
+   - **TASK-001 任务隔离一致性**（critical）：Spec 要求任务隔离时，代码不得出现静默跳过（continue/return）或吞异常（空 catch 块）
+   - **MSG-001 错误文案一致性**（major）：Spec 中的错误文案核心关键词必须在代码的异常/返回消息中出现。采用关键词匹配，允许参数化差异
+   - **FLOW-001 流程顺序一致性**（major）：Spec 中描述的步骤顺序必须与代码中方法调用顺序一致
+   - **VALID-001 参数校验一致性**（major）：Spec 中提及的校验要求必须在代码中找到对应的校验逻辑
+4. **生成检查报告**：按 `reportFormat.template` 输出检查结果
+   - 汇总：共检查 N 项，通过 M 项，失败 K 项
+   - 明细：每项检查的严重度、检查ID、检查名称、差异描述
+5. **按严重度处理**：
+   - `critical`（严重）：阻止后续流程，必须修复后继续
+   - `major`（主要）：输出警告，允许继续但需在交付文档中列出
+   - `minor`（次要）：仅提示信息
+
+**常见遗漏**：
+  - 开发完成后跳过 spec 一致性检查 → 必须执行，不可跳过
+  - 仅检查了部分检查项 → 必须执行配置中的所有检查项
+  - 错误文案要求精确匹配 → 应按 `tolerance: keyword` 进行关键词匹配
+  - critical 级别问题未修复就继续 → 必须修复后才能进入后续流程

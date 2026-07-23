@@ -1,0 +1,294 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BEMP 测试报告版本迭代管理配置",
+  "description": "测试报告更新时自动管理版本号（v1.0->v2.0->v3.0），每次迭代记录变更项。确保测试报告的可追溯性和版本可审计性。",
+  "version": "1.0.0",
+  "createdAt": "2026-07-22",
+  "updatedAt": "2026-07-22",
+  "_comment": "本文件为测试报告版本管理的唯一配置源。适用于 testreport 和 unit-test-report 类型文档。",
+
+  "configInheritance": {
+    "_comment": "配置继承机制：技能级配置（默认）→ 项目级配置（覆盖）→ 银行级配置（覆盖）",
+    "levels": [
+      {
+        "level": "skill",
+        "description": "技能级默认配置（本文件）",
+        "path": "config/report-versioning.json",
+        "priority": 1
+      },
+      {
+        "level": "project",
+        "description": "项目级覆盖配置（可选）",
+        "path": "config/report-versioning.override.json",
+        "priority": 2
+      },
+      {
+        "level": "bank",
+        "description": "银行级覆盖配置（通过 bank config 的 reportVersioning 字段）",
+        "path": "config/banks/<银行代码>.json -> reportVersioning",
+        "priority": 3
+      }
+    ],
+    "mergeStrategy": "deep-merge，子级覆盖父级同名字段，数组整体替换不合并"
+  },
+
+  "versionRules": {
+    "_comment": "版本号管理规则",
+    "format": "v{major}.{minor}",
+    "formatExample": "v1.0, v2.0, v3.0",
+    "incrementRules": {
+      "major": {
+        "description": "主版本号递增：测试报告有实质性内容变更时递增",
+        "triggers": [
+          "新增测试用例执行结果",
+          "缺陷状态发生变更（如从 OPEN 变为 FIXED）",
+          "阻塞问题解决并重新测试",
+          "测试范围扩大（新增模块或场景）",
+          "二轮调试测试完成后输出新版本"
+        ],
+        "action": "major + 1, minor 重置为 0"
+      },
+      "minor": {
+        "description": "次版本号递增：测试报告有非实质性变更时递增",
+        "triggers": [
+          "修正报告中的文字错误",
+          "更新图表样式或布局",
+          "补充说明性文字",
+          "调整格式排版"
+        ],
+        "action": "minor + 1, major 不变"
+      }
+    },
+    "initialVersion": "v1.0",
+    "maxVersion": "v99.0",
+    "_comment_maxVersion": "超过最大版本号时提示用户检查测试流程是否存在反复回退问题",
+    "fileNamingPattern": "{bankName}_{requirementName}_测试报告_v{version}.docx",
+    "fileNamingExample": "河南农商银行_同步机构树数据并校验_测试报告_v2.0.docx"
+  },
+
+  "changeRecord": {
+    "_comment": "变更记录机制：每次版本迭代时自动记录变更项",
+    "storageLocation": "output/_report-version-history.json",
+    "_comment_storageLocation": "版本历史记录存储为 JSON 文件，便于程序化查询",
+    "recordTemplate": {
+      "version": "v2.0",
+      "date": "2026-07-22",
+      "author": "auto-generated",
+      "changeType": "major",
+      "triggerReason": "二轮调试测试完成",
+      "changes": [
+        {
+          "category": "test-case-result",
+          "description": "新增 5 条用例执行结果",
+          "details": {
+            "addedCases": 5,
+            "passedCases": 4,
+            "failedCases": 1
+          }
+        },
+        {
+          "category": "defect-status",
+          "description": "3 个缺陷状态从 OPEN 变更为 FIXED",
+          "details": {
+            "defectIds": ["DEF-001", "DEF-002", "DEF-003"],
+            "fromStatus": "OPEN",
+            "toStatus": "FIXED"
+          }
+        },
+        {
+          "category": "blocked-issue",
+          "description": "2 个阻塞问题已解决",
+          "details": {
+            "issueIds": ["BLK-001", "BLK-002"],
+            "resolution": "环境配置修复后重新测试通过"
+          }
+        }
+      ],
+      "summary": {
+        "totalCases": 30,
+        "passedCases": 28,
+        "failedCases": 2,
+        "blockedCases": 0,
+        "defects": {
+          "total": 5,
+          "open": 1,
+          "fixed": 3,
+          "closed": 1
+        },
+        "passRate": "93.3%"
+      }
+    },
+
+    "changeCategories": {
+      "test-case-result": {
+        "label": "用例结果变更",
+        "description": "新增用例执行结果、用例状态变更",
+        "fields": ["addedCases", "passedCases", "failedCases", "blockedCases"]
+      },
+      "defect-status": {
+        "label": "缺陷状态变更",
+        "description": "缺陷从一种状态变更为另一种状态",
+        "fields": ["defectIds", "fromStatus", "toStatus", "resolution"]
+      },
+      "blocked-issue": {
+        "label": "阻塞问题解决",
+        "description": "之前阻塞的问题已解决并重新测试",
+        "fields": ["issueIds", "resolution", "retestResult"]
+      },
+      "test-scope": {
+        "label": "测试范围变更",
+        "description": "测试范围扩大或缩小（新增/移除模块或场景）",
+        "fields": ["addedModules", "removedModules", "addedScenarios", "removedScenarios"]
+      },
+      "test-environment": {
+        "label": "测试环境变更",
+        "description": "测试环境发生变化（如数据库更新、服务版本升级）",
+        "fields": ["environmentChanges", "impactAnalysis"]
+      },
+      "report-format": {
+        "label": "报告格式变更",
+        "description": "报告格式、排版、图表样式调整",
+        "fields": ["formatChanges", "affectedSections"]
+      },
+      "text-correction": {
+        "label": "文字修正",
+        "description": "报告正文中的文字错误修正",
+        "fields": ["correctionDetails", "affectedSections"]
+      }
+    },
+
+    "diffDetection": {
+      "_comment": "自动变更检测：对比新旧版本数据，自动识别变更项",
+      "method": "compare-json",
+      "compareFields": [
+        "testCases[].status",
+        "defects[].status",
+        "blockedIssues[].status",
+        "testScope.modules",
+        "testScope.scenarios",
+        "environment.version"
+      ],
+      "autoGenerateChangeRecord": true,
+      "_comment_autoGenerateChangeRecord": "检测到变更后自动生成变更记录，无需手动填写"
+    }
+  },
+
+  "versionHistoryTemplate": {
+    "_comment": "版本历史记录格式，嵌入到测试报告文档的'版本历史'章节",
+    "tableHeader": ["版本号", "日期", "变更类型", "变更说明", "作者"],
+    "rowFormat": {
+      "version": "v{major}.{minor}",
+      "date": "YYYY-MM-DD",
+      "changeType": "major | minor",
+      "changeDescription": "简述本次变更内容（最多200字）",
+      "author": "auto-generated | 手动填写"
+    },
+    "exampleRows": [
+      {
+        "version": "v1.0",
+        "date": "2026-07-20",
+        "changeType": "major",
+        "changeDescription": "初始版本，覆盖 25 条用例，发现 5 个缺陷（2 OPEN, 3 FIXED），2 个阻塞问题",
+        "author": "auto-generated"
+      },
+      {
+        "version": "v2.0",
+        "date": "2026-07-21",
+        "changeType": "major",
+        "changeDescription": "二轮调试测试完成，新增 5 条用例结果，3 个缺陷从 OPEN 变为 FIXED，2 个阻塞问题已解决",
+        "author": "auto-generated"
+      },
+      {
+        "version": "v3.0",
+        "date": "2026-07-22",
+        "changeType": "major",
+        "changeDescription": "缺陷修复验证完成，剩余 1 个缺陷已修复验证通过，全部用例通过",
+        "author": "auto-generated"
+      }
+    ]
+  },
+
+  "iterationWorkflow": {
+    "_comment": "测试报告迭代工作流程",
+    "steps": [
+      {
+        "step": 1,
+        "name": "检测变更",
+        "action": "对比当前测试数据与上一版本数据，识别变更项",
+        "output": "变更项列表"
+      },
+      {
+        "step": 2,
+        "name": "确定版本号",
+        "action": "根据变更类型（major/minor）确定新版本号",
+        "output": "新版本号（如 v2.0）"
+      },
+      {
+        "step": 3,
+        "name": "生成变更记录",
+        "action": "根据变更项列表生成结构化变更记录",
+        "output": "变更记录 JSON"
+      },
+      {
+        "step": 4,
+        "name": "更新版本历史",
+        "action": "在测试报告文档的版本历史章节追加新版本记录",
+        "output": "更新后的版本历史表"
+      },
+      {
+        "step": 5,
+        "name": "生成新版本文件",
+        "action": "按文件命名规则生成新版本文件（如 _测试报告_v2.0.docx）",
+        "output": "新版本文件路径"
+      },
+      {
+        "step": 6,
+        "name": "保存版本历史",
+        "action": "将版本记录保存到 output/_report-version-history.json",
+        "output": "版本历史 JSON 文件"
+      },
+      {
+        "step": 7,
+        "name": "质量审核",
+        "action": "对新版本文件执行 quality-checklist.json 中定义的质量审核",
+        "output": "质量审核报告"
+      }
+    ],
+    "maxIterations": 10,
+    "_comment_maxIterations": "同一测试报告最多迭代 10 次，超限需与用户确认",
+    "rollbackSupport": true,
+    "_comment_rollbackSupport": "支持回滚到上一版本，回滚时版本号不递增而是附加 _rollback 后缀"
+  },
+
+  "applicableDocTypes": {
+    "_comment": "适用此版本管理机制的文档类型",
+    "testreport": {
+      "enabled": true,
+      "label": "测试报告"
+    },
+    "unit-test-report": {
+      "enabled": true,
+      "label": "单元测试报告"
+    },
+    "unit-test-report-xlsx": {
+      "enabled": true,
+      "label": "单元测试报告（Excel）"
+    }
+  },
+
+  "notificationConfig": {
+    "_comment": "版本迭代通知配置",
+    "onNewVersion": {
+      "message": "测试报告已更新至 {version}，变更内容：{changeSummary}",
+      "level": "info"
+    },
+    "onMaxIteration": {
+      "message": "测试报告已达到最大迭代次数 {maxIterations}，请检查测试流程是否存在反复回退问题",
+      "level": "warning"
+    },
+    "onRollback": {
+      "message": "测试报告已回滚至 {version}，原因：{rollbackReason}",
+      "level": "warning"
+    }
+  }
+}

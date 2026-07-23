@@ -38,7 +38,7 @@ alwaysApply: true
 | 用例评审 | test-lead-reviewer | - |
 | 功能测试 | bemp-auto-tester | bemp-webapp-testing |
 | 二轮调试测试 | chrome-devtools-debugger | bemp-chrome-devtools-test |
-| 缺陷修复验证 | bemp-personalized-developer + bemp-auto-tester | bemp-personalized-dev + bemp-webapp-testing |
+| 缺陷修复验证 | bemp-personalized-developer（修复）+ bemp-auto-tester 或 chrome-devtools-debugger（验证） | bemp-personalized-dev + bemp-webapp-testing 或 bemp-chrome-devtools-test |
 | 输出交付文档 | document-delivery-engineer | bemp-advanced-doc-generator |
 
 # 并行规则
@@ -60,6 +60,7 @@ alwaysApply: true
 | SonarQube MCP 不可用 | 使用 sonar-scanner 命令行工具 |
 | SonarQube 服务未启动 | 启动服务后重新扫描 |
 | Token 无效 | 提示用户配置后重新扫描 |
+| 图表生成工具降级 | drawio → mcp-server-chart → graphviz → antv → matplotlib → 占位文字（5级降级链，详见 chart-tools.json） |
 
 # 回退规则
 | 发现阶段 | 回退到 | 触发条件 |

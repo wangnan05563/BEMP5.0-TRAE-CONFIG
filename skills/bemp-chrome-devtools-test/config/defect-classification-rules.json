@@ -1,0 +1,143 @@
+{
+  "_comment": "缺陷自动分类规则配置。二轮调试时根据失败现象自动分类缺陷并推荐修复智能体。",
+  "version": "1.0.0",
+  "classification_rules": [
+    {
+      "id": "RULE-01",
+      "pattern": "弹窗未出现|弹窗打开超时|新增弹窗.*未",
+      "checks": [
+        "检查是否有前置选择步骤（如先选左侧树节点）",
+        "检查页面是否包含iframe或嵌套组件",
+        "检查弹窗是否为window-layer类型（默认最小化）"
+      ],
+      "classification": "test_defect",
+      "reason": "多数弹窗未出现是因为测试用例缺少前置操作步骤",
+      "fix_agent": "bemp-auto-tester",
+      "fix_skill": "bemp-testcase-generator",
+      "alternative_classification": {
+        "condition": "前置步骤完整且弹窗组件正常仍无法打开",
+        "classification": "code_defect",
+        "fix_agent": "bemp-personalized-developer"
+      }
+    },
+    {
+      "id": "RULE-02",
+      "pattern": "按钮名称不匹配|断言失败.*按钮|缺失.*按钮|按钮.*不存在",
+      "checks": [
+        "截取页面截图获取按钮实际文本",
+        "对比需求文档描述的按钮名称",
+        "检查是否为银行个性化按钮名称"
+      ],
+      "classification": "data_defect",
+      "reason": "按钮名称不匹配通常因需求文档与实际实现不一致",
+      "fix_agent": "bemp-auto-tester",
+      "fix_skill": "bemp-testcase-generator",
+      "alternative_classification": {
+        "condition": "需求文档正确但实现缺失按钮",
+        "classification": "code_defect",
+        "fix_agent": "bemp-personalized-developer"
+      }
+    },
+    {
+      "id": "RULE-03",
+      "pattern": "strict mode violation|选择器.*多行匹配|locator.*strict|getByRole.*strict",
+      "checks": [
+        "检查DOM结构确认组件类型（radio/checkbox/multi-select）",
+        "检查DataGrid数据是否在tData属性中",
+        "检查选择器是否精确匹配唯一元素"
+      ],
+      "classification": "test_defect",
+      "reason": "strict violation通常因选择器不精确或组件类型假设错误",
+      "fix_agent": "bemp-auto-tester",
+      "fix_skill": "bemp-webapp-testing",
+      "fix_suggestion": "使用nth-child行定位或evaluate_script设置Vue选中状态"
+    },
+    {
+      "id": "RULE-04",
+      "pattern": "遮罩层残留|z-index.*阻塞|页面无法交互|modal-mask.*残留",
+      "checks": [
+        "检查遮罩层class名称和z-index值",
+        "检查弹窗关闭事件是否处理遮罩清理",
+        "检查loading计数器是否不平衡"
+      ],
+      "classification": "code_defect",
+      "reason": "遮罩层残留属于前端代码缺陷，关闭事件未正确清理",
+      "fix_agent": "bemp-personalized-developer",
+      "fix_skill": "bemp-personalized-dev",
+      "fix_suggestion": "在弹窗关闭事件中增加遮罩层清理逻辑：forceResetLoading + 移除残留DOM"
+    },
+    {
+      "id": "RULE-05",
+      "pattern": "超时|端口不可达|连接拒绝|ECONNREFUSED|502|503",
+      "checks": [
+        "检查服务是否已启动（端口监听）",
+        "检查网络连通性",
+        "检查服务健康检查接口"
+      ],
+      "classification": "env_defect",
+      "reason": "服务未启动或网络不通导致",
+      "fix_agent": "bemp-implementation-engineer",
+      "fix_skill": "bemp-automation-startserver"
+    },
+    {
+      "id": "RULE-06",
+      "pattern": "TypeError|ReferenceError|ChunkLoadError|Cannot read propert",
+      "checks": [
+        "检查控制台完整错误堆栈",
+        "检查是否为前端构建问题（chunk文件缺失）",
+        "检查是否为个性化代码引用错误"
+      ],
+      "classification": "code_defect",
+      "reason": "JS运行时错误属于代码缺陷",
+      "fix_agent": "bemp-personalized-developer",
+      "fix_skill": "bemp-personalized-dev"
+    },
+    {
+      "id": "RULE-07",
+      "pattern": "数据不存在|查询为空|记录数不符|LEGAL_NO不一致",
+      "checks": [
+        "查询数据库确认数据是否存在",
+        "检查数据状态是否正确",
+        "检查数据关联关系"
+      ],
+      "classification": "data_defect",
+      "reason": "测试数据未准备或状态不正确",
+      "fix_agent": "bemp-implementation-engineer",
+      "fix_skill": "bemp-db-operator"
+    },
+    {
+      "id": "RULE-08",
+      "pattern": "返回码.*不符|retCode.*非预期|接口返回异常",
+      "checks": [
+        "检查请求参数是否正确",
+        "检查后端接口逻辑",
+        "检查配置参数是否匹配"
+      ],
+      "classification": "code_defect",
+      "reason": "接口返回非预期通常是后端代码逻辑问题",
+      "fix_agent": "bemp-personalized-developer",
+      "fix_skill": "bemp-personalized-dev",
+      "alternative_classification": {
+        "condition": "请求参数格式错误或配置不匹配",
+        "classification": "config_defect",
+        "fix_agent": "bemp-auto-tester"
+      }
+    }
+  ],
+  "classification_summary": {
+    "code_defect": {"description": "前端/后端代码逻辑缺陷", "fix_agent": "bemp-personalized-developer", "fix_skill": "bemp-personalized-dev"},
+    "test_defect": {"description": "测试用例/脚本编写问题", "fix_agent": "bemp-auto-tester", "fix_skill": "bemp-testcase-generator 或 bemp-webapp-testing"},
+    "data_defect": {"description": "测试数据缺失或名称不匹配", "fix_agent": "bemp-auto-tester 或 bemp-implementation-engineer", "fix_skill": "bemp-testcase-generator 或 bemp-db-operator"},
+    "env_defect": {"description": "环境/服务问题", "fix_agent": "bemp-implementation-engineer", "fix_skill": "bemp-automation-startserver"},
+    "config_defect": {"description": "配置参数问题", "fix_agent": "bemp-auto-tester", "fix_skill": "bemp-webapp-testing"}
+  },
+  "output_format": {
+    "defect_report_entry": "| BUG-{序号} | {用例ID} | {severity} | {classification} | {核心发现} | {fix_agent} |",
+    "severity_rules": {
+      "P0": "阻塞全部后续测试的缺陷（如遮罩层残留、服务不可用）",
+      "P1": "阻塞当前模块但其他模块可继续的缺陷",
+      "P2": "不影响主流程的UI/断言问题",
+      "P3": "优化建议或待确认项"
+    }
+  }
+}

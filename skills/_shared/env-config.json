@@ -1,23 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "BEMP技能库全局环境配置 - 所有技能模块共享的环境参数集中管理",
-  "version": "1.0.0",
-  "usage": "各技能模块通过 _shared/Resolve-EnvConfig.ps1 引用此配置，支持 ${ENV:VAR_NAME} 环境变量占位符",
+  "version": "2.0.0",
+  "changelog": "v2.0.0: HC-01敏感信息脱敏、HC-03银行配置动态化、HC-04端口环境变量化、HC-05测试账号统一化",
+  "usage": "各技能模块通过 _shared/Resolve-EnvConfig.ps1 引用此配置，支持 ${ENV:VAR_NAME} 环境变量占位符。environmentDefaults 仅作为路径类 fallback，敏感信息（密码）不设默认值，强制通过环境变量注入。",
 
   "bank": {
-    "code": "hnnxbank",
-    "classPrefix": "Hnnx",
-    "classNamePrefix": "HnnxBank",
-    "schemaName": "BEMP_HNNX",
-    "dbName": "bemp_hnnx",
-    "projectDir": "ext-hnnxbank",
-    "urlPrefix": "/hnnxbank/",
-    "sonarProjectKey": "bemp-ext-hnnxbank",
-    "sonarProjectName": "BEMP Ext HNNXBank",
-    "modulePrefix": "hnnxbank-",
-    "packagePrefix": "com.hundsun.bemp.hnnxbank",
-    "batchTable": "HNNX_ACCBANK_CREDIT_BATCH",
-    "infoTable": "HNNX_ACCBANK_CREDIT_INFO"
+    "code": "${ENV:BANK_CODE}",
+    "classPrefix": "${ENV:BANK_CLASS_PREFIX}",
+    "classNamePrefix": "${ENV:BANK_CLASS_NAME_PREFIX}",
+    "schemaName": "${ENV:BANK_DB_SCHEMA}",
+    "dbName": "${ENV:BANK_DB_NAME}",
+    "projectDir": "${ENV:BANK_PROJECT_DIR}",
+    "urlPrefix": "${ENV:BANK_URL_PREFIX}",
+    "sonarProjectKey": "${ENV:BANK_SONAR_PROJECT_KEY}",
+    "sonarProjectName": "${ENV:BANK_SONAR_PROJECT_NAME}",
+    "modulePrefix": "${ENV:BANK_MODULE_PREFIX}",
+    "packagePrefix": "${ENV:BANK_PACKAGE_PREFIX}",
+    "batchTable": "${ENV:BANK_BATCH_TABLE}",
+    "infoTable": "${ENV:BANK_INFO_TABLE}"
   },
 
   "paths": {
@@ -28,53 +29,77 @@
     "javaHome": "${ENV:JAVA_HOME}",
     "javaHomeForSonar": "${ENV:JAVA_HOME_SONAR}",
     "nodePath": "${ENV:NODE_PATH}",
+    "nodeHome": "${ENV:NODE_HOME}",
     "mavenPath": "${ENV:MAVEN_PATH}",
+    "mavenHome": "${ENV:MAVEN_HOME}",
+    "mavenSettings": "${ENV:MAVEN_SETTINGS}",
     "jmeterPath": "${ENV:JMETER_PATH}",
     "redisExe": "${ENV:REDIS_EXE}",
     "zookeeperExe": "${ENV:ZOOKEEPER_EXE}",
     "sonarqubeHome": "${ENV:SONARQUBE_HOME}",
     "sonarScannerHome": "${ENV:SONAR_SCANNER_HOME}",
+    "sonarScannerHomeFrontend": "${ENV:SONAR_SCANNER_HOME_FRONTEND}",
     "nginxHome": "${ENV:NGINX_HOME}",
     "deployDir": "${ENV:BEMP_DEPLOY_DIR}",
     "gitPath": "${ENV:GIT_PATH}"
   },
 
   "services": {
-    "redis": { "port": 6379 },
-    "zookeeper": { "port": 2181 },
-    "springboot": { "port": 8010, "debugPort": 5005 },
-    "frontend": { "port": 8091 },
-    "sonarqube": { "port": 9000, "host": "http://localhost:9000" }
+    "redis": { "port": "${ENV:BEMP_REDIS_PORT:6379}" },
+    "zookeeper": { "port": "${ENV:BEMP_ZK_PORT:2181}" },
+    "springboot": { "port": "${ENV:BEMP_BACKEND_PORT:8010}", "debugPort": "${ENV:BEMP_DEBUG_PORT:5005}" },
+    "frontend": { "port": "${ENV:BEMP_FRONTEND_PORT:8091}" },
+    "sonarqube": { "port": "${ENV:SONARQUBE_PORT:9000}", "host": "http://${ENV:BEMP_HOST:127.0.0.1}:${ENV:SONARQUBE_PORT:9000}" }
   },
 
   "database": {
     "oracle": {
       "host": "${ENV:ORACLE_HOST}",
-      "port": 1521,
+      "port": "${ENV:ORACLE_PORT:1521}",
       "serviceName": "${ENV:ORACLE_SERVICE}",
       "username": "${ENV:ORACLE_USERNAME}",
       "password": "${ENV:ORACLE_PASSWORD}",
-      "schema": "${ENV:ORACLE_SCHEMA}"
+      "schema": "${ENV:ORACLE_SCHEMA}",
+      "dsn": "${ENV:ORACLE_DSN}"
     },
     "mysql": {
       "host": "${ENV:MYSQL_HOST}",
-      "port": 3306,
+      "port": "${ENV:MYSQL_PORT:3306}",
       "database": "${ENV:MYSQL_DATABASE}",
       "username": "${ENV:MYSQL_USERNAME}",
-      "password": "${ENV:MYSQL_PASSWORD}"
+      "password": "${ENV:MYSQL_PASSWORD}",
+      "dsn": "${ENV:MYSQL_DSN}"
     }
   },
 
   "testAccounts": {
     "passwordEnvVar": "BEMP_TEST_PASSWORD",
-    "note": "测试账号密码统一通过 BEMP_TEST_PASSWORD 环境变量注入，配置文件中使用 ${ENV:BEMP_TEST_PASSWORD} 占位符"
+    "note": "测试账号密码统一通过 BEMP_TEST_PASSWORD 环境变量注入。测试账号用户名通过环境变量配置，支持多角色。",
+    "roles": {
+      "default": {
+        "usernameEnvVar": "BEMP_TEST_USER_DEFAULT",
+        "description": "普通柜员账号"
+      },
+      "admin": {
+        "usernameEnvVar": "BEMP_TEST_USER_ADMIN",
+        "description": "法人管理员账号"
+      },
+      "branch_admin": {
+        "usernameEnvVar": "BEMP_TEST_USER_BRANCH_ADMIN",
+        "description": "机构管理员账号"
+      }
+    }
   },
 
   "environmentDefaults": {
+    "_comment": "以下为当前开发机器的路径 fallback。敏感信息（密码）不设默认值，必须通过环境变量注入。",
     "BEMP_WORKSPACE_ROOT": "d:\\code\\QJ\\BEMP5.0DEV",
     "BEMP_HOST": "127.0.0.1",
     "BEMP_FRONTEND_PORT": "8091",
     "BEMP_BACKEND_PORT": "8010",
+    "BEMP_REDIS_PORT": "6379",
+    "BEMP_ZK_PORT": "2181",
+    "BEMP_DEBUG_PORT": "5005",
     "JAVA_HOME": "D:\\code\\Java\\jdk1.8.0_341",
     "JAVA_HOME_SONAR": "D:\\code\\Java\\jdk-25.0.1",
     "NODE_PATH": "D:\\code\\nodejs14\\node.exe",
@@ -91,19 +116,23 @@
     "SONAR_SCANNER_HOME_FRONTEND": "D:\\code\\sonar\\sonar-scanner-8.0.1.36819",
     "NGINX_HOME": "D:\\code\\nginx-1.12.2",
     "BEMP_DEPLOY_DIR": "D:\\code\\QJ\\bempDeploy",
-    "ORACLE_HOST": "10.20.18.177",
+    "ORACLE_HOST": "10.20.42.211",
+    "ORACLE_PORT": "1521",
     "ORACLE_SERVICE": "orcl",
     "ORACLE_USERNAME": "bemp_hnnx",
-    "ORACLE_PASSWORD": "123456",
+    "ORACLE_PASSWORD": "",
     "ORACLE_SCHEMA": "BEMP_HNNX",
-    "ORACLE_DSN": "10.20.18.177:1521/orcl",
-    "SONAR_PROJECT_KEY": "bemp-ext-hnnxbank",
+    "ORACLE_DSN": "10.20.42.211:1521/orcl",
     "MYSQL_HOST": "127.0.0.1",
+    "MYSQL_PORT": "3306",
     "MYSQL_DATABASE": "bemp_hnnx",
     "MYSQL_USERNAME": "root",
-    "MYSQL_PASSWORD": "root",
+    "MYSQL_PASSWORD": "",
     "MYSQL_DSN": "root@127.0.0.1:3306/bemp_hnnx",
-    "BEMP_TEST_PASSWORD": "888888",
+    "BEMP_TEST_PASSWORD": "",
+    "BEMP_TEST_USER_DEFAULT": "wangnan02",
+    "BEMP_TEST_USER_ADMIN": "mllzs01",
+    "BEMP_TEST_USER_BRANCH_ADMIN": "wangnan01",
     "TRAE_PATH": "",
     "GIT_PATH": "",
     "BANK_CODE": "hnnxbank",
@@ -114,8 +143,11 @@
     "BANK_MODULE_PREFIX": "hnnxbank-",
     "BANK_PACKAGE_PREFIX": "com.hundsun.bemp.hnnxbank",
     "BANK_CLASS_PREFIX": "Hnnx",
+    "BANK_CLASS_NAME_PREFIX": "HnnxBank",
     "BANK_NAME": "河南农信",
     "BANK_DB_SCHEMA": "BEMP_HNNX",
-    "BANK_DB_NAME": "bemp_hnnx"
+    "BANK_DB_NAME": "bemp_hnnx",
+    "BANK_BATCH_TABLE": "HNNX_ACCBANK_CREDIT_BATCH",
+    "BANK_INFO_TABLE": "HNNX_ACCBANK_CREDIT_INFO"
   }
 }

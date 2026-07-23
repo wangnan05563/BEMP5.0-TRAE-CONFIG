@@ -3,11 +3,14 @@ name: "bemp-backend-code-review"
 description: "审查BEMP银行个性化后端代码是否符合项目规范，含代码结构、注解、参数传递、安全性、性能等检查。支持多银行配置切换。"
 whenToUse: "需要审查BEMP工程各银行个性化后端代码是否符合项目规范"
 triggers: "代码/规范/code 走查/审查/审核/把关/review"
-version: "3.1.0"
-updated: "2026-05-22"
+version: "3.2.0"
+updated: "2026-07-22"
 config: "config/bank-config.json"
 scripts: "scripts/auto-scan.ps1"
 template: "templates/report-template.md"
+checklists:
+  specConsistency: "config/spec-consistency-checklist.json"
+  degradation: "config/degradation-checklist.json"
 ---
 
 # BEMP后端代码审查
@@ -27,6 +30,26 @@ template: "templates/report-template.md"
 | `{urlPrefixes}` | /hnnx/, /hnnxbank/ | 请求路径前缀 |
 
 > 切换指南见 [附录B](#附录b银行配置切换指南)
+
+## 配置继承机制
+
+所有配置文件遵循三级继承：**技能级默认(defaults) → 项目级覆盖(projectOverrides) → 银行级覆盖(bankOverrides.{bankCode})**
+
+| 级别 | 配置位置 | 作用 | 覆盖规则 |
+|------|---------|------|---------|
+| 技能级 | `config/*.json` 的 `defaults` | 全局默认检查项 | 基线，不可删除 |
+| 项目级 | `config/*.json` 的 `projectOverrides` | 项目通用覆盖 | 按id匹配，覆盖指定字段 |
+| 银行级 | `config/*.json` 的 `bankOverrides.{bankCode}` | 单银行特殊规则 | 按id匹配，最高优先级 |
+
+**覆盖原则**：按 `id` 匹配，仅覆盖指定字段，未覆盖字段继承上一级默认值。`enabled: false` 可禁用某检查项。
+
+**配置文件清单**：
+
+| 文件 | 用途 | 检查项数 |
+|------|------|---------|
+| `config/bank-config.json` | 银行参数（目录/包名/前缀等） | - |
+| `config/spec-consistency-checklist.json` | Spec一致性检查（代码实现vs spec要求） | 6项 |
+| `config/degradation-checklist.json` | 降级处理模式检查（异常/空值/服务降级） | 6项 |
 
 ## 审查模式
 
@@ -310,6 +333,59 @@ public class HnnxXxxReq implements Serializable {
 - Dto属性类型不要Date，导出用专门Dto再转换
 - 首页提醒必须用Controller模式，禁止sql模式
 
+### 23. Spec一致性检查 🆕v3.2
+
+比对代码实现与spec（需求文档/设计文档）要求的一致性，捕获"实现与设计偏差"类缺陷。检查项通过 `config/spec-consistency-checklist.json` 管理，支持三级配置继承。
+
+**前置条件**：审查时需获取对应的spec文档（PRD/详细设计/需求确认记录），无spec时跳过本节并在报告中注明"未提供spec，跳过一致性检查"。
+
+**检查清单**（配置驱动，以下为默认项，可按银行覆盖）：
+
+| ID | 检查项 | 严重度 | 检查要点 |
+|----|--------|--------|---------|
+| SC-001 | 日志级别一致性 | 严重 | spec要求error vs 代码实现warn/info |
+| SC-002 | 异常处理一致性 | 阻塞 | spec要求抛异常 vs 代码实现return |
+| SC-003 | 任务隔离一致性 | 严重 | spec要求任务隔离 vs 代码实现静默跳过/中断 |
+| SC-004 | 错误文案一致性 | 警告 | spec定义文案 vs 代码实际文案 |
+| SC-005 | 流程顺序一致性 | 严重 | spec步骤顺序 vs 代码调用顺序 |
+| SC-006 | 参数校验一致性 | 阻塞 | spec校验要求 vs 代码实现 |
+
+**执行方式**：
+1. 读取 `config/spec-consistency-checklist.json`，按 `defaults → projectOverrides → bankOverrides.{currentBank}` 合并生效配置
+2. 逐项比对spec要求与代码实现，记录不一致项
+3. 每个不一致项输出：检查ID、spec要求、代码实现、偏差描述、修复建议
+
+**典型场景**（BUG-005复盘）：
+- spec要求"CBS文件不存在时记录error日志并抛异常终止"
+- 代码实现"LOGGER.warn + return"（降级处理）
+- 判定：SC-001日志级别不一致(严重) + SC-002异常处理不一致(阻塞)
+
+### 24. 降级处理模式检查 🆕v3.2
+
+系统化检查代码中的降级处理模式是否符合规范，捕获"降级处理不当"导致的静默失败、数据丢失、流程中断。检查项通过 `config/degradation-checklist.json` 管理，支持三级配置继承。
+
+**检查清单**（配置驱动，以下为默认项，可按银行覆盖）：
+
+| ID | 降级场景 | 严重度 | 正确处理 | 错误处理 |
+|----|---------|--------|---------|---------|
+| DG-001 | 文件不存在 | 阻塞 | 关键文件抛异常，可选文件warn+降级 | 静默return无日志 |
+| DG-002 | 文件为空 | 严重 | 必填文件抛异常，可空文件返回空集合 | return null致NPE |
+| DG-003 | 数据为空 | 严重 | 返回空集合+info日志，区分无数据vs查询失败 | return null或静默跳过 |
+| DG-004 | 网络异常 | 严重 | 有限次重试(≤3次)+退避，失败后抛异常 | 直接catch+return不重试 |
+| DG-005 | 服务不可用 | 阻塞 | 核心服务抛异常，非核心服务降级+warn | 核心服务静默跳过 |
+| DG-006 | 配置缺失 | 严重 | 必填配置抛异常，可选配置用默认值+info | 必填配置用默认值0/空串 |
+
+**执行方式**：
+1. 读取 `config/degradation-checklist.json`，按三级继承合并生效配置
+2. 扫描代码中所有异常处理分支(try-catch/条件判空/文件操作/远程调用/配置读取)
+3. 逐项检查降级处理是否符合规范，记录不符合项
+4. 每个不符合项输出：检查ID、降级场景、当前处理方式、正确处理方式、修复建议
+
+**与Spec一致性检查的协同**：
+- SC-002（异常处理一致性）检查"代码是否与spec一致"
+- DG-001~DG-006 检查"降级处理本身是否符合规范"
+- 两者互补：spec有明确要求时用SC-002，spec未明确时用DG规则兜底
+
 ---
 
 ## 快速自检
@@ -362,7 +438,19 @@ public class HnnxXxxReq implements Serializable {
 - 票据业务：金额计算规则✓ 利率单位✓ 日终分页✓ 流水号唯一性✓ 无硬编码✓ 分录配置✓ 客户账号唯一性✓
 - BEMP规范：@CloudComponent继承✓ @Autowired✓ StringUtils lang3✓ PageInfo默认值✓ 第三方依赖✓
 
-### 阶段4：Maven编译 → 阶段5：输出报告（模板见 `templates/report-template.md`）
+### 阶段4：Spec一致性与降级模式检查 🆕v3.2
+
+**Spec一致性检查**（配置见 `config/spec-consistency-checklist.json`）：
+- 读取spec文档（PRD/详细设计/需求确认记录），无spec时注明"跳过一致性检查"
+- 逐项比对：日志级别✓ 异常处理✓ 任务隔离✓ 错误文案✓ 流程顺序✓ 参数校验✓
+- 每个不一致项记录：检查ID、spec要求、代码实现、偏差描述、修复建议
+
+**降级处理模式检查**（配置见 `config/degradation-checklist.json`）：
+- 扫描所有异常处理分支(try-catch/条件判空/文件操作/远程调用/配置读取)
+- 逐项检查：文件不存在✓ 文件为空✓ 数据为空✓ 网络异常✓ 服务不可用✓ 配置缺失✓
+- 每个不符合项记录：检查ID、降级场景、当前处理方式、正确处理方式、修复建议
+
+### 阶段5：Maven编译 → 阶段6：输出报告（模板见 `templates/report-template.md`）
 
 ---
 
@@ -392,6 +480,13 @@ public class HnnxXxxReq implements Serializable {
 | 使用@Resource注入(应用@Autowired) | Redis锁在事务内 | @CloudComponent继承实现类 |
 | 查询/更新条件缺空判断 | Collectors.toMap缺merge函数 | Dto属性用Date类型 |
 | mybatis非String类型写!= '' | 分录配置编号重复 | StringUtils用commons-lang |
+| Spec要求抛异常但代码return(SC-002) | Spec日志级别不一致(SC-001) | Spec错误文案不一致(SC-004) |
+| Spec要求参数校验但未实现(SC-006) | Spec任务隔离不一致(SC-003) |
+| 关键文件不存在静默return(DG-001) | Spec流程顺序不一致(SC-005) |
+| 核心服务不可用静默跳过(DG-005) | 文件为空return null(DG-002) |
+| | 数据为空return null(DG-003) |
+| | 网络异常不重试直接return(DG-004) |
+| | 必填配置缺失用默认值(DG-006) |
 
 ---
 

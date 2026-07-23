@@ -1,0 +1,109 @@
+{
+    "description": "BEMP后端代码审查 - Spec一致性检查清单。比对代码实现与spec要求的一致性，捕获实现与设计偏差。所有检查项通过本文件管理，无硬编码。",
+    "version": "1.0.0",
+    "lastUpdate": "2026-07-22",
+
+    "inheritance": {
+        "levels": ["skill", "project", "bank"],
+        "rule": "技能级默认(defaults) → 项目级覆盖(projectOverrides) → 银行级覆盖(bankOverrides.{bankCode})，后者覆盖前者同名检查项(id匹配)",
+        "overrideFields": ["severity", "checkLogic", "fixSuggestion", "enabled"],
+        "note": "覆盖时按id匹配，仅覆盖指定字段，未覆盖字段继承上一级默认值"
+    },
+
+    "defaults": {
+        "checks": [
+            {
+                "id": "SC-001",
+                "name": "日志级别一致性",
+                "severity": "严重",
+                "checkLogic": "比对spec中要求的日志级别(error/warn/info)与代码实际使用的日志级别。若spec要求error而代码使用warn或info，判定为不一致。重点检查异常路径和降级路径的日志级别。",
+                "fixSuggestion": "将代码中的日志级别修改为spec要求的级别。如spec要求error则用LOGGER.error并携带异常对象，如spec要求warn则用LOGGER.warn。",
+                "enabled": true,
+                "example": {
+                    "spec": "CBS文件不存在时记录error日志",
+                    "wrong": "LOGGER.warn(\"CBS文件不存在\");",
+                    "correct": "LOGGER.error(\"CBS文件不存在\", e);"
+                }
+            },
+            {
+                "id": "SC-002",
+                "name": "异常处理一致性",
+                "severity": "阻塞",
+                "checkLogic": "比对spec中要求的异常处理方式(抛异常throw/降级return/重试retry)与代码实际实现。若spec要求抛异常而代码return，或spec要求return而代码throw，判定为不一致。",
+                "fixSuggestion": "将代码的异常处理方式修改为spec要求的方式。spec要求抛异常则throw BempRuntimeException，spec要求降级则return并记录warn日志。",
+                "enabled": true,
+                "example": {
+                    "spec": "CBS文件解析失败时抛出BempRuntimeException终止流程",
+                    "wrong": "LOGGER.warn(\"解析失败\"); return null;",
+                    "correct": "throw new BempRuntimeException(\"CBS文件解析失败\", e);"
+                }
+            },
+            {
+                "id": "SC-003",
+                "name": "任务隔离一致性",
+                "severity": "严重",
+                "checkLogic": "比对spec中要求的任务隔离策略(任务间隔离/失败不影响其他任务)与代码实际实现。若spec要求任务隔离而代码中一个任务失败导致后续任务全部跳过或静默跳过失败任务不记录，判定为不一致。",
+                "fixSuggestion": "按spec要求实现任务隔离：每个任务独立try-catch，失败任务记录error日志并跳过，不影响后续任务执行；全部完成后汇总失败任务列表。",
+                "enabled": true,
+                "example": {
+                    "spec": "同步机构树时各机构任务相互隔离，单个机构失败不影响其他机构",
+                    "wrong": "catch块中break退出循环，后续机构全部跳过",
+                    "correct": "catch块中记录error日志，continue继续下一个机构"
+                }
+            },
+            {
+                "id": "SC-004",
+                "name": "错误文案一致性",
+                "severity": "警告",
+                "checkLogic": "比对spec中定义的错误提示文案与代码实际输出的文案。检查异常消息、日志消息、返回提示的文案是否与spec一致，包括措辞、错误码、字段名称。",
+                "fixSuggestion": "将代码中的错误文案修改为spec定义的文案，确保措辞和错误码完全一致，便于运维定位和用户理解。",
+                "enabled": true,
+                "example": {
+                    "spec": "错误提示：机构编号[{brchNo}]同步失败，原因：{reason}",
+                    "wrong": "throw new BempRuntimeException(\"同步失败\");",
+                    "correct": "throw new BempRuntimeException(String.format(\"机构编号[%s]同步失败，原因：%s\", brchNo, reason));"
+                }
+            },
+            {
+                "id": "SC-005",
+                "name": "流程顺序一致性",
+                "severity": "严重",
+                "checkLogic": "比对spec中定义的执行步骤顺序与代码实际调用顺序。检查方法调用、服务调用、数据处理的先后顺序是否与spec一致，重点检查有依赖关系的步骤顺序。",
+                "fixSuggestion": "调整代码执行顺序使其与spec定义的步骤一致。若顺序调整涉及事务边界，需同步检查事务一致性。",
+                "enabled": true,
+                "example": {
+                    "spec": "步骤顺序：1.校验参数 2.查询机构 3.同步数据 4.记录日志",
+                    "wrong": "先同步数据再查询机构，导致同步了无效机构",
+                    "correct": "先校验参数，再查询机构，确认有效后同步数据，最后记录日志"
+                }
+            },
+            {
+                "id": "SC-006",
+                "name": "参数校验一致性",
+                "severity": "阻塞",
+                "checkLogic": "比对spec中要求的参数校验规则(必填校验/范围校验/格式校验/枚举校验)与代码实际实现。若spec要求校验某参数而代码未校验，或校验规则与spec不符，判定为不一致。",
+                "fixSuggestion": "按spec要求补充参数校验逻辑。必填参数用BempValidUtil.validBaseRequest或Objects.requireNonNull，范围/格式校验按spec规则实现。",
+                "enabled": true,
+                "example": {
+                    "spec": "brchNo必填且长度≤20，legalNo必填且为数字",
+                    "wrong": "未校验brchNo和legalNo直接使用",
+                    "correct": "Objects.requireNonNull(brchNo, \"机构编号不能为空\"); if (brchNo.length() > 20) throw ..."
+                }
+            }
+        ]
+    },
+
+    "projectOverrides": {
+        "note": "项目级覆盖配置，按id匹配defaults中的检查项，仅覆盖指定字段。默认为空，需要时在此添加。"
+    },
+
+    "bankOverrides": {
+        "note": "银行级覆盖配置，按bankCode分组，每组内按id匹配覆盖。默认为空，新银行需要特殊规则时在此添加。",
+        "example": {
+            "SC-004": {
+                "severity": "严重",
+                "note": "示例银行要求错误文案检查提升为严重级别"
+            }
+        }
+    }
+}

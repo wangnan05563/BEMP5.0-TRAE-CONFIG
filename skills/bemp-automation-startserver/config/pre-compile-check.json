@@ -1,0 +1,122 @@
+{
+  "_doc": "编译前文件完整性检查配置 - 检测文件写入截断（大括号不匹配等）问题，在编译前发现而非编译时才暴露（F-01改进）",
+  "_ref": "路径引用 _shared/env-config.json，通过 ${ENV:} 占位符解析",
+  "_inheritance": {
+    "_doc": "配置继承优先级：defaults → overrides.project → overrides.banks.{bankCode}，深度合并，后者覆盖前者同名键",
+    "mergeRule": "deep-merge-last-wins",
+    "bankKey": "${ENV:BANK_CODE}",
+    "levels": [
+      "defaults（技能级默认，本文件）",
+      "overrides.project（项目级覆盖）",
+      "overrides.banks.{bankCode}（银行级覆盖）"
+    ]
+  },
+
+  "defaults": {
+    "_doc": "检查工具与默认参数",
+    "gitPath": "${ENV:GIT_PATH}",
+    "gitDiffCommand": "git diff --name-only HEAD",
+    "gitDiffStagedCommand": "git diff --cached --name-only",
+    "gitStatusCommand": "git status --short",
+    "_scopeDoc": "检查范围：仅检查最近修改的文件（通过git diff获取），避免全量扫描耗时",
+    "failOnWarning": false,
+    "_failOnWarningDoc": "false=大括号不匹配仅警告，允许继续编译（让编译器最终裁决）；true=警告即阻断编译",
+    "workspaceRoot": "${ENV:BEMP_WORKSPACE_ROOT}"
+  },
+
+  "checks": {
+    "_doc": "检查规则定义。每项检查可独立启用/禁用，设置严重度和排除规则",
+    "braceBalance": {
+      "_doc": "大括号匹配检查：统计Java文件中{和}数量，diff≠0则警告（文件写入截断的典型特征）",
+      "enabled": true,
+      "openBrace": "{",
+      "closeBrace": "}",
+      "severity": "warn",
+      "_severityDoc": "warn=警告但不阻断；block=阻断编译",
+      "excludeComments": true,
+      "_excludeCommentsDoc": "true=统计时排除//和/* */注释中的大括号，减少误报",
+      "excludeStrings": true,
+      "_excludeStringsDoc": "true=统计时排除字符串字面量中的大括号，减少误报",
+      "allowDiff": 0,
+      "_allowDiffDoc": "允许的大括号数量差。0=必须完全匹配；正值=允许{比}多N个（如未完成的代码草稿）"
+    },
+    "parenBalance": {
+      "_doc": "圆括号匹配检查：统计(和)数量，diff≠0则警告",
+      "enabled": false,
+      "openParen": "(",
+      "closeParen": ")",
+      "severity": "warn",
+      "excludeComments": true,
+      "excludeStrings": true,
+      "allowDiff": 0
+    },
+    "fileNonEmpty": {
+      "_doc": "文件非空检查：检测0字节文件（写入截断的另一特征）",
+      "enabled": true,
+      "severity": "block",
+      "_severityDoc": "block=空文件阻断编译，因为这是明确的写入失败",
+      "minSizeBytes": 1
+    },
+    "fileEndsWithNewline": {
+      "_doc": "文件末尾换行检查：检测文件是否被完整写入（截断文件常缺少末尾换行）",
+      "enabled": false,
+      "severity": "warn"
+    }
+  },
+
+  "fileFilter": {
+    "_doc": "文件过滤规则：确定哪些文件需要检查",
+    "extensions": [".java"],
+    "_extensionsDoc": "仅检查Java源文件。可扩展支持.xml/.properties等",
+    "excludes": {
+      "_doc": "排除规则：匹配的文件跳过检查。支持glob模式",
+      "patterns": [
+        "**/target/**",
+        "**/test/**",
+        "**/generated-sources/**",
+        "**/generated/**",
+        "**/*.bak"
+      ],
+      "_patternsDoc": "排除编译输出、测试、生成代码和备份文件"
+    },
+    "includeUntracked": true,
+    "_includeUntrackedDoc": "true=同时检查git未跟踪的新增文件（git status获取）；false=仅检查已跟踪文件的改动"
+  },
+
+  "outputFormat": {
+    "_doc": "检查结果输出格式",
+    "passTemplate": "[OK]   {fileName}: brace balance ({openCount}/{closeCount}, diff={diff})",
+    "warnTemplate": "[WARN] {fileName}: brace imbalance ({openCount}/{closeCount}, diff={diff}) - possible file truncation",
+    "failTemplate": "[FAIL] {fileName}: {checkName} failed - {detail}",
+    "summaryTemplate": "Pre-compile check: {passed}/{total} files passed ({warnings} warnings, {failures} failures)",
+    "exitOnBlock": true,
+    "_exitOnBlockDoc": "true=有block级失败时退出码非0，阻断编译；warn级不阻断"
+  },
+
+  "overrides": {
+    "_doc": "项目级和银行级覆盖配置",
+    "project": {
+      "_doc": "项目级覆盖：按项目调整检查严格度或排除规则。默认为空"
+    },
+    "banks": {
+      "_doc": "银行级覆盖：按银行差异调整检查规则。key为银行code（BANK_CODE）",
+      "_example": {
+        "hnnxbank": {
+          "checks": {
+            "braceBalance": {
+              "severity": "block"
+            }
+          },
+          "fileFilter": {
+            "excludes": {
+              "patterns": [
+                "**/target/**",
+                "**/hnnxbank-specific-generated/**"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

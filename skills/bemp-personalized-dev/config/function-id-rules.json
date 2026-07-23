@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "@CloudFunction 功能号冲突检查规则 - 开发新增功能号前自动查询数据库验证唯一性",
+  "version": "1.0.0",
+  "_ref": "所有路径和参数通过配置管理，禁止硬编码功能号",
+
+  "inheritance": {
+    "description": "配置继承优先级：技能级(本文件默认) → 项目级(覆盖) → 银行级(覆盖)",
+    "levels": [
+      {
+        "level": "skill",
+        "path": ".trae/skills/bemp-personalized-dev/config/function-id-rules.json",
+        "description": "技能默认配置，适用于所有银行"
+      },
+      {
+        "level": "project",
+        "path": "config/function-id-rules.json",
+        "description": "项目级覆盖配置，位于项目根目录config下"
+      },
+      {
+        "level": "bank",
+        "path": "banks/ext-${ENV:BANK_PROJECT_DIR}/config/function-id-rules.json",
+        "description": "银行级覆盖配置，优先级最高"
+      }
+    ],
+    "mergeStrategy": "deepMerge",
+    "arrayStrategy": "replace"
+  },
+
+  "checkTarget": {
+    "tableName": "TT_TASK",
+    "funcNoColumn": "TASK_FUNCNO",
+    "description": "功能号存储在 TT_TASK 表的 TASK_FUNCNO 字段中",
+    "queryTemplate": "SELECT COUNT(1) AS CNT FROM {tableName} WHERE {funcNoColumn} = '{funcNo}'"
+  },
+
+  "generationRules": {
+    "description": "功能号自动生成规则，按银行前缀+序号组合",
+    "prefix": "${ENV:BANK_FUNC_PREFIX}",
+    "prefixDefault": "HNNXTK",
+    "prefixNote": "功能号前缀，默认从环境变量读取，未配置时使用 prefixDefault",
+    "seqRange": {
+      "min": 1,
+      "max": 999999,
+      "description": "序号取值范围，自动分配时从此范围内选取"
+    },
+    "format": "{prefix}{seq:06d}",
+    "formatNote": "功能号格式：前缀+6位序号零填充，如 HNNXTK020103",
+    "excludeList": {
+      "description": "已占用或保留的功能号列表，自动分配时跳过这些值",
+      "values": [],
+      "note": "可通过银行级配置追加已占用的功能号"
+    }
+  },
+
+  "conflictHandling": {
+    "onConflict": "block",
+    "description": "发现功能号冲突时的处理策略",
+    "strategies": {
+      "block": "阻止开发，提示冲突并要求更换功能号",
+      "autoReassign": "自动分配下一个可用功能号（需配合 seqRange 使用）",
+      "warn": "仅警告，允许继续开发但标记风险"
+    },
+    "defaultStrategy": "block",
+    "autoReassignMaxRetries": 10,
+    "autoReassignNote": "autoReassign 策略下最多尝试次数，避免无限循环"
+  },
+
+  "checkTriggers": {
+    "description": "触发功能号检查的场景",
+    "triggers": [
+      {
+        "scene": "新增 @CloudFunction 注解",
+        "pattern": "@CloudFunction\\s*\\(.*funcNo\\s*=\\s*\"([^\"]+)\"",
+        "action": "提取 funcNo 值并检查唯一性"
+      },
+      {
+        "scene": "修改已有 @CloudFunction 的 funcNo",
+        "pattern": "funcNo\\s*=\\s*\"([^\"]+)\"",
+        "action": "提取新 funcNo 值并检查唯一性（排除自身记录）"
+      }
+    ]
+  },
+
+  "output": {
+    "success": "功能号 {funcNo} 唯一性检查通过，可安全使用",
+    "conflict": "功能号 {funcNo} 已被 TT_TASK 表占用（记录数：{count}），请更换功能号或使用 autoReassign 策略自动分配",
+    "excludeHit": "功能号 {funcNo} 在排除列表中，请更换"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "bemp-test-common 技能配置 - 测试共享资源层参数集中管理",
+  "version": "1.0.0",
+  "usage": "通过 _shared/Resolve-EnvConfig.ps1 引用 _shared/env-config.json 获取环境参数",
+
+  "envConfigRef": {
+    "path": "_shared/env-config.json",
+    "description": "全局环境配置引用，以下参数均从 env-config.json 解析",
+    "bank": {
+      "code": "${ENV:BANK_CODE}",
+      "urlPrefix": "${ENV:BANK_URL_PREFIX}"
+    },
+    "services": {
+      "frontend": "http://${ENV:BEMP_HOST}:${ENV:BEMP_FRONTEND_PORT}",
+      "backend": "http://${ENV:BEMP_HOST}:${ENV:BEMP_BACKEND_PORT}"
+    },
+    "testAccounts": {
+      "passwordEnvVar": "BEMP_TEST_PASSWORD",
+      "note": "测试账号密码统一通过 BEMP_TEST_PASSWORD 环境变量注入"
+    }
+  },
+
+  "testArchitecture": {
+    "layers": {
+      "data": "bemp-test-common",
+      "write": "bemp-testcase-generator",
+      "execute": {
+        "round1": "bemp-webapp-testing",
+        "round2": "bemp-chrome-devtools-test"
+      }
+    },
+    "description": "三层架构：共享资源层(bemp-test-common) → 用例编写层(bemp-testcase-generator) → 用例执行层(bemp-webapp-testing / bemp-chrome-devtools-test)"
+  },
+
+  "testCaseStandards": {
+    "idFormat": "TC-{模块大写}-{三位数字}",
+    "priorityLevels": ["P0", "P1", "P2"],
+    "selfCheckItems": [
+      "统计一致性",
+      "预期结果确定性",
+      "编号规范性",
+      "前置条件完整性",
+      "跨模块可执行性预标注",
+      "单一职责"
+    ],
+    "executabilityTags": {
+      "independent": "独立可执行",
+      "crossModule": "需跨模块操作",
+      "specialData": "需专项数据",
+      "timeCondition": "需时间条件"
+    }
+  },
+
+  "resourcePaths": {
+    "testCases": "test-cases/",
+    "testData": "test-data/",
+    "references": "references/",
+    "delivery": "delivery/",
+    "testIndex": "test-index.json"
+  },
+
+  "qualityGates": {
+    "caseReview": {
+      "passCondition": "严重=0 且 主要=0",
+      "conditionalPass": "严重=0 且 主要>0 → 执行前修复",
+      "rollback": "严重>0 → 回退用例编制"
+    },
+    "defectClosure": {
+      "p0p1Rule": "P0/P1 全部修复验证通过",
+      "p2p3Rule": "P2/P3 记录已知问题，交付文档中列出"
+    },
+    "delivery": {
+      "preConditions": [
+        "P0/P1缺陷闭环",
+        "测试完成度(P0/P1用例全部执行)",
+        "需求确认闭环"
+      ]
+    }
+  }
+}

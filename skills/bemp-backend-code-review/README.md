@@ -1,7 +1,9 @@
-# bemp-backend-code-review v3.1.0
+# bemp-backend-code-review v3.2.0
 
-BEMP 银行个性化后端代码审查技能。配置驱动，支持多银行切换，整合 java-code-review、concurrency-review、api-contract-review、architecture-review 四项技能及票据系统问题汇总，覆盖 22 个审查维度。
+BEMP 银行个性化后端代码审查技能。配置驱动，支持多银行切换，整合 java-code-review、concurrency-review、api-contract-review、architecture-review 四项技能及票据系统问题汇总，覆盖 24 个审查维度。
 
+> **v3.2.0 Spec一致性与降级模式检查**：基于"同步机构树数据并校验"需求复盘（BUG-005：CBS文件降级处理与spec不一致），新增维度23（Spec一致性检查，6项配置化检查项）和维度24（降级处理模式检查，6种降级场景检查规则），新增配置继承机制（技能级→项目级→银行级三级覆盖），新增2个配置文件（spec-consistency-checklist.json、degradation-checklist.json），审查流程新增阶段4。
+>
 > **v3.1.0 知识点整合**：整合票据系统知识点检查清单，新增维度22（BEMP项目规范），扩展维度7（@Autowired）、9（AOP日志）、13（Redis锁事务外/MVCC/死锁顺序）、15（toMap merge）、16（BigDecimal.divide/ThreadLocal/子票区间Long）、20（空判断防全表/mybatis jdbcType/updateByIdSelective）、21（分录配置/流水号/客户账号唯一性），自动扫描13→16项。
 
 ## 目录结构
@@ -11,7 +13,9 @@ bemp-backend-code-review/
 ├── SKILL.md                      技能定义与审查规则（AI Agent 入口）
 ├── README.md                     本文件（开发者入口）
 ├── config/
-│   └── bank-config.json          多银行参数配置（currentBank 切换银行）
+│   ├── bank-config.json                  多银行参数配置（currentBank 切换银行）
+│   ├── spec-consistency-checklist.json   Spec一致性检查清单（6项，三级继承）
+│   └── degradation-checklist.json        降级处理模式检查清单（6种，三级继承）
 ├── scripts/
 │   ├── auto-scan.ps1             Windows PowerShell 阻塞级问题自动扫描
 │   └── auto-scan.sh              Unix/Linux/Mac Bash 阻塞级问题自动扫描
@@ -29,9 +33,12 @@ bemp-backend-code-review/
 | **增量审查** | 仅审查 `git diff --name-only` 变更文件 | 粘贴变更文件列表 |
 | **快速自检** | 7 项阻塞级问题自动扫描，提交前必做 | `pwsh scripts/auto-scan.ps1` |
 | **多银行切换** | 修改 `currentBank` 即可，审查规则不变 | 编辑 `config/bank-config.json` |
+| **Spec一致性检查** 🆕v3.2 | 比对代码实现与spec要求，6项配置化检查 | 审查阶段4，需提供spec文档 |
+| **降级模式检查** 🆕v3.2 | 系统化检查降级处理是否符合规范，6种降级场景 | 审查阶段4，自动执行 |
+| **配置继承机制** 🆕v3.2 | 技能级→项目级→银行级三级覆盖，无硬编码 | 编辑 `config/*.json` 的 overrides |
 | **版本化报告** | 按银行+时间戳归档，支持历史对比 | 审查完成后自动生成 |
 
-## 审查维度（22 项）
+## 审查维度（24 项）
 
 | # | 维度 | 核心规则 |
 |:--|:---|:---|
@@ -57,6 +64,8 @@ bemp-backend-code-review/
 | 20 | SQL与数据库专项 | 索引优化、SQL兼容性、拼接正确性、查询性能、分页排序规范、空判断防全表、mybatis jdbcType |
 | 21 | 票据业务专项 | 金额计算规则、保证金/扣款/利率、日终任务分页、流水号唯一性、分录配置、客户账号唯一性 |
 | 22 | BEMP项目规范 🆕 | @CloudComponent继承顺序、@Autowired(禁@Resource)、StringUtils lang3、PageInfo默认10、dataprovide排序、第三方依赖冲突 |
+| 23 | Spec一致性检查 🆕v3.2 | 日志级别/异常处理/任务隔离/错误文案/流程顺序/参数校验一致性，配置化6项，比对代码与spec |
+| 24 | 降级处理模式检查 🆕v3.2 | 文件不存在/文件为空/数据为空/网络异常/服务不可用/配置缺失降级，配置化6种，系统化检查降级规范 |
 
 ## 严重程度分级
 
@@ -146,7 +155,7 @@ git diff --name-only HEAD~1 -- 'banks/ext-hnnxbank/**/*.java'
 
 ```
 快速自检(auto-scan) → 前置检查(位置/注解/路径) → 代码规范(Controller/参数/服务调用)
-→ 质量与安全(日志/安全/性能/异常) → Maven编译验证 → 输出审查报告(按模板)
+→ 质量与安全(日志/安全/性能/异常) → Spec一致性与降级模式检查 → Maven编译验证 → 输出审查报告(按模板)
 ```
 
 ## 审查报告
@@ -176,8 +185,10 @@ git diff --name-only HEAD~1 -- 'banks/ext-hnnxbank/**/*.java'
 
 | 文件 | 用途 | 加载方式 |
 |:---|:---|:---|
-| `SKILL.md` | 审查规则与流程定义（含 22 维度 + 附录 A/B） | 技能调用时自动加载 |
+| `SKILL.md` | 审查规则与流程定义（含 24 维度 + 附录 A/B） | 技能调用时自动加载 |
 | `config/bank-config.json` | 多银行参数配置 + 切换指南 | 脚本运行时读取 |
+| `config/spec-consistency-checklist.json` 🆕v3.2 | Spec一致性检查清单（6项，三级继承） | 审查阶段4读取 |
+| `config/degradation-checklist.json` 🆕v3.2 | 降级处理模式检查清单（6种，三级继承） | 审查阶段4读取 |
 | `scripts/auto-scan.ps1` | Windows 16 项阻塞级自动扫描 | 手动执行 |
 | `scripts/auto-scan.sh` | Unix/Linux/Mac 16 项阻塞级自动扫描 | 手动执行 |
 | `templates/report-template.md` | 审查报告模板（含历史对比） | 审查输出时按需引用 |
@@ -213,6 +224,7 @@ git diff --name-only HEAD~1 -- 'banks/ext-hnnxbank/**/*.java'
 
 | 版本 | 日期 | 变更 |
 |:---|:---|:---|
+| v3.2.0 | 2026-07-22 | Spec一致性与降级模式检查：基于BUG-005复盘，新增维度23(Spec一致性检查，6项SC-001~006)和维度24(降级处理模式检查，6种DG-001~006)，新增配置继承机制(技能级→项目级→银行级)，新增2个配置文件(spec-consistency-checklist.json、degradation-checklist.json)，审查流程新增阶段4，22→24维度 |
 | v3.1.0 | 2026-05-22 | 知识点整合：整合票据系统知识点检查清单，新增维度22(BEMP项目规范)，扩展维度7/9/13/15/16/20/21，自动扫描13→16项，21→22维度 |
 | v3.0.0 | 2026-05-22 | 票据业务专项整合：整合票据系统问题分享汇总(2023.06-2026.05)，新增维度20(SQL与数据库专项)和维度21(票据业务专项)，扩展维度10(数值比较)、12(分页排序/批量插入/大文件)、13(大事务拆分/Redis锁/死锁)、16(时间格式/double精度)，自动扫描7→13项，19→21维度 |
 | v2.9.0 | 2026-05-22 | 多技能整合：融合concurrency-review(@Async/CompletableFuture/Executor)、api-contract-review(HTTP语义/分页/错误格式)、architecture-review(分层架构/领域纯净性/循环依赖)，17→19维度 |

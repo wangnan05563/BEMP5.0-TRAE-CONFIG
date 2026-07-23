@@ -1,0 +1,86 @@
+{
+  "_comment": "测试数据就绪度预检配置。功能测试执行前自动检查所需数据是否就绪，未就绪的用例自动标注SKIP及原因。",
+  "version": "1.0.0",
+  "checks": [
+    {
+      "type": "database_table",
+      "name": "数据库表存在性与记录数检查",
+      "params": ["table_name", "min_records"],
+      "check_methods": {
+        "oracle": {
+          "exists_sql": "SELECT COUNT(*) FROM ALL_TABLES WHERE TABLE_NAME = '{table_name}'",
+          "count_sql": "SELECT COUNT(*) FROM {table_name}",
+          "mcp_server": "mcp_oracle-mcp",
+          "mcp_tool": "execute_query"
+        },
+        "mysql": {
+          "exists_sql": "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '{table_name}'",
+          "count_sql": "SELECT COUNT(*) FROM {table_name}",
+          "mcp_server": "mcp_MySQL",
+          "mcp_tool": "execute_sql"
+        }
+      }
+    },
+    {
+      "type": "database_record",
+      "name": "数据库记录条件检查",
+      "params": ["table_name", "where_clause", "expected_count"],
+      "check_methods": {
+        "oracle": {
+          "count_sql": "SELECT COUNT(*) FROM {table_name} WHERE {where_clause}",
+          "mcp_server": "mcp_oracle-mcp",
+          "mcp_tool": "execute_query"
+        },
+        "mysql": {
+          "count_sql": "SELECT COUNT(*) FROM {table_name} WHERE {where_clause}",
+          "mcp_server": "mcp_MySQL",
+          "mcp_tool": "execute_sql"
+        }
+      }
+    },
+    {
+      "type": "file_exists",
+      "name": "文件存在性检查",
+      "params": ["file_path", "file_pattern"],
+      "check_methods": {
+        "powershell": "Test-Path '{file_path}'"
+      }
+    },
+    {
+      "type": "api_available",
+      "name": "接口可用性检查",
+      "params": ["api_url", "expected_status"],
+      "check_methods": {
+        "http": "HTTP GET {api_url} → status_code == {expected_status}"
+      }
+    },
+    {
+      "type": "config_value",
+      "name": "配置值检查",
+      "params": ["config_path", "config_key", "expected_value"],
+      "check_methods": {
+        "description": "读取配置文件中指定key的值是否为expected_value"
+      }
+    }
+  ],
+  "skip_reasons": {
+    "table_not_found": "数据库表{table_name}不存在，需先创建表结构",
+    "no_records": "表{table_name}记录数<{min_records}，需先准备测试数据",
+    "record_not_match": "表{table_name}中{where_clause}的记录数<{expected_count}，需先插入测试数据",
+    "file_missing": "文件{file_path}不存在，需先准备文件",
+    "api_unavailable": "接口{api_url}不可用（HTTP状态码非{expected_status}），需检查服务状态",
+    "config_mismatch": "配置{config_key}的值不是{expected_value}，需修改配置"
+  },
+  "readiness_report": {
+    "output_format": "markdown",
+    "template": "## 数据就绪度报告\n\n| 检查项 | 类型 | 状态 | 详情 | 影响用例数 |\n|--------|------|------|------|-----------|\n| {check_name} | {type} | {status} | {detail} | {affected_cases} |\n\n### 就绪结论\n- 可执行用例：{ready_count}条\n- 需补充数据：{not_ready_count}条\n- 建议优先准备：{priority_items}",
+    "output_path": "aotutests-playwright/reports/{bank_id}/{date}/data-readiness-report.md"
+  },
+  "workflow": {
+    "step_1": "读取测试用例文件，提取每条用例的数据依赖",
+    "step_2": "按checks配置逐项检查数据就绪状态",
+    "step_3": "标注不可执行的用例及SKIP原因",
+    "step_4": "生成数据就绪度报告",
+    "step_5": "仅执行数据就绪的用例，未就绪用例标记SKIP"
+  }
+}

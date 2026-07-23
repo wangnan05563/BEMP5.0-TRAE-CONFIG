@@ -1,0 +1,353 @@
+{
+  "_comment": "代码审查类测试用例模板配置。提供4种验证类型的标准模板，用于生成通过Read源码方式执行的测试用例。每种模板包含编号规则、前置条件、验证步骤、预期结果格式和审查文件清单。",
+  "version": "1.0.0",
+  "config_inheritance": {
+    "description": "配置继承机制：技能级配置（默认）→ 项目级配置（覆盖）→ 银行级配置（覆盖）",
+    "levels": [
+      {
+        "level": "skill",
+        "path": "bemp-testcase-generator/config/testcase-templates.json",
+        "description": "技能级默认配置，所有项目通用的模板定义"
+      },
+      {
+        "level": "project",
+        "path": "bemp-test-common/config/testcase-templates-override.json",
+        "description": "项目级覆盖配置，针对当前项目的定制化模板（可选）"
+      },
+      {
+        "level": "bank",
+        "path": "bemp-test-common/config/{bank_id}/testcase-templates-override.json",
+        "description": "银行级覆盖配置，针对特定银行的定制化模板（可选）"
+      }
+    ],
+    "merge_strategy": "deep_merge",
+    "merge_rule": "同路径配置项按层级递进覆盖，数组类型追加而非替换，对象类型逐字段合并"
+  },
+  "templates": {
+    "annotation_verification": {
+      "name": "注解值验证模板",
+      "description": "验证Java注解（@CloudFunction、@CloudComponent、@CloudEvent等）的属性值是否与需求规格一致",
+      "case_id_rule": {
+        "prefix": "TC-CODE-ANN",
+        "format": "TC-CODE-ANN-{SEQ}",
+        "description": "CODE表示代码审查类，ANN表示注解验证子类型"
+      },
+      "prerequisites": [
+        "源代码已拉取到本地工作区",
+        "需求规格文档（PRD/设计文档）已明确注解属性值要求",
+        "已确定需要审查的注解类型列表（从 annotation_types 加载）"
+      ],
+      "verification_steps": [
+        "通过 SearchCodebase 或 rg 定位包含目标注解的源文件",
+        "Read 源文件，提取注解的所有属性值",
+        "将提取的注解属性值与需求规格文档中的期望值逐一比对",
+        "记录比对结果：一致/不一致/缺失"
+      ],
+      "expected_result_format": {
+        "pass_pattern": "{file_path} 中 @{annotation_name} 的 {attribute_name}={actual_value}，与规格要求 {expected_value} 一致",
+        "fail_pattern": "{file_path} 中 @{annotation_name} 的 {attribute_name}={actual_value}，与规格要求 {expected_value} 不一致",
+        "missing_pattern": "{file_path} 中未找到 @{annotation_name} 注解，但规格要求该类应有此注解"
+      },
+      "review_file_scope": {
+        "description": "审查文件范围定义",
+        "file_patterns": [
+          "**/controller/**/*.java",
+          "**/service/**/*.java",
+          "**/component/**/*.java",
+          "**/event/**/*.java"
+        ],
+        "search_strategy": "按注解类型全量搜索，不做目录限制"
+      },
+      "annotation_types": {
+        "@CloudFunction": {
+          "description": "云函数注解，验证 funcCode 属性值是否与接口定义一致",
+          "required_attributes": ["funcCode"],
+          "optional_attributes": ["desc", "permission"]
+        },
+        "@CloudComponent": {
+          "description": "云组件注解，验证 compCode 属性值是否与组件注册表一致",
+          "required_attributes": ["compCode"],
+          "optional_attributes": ["desc", "version"]
+        },
+        "@CloudEvent": {
+          "description": "云事件注解，验证 eventCode 属性值是否与事件定义一致",
+          "required_attributes": ["eventCode"],
+          "optional_attributes": ["desc", "async"]
+        },
+        "@RequestMapping": {
+          "description": "请求映射注解，验证 path/method 属性值是否与接口文档一致",
+          "required_attributes": ["value"],
+          "optional_attributes": ["method", "params"]
+        }
+      },
+      "example": {
+        "case_id": "TC-CODE-ANN-001",
+        "case_name": "验证机构同步Controller的@CloudFunction注解funcCode值",
+        "test_steps": "1. rg '@CloudFunction' --type java -l 定位文件\n2. Read 目标Controller文件\n3. 提取@CloudFunction(funcCode='...')属性值\n4. 与接口定义文档中的funcCode比对",
+        "expected_result": "OrgSyncController.java 中 @CloudFunction 的 funcCode='orgSync001'，与接口定义文档要求 funcCode='orgSync001' 一致"
+      }
+    },
+
+    "error_message_verification": {
+      "name": "错误文案验证模板",
+      "description": "验证代码中抛出的错误信息文案是否与需求规格文档中定义的错误信息完全一致",
+      "case_id_rule": {
+        "prefix": "TC-CODE-ERR",
+        "format": "TC-CODE-ERR-{SEQ}",
+        "description": "CODE表示代码审查类，ERR表示错误文案验证子类型"
+      },
+      "prerequisites": [
+        "源代码已拉取到本地工作区",
+        "需求规格文档已明确各场景的错误提示文案",
+        "已确定需要验证的错误场景列表"
+      ],
+      "verification_steps": [
+        "通过 SearchCodebase 或 rg 搜索抛出异常/返回错误信息的代码位置（关键词从 error_keywords 加载）",
+        "Read 源文件，提取错误信息字符串常量或变量",
+        "将提取的错误文案与需求规格文档中定义的文案逐字比对（含标点符号）",
+        "对于动态拼接的错误信息，验证拼接逻辑和变量值范围",
+        "记录比对结果：完全一致/不一致/缺失"
+      ],
+      "expected_result_format": {
+        "pass_pattern": "{file_path}:{line_number} 处错误文案 '{actual_message}' 与规格定义 '{expected_message}' 完全一致",
+        "fail_pattern": "{file_path}:{line_number} 处错误文案 '{actual_message}' 与规格定义 '{expected_message}' 不一致，差异：{diff_description}",
+        "missing_pattern": "规格要求在 {scenario} 场景下应有错误提示 '{expected_message}'，但代码中未找到对应实现"
+      },
+      "review_file_scope": {
+        "description": "审查文件范围定义",
+        "file_patterns": [
+          "**/service/**/*.java",
+          "**/validator/**/*.java",
+          "**/controller/**/*.java",
+          "**/exception/**/*.java"
+        ],
+        "search_strategy": "按错误关键词搜索，优先在业务逻辑层查找"
+      },
+      "error_keywords": {
+        "exception_throw": {
+          "description": "异常抛出关键词，用于定位错误信息源",
+          "patterns": ["throw new", "BusinessException", "RuntimeException", "IllegalArgumentException"]
+        },
+        "error_return": {
+          "description": "错误返回关键词，用于定位错误响应构造",
+          "patterns": ["retMsg", "errorMsg", "errorMessage", "return error"]
+        },
+        "message_constant": {
+          "description": "消息常量定义关键词，用于定位错误文案常量",
+          "patterns": ["MessageConstants", "ErrorMsg", "ErrorEnum", "RESULT_MSG"]
+        }
+      },
+      "example": {
+        "case_id": "TC-CODE-ERR-001",
+        "case_name": "验证机构同步失败时的错误提示文案",
+        "test_steps": "1. rg '机构同步' --type java 搜索相关业务代码\n2. Read 目标Service文件，定位throw new语句\n3. 提取错误信息字符串\n4. 与PRD中定义的'机构数据同步失败，请检查接口连通性'逐字比对",
+        "expected_result": "OrgSyncServiceImpl.java:145 处错误文案 '机构数据同步失败，请检查接口连通性' 与规格定义 '机构数据同步失败，请检查接口连通性' 完全一致"
+      }
+    },
+
+    "logic_verification": {
+      "name": "逻辑验证模板",
+      "description": "验证方法调用链、条件分支逻辑、返回值正确性是否与设计方案一致",
+      "case_id_rule": {
+        "prefix": "TC-CODE-LOG",
+        "format": "TC-CODE-LOG-{SEQ}",
+        "description": "CODE表示代码审查类，LOG表示逻辑验证子类型"
+      },
+      "prerequisites": [
+        "源代码已拉取到本地工作区",
+        "详细设计文档已明确方法调用链和分支逻辑",
+        "已确定需要验证的核心方法列表"
+      ],
+      "verification_steps": [
+        "通过 SearchCodebase 定位目标方法的实现位置",
+        "Read 源文件，分析方法体内的执行逻辑",
+        "逐一验证以下逻辑维度（从 logic_dimensions 加载检查项）",
+        "绘制实际调用链图，与设计文档中的调用链比对",
+        "对于条件分支，验证每个分支的触发条件和执行结果",
+        "记录比对结果：逻辑一致/逻辑偏差/逻辑缺失"
+      ],
+      "expected_result_format": {
+        "pass_pattern": "{file_path} 中 {method_name} 方法逻辑与设计一致：{logic_description}",
+        "fail_pattern": "{file_path} 中 {method_name} 方法逻辑与设计不符：{expected_logic} vs {actual_logic}",
+        "missing_pattern": "设计要求的 {method_name} 方法在 {file_path} 中未找到实现"
+      },
+      "review_file_scope": {
+        "description": "审查文件范围定义",
+        "file_patterns": [
+          "**/service/impl/**/*.java",
+          "**/handler/**/*.java",
+          "**/strategy/**/*.java",
+          "**/chain/**/*.java"
+        ],
+        "search_strategy": "从入口方法开始，按调用链逐层深入"
+      },
+      "logic_dimensions": {
+        "call_chain": {
+          "description": "方法调用链验证：验证方法A是否按设计调用了方法B、C",
+          "check_items": [
+            "调用顺序是否与设计一致",
+            "被调用方法是否存在且可访问",
+            "调用参数是否正确传递"
+          ]
+        },
+        "conditional_branch": {
+          "description": "条件分支验证：验证if/else/switch分支的覆盖性和正确性",
+          "check_items": [
+            "所有可能的条件分支是否都被处理",
+            "是否存在遗漏的else分支或default分支",
+            "条件判断表达式是否与业务规则一致",
+            "空值/null判断是否完备"
+          ]
+        },
+        "return_value": {
+          "description": "返回值验证：验证方法的返回值是否符合设计预期",
+          "check_items": [
+            "返回值类型是否与设计一致",
+            "返回值内容是否正确构造",
+            "异常情况下的返回值是否合理",
+            "空集合/null返回是否被正确处理"
+          ]
+        },
+        "loop_logic": {
+          "description": "循环逻辑验证：验证for/while循环的边界和退出条件",
+          "check_items": [
+            "循环初始条件是否正确",
+            "循环终止条件是否会达成（无死循环风险）",
+            "循环体内的集合操作是否安全（ConcurrentModificationException风险）"
+          ]
+        }
+      },
+      "example": {
+        "case_id": "TC-CODE-LOG-001",
+        "case_name": "验证机构同步方法调用链：syncOrgInfo → validateOrg → callRemoteApi → saveOrgData",
+        "test_steps": "1. rg 'syncOrgInfo' --type java -l 定位入口方法\n2. Read ServiceImpl文件，分析方法体\n3. 逐行验证调用链：是否先调用validateOrg校验，再调用callRemoteApi获取数据，最后saveOrgData持久化\n4. 验证callRemoteApi失败时的分支处理",
+        "expected_result": "OrgSyncServiceImpl.java 中 syncOrgInfo 方法逻辑与设计一致：先调用 validateOrg 校验机构数据，校验通过后调用 callRemoteApi 获取远程数据，最后调用 saveOrgData 持久化；callRemoteApi 失败时抛出 BusinessException 并回滚事务"
+      }
+    },
+
+    "config_verification": {
+      "name": "配置验证模板",
+      "description": "验证配置key引用、默认值设置、降级逻辑是否正确实现",
+      "case_id_rule": {
+        "prefix": "TC-CODE-CFG",
+        "format": "TC-CODE-CFG-{SEQ}",
+        "description": "CODE表示代码审查类，CFG表示配置验证子类型"
+      },
+      "prerequisites": [
+        "源代码已拉取到本地工作区",
+        "配置文件（application.yml/properties等）已可访问",
+        "需求文档已明确配置项的key命名、默认值和降级行为"
+      ],
+      "verification_steps": [
+        "通过 SearchCodebase 搜索配置项引用代码（关键词从 config_keywords 加载）",
+        "Read 源文件，提取配置key引用方式和默认值",
+        "Read 配置文件，确认key是否已定义、值是否正确",
+        "验证以下配置维度（从 config_dimensions 加载检查项）",
+        "对于降级逻辑，验证当配置缺失时的回退行为",
+        "记录比对结果：配置正确/配置错误/配置缺失"
+      ],
+      "expected_result_format": {
+        "pass_pattern": "{file_path} 中配置项 {config_key} 引用正确，默认值={default_value}，与配置文件值 {config_file_value} 一致",
+        "fail_pattern": "{file_path} 中配置项 {config_key} 引用错误：{error_description}",
+        "missing_pattern": "代码引用了配置项 {config_key}，但配置文件中未定义此项，且无默认值降级"
+      },
+      "review_file_scope": {
+        "description": "审查文件范围定义",
+        "file_patterns": [
+          "**/config/**/*.java",
+          "**/properties/**/*.java",
+          "**/constant/**/*.java",
+          "**/resources/application*.yml",
+          "**/resources/application*.properties"
+        ],
+        "search_strategy": "先搜索配置引用代码，再反查配置文件定义"
+      },
+      "config_keywords": {
+        "spring_value": {
+          "description": "Spring @Value 注解引用，用于定位配置项引用",
+          "patterns": ["@Value", "#\\{", "\\$\\{"]
+        },
+        "config_properties": {
+          "description": " @ConfigurationProperties 绑定类",
+          "patterns": ["@ConfigurationProperties", "@EnableConfigurationProperties"]
+        },
+        "env_get": {
+          "description": "环境变量获取",
+          "patterns": ["System.getProperty", "System.getenv", "Environment.getProperty"]
+        }
+      },
+      "config_dimensions": {
+        "key_reference": {
+          "description": "配置key引用验证：代码中引用的key名是否与配置文件中定义的一致",
+          "check_items": [
+            "key命名规范是否符合项目约定（如点分层级 vs 驼峰）",
+            "key拼写是否正确（无大小写错误、无拼写错误）",
+            "key是否在正确的配置文件中定义"
+          ]
+        },
+        "default_value": {
+          "description": "默认值验证：代码中设置的默认值是否合理且与文档一致",
+          "check_items": [
+            "@Value 注解中的默认值是否与需求文档一致",
+            "默认值的数据类型是否正确",
+            "默认值是否会引发安全问题（如默认密码、默认开放端口）"
+          ]
+        },
+        "fallback_logic": {
+          "description": "降级逻辑验证：当配置项缺失或异常时的回退行为",
+          "check_items": [
+            "配置缺失时是否有合理的默认行为",
+            "配置值非法时是否有校验和降级",
+            "降级逻辑是否记录日志便于排查"
+          ]
+        },
+        "env_override": {
+          "description": "环境变量覆盖验证：环境变量是否正确覆盖配置文件值",
+          "check_items": [
+            "环境变量名是否遵循项目约定",
+            "环境变量优先级是否正确（环境变量 > 配置文件 > 默认值）"
+          ]
+        }
+      },
+      "example": {
+        "case_id": "TC-CODE-CFG-001",
+        "case_name": "验证机构同步超时配置项org.sync.timeout的引用和默认值",
+        "test_steps": "1. rg 'org.sync.timeout' --type java 搜索引用代码\n2. Read 目标文件，提取@Value注解的key和默认值\n3. Read application.yml，确认key已定义\n4. 验证当配置缺失时是否使用默认值3000ms",
+        "expected_result": "OrgSyncConfig.java 中配置项 org.sync.timeout 引用正确，默认值=3000，与配置文件值 org.sync.timeout=5000 一致（配置文件覆盖默认值生效）"
+      }
+    }
+  },
+  "self_check_rules": {
+    "description": "代码审查类用例编制完成后的自校验规则",
+    "check_items": [
+      {
+        "id": "CODE-TC-01",
+        "name": "文件路径明确性检查",
+        "rule": "每条用例必须明确指明审查的源文件路径或搜索范围，不得使用模糊描述如'相关文件'",
+        "auto_fix": false,
+        "severity": "major"
+      },
+      {
+        "id": "CODE-TC-02",
+        "name": "预期结果可判定性检查",
+        "rule": "预期结果必须包含具体的比对值（实际值 vs 期望值），不得仅有'验证通过'等模糊描述",
+        "auto_fix": false,
+        "severity": "major"
+      },
+      {
+        "id": "CODE-TC-03",
+        "name": "搜索策略合理性检查",
+        "rule": "用例中的搜索策略（关键词、文件范围）必须与验证目标匹配，不得使用过于宽泛的关键词",
+        "auto_fix": false,
+        "severity": "minor"
+      },
+      {
+        "id": "CODE-TC-04",
+        "name": "编号规范性检查",
+        "rule": "用例编号必须符合 TC-CODE-{SUBTYPE}-{SEQ} 格式，且SEQ在同类用例中唯一",
+        "auto_fix": true,
+        "severity": "minor"
+      }
+    ]
+  }
+}

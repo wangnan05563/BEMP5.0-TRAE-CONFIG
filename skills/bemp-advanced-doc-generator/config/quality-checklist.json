@@ -1,0 +1,334 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BEMP 交付文档质量审核清单",
+  "description": "交付文档生成后自动执行的质量审核配置。7类审核项覆盖硬编码、功能号、日期、章节结构、占位符、图表完整性、表格完整性。",
+  "version": "1.0.0",
+  "createdAt": "2026-07-22",
+  "updatedAt": "2026-07-22",
+  "_comment": "本文件为交付文档质量审核的唯一配置源。审核在文档生成完成后自动执行，不通过则阻断交付。",
+
+  "configInheritance": {
+    "_comment": "配置继承机制：技能级配置（默认）→ 项目级配置（覆盖）→ 银行级配置（覆盖）",
+    "levels": [
+      {
+        "level": "skill",
+        "description": "技能级默认配置（本文件）",
+        "path": "config/quality-checklist.json",
+        "priority": 1
+      },
+      {
+        "level": "project",
+        "description": "项目级覆盖配置（可选）",
+        "path": "config/quality-checklist.override.json",
+        "priority": 2
+      },
+      {
+        "level": "bank",
+        "description": "银行级覆盖配置（通过 bank config 的 qualityChecklist 字段）",
+        "path": "config/banks/<银行代码>.json -> qualityChecklist",
+        "priority": 3
+      }
+    ],
+    "mergeStrategy": "deep-merge，子级覆盖父级同名字段，数组整体替换不合并"
+  },
+
+  "executionRule": {
+    "trigger": "post-generation",
+    "_comment_trigger": "文档生成完成后自动触发审核",
+    "blockingMode": true,
+    "_comment_blockingMode": "true=有阻断级问题时不允许交付；false=仅记录问题",
+    "outputFormat": "markdown",
+    "outputFile": "output/_quality-checklist-result.md",
+    "parallelExecution": true,
+    "_comment_parallelExecution": "各审核项可并行执行，提升效率"
+  },
+
+  "severity": {
+    "blocking": "阻断：必须修复才能交付",
+    "major": "主要：应修复，记录在已知问题中",
+    "minor": "次要：建议修复，不影响交付",
+    "info": "信息：仅记录，无需处理"
+  },
+
+  "checks": {
+
+    "hardcode-check": {
+      "id": "QC001",
+      "label": "硬编码检查",
+      "description": "检查文档中是否有硬编码的功能号、日期、路径、银行名称等不应出现的固定值",
+      "severity": "blocking",
+      "enabled": true,
+      "rules": {
+        "functionNumbers": {
+          "description": "功能号应从配置或代码扫描获取，不应在文档正文中硬编码",
+          "pattern": "HNNXTK\\d{6}",
+          "action": "报告所有硬编码功能号位置，建议替换为从 bank config 读取的值",
+          "exclusion": "config/banks/ 目录下的配置文件中的功能号不视为硬编码"
+        },
+        "bankNames": {
+          "description": "通用文档模板中不应硬编码特定银行名称",
+          "patterns": ["hnnxbank", "河南农商", "河南农信", "hnnx", "HNNX"],
+          "action": "报告所有硬编码银行名称位置",
+          "exclusion": "config/banks/ 目录下的配置文件中的银行名称不视为硬编码"
+        },
+        "hardcodedPaths": {
+          "description": "文档中不应硬编码项目特定路径",
+          "patterns": ["河南农商个性化需求", "banks/ext-hnnxbank"],
+          "action": "报告所有硬编码路径位置"
+        },
+        "hardcodedDates": {
+          "description": "文档中不应硬编码特定日期（应使用当前日期或从配置读取）",
+          "patterns": ["2024-", "2025-"],
+          "action": "报告所有硬编码的历史日期，检查是否应为当前日期",
+          "exclusion": "修订记录中的历史版本日期不视为硬编码"
+        },
+        "classNames": {
+          "description": "通用文档中不应硬编码银行特定 Java 类名",
+          "patterns": ["HnnxEcif4001", "HnnxBankBranch", "HnnxRoleService", "HnnxRebuyApply", "HnnxBalanceRegister", "HnnxDiscCompanyRoster", "PICE070701"],
+          "action": "报告所有硬编码类名位置",
+          "exclusion": "config/banks/ 目录下的配置文件中的类名不视为硬编码"
+        }
+      },
+      "scanScope": {
+        "include": ["生成文档的正文内容", "表格内容", "页眉页脚"],
+        "exclude": ["config/banks/**", "assets/templates/**"]
+      }
+    },
+
+    "function-number-check": {
+      "id": "QC002",
+      "label": "功能号检查",
+      "description": "检查文档中引用的功能号是否为最新值，防止使用过期功能号",
+      "severity": "blocking",
+      "enabled": true,
+      "rules": {
+        "latestFunctionNumbers": {
+          "_comment": "功能号最新值映射表，从 bank config 的 functionNumbers 字段读取或使用默认值",
+          "source": "bank-config",
+          "sourceField": "functionNumbers",
+          "defaultValue": {},
+          "example": {
+            "HNNXTK020111": "同步机构树数据并校验-最新功能号",
+            "HNNXTK020103": "已过期功能号（需替换为 HNNXTK020111）"
+          }
+        },
+        "deprecatedFunctionNumbers": {
+          "_comment": "已过期功能号及其替换值",
+          "mappings": [
+            {
+              "deprecated": "HNNXTK020103",
+              "replacement": "HNNXTK020111",
+              "reason": "功能号已更新，旧号不再使用"
+            }
+          ]
+        },
+        "checkMethod": "正则匹配文档全文中的功能号模式 HNNXTK\\d{6}，与最新值映射表比对",
+        "action": "发现过期功能号时报告位置并建议替换值"
+      }
+    },
+
+    "date-check": {
+      "id": "QC003",
+      "label": "日期检查",
+      "description": "检查文档中的日期是否为当前日期，防止使用过期日期或模板默认日期",
+      "severity": "major",
+      "enabled": true,
+      "rules": {
+        "currentDate": {
+          "_comment": "当前日期，由系统自动生成，格式 YYYY-MM-DD",
+          "format": "YYYY-MM-DD",
+          "autoGenerate": true
+        },
+        "checkTargets": {
+          "coverDate": {
+            "description": "封面日期应为当前日期",
+            "field": "封面日期",
+            "expected": "current-date",
+            "action": "不是当前日期则报告"
+          },
+          "revisionTableDate": {
+            "description": "修订记录表中的版本日期应为当前日期",
+            "field": "修订记录表-日期列",
+            "expected": "current-date",
+            "action": "不是当前日期则报告"
+          },
+          "templateDefaultDate": {
+            "description": "检查是否有模板默认日期未替换（如 2018、2024 等）",
+            "patterns": ["2018", "2024", "2025"],
+            "action": "发现模板默认日期则报告，建议替换为当前年份"
+          }
+        },
+        "exclusion": "修订记录中历史版本的日期不检查"
+      }
+    },
+
+    "chapter-structure-check": {
+      "id": "QC004",
+      "label": "章节结构检查",
+      "description": "检查章节编号是否冲突、标题层级是否正确、目录结构是否完整",
+      "severity": "blocking",
+      "enabled": true,
+      "rules": {
+        "numberingConflict": {
+          "description": "检查是否有重复的章节编号（如两个 1.1）",
+          "checkMethod": "提取所有标题编号，检测重复",
+          "action": "发现重复编号则报告"
+        },
+        "headingLevelConsistency": {
+          "description": "检查标题层级是否连续（H1->H2->H3 不跨级）",
+          "checkMethod": "遍历标题序列，检测是否有 H1 直接跳到 H3 等跨级情况",
+          "action": "发现跨级标题则报告"
+        },
+        "chapterCompleteness": {
+          "description": "检查必填章节是否齐全",
+          "requiredChapters": {
+            "outline-design": ["引言", "系统总体设计", "系统功能设计", "数据库设计", "接口设计"],
+            "design": ["概述", "系统设计", "接口设计", "数据库设计", "异常处理"],
+            "testreport": ["测试概述", "测试环境", "测试结果", "缺陷统计", "测试结论"]
+          },
+          "action": "发现缺失章节则报告"
+        },
+        "emptyChapterDetection": {
+          "description": "检查是否有空章节（无段落且无表格内容）",
+          "checkMethod": "双重检测：检查段落文本 + 检查表格单元格内容",
+          "action": "发现空章节则报告，建议填充内容或标记为不涉及"
+        }
+      }
+    },
+
+    "placeholder-check": {
+      "id": "QC005",
+      "label": "占位符检查",
+      "description": "检查文档中是否有未填充的占位符文本",
+      "severity": "blocking",
+      "enabled": true,
+      "rules": {
+        "placeholderPatterns": {
+          "description": "需要检查的占位符模式",
+          "patterns": [
+            "XXX",
+            "YYY",
+            "ZZZ",
+            "【待补充】",
+            "【请填写】",
+            "【待确认】",
+            "{placeholder}",
+            "{TODO}",
+            "<待填写>",
+            "<待补充>"
+          ]
+        },
+        "blueTextResidual": {
+          "description": "蓝色文本通常表示模板未清理的占位内容（超链接除外）",
+          "checkMethod": "遍历所有 run，检查字体颜色是否为蓝色且非超链接",
+          "maxAllowed": 0,
+          "action": "蓝色残留超过阈值则报告"
+        },
+        "exclusion": "代码示例中的占位符说明（如 <银行代码>）不视为未填充"
+      }
+    },
+
+    "diagram-integrity-check": {
+      "id": "QC006",
+      "label": "图表完整性检查",
+      "description": "检查文档引用的图表文件是否存在且大小达标",
+      "severity": "major",
+      "enabled": true,
+      "rules": {
+        "fileExistence": {
+          "description": "检查文档中引用的所有图表文件是否存在于 output/diagrams/ 目录",
+          "checkMethod": "解析文档中的图片引用，检查文件是否存在",
+          "action": "发现缺失图表则报告"
+        },
+        "fileSizeCheck": {
+          "description": "检查图表文件大小是否超过阈值（防止生成空文件或损坏文件）",
+          "minSizeKB": 10,
+          "checkMethod": "检查每个 PNG 文件大小是否 > 10KB",
+          "action": "发现过小图表则报告，建议重新生成"
+        },
+        "requiredDiagrams": {
+          "_comment": "不同文档类型的必要图表列表，与 chart-tools.json 的 docTypeMapping 对应",
+          "outline-design": ["system-architecture", "network-topology", "deployment"],
+          "design": ["component-structure"],
+          "testreport": ["pie-chart"]
+        },
+        "diagramCount": {
+          "description": "检查文档中的图表数量是否达到最低要求",
+          "minCount": {
+            "outline-design": 3,
+            "design": 1,
+            "testreport": 1
+          }
+        }
+      }
+    },
+
+    "table-integrity-check": {
+      "id": "QC007",
+      "label": "表格完整性检查",
+      "description": "检查空表格是否已填充内容或标记为不涉及，检查表格格式是否统一",
+      "severity": "major",
+      "enabled": true,
+      "rules": {
+        "emptyTableCheck": {
+          "description": "检查是否有只有表头无数据的空表格",
+          "checkMethod": "遍历所有表格，检查除表头行外是否有数据行",
+          "action": "发现空表格则报告，建议填充内容或标记为'不涉及'",
+          "autoFill": "不涉及",
+          "_comment_autoFill": "空表格自动填充'不涉及'文本"
+        },
+        "tableStyleCheck": {
+          "description": "检查表格样式是否统一（边框、字号、表头样式）",
+          "expectedStyle": {
+            "fontName": "宋体",
+            "fontSize": 10.5,
+            "headerBold": true,
+            "borderStyle": "single"
+          },
+          "action": "发现样式不一致则报告"
+        },
+        "tableAlignmentCheck": {
+          "description": "检查表格列是否对齐（无错位、无跨行合并异常）",
+          "checkMethod": "检查每行的单元格数量是否一致（合并单元格除外）",
+          "action": "发现列不对齐则报告"
+        },
+        "requiredTables": {
+          "_comment": "不同文档类型的必要表格",
+          "outline-design": ["修订记录表", "术语表", "接口列表表"],
+          "design": ["接口参数表", "数据库字段表", "错误码表"],
+          "testreport": ["测试用例结果表", "缺陷统计表", "测试结论表"]
+        }
+      }
+    }
+  },
+
+  "reportTemplate": {
+    "_comment": "质量审核报告输出模板",
+    "title": "交付文档质量审核报告",
+    "sections": [
+      {
+        "name": "审核概要",
+        "fields": ["文档名称", "文档类型", "审核时间", "总审核项数", "通过项数", "阻断项数", "主要项数", "结论"]
+      },
+      {
+        "name": "详细审核结果",
+        "fields": ["审核项ID", "审核项名称", "严重度", "状态", "问题描述", "建议操作"]
+      },
+      {
+        "name": "阻断问题清单",
+        "filter": "severity == blocking && status == fail",
+        "fields": ["审核项ID", "问题描述", "位置", "建议操作"]
+      },
+      {
+        "name": "已知问题清单",
+        "filter": "severity in [major, minor] && status == fail",
+        "fields": ["审核项ID", "严重度", "问题描述", "建议操作"]
+      }
+    ],
+    "conclusionCriteria": {
+      "pass": "所有 blocking 项通过 AND major 项通过率 >= 80%",
+      "conditionalPass": "所有 blocking 项通过 AND major 项通过率 < 80%（需在已知问题中列出）",
+      "fail": "存在未通过的 blocking 项"
+    }
+  }
+}

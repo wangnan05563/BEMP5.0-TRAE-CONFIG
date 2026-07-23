@@ -1,0 +1,145 @@
+{
+  "_comment": "弹窗自动检测与处理配置。解决强制登录弹窗未处理问题：当账号已在其他会话登录时，系统弹出'强制登录确认'弹窗，需点击'确定'继续。本文件定义各类弹窗的检测选择器、处理策略和执行时机。",
+  "version": "1.0.0",
+  "_config_inheritance": "配置继承优先级（高→低）：bank_overrides.{bank_id}（银行级覆盖） > defaults + dialogs（技能级默认）。test_config.json selectors 中的 msg_box/force_login_confirm 等选择器作为向后兼容的回退来源。",
+
+  "defaults": {
+    "detection_strategy": {
+      "check_points": ["after_login", "after_navigation", "after_action"],
+      "_check_points_comment": "after_login=登录提交后检测；after_navigation=页面导航后检测；after_action=按钮点击等操作后检测",
+      "detection_method": "snapshot",
+      "_detection_method_comment": "snapshot=通过页面快照检测dialog元素；selector=通过CSS选择器轮询检测",
+      "snapshot_wait_ms": 500,
+      "selector_poll_interval_ms": 300,
+      "selector_poll_timeout_ms": 3000
+    },
+    "global_timeout_ms": 5000,
+    "screenshot_before_action": true,
+    "_screenshot_comment": "处理弹窗前自动截图，保留证据用于失败诊断",
+    "screenshot_dir": "aotutests-playwright/screenshots/{bank_id}/dialogs/"
+  },
+
+  "dialogs": [
+    {
+      "id": "force_login",
+      "name": "强制登录确认弹窗",
+      "description": "账号已在其他会话登录时弹出，需确认强制登录以挤掉旧会话。对应复盘问题：强制登录弹窗未处理。",
+      "check_points": ["after_login"],
+      "detect_selectors": [
+        ".h-msg-box:visible",
+        ".h-modal-confirm:visible"
+      ],
+      "detect_text_patterns": [
+        "强制登录",
+        "已登录",
+        "是否强制登录",
+        "该账号已在其他地方登录"
+      ],
+      "match_logic": "任一detect_selectors可见 且 页面文本匹配任一detect_text_patterns",
+      "action": "click_confirm",
+      "action_selectors": [
+        ".h-msg-box-confirm button:has-text(\"是\")",
+        ".h-msg-box button:has-text(\"确定\")",
+        ".h-modal-confirm button:has-text(\"确定\")",
+        "button:has-text(\"是\")"
+      ],
+      "action_selectors_logic": "按顺序尝试，第一个可点击的按钮即执行点击",
+      "timeout_ms": 3000,
+      "post_action_wait_ms": 2000,
+      "_post_action_comment": "点击确认后等待页面跳转完成，确保登录流程继续",
+      "max_retries": 1,
+      "on_failure": "标记登录BLOCKED，记录'强制登录弹窗处理失败'，截图保留"
+    },
+    {
+      "id": "session_expired",
+      "name": "会话过期弹窗",
+      "description": "会话超时或失效时弹出，需重新登录恢复会话。",
+      "check_points": ["after_navigation", "after_action"],
+      "detect_selectors": [
+        "text=会话已失效",
+        "text=登录已过期",
+        "text=请重新登录",
+        ".h-msg-box:visible"
+      ],
+      "detect_text_patterns": [
+        "会话已失效",
+        "登录已过期",
+        "请重新登录",
+        "会话超时"
+      ],
+      "match_logic": "页面文本匹配任一detect_text_patterns",
+      "action": "relogin",
+      "action_selectors": [
+        ".h-msg-box button:has-text(\"确定\")",
+        ".h-msg-box button:has-text(\"重新登录\")",
+        "button:has-text(\"确定\")"
+      ],
+      "action_selectors_logic": "点击确认按钮关闭弹窗，随后触发LoginManager重新登录",
+      "timeout_ms": 3000,
+      "post_action_wait_ms": 1000,
+      "max_retries": 1,
+      "on_failure": "标记用例BLOCKED，记录'会话过期且重新登录失败'，建议检查会话超时配置"
+    },
+    {
+      "id": "generic_confirm",
+      "name": "通用确认弹窗",
+      "description": "操作确认类弹窗（如删除确认、提交确认），需点击确定继续业务流程。",
+      "check_points": ["after_action"],
+      "detect_selectors": [
+        ".h-msg-box:visible",
+        ".h-modal-confirm:visible"
+      ],
+      "detect_text_patterns": [
+        "确认",
+        "是否",
+        "确定要"
+      ],
+      "exclude_text_patterns": [
+        "强制登录",
+        "会话已失效"
+      ],
+      "match_logic": "detect_selectors可见 且 匹配detect_text_patterns 且 不匹配exclude_text_patterns",
+      "action": "click_confirm",
+      "action_selectors": [
+        ".h-msg-box button:has-text(\"确定\")",
+        ".h-msg-box button:has-text(\"确认\")",
+        ".h-modal-confirm button:has-text(\"确定\")"
+      ],
+      "action_selectors_logic": "按顺序尝试，第一个可点击的按钮即执行点击",
+      "timeout_ms": 2000,
+      "post_action_wait_ms": 1000,
+      "max_retries": 0,
+      "on_failure": "记录警告'通用确认弹窗未处理'，不阻断测试流程，继续执行后续步骤"
+    }
+  ],
+
+  "bank_overrides": {
+    "_comment": "银行级弹窗覆盖。当银行个性化的弹窗选择器或按钮文本不同时，在此覆盖。示例结构见下方_example。",
+    "_example": {
+      "huisbank": {
+        "dialogs": [
+          {
+            "id": "force_login",
+            "detect_text_patterns": ["强制登录", "该用户已在线"],
+            "action_selectors": [".custom-confirm-btn:has-text(\"确认\")"]
+          }
+        ],
+        "defaults": {
+          "global_timeout_ms": 8000
+        }
+      }
+    }
+  },
+
+  "workflow": {
+    "step_1": "在check_points定义的时机（登录后/导航后/操作后）触发弹窗检测",
+    "step_2": "按detection_strategy.method执行检测：snapshot=取页面快照查找dialog元素；selector=轮询detect_selectors",
+    "step_3": "遍历dialogs配置，对每个弹窗执行match_logic匹配：检查detect_selectors可见性 + detect_text_patterns文本匹配",
+    "step_4": "匹配命中时：若screenshot_before_action=true则先截图",
+    "step_5": "执行action：按action_selectors顺序查找可点击按钮并点击",
+    "step_6": "等待post_action_wait_ms后验证弹窗已关闭",
+    "step_7": "若弹窗未关闭且未超过max_retries，重试step_5",
+    "step_8": "超过max_retries仍失败，执行on_failure策略",
+    "step_9": "未匹配任何弹窗配置时，不做处理，继续正常测试流程"
+  }
+}

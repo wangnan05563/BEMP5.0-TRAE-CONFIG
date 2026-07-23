@@ -35,17 +35,17 @@
       "route_index": "${ENV:BANK_MODULE_PREFIX}Index.js",
       "login": {
         "default": {
-          "username": "wangnan02",
+          "username": "${ENV:BEMP_TEST_USER_DEFAULT}",
           "password": "${ENV:BEMP_TEST_PASSWORD}",
           "description": "普通柜员账号"
         },
         "admin": {
-          "username": "mllzs01",
+          "username": "${ENV:BEMP_TEST_USER_ADMIN}",
           "password": "${ENV:BEMP_TEST_PASSWORD}",
           "description": "法人管理员账号"
         },
         "branch_admin": {
-          "username": "wangnan01",
+          "username": "${ENV:BEMP_TEST_USER_BRANCH_ADMIN}",
           "password": "${ENV:BEMP_TEST_PASSWORD}",
           "description": "机构管理员账号，用于机构管理、权限分配等管理功能测试"
         }

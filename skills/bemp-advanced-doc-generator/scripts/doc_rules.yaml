@@ -788,10 +788,15 @@ tech_description:
 # 图表生成引擎配置
 # ---------------------------------------------------------------------
 # 控制图表生成引擎的选择、降级、超时等
+# v13.0: 5级降级链，完整配置见 config/chart-tools.json
 chart_engine:
   enable: true
-  # 引擎选择优先级（按顺序尝试）
+  # 引擎选择优先级（5级降级链，按顺序尝试）
+  # drawio/mcp 需要 AI agent 通过 Skill/run_mcp 调用，Python 端通过环境变量检测
   engine_priority:
+    - "drawio"
+    - "mcp"
+    - "graphviz"
     - "antv"
     - "matplotlib"
   # UML 引擎
@@ -809,5 +814,9 @@ chart_engine:
   # 图表输出目录
   output_dir: "output/diagrams"
   # 兜底占位文字模板
-  fallback_message: "【图表待补充】\n当前环境缺少图表生成工具（AntV / Graphviz / matplotlib），请手动补充。"
+  fallback_message: "【图表待补充】\n当前环境缺少图表生成工具（drawio / mcp-server-chart / Graphviz / AntV / matplotlib），请手动补充。"
+  # v13.0: drawio-skill 和 mcp-server-chart 的完整配置见 config/chart-tools.json
+  # Python 端通过环境变量检测这两个引擎是否可用：
+  #   BEMP_DRAWIO_AVAILABLE=1 → drawio-skill 已注册
+  #   BEMP_MCP_CHART_AVAILABLE=1 → mcp-server-chart 已注册
 

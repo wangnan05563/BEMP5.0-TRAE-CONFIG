@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "BEMP 测试流程集中配置 - 阶段映射、门禁规则、回退规则、缺陷分派等流程逻辑统一管理",
+  "version": "1.0.0",
+  "usage": "各智能体提示词和技能 SKILL.md 通过引用此配置获取流程逻辑，避免重复定义",
+
+  "workflowPaths": {
+    "fullDev": [
+      "需求梳理", "需求确认", "方案设计", "代码同步",
+      "代码开发/适配器开发", "代码评审修复", "代码质量扫描",
+      "启动服务", "测试用例编制", "用例评审",
+      "功能测试", "二轮调试测试", "缺陷修复验证",
+      "输出交付文档", "[用户反馈迭代]"
+    ],
+    "quickTest": [
+      "需求梳理", "需求确认",
+      "测试用例编制", "启动服务",
+      "用例评审", "功能测试", "二轮调试测试", "缺陷修复验证",
+      "输出交付文档", "[用户反馈迭代]"
+    ],
+    "note": "‖ 前后阶段无依赖，应并行执行"
+  },
+
+  "stageMapping": {
+    "需求梳理": { "agent": "bill-requirement-analyst", "skill": "bemp-generate-prd" },
+    "需求确认": { "agent": "bill-requirement-analyst", "skill": null },
+    "方案设计": { "agent": "bemp-personalized-developer", "skill": "bemp-personalized-dev" },
+    "代码同步": { "agent": "bemp-implementation-engineer", "skill": "bemp-git-maven-automation" },
+    "代码开发": { "agent": "bemp-personalized-developer", "skill": "bemp-personalized-dev" },
+    "适配器开发": { "agent": "bemp-adapter-developer", "skill": "bemp-adapter-dev" },
+    "代码评审修复": { "agent": "bemp-personalized-developer", "skill": "bemp-frontend-code-review + bemp-backend-code-review" },
+    "代码质量扫描": { "agent": "bemp-implementation-engineer", "skill": "bemp-sonarqube-mcp" },
+    "启动服务": { "agent": "bemp-implementation-engineer", "skill": "bemp-automation-startserver" },
+    "测试用例编制": { "agent": "bemp-auto-tester", "skill": "bemp-testcase-generator" },
+    "用例评审": { "agent": "test-lead-reviewer", "skill": null },
+    "功能测试": { "agent": "bemp-auto-tester", "skill": "bemp-webapp-testing" },
+    "二轮调试测试": { "agent": "chrome-devtools-debugger", "skill": "bemp-chrome-devtools-test" },
+    "缺陷修复验证": {
+      "agent": "bemp-personalized-developer（修复）+ bemp-auto-tester 或 chrome-devtools-debugger（验证）",
+      "skill": "bemp-personalized-dev + bemp-webapp-testing 或 bemp-chrome-devtools-test"
+    },
+    "输出交付文档": { "agent": "document-delivery-engineer", "skill": "bemp-advanced-doc-generator" }
+  },
+
+  "parallelRules": {
+    "rules": [
+      { "stages": ["启动服务", "测试用例编制"], "note": "前后阶段无依赖，应并行执行" },
+      { "stages": ["前端评审", "后端评审"], "note": "代码评审可并行" }
+    ],
+    "dependencies": {
+      "SpringBoot": ["Redis", "ZooKeeper"],
+      "Frontend": [],
+      "note": "SpringBoot 依赖 Redis+ZooKeeper 就绪，Frontend 无启动依赖"
+    }
+  },
+
+  "gates": {
+    "需求确认": {
+      "passCondition": "无阻塞项 或 阻塞项不涉核心流程",
+      "failAction": "阻塞核心→等待确认；可假设→标'测试假设'",
+      "agent": "bill-requirement-analyst"
+    },
+    "用例评审": {
+      "passCondition": "严重=0 且 主要=0",
+      "failAction": "严重>0→回退用例编制；主要>0→执行前修复",
+      "agent": "test-lead-reviewer"
+    },
+    "缺陷闭环": {
+      "passCondition": "P0/P1 全部修复验证通过",
+      "failAction": "P2/P3 记录'已知问题'，交付文档中列出",
+      "note": "修复→验证双重确认才算关闭，验证与修复不能同角色"
+    },
+    "代码评审修复": {
+      "passCondition": "修复后原评审智能体验证通过",
+      "failAction": "不通过→重新修复，不得跳过验证"
+    },
+    "代码质量扫描": {
+      "passCondition": "SonarQube 服务可用 + Token 有效 + 扫描结果上传成功",
+      "failAction": "服务不可用→启动服务；Token无效→提示配置；结果未上传→重新扫描"
+    },
+    "交付前置门禁": {
+      "passCondition": "P0/P1缺陷闭环 + 测试完成度(P0/P1用例全部执行) + 需求确认闭环",
+      "failAction": "不通过→返回相应环节修复",
+      "agent": "document-delivery-engineer"
+    }
+  },
+
+  "rollbackRules": {
+    "maxRollbackCount": 3,
+    "exceedAction": "暂停与用户确认",
+    "note": "回退时更新TodoWrite，后续阶段标记pending；仅修复问题后从回退点推进，非全部重做；回退原因和影响范围须在交接声明中注明",
+    "rules": [
+      { "fromStage": "代码开发", "toStage": "方案设计", "trigger": "需求理解偏差致方案不可行" },
+      { "fromStage": "代码评审", "toStage": "代码开发", "trigger": "评审发现架构/规范问题" },
+      { "fromStage": "功能测试", "toStage": "代码开发", "trigger": "测试发现功能性缺陷" },
+      { "fromStage": "功能测试", "toStage": "测试用例编制", "trigger": "用例覆盖不足" },
+      { "fromStage": "二轮调试", "toStage": "代码开发", "trigger": "缺陷根因在代码层面" },
+      { "fromStage": "代码质量扫描", "toStage": "代码评审修复", "trigger": "扫描发现严重问题需修复" }
+    ]
+  },
+
+  "defectDispatch": {
+    "rules": [
+      {
+        "type": "前端/后端缺陷",
+        "fix": "bemp-personalized-developer",
+        "verify": ["bemp-auto-tester", "chrome-devtools-debugger"],
+        "note": "验证与修复不能同角色"
+      },
+      {
+        "type": "测试数据/配置问题",
+        "fix": "bemp-implementation-engineer",
+        "verify": ["bemp-auto-tester"],
+        "note": "验证与修复不能同角色"
+      }
+    ],
+    "closureRule": "修复→验证双重确认才算关闭，验证与修复不能同角色；P0/P1修复后必须回归验证"
+  },
+
+  "degradationRules": {
+    "SonarQube_MCP不可用": { "fallback": "使用 sonar-scanner 命令行工具" },
+    "SonarQube_服务未启动": { "fallback": "启动服务后重新扫描" },
+    "SonarQube_Token无效": { "fallback": "提示用户配置后重新扫描" },
+    "Oracle_MCP只读限制": { "fallback": "使用 MySQL MCP 或 Java JDBC 执行 DML" },
+    "Chrome_DevTools_截图路径拒绝": { "fallback": "使用 MCP 默认截图路径或配置 workspace roots" },
+    "Playwright_channel不支持": { "fallback": "使用 Chrome DevTools MCP 替代" },
+    "MCP_不可用": { "fallback": "智能体应输出降级方案而非跳过智能体" }
+  },
+
+  "userFeedbackIteration": {
+    "description": "交付文档后，用户反馈4类问题时的迭代规则",
+    "problemTypes": ["格式不符", "缺目录", "编号冲突", "图表专业"],
+    "rules": [
+      "在 TodoWrite 中明确'迭代目标'",
+      "输出版本号 -v{n+1}.docx",
+      "交接声明中说明'修复了XX问题'"
+    ]
+  }
+}

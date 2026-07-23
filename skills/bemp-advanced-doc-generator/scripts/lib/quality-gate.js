@@ -220,6 +220,280 @@ class QualityGate {
     getThresholds(type) {
         return this.thresholds[type] || {};
     }
+
+    // ============================================================
+    // P1-4: 文档质量检查矩阵 —— 确保不同需求生成同样质量的文档
+    // ============================================================
+
+    /**
+     * 文档完整性检查矩阵
+     * 校验生成的文档是否包含所有必填章节，且章节内容非空
+     * @param {Object} params
+     * @param {Object} params.docStructure 文档结构 { chapterTitle: { hasContent: boolean, wordCount: number } }
+     * @param {Array} params.requiredChapters 必填章节列表 [{ title, minWords }]
+     * @returns {{passed: boolean, items: Array, summary: Object}}
+     */
+    checkDocCompleteness(params) {
+        const { docStructure = {}, requiredChapters = [] } = params;
+        const items = [];
+
+        // 1. 必填章节存在性检查
+        const missingChapters = requiredChapters.filter(
+            (rc) => !docStructure[rc.title]
+        );
+        items.push({
+            name: '必填章节存在性',
+            pass: missingChapters.length === 0,
+            message:
+                missingChapters.length === 0
+                    ? `全部 ${requiredChapters.length} 个必填章节均存在`
+                    : `缺失 ${missingChapters.length} 个章节: ${missingChapters.map((c) => c.title).join(', ')}`,
+        });
+
+        // 2. 章节内容非空检查
+        const emptyChapters = requiredChapters.filter((rc) => {
+            const ch = docStructure[rc.title];
+            return ch && !ch.hasContent;
+        });
+        items.push({
+            name: '章节内容非空',
+            pass: emptyChapters.length === 0,
+            message:
+                emptyChapters.length === 0
+                    ? '所有必填章节均有内容'
+                    : `${emptyChapters.length} 个章节内容为空: ${emptyChapters.map((c) => c.title).join(', ')}`,
+        });
+
+        // 3. 章节字数达标检查
+        const underwordChapters = requiredChapters.filter((rc) => {
+            const ch = docStructure[rc.title];
+            return ch && ch.wordCount < (rc.minWords || 0);
+        });
+        items.push({
+            name: '章节字数达标',
+            pass: underwordChapters.length === 0,
+            message:
+                underwordChapters.length === 0
+                    ? '所有章节字数达标'
+                    : `${underwordChapters.length} 个章节字数不足: ${underwordChapters.map((c) => `${c.title}(${docStructure[c.title].wordCount}/${c.minWords})`).join(', ')}`,
+        });
+
+        const passed = items.every((i) => i.pass);
+        return {
+            passed,
+            items,
+            summary: {
+                totalChapters: requiredChapters.length,
+                existingChapters: requiredChapters.length - missingChapters.length,
+                emptyChapters: emptyChapters.length,
+            },
+        };
+    }
+
+    /**
+     * 交叉校验检查 —— 需求/代码/测试三者一致性
+     * 确保每项功能需求都有代码实现和测试用例覆盖
+     * @param {Object} params
+     * @param {Array} params.requirements 需求列表 [{ id, name }]
+     * @param {Array} params.implementations 代码实现列表 [{ reqId, moduleName, apiPath }]
+     * @param {Array} params.testCases 测试用例列表 [{ reqId, caseId, priority }]
+     * @returns {{passed: boolean, items: Array, summary: Object}}
+     */
+    checkCrossValidation(params) {
+        const { requirements = [], implementations = [], testCases = [] } = params;
+        const items = [];
+
+        // 1. 需求-代码一致性：每项需求都有对应实现
+        const implReqIds = new Set(implementations.map((i) => i.reqId));
+        const unimplementedReqs = requirements.filter((r) => !implReqIds.has(r.id));
+        items.push({
+            name: '需求-代码一致性',
+            pass: unimplementedReqs.length === 0,
+            message:
+                unimplementedReqs.length === 0
+                    ? `全部 ${requirements.length} 项需求均有代码实现`
+                    : `${unimplementedReqs.length} 项需求未实现: ${unimplementedReqs.map((r) => r.id).join(', ')}`,
+        });
+
+        // 2. 需求-测试一致性：每项需求都有对应测试用例
+        const testReqIds = new Set(testCases.map((t) => t.reqId));
+        const untestedReqs = requirements.filter((r) => !testReqIds.has(r.id));
+        items.push({
+            name: '需求-测试一致性',
+            pass: untestedReqs.length === 0,
+            message:
+                untestedReqs.length === 0
+                    ? `全部 ${requirements.length} 项需求均有测试用例`
+                    : `${untestedReqs.length} 项需求无测试用例: ${untestedReqs.map((r) => r.id).join(', ')}`,
+        });
+
+        // 3. 代码-测试一致性：每个实现都有对应测试
+        const implWithoutTest = implementations.filter(
+            (i) => !testReqIds.has(i.reqId)
+        );
+        items.push({
+            name: '代码-测试一致性',
+            pass: implWithoutTest.length === 0,
+            message:
+                implWithoutTest.length === 0
+                    ? '所有代码实现均有测试覆盖'
+                    : `${implWithoutTest.length} 项实现无测试: ${implWithoutTest.map((i) => i.reqId).join(', ')}`,
+        });
+
+        const passed = items.every((i) => i.pass);
+        return {
+            passed,
+            items,
+            summary: {
+                totalRequirements: requirements.length,
+                implementedCount: requirements.length - unimplementedReqs.length,
+                testedCount: requirements.length - untestedReqs.length,
+            },
+        };
+    }
+
+    /**
+     * 信息收集清单验证
+     * 与 doc-info-collection-template.json 配合，验证文档生成前信息收集完整性
+     * @param {Object} collectedInfo 已收集的信息对象
+     * @returns {{passed: boolean, items: Array, summary: Object}}
+     */
+    checkInfoCollection(collectedInfo) {
+        const items = [];
+        const requiredSections = [
+            'requirementName',
+            'businessBackground',
+            'businessGoals',
+            'scope',
+            'modules',
+            'apiEndpoints',
+            'databaseTables',
+            'architecture',
+            'deviations',
+            'testSummary',
+            'defects',
+            'knownIssues',
+            'coverageAnalysis',
+            'requirementGate',
+            'reviewGate',
+            'defectGate',
+        ];
+
+        // 1. 必填字段完整性
+        const missingFields = requiredSections.filter(
+            (f) => collectedInfo[f] === undefined || collectedInfo[f] === null
+        );
+        items.push({
+            name: '必填字段完整性',
+            pass: missingFields.length === 0,
+            message:
+                missingFields.length === 0
+                    ? `全部 ${requiredSections.length} 个必填字段均已收集`
+                    : `缺失 ${missingFields.length} 个字段: ${missingFields.join(', ')}`,
+        });
+
+        // 2. 门禁通过检查
+        const gates = ['requirementGate', 'reviewGate', 'defectGate'];
+        const failedGates = gates.filter(
+            (g) => collectedInfo[g] && !collectedInfo[g].passed
+        );
+        items.push({
+            name: '门禁通过检查',
+            pass: failedGates.length === 0,
+            message:
+                failedGates.length === 0
+                    ? '三个前置门禁均通过'
+                    : `${failedGates.length} 个门禁未通过: ${failedGates.join(', ')}`,
+        });
+
+        // 3. 偏差记录检查
+        const deviations = collectedInfo.deviations || [];
+        items.push({
+            name: '偏差记录检查',
+            pass: deviations.length > 0,
+            message:
+                deviations.length > 0
+                    ? `记录了 ${deviations.length} 项偏差`
+                    : '未记录任何偏差（无偏差时需填写 N/A）',
+        });
+
+        // 4. 已知问题闭环检查
+        const knownIssues = collectedInfo.knownIssues || [];
+        items.push({
+            name: '已知问题闭环检查',
+            pass: true,
+            message:
+                knownIssues.length > 0
+                    ? `列出 ${knownIssues.length} 个已知问题`
+                    : '无已知问题',
+        });
+
+        const passed = items.every((i) => i.pass);
+        return {
+            passed,
+            items,
+            summary: {
+                totalFields: requiredSections.length,
+                collectedFields: requiredSections.length - missingFields.length,
+                gatesPassed: gates.length - failedGates.length,
+            },
+        };
+    }
+
+    /**
+     * 综合质量检查矩阵
+     * 汇总所有质量检查项，输出完整质量报告
+     * @param {Object} params 包含各检查项的输入参数
+     * @returns {{passed: boolean, matrix: Array, summary: Object}}
+     */
+    checkDocQualityMatrix(params = {}) {
+        const matrix = [];
+        const {
+            docxParams,
+            xlsxParams,
+            testcaseParams,
+            completenessParams,
+            crossValidationParams,
+            infoCollection,
+        } = params;
+
+        if (docxParams) {
+            const r = this.checkDocx(docxParams);
+            matrix.push({ category: 'DOCX基础质量', passed: r.passed, items: r.items });
+        }
+        if (xlsxParams) {
+            const r = this.checkXlsx(xlsxParams);
+            matrix.push({ category: 'XLSX基础质量', passed: r.passed, items: r.items });
+        }
+        if (testcaseParams) {
+            const r = this.checkTestcase(testcaseParams);
+            matrix.push({ category: '测试用例质量', passed: r.passed, items: r.items });
+        }
+        if (completenessParams) {
+            const r = this.checkDocCompleteness(completenessParams);
+            matrix.push({ category: '文档完整性', passed: r.passed, items: r.items });
+        }
+        if (crossValidationParams) {
+            const r = this.checkCrossValidation(crossValidationParams);
+            matrix.push({ category: '交叉校验一致性', passed: r.passed, items: r.items });
+        }
+        if (infoCollection) {
+            const r = this.checkInfoCollection(infoCollection);
+            matrix.push({ category: '信息收集完整性', passed: r.passed, items: r.items });
+        }
+
+        const passed = matrix.every((m) => m.passed);
+        const passedCount = matrix.filter((m) => m.passed).length;
+        return {
+            passed,
+            matrix,
+            summary: {
+                totalCategories: matrix.length,
+                passedCategories: passedCount,
+                failedCategories: matrix.length - passedCount,
+            },
+        };
+    }
 }
 
 module.exports = { QualityGate, DEFAULT_THRESHOLDS };

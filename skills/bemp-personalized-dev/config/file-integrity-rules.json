@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "文件写入完整性校验规则 - Edit/Write 工具修改文件后自动检查结构完整性",
+  "version": "1.0.0",
+  "_ref": "所有检查规则通过配置管理，支持扩展新的文件类型和检查项",
+
+  "inheritance": {
+    "description": "配置继承优先级：技能级(本文件默认) → 项目级(覆盖) → 银行级(覆盖)",
+    "levels": [
+      {
+        "level": "skill",
+        "path": ".trae/skills/bemp-personalized-dev/config/file-integrity-rules.json",
+        "description": "技能默认配置，适用于所有文件类型"
+      },
+      {
+        "level": "project",
+        "path": "config/file-integrity-rules.json",
+        "description": "项目级覆盖配置"
+      },
+      {
+        "level": "bank",
+        "path": "banks/ext-${ENV:BANK_PROJECT_DIR}/config/file-integrity-rules.json",
+        "description": "银行级覆盖配置，优先级最高"
+      }
+    ],
+    "mergeStrategy": "deepMerge",
+    "arrayStrategy": "replace"
+  },
+
+  "checkTriggers": {
+    "description": "触发完整性检查的场景",
+    "onEdit": true,
+    "onWrite": true,
+    "onCreate": true,
+    "note": "Edit/Write/Create 工具操作后自动触发检查"
+  },
+
+  "fileTypes": {
+    "description": "按文件扩展名配置检查规则，未匹配的扩展名不检查",
+    "rules": {
+      ".java": {
+        "checks": ["braceMatch", "parenMatch", "semicolonTail"],
+        "description": "Java 文件完整性检查：大括号匹配、圆括号匹配、分号结尾"
+      },
+      ".vue": {
+        "checks": ["braceMatch", "tagMatch"],
+        "description": "Vue 文件完整性检查：大括号匹配、HTML标签匹配"
+      },
+      ".js": {
+        "checks": ["braceMatch", "parenMatch"],
+        "description": "JavaScript 文件完整性检查：大括号匹配、圆括号匹配"
+      },
+      ".xml": {
+        "checks": ["tagMatch"],
+        "description": "XML 文件完整性检查：标签匹配"
+      },
+      ".sql": {
+        "checks": ["semicolonTail"],
+        "description": "SQL 文件完整性检查：分号结尾"
+      }
+    },
+    "defaultChecks": [],
+    "defaultNote": "未配置的文件类型默认不检查，避免误报"
+  },
+
+  "checkRules": {
+    "description": "各检查项的具体规则定义",
+    "braceMatch": {
+      "description": "大括号匹配检查：统计 { 和 } 数量是否一致",
+      "openChar": "{",
+      "closeChar": "}",
+      "ignoreInString": true,
+      "ignoreInStringNote": "忽略字符串字面量内的大括号（如 JSON 字符串、SQL 中的 {}占位符）",
+      "ignoreInComment": true,
+      "ignoreInCommentNote": "忽略注释内的大括号",
+      "tolerance": 0,
+      "toleranceNote": "允许的差异数量，0 表示必须完全匹配"
+    },
+    "parenMatch": {
+      "description": "圆括号匹配检查：统计 ( 和 ) 数量是否一致",
+      "openChar": "(",
+      "closeChar": ")",
+      "ignoreInString": true,
+      "ignoreInComment": true,
+      "tolerance": 0
+    },
+    "tagMatch": {
+      "description": "HTML/XML 标签匹配检查：统计开标签和闭标签数量是否一致",
+      "openPattern": "<[a-zA-Z][^>]*>",
+      "closePattern": "</[a-zA-Z][^>]*>",
+      "selfClosingPattern": "<[a-zA-Z][^>]*/>",
+      "selfClosingNote": "自闭合标签不计入开闭标签统计",
+      "ignoreInString": true,
+      "ignoreInComment": true,
+      "tolerance": 0
+    },
+    "semicolonTail": {
+      "description": "分号结尾检查：语句末尾应有分号（粗略检查分号数量趋势）",
+      "char": ";",
+      "ignoreInString": true,
+      "ignoreInComment": true,
+      "minRatio": 0.3,
+      "minRatioNote": "分号数与代码行数的最小比值，低于此值视为异常"
+    }
+  },
+
+  "repairStrategy": {
+    "description": "检查失败时的修复策略",
+    "onMismatch": "warn",
+    "strategies": {
+      "warn": "仅输出警告，列出差异详情，不自动修复",
+      "autoFix": "尝试自动补全缺失的闭合字符（在文件末尾追加）",
+      "block": "阻止后续操作，要求人工修复后重新提交"
+    },
+    "defaultStrategy": "warn",
+    "autoFixRules": {
+      "description": "autoFix 策略下的自动修复规则",
+      "braceAutoClose": "在文件末尾追加缺失数量的 } 字符",
+      "parenAutoClose": "在文件末尾追加缺失数量的 ) 字符",
+      "maxAutoFixCount": 5,
+      "maxAutoFixCountNote": "单次自动修复最多追加的字符数，超过则降级为 warn",
+      "autoFixSuffix": "\n// WARN: 自动补全的闭合括号，请人工核实文件完整性\n"
+    }
+  },
+
+  "ignorePatterns": {
+    "description": "不检查完整性校验的文件路径模式",
+    "patterns": [
+      "**/target/**",
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/dist/**"
+    ],
+    "note": "构建产物和依赖目录不检查，避免误报"
+  },
+
+  "output": {
+    "pass": "文件完整性检查通过：{filePath}（{checkName}）",
+    "fail": "文件完整性检查失败：{filePath} - {checkName} 差异：开={openCount} 闭={closeCount} 差值={diff}",
+    "autoFixed": "文件完整性自动修复：{filePath} - 追加了 {fixCount} 个闭合字符，请人工核实",
+    "autoFixExceeded": "文件完整性自动修复降级：{filePath} - 缺失字符数 {missingCount} 超过上限 {maxCount}，请人工修复"
+  }
+}

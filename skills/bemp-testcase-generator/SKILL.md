@@ -1,8 +1,8 @@
 ---
 name: "bemp-testcase-generator"
-version: "2.0.0"
-description: "BEMP 票据系统测试用例生成技能。基于五步方法论（功能地图→优先级矩阵→P0用例设计→案例集扩展→测试数据准备），融合11种测试类型与10种组件测试设计，通过 Playwright MCP 自动探索网站、Oracle/MySQL MCP 准备数据，生成高质量测试用例。"
-whenToUse: "需要编写/设计/生成测试用例、制作功能地图、构建优先级矩阵、准备测试数据、审查测试用例时调用"
+version: "2.1.0"
+description: "BEMP 票据系统测试用例生成技能。基于五步方法论（功能地图→优先级矩阵→P0用例设计→案例集扩展→测试数据准备），融合11种测试类型与10种组件测试设计，通过 Playwright MCP 自动探索网站、Oracle/MySQL MCP 准备数据，生成高质量测试用例。支持代码审查类用例生成（注解值/错误文案/逻辑验证/配置验证4种模板）与测试方式自动选择判断（代码审查/Playwright/数据库查询/运行时测试）。"
+whenToUse: "需要编写/设计/生成测试用例、制作功能地图、构建优先级矩阵、准备测试数据、审查测试用例、生成代码审查类用例、判断测试方式时调用"
 triggers:
   - "测试用例 编写/设计/生成"
   - "功能地图 制作/生成"
@@ -12,6 +12,8 @@ triggers:
   - "审查/评审 测试用例"
   - "接口测试/UI测试/安全测试/性能测试"
   - "输入框/表单/弹窗/列表 组件测试"
+  - "代码审查用例/注解验证/错误文案验证/逻辑验证/配置验证"
+  - "测试方式选择/代码审查 vs Playwright"
 ---
 
 ## 技能职责
@@ -53,9 +55,13 @@ bemp-test-common（共享资源：用例文档 + 参考指南 + 用例索引）
     ↓
 匹配 instruction-mapping.md（Level 2）→ 确定需要加载的测试类型
     ↓
+涉及代码内部逻辑验证？ → 加载 config/testcase-templates.json（代码审查类模板）
+    ↓
 加载对应测试用例模板（Level 3/4）
     ↓
 生成/审查测试用例 → 参考 output-examples.md 格式
+    ↓
+每条用例标注测试方式 → 加载 config/test-method-rules.json（测试方式判断规则）
 ```
 
 **禁止**：不要一次性读取所有 references 文件
@@ -146,7 +152,14 @@ bemp-testcase-generator/
 ├── SKILL.md                          本文件
 ├── README.md                         开发者入口文档
 ├── config/
-│   └── generator-config.json         配置（目标地址/优先级/输出路径/银行/编号前缀）
+│   ├── generator-config.json         配置（目标地址/优先级/输出路径/银行/编号前缀）
+│   ├── testcase-prefix-coordination.json  编号协调规则（防冲突+模块缩写）
+│   ├── testcase-quantify-templates.json   预期结果量化模板（6类+禁止模式）
+│   ├── testcase-templates.json       代码审查类用例模板（4种验证类型+自校验规则）
+│   ├── test-method-rules.json        测试方式选择判断规则（代码审查/Playwright/数据库查询/运行时测试）
+│   ├── test-case-schema.yaml         用例Schema
+│   ├── test-data-check.json          数据校验配置
+│   └── test-cases/                   用例YAML配置
 ├── scripts/
 │   ├── generate_functional_map.py    功能地图生成指令
 │   ├── generate_test_cases.py        测试用例生成指令
@@ -199,26 +212,9 @@ bemp-testcase-generator/
 
 ## 已有测试用例基准
 
-| 子系统 | 文件 | 用例数 | 覆盖 |
-|:---|:---|:---|:---|
-| 通用 | bemp-test-common/test-cases/common/login-session.md | 21 | 密码登录、强制登录、会话管理 |
-| 系统管理 | bemp-test-common/test-cases/sm/role-permission.md | 12 | 角色分配、机构业务权限 |
-| 系统管理 | bemp-test-common/test-cases/sm/clearing/clearing.md | 17 | 清算明细、排队管理、结算同步 |
-| 系统管理 | bemp-test-common/test-cases/sm/branch/ | - | 机构管理、简版机构 |
-| 业务管理 | bemp-test-common/test-cases/bm/approval/approval-accounting.md | 21 | 审批路线、分录配置、科目维护 |
-| 业务管理 | bemp-test-common/test-cases/bm/payment/payment.md | 13 | 支付申请、支付复核 |
-| 业务管理 | bemp-test-common/test-cases/bm/cust/ | - | 企业客户查询、账号同步 |
-| 业务管理 | bemp-test-common/test-cases/bm/sign/ | - | 企业报备、复核、记录查询 |
-| 业务管理 | bemp-test-common/test-cases/bm/credit/credit-management.md | 81 | 承兑行额度管理完整流程 |
-| 场内交易 | bemp-test-common/test-cases/be/trust/trust.md | 32 | 提示付款、质押/解质押 |
-| 场内交易 | bemp-test-common/test-cases/be/market/market.md | 32 | 买入、卖出、再贴现、回购、返售 |
-| 场外交易 | bemp-test-common/test-cases/ce/acceptance/acceptance.md | 25 | 电票签发、承兑记账、付款登记、到期扣款 |
-| 场外交易 | bemp-test-common/test-cases/ce/discount/discount.md | 19 | 贴现申请、贴现记账、计息复核 |
-| 场外交易 | bemp-test-common/test-cases/ce/pledge/pledge.md | 15 | 提示付款、质押、解质押 |
-
-> 详细索引（脚本覆盖/缺失标注）见 `bemp-test-common/test-index.json` | 用例合计约 288 条 | 25 条目
->
-> 注：上表为概要视图，部分目录行（如 `bm/cust/`、`bm/sign/`）包含多个用例文件。完整条目以 test-index.json 为准。
+> 完整用例索引（含脚本覆盖/缺失标注、用例数、覆盖范围）详见 `bemp-test-common/test-index.json`。
+> 用例文件位于 `bemp-test-common/test-cases/` 目录下，按子系统（common/sm/bm/be/ce）组织。
+> 用例合计约 288 条，25 条目。详细条目以 test-index.json 为准，不在本文件重复列举。
 
 ## 配置说明
 
@@ -236,6 +232,156 @@ bemp-testcase-generator/
 | `case_id_prefixes` | 24 个模块缩写与编号规则 |
 
 > ⚠️ **银行环境同步**：`generator-config.json` 与 `bemp-webapp-testing/config/test_config.json` 各自维护 `active_bank` 字段。编写用例前应读取 `test_config.json` 确认当前测试环境的 `active_bank`，确保生成的用例与执行环境一致。切换银行时两个配置需同步更新。
+
+`config/testcase-templates.json` 关键节点：
+
+| 节点 | 说明 |
+|:---|:---|
+| `templates` | 4 种代码审查验证模板（annotation/error_message/logic/config） |
+| `templates.*.case_id_rule` | 各模板的用例编号规则（如 TC-CODE-ANN-{SEQ}） |
+| `templates.*.verification_steps` | 验证步骤模板（指令式动作序列） |
+| `templates.*.expected_result_format` | 预期结果格式（pass/fail/missing 三种模式） |
+| `templates.*.review_file_scope` | 审查文件范围（file_patterns + search_strategy） |
+| `self_check_rules` | 代码审查类用例自校验规则（4 项检查） |
+| `config_inheritance` | 三级配置继承机制（skill → project → bank） |
+
+`config/test-method-rules.json` 关键节点：
+
+| 节点 | 说明 |
+|:---|:---|
+| `test_methods` | 4 种测试方式定义（code_review/playwright/database_query/runtime_test） |
+| `selection_rules.rules` | 11 条选择规则（含关键词/模式匹配/优先级/置信度） |
+| `selection_rules.default_method` | 默认测试方式（未命中规则时使用） |
+| `selection_rules.multi_method_strategy` | 多方式组合策略（parallel/sequential/primary_first） |
+| `selection_workflow` | 选择判断流程（5 步） |
+| `self_check_rules` | 测试方式标注自校验规则（3 项检查） |
+| `config_inheritance` | 三级配置继承机制（skill → project → bank） |
+
+## 智能体操作指南
+
+### A. 编号协调机制
+
+编制用例前，自动执行编号协调，避免与已有用例编号冲突：
+
+1. **读取配置**：加载 `config/testcase-prefix-coordination.json`
+2. **扫描已有编号**：读取 `bemp-test-common/test-index.json`，提取所有已有编号前缀
+3. **确定需求标识**：按优先级从 `requirement_identifier_source.sources` 中提取（用户指定 > PRD文件名 > 自动推断）
+4. **分配编号**：扫描 TC-{MODULE}-{REQUIREMENT}-* 的最大SEQ，从 max+1 开始
+5. **冲突检测**：编制完成后，按 `conflict_detection.rules` 检查编号唯一性
+6. **更新索引**：编制完成后更新 `bemp-test-common/test-index.json`
+
+### B. 预期结果量化检查
+
+用例编制完成后，自动执行预期结果量化检查：
+
+1. **读取配置**：加载 `config/testcase-quantify-templates.json`
+2. **分类用例**：根据用例内容判断类型（ui_operation / data_operation / api_call / scheduled_task / validation_check / permission_control）
+3. **量化检查**：逐条验证
+   - QUANTIFY-01：预期结果不得包含 `forbidden_patterns` 中的模糊描述
+   - QUANTIFY-02：必须包含对应类型的 `required_indicators` 中的至少1项
+   - QUANTIFY-03：数值/字符串必须具体，不得使用变量占位
+4. **输出结果**：将不合规项列出自校验报告中，severity=major 的必须修复
+
+### C. 页面元素预验证（可选）
+
+用例编制完成后，若服务可用，可执行轻量级页面快照验证：
+
+1. **登录系统**（法人管理员）
+2. **导航到关键页面**，截图获取按钮实际文本、弹窗结构
+3. **对比用例中的元素名称**与实际页面元素
+4. **输出差异报告**：标注名称不一致、元素缺失、组件类型差异
+5. **用例自动修正**：根据差异报告修正用例中的元素名称和交互方式
+
+> 页面元素预验证为可选步骤，需服务已启动。若服务不可用则跳过，在用例评审阶段补充验证。
+
+### D. 代码审查类用例生成
+
+当需求涉及代码内部逻辑验证（注解值、错误文案、调用链、配置引用）时，生成代码审查类用例：
+
+1. **读取配置**：加载 `config/testcase-templates.json`
+2. **选择验证模板**：根据验证目标从 4 种模板中选择对应类型
+   - `annotation_verification`：验证 @CloudFunction、@CloudComponent 等注解属性值
+   - `error_message_verification`：验证错误信息文案与规格文档一致性
+   - `logic_verification`：验证方法调用链、条件分支、返回值正确性
+   - `config_verification`：验证配置 key 引用、默认值、降级逻辑
+3. **填充模板**：按模板的 `verification_steps` 编写具体步骤，按 `expected_result_format` 编写预期结果
+4. **确定审查文件**：按模板的 `review_file_scope.file_patterns` 确定需要 Read 的源文件范围
+5. **编号分配**：按模板的 `case_id_rule.format` 分配编号（如 `TC-CODE-ANN-001`）
+6. **自校验**：用例编制完成后，按 `self_check_rules` 逐条检查
+
+**适用场景**：服务未启动时仍可执行的验证、代码内部逻辑无法通过 UI 观察的验证、注解/常量等编译期确定的验证。
+
+**用例格式示例**：
+
+```markdown
+| 用例编号 | TC-CODE-ANN-001 |
+| 用例名称 | 验证机构同步Controller的@CloudFunction注解funcCode值 |
+| 测试方式 | 代码审查 |
+| 前置条件 | 源代码已拉取到本地工作区 |
+
+| 步骤 | 操作 | 预期结果 |
+|------|------|----------|
+| 1 | rg '@CloudFunction' --type java -l 定位文件 | 定位到 OrgSyncController.java |
+| 2 | Read OrgSyncController.java，提取注解属性值 | @CloudFunction(funcCode='orgSync001') |
+| 3 | 与接口定义文档比对 funcCode 值 | funcCode='orgSync001' 与规格一致 |
+```
+
+### E. 测试方式选择判断
+
+每条用例编制完成后，自动判断并标注推荐的测试方式：
+
+1. **读取配置**：加载 `config/test-method-rules.json`
+2. **提取用例特征**：从用例名称、测试步骤、验证点中提取关键词
+3. **规则匹配**：将特征与 `selection_rules.rules` 中的 `match_keywords` 和 `match_patterns` 比对，按 `priority` 从小到大排序取首个命中
+4. **确定测试方式**：取命中规则的 `recommended_method`；未命中则使用 `default_method`（默认 Playwright）
+5. **多方式处理**：若推荐多种方式（如代码审查+数据库查询），按 `multi_method_strategy.default_option` 策略执行
+6. **标注用例**：在用例"测试方式"字段标注推荐结果，附注规则 ID 和置信度
+7. **自校验**：按 `self_check_rules` 检查测试方式标注的完整性和合理性
+
+**测试方式速查**：
+
+| 验证特征 | 推荐测试方式 | 规则ID |
+|:---|:---|:---|
+| 方法调用链/条件分支/返回值 | 代码审查 | RULE-01 |
+| 注解值（@CloudFunction 等） | 代码审查 | RULE-02 |
+| 错误文案/提示信息 | 代码审查 | RULE-03 |
+| 配置 key/默认值/降级逻辑 | 代码审查 | RULE-04 |
+| DAO/Mapper SQL | 代码审查 + 数据库查询 | RULE-05 |
+| 表结构/字段类型/索引 | 数据库查询 | RULE-06 |
+| 原有功能不受影响 | Playwright | RULE-07 |
+| 页面加载/路由 | Playwright | RULE-08 |
+| UI 交互/按钮/表单/弹窗 | Playwright | RULE-09 |
+| 定时任务实际执行 | 运行时测试 | RULE-10 |
+| 文件系统操作 | 运行时测试 | RULE-11 |
+
+### 新增配置文件
+
+| 文件 | 说明 |
+|------|------|
+| `config/testcase-prefix-coordination.json` | 编号协调规则 + 模块缩写 + 冲突检测 |
+| `config/testcase-quantify-templates.json` | 预期结果量化模板 + 禁止模式 + 自校验规则 |
+| `config/testcase-templates.json` | 代码审查类用例模板（4种验证类型）+ 自校验规则 + 配置继承机制 |
+| `config/test-method-rules.json` | 测试方式选择判断规则（11条规则）+ 多方式策略 + 自校验规则 + 配置继承机制 |
+
+> 新增模块缩写时，只需在 `testcase-prefix-coordination.json` 的 `module_codes` 中追加条目。
+> 新增用例类型时，只需在 `testcase-quantify-templates.json` 的 `quantify_templates` 中追加条目。
+> 新增代码审查验证类型时，只需在 `testcase-templates.json` 的 `templates` 中追加条目。
+> 新增测试方式判断规则时，只需在 `test-method-rules.json` 的 `selection_rules.rules` 中追加条目。
+
+### 配置继承机制
+
+`testcase-templates.json` 和 `test-method-rules.json` 支持三级配置继承：
+
+```
+技能级配置（默认）                          项目级配置（覆盖）                    银行级配置（覆盖）
+bemp-testcase-generator/config/      →    bemp-test-common/config/       →    bemp-test-common/config/{bank_id}/
+  testcase-templates.json                   testcase-templates-override.json     testcase-templates-override.json
+  test-method-rules.json                   test-method-rules-override.json      test-method-rules-override.json
+```
+
+- **合并策略**：同路径配置项按层级递进覆盖，数组类型追加而非替换，对象类型逐字段合并
+- **项目级覆盖**（可选）：在 `bemp-test-common/config/` 下放置 override 文件，针对当前项目定制
+- **银行级覆盖**（可选）：在 `bemp-test-common/config/{bank_id}/` 下放置 override 文件，针对特定银行定制
 
 ## 关联技能
 

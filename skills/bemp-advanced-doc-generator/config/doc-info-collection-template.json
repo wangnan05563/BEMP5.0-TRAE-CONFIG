@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BEMP 文档交付信息收集清单",
+  "description": "文档交付工程师在生成交付文档前必须收集的标准化信息清单，确保不同需求生成同样质量的文档内容。来源：P1-3 标准化信息收集清单优化任务。",
+  "version": "1.0.0",
+  "updatedAt": "2026-07-22",
+  "collectionSteps": [
+    {
+      "step": 1,
+      "name": "需求信息收集",
+      "required": true,
+      "source": "需求梳理阶段产出的 PRD 文档",
+      "fields": [
+        { "key": "requirementName", "label": "需求名称", "type": "string", "required": true },
+        { "key": "requirementId", "label": "需求编号", "type": "string", "required": false },
+        { "key": "businessBackground", "label": "业务背景", "type": "text", "required": true },
+        { "key": "businessGoals", "label": "业务目标", "type": "array", "required": true },
+        { "key": "scope", "label": "需求范围", "type": "text", "required": true },
+        { "key": "stakeholders", "label": "干系人", "type": "array", "required": false },
+        { "key": "confirmedItems", "label": "已确认事项", "type": "array", "required": true },
+        { "key": "testAssumptions", "label": "测试假设", "type": "array", "required": true,
+          "description": "标记为'测试假设'的项必须在此列出，含假设前提和验证结论" }
+      ]
+    },
+    {
+      "step": 2,
+      "name": "代码实现信息收集",
+      "required": true,
+      "source": "代码扫描 + 人工核实",
+      "fields": [
+        { "key": "modules", "label": "涉及模块", "type": "array", "required": true,
+          "itemSchema": {
+            "moduleName": "string",
+            "modulePath": "string",
+            "responsibility": "string",
+            "keyFiles": "array"
+          }
+        },
+        { "key": "apiEndpoints", "label": "接口清单", "type": "array", "required": true,
+          "itemSchema": {
+            "name": "string",
+            "method": "string",
+            "path": "string",
+            "requestParams": "array",
+            "responseFields": "array",
+            "errorCodes": "array"
+          }
+        },
+        { "key": "databaseTables", "label": "数据库表", "type": "array", "required": true,
+          "itemSchema": {
+            "tableName": "string",
+            "chineseName": "string",
+            "columns": "array",
+            "indexes": "array",
+            "erRelations": "array"
+          }
+        },
+        { "key": "architecture", "label": "架构信息", "type": "object", "required": true,
+          "schema": {
+            "frontendFramework": "string",
+            "backendFramework": "string",
+            "databaseType": "string",
+            "deploymentTopology": "string"
+          }
+        },
+        { "key": "deviations", "label": "需求与实现偏差", "type": "array", "required": true,
+          "description": "需求文档与实际代码实现的差异点",
+          "itemSchema": {
+            "deviationId": "string",
+            "description": "string",
+            "reason": "string",
+            "impact": "string"
+          }
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "name": "测试结果信息收集",
+      "required": true,
+      "source": "测试执行阶段产出",
+      "fields": [
+        { "key": "testSummary", "label": "测试执行汇总", "type": "object", "required": true,
+          "schema": {
+            "totalCases": "integer",
+            "p0Count": "integer",
+            "p1Count": "integer",
+            "p2Count": "integer",
+            "executedCount": "integer",
+            "passedCount": "integer",
+            "failedCount": "integer",
+            "blockedCount": "integer",
+            "p0ExecutionRate": "string",
+            "p1ExecutionRate": "string"
+          }
+        },
+        { "key": "defects", "label": "缺陷清单", "type": "array", "required": true,
+          "itemSchema": {
+            "defectId": "string",
+            "severity": "string",
+            "description": "string",
+            "rootCause": "string",
+            "fixStatus": "string",
+            "fixSuggestion": "string"
+          }
+        },
+        { "key": "knownIssues", "label": "已知问题（P2/P3）", "type": "array", "required": true,
+          "description": "未修复的 P2/P3 缺陷必须在此列出",
+          "itemSchema": {
+            "issueId": "string",
+            "severity": "string",
+            "description": "string",
+            "impact": "string",
+            "followupPlan": "string"
+          }
+        },
+        { "key": "coverageAnalysis", "label": "覆盖度分析", "type": "object", "required": true,
+          "schema": {
+            "requirementCoverage": "string",
+            "testTypeCoverage": "object",
+            "uncoveredItems": "array"
+          }
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "name": "门禁闭环信息收集",
+      "required": true,
+      "source": "各阶段门禁结论",
+      "fields": [
+        { "key": "requirementGate", "label": "需求确认门禁", "type": "object", "required": true,
+          "schema": {
+            "passed": "boolean",
+            "blockingItems": "array",
+            "testAssumptionsValidated": "boolean"
+          }
+        },
+        { "key": "reviewGate", "label": "用例评审门禁", "type": "object", "required": true,
+          "schema": {
+            "passed": "boolean",
+            "criticalIssues": "integer",
+            "majorIssues": "integer"
+          }
+        },
+        { "key": "defectGate", "label": "缺陷闭环门禁", "type": "object", "required": true,
+          "schema": {
+            "p0P1AllResolved": "boolean",
+            "p2P3Listed": "boolean"
+          }
+        }
+      ]
+    }
+  ],
+  "validationRules": [
+    {
+      "rule": "必填字段检查",
+      "description": "所有 required=true 的字段必须填写，缺失时禁止进入文档生成阶段"
+    },
+    {
+      "rule": "偏差完整性检查",
+      "description": "deviations 数组必须覆盖所有已知的需求与实现差异点，无偏差时填写 [{\"deviationId\":\"N/A\",\"description\":\"无偏差\"}]"
+    },
+    {
+      "rule": "已知问题闭环检查",
+      "description": "knownIssues 必须包含所有未修复的 P2/P3 缺陷，不得遗漏"
+    },
+    {
+      "rule": "门禁通过检查",
+      "description": "三个门禁（requirementGate/reviewGate/defectGate）的 passed 字段必须为 true，否则禁止进入交付阶段"
+    },
+    {
+      "rule": "测试假设验证检查",
+      "description": "testAssumptions 中每项必须有验证结论，未验证的假设不得进入交付阶段"
+    }
+  ],
+  "outputFormat": {
+    "description": "信息收集完成后输出标准化收集报告",
+    "template": "## 文档交付信息收集报告\n- 需求信息：[完整/不完整-缺失项]\n- 代码实现信息：[完整/不完整-缺失项]\n- 测试结果信息：[完整/不完整-缺失项]\n- 门禁闭环信息：[完整/不完整-缺失项]\n- 收集结论：[可进入文档生成/需补充信息后进入]\n- 缺失项清单：[无/具体清单]"
+  }
+}

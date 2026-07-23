@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Spec 一致性检查清单 - 开发完成后自动检查代码实现与 spec 要求的一致性",
+  "version": "1.0.0",
+  "_ref": "所有检查项通过配置管理，支持扩展新的检查维度",
+
+  "inheritance": {
+    "description": "配置继承优先级：技能级(本文件默认) → 项目级(覆盖) → 银行级(覆盖)",
+    "levels": [
+      {
+        "level": "skill",
+        "path": ".trae/skills/bemp-personalized-dev/config/spec-consistency-checklist.json",
+        "description": "技能默认检查清单，适用于所有需求"
+      },
+      {
+        "level": "project",
+        "path": "config/spec-consistency-checklist.json",
+        "description": "项目级覆盖配置"
+      },
+      {
+        "level": "bank",
+        "path": "banks/ext-${ENV:BANK_PROJECT_DIR}/config/spec-consistency-checklist.json",
+        "description": "银行级覆盖配置，优先级最高"
+      }
+    ],
+    "mergeStrategy": "deepMerge",
+    "arrayStrategy": "replace"
+  },
+
+  "checkTiming": {
+    "description": "触发 spec 一致性检查的时机",
+    "onDevComplete": true,
+    "onDevCompleteNote": "开发实施完成后自动触发检查",
+    "onCodeReview": true,
+    "onCodeReviewNote": "代码评审阶段再次执行检查",
+    "onFixVerify": true,
+    "onFixVerifyNote": "缺陷修复后验证时执行检查"
+  },
+
+  "specSource": {
+    "description": "Spec 文档来源定位规则",
+    "searchPaths": [
+      ".trae/specs/",
+      ".trae/docs/",
+      "docs/specs/"
+    ],
+    "filePatterns": [
+      "*spec*.md",
+      "*需求*.md",
+      "*PRD*.md",
+      "*方案*.md"
+    ],
+    "note": "按路径顺序搜索，匹配第一个包含当前需求关键词的文档作为 spec 来源"
+  },
+
+  "checklist": {
+    "description": "一致性检查项清单，每项包含检查规则和严重度",
+    "items": [
+      {
+        "id": "LOG-001",
+        "name": "日志级别一致性",
+        "severity": "major",
+        "description": "Spec 要求的日志级别必须与代码实现一致",
+        "checkRules": {
+          "specPatterns": {
+            "error": ["日志.*error", "记录.*error", "输出.*error", "打印.*error"],
+            "warn": ["日志.*warn", "记录.*warn", "输出.*warn", "打印.*warn"],
+            "info": ["日志.*info", "记录.*info", "输出.*info", "打印.*info"],
+            "debug": ["日志.*debug", "记录.*debug", "输出.*debug", "打印.*debug"]
+          },
+          "codePatterns": {
+            "error": "log\\.error\\(",
+            "warn": "log\\.warn\\(",
+            "info": "log\\.info\\(",
+            "debug": "log\\.debug\\("
+          },
+          "matchRule": "spec中出现的日志级别关键词必须与代码中实际使用的日志级别方法一致",
+          "mismatchExample": "Spec 要求 error 级别日志，代码中使用 warn 级别"
+        },
+        "onMismatch": "warn",
+        "output": "日志级别不一致：Spec 要求 {specLevel}，代码实现 {codeLevel}（位置：{location}）"
+      },
+      {
+        "id": "EXC-001",
+        "name": "异常处理一致性",
+        "severity": "critical",
+        "description": "Spec 要求的异常处理方式必须与代码实现一致",
+        "checkRules": {
+          "specPatterns": {
+            "throw": ["抛.*异常", "throw.*Exception", "抛出异常", "中断流程"],
+            "return": ["返回.*错误", "return.*false", "return.*null", "静默返回"],
+            "returnWithError": ["返回.*错误码", "返回.*错误信息"]
+          },
+          "codePatterns": {
+            "throw": "throw\\s+new\\s+\\w*Exception",
+            "return": "return\\s+(false|null|0|\"\")",
+            "returnWithError": "return\\s+.*[Ee]rror"
+          },
+          "matchRule": "Spec 要求抛异常时代码不得使用 return，反之亦然",
+          "mismatchExample": "Spec 要求抛出异常，代码中使用 return 静默返回"
+        },
+        "onMismatch": "block",
+        "output": "异常处理不一致：Spec 要求 {specBehavior}，代码实现 {codeBehavior}（位置：{location}）"
+      },
+      {
+        "id": "TASK-001",
+        "name": "任务隔离一致性",
+        "severity": "critical",
+        "description": "Spec 要求任务隔离时，代码必须实现隔离逻辑而非静默跳过",
+        "checkRules": {
+          "specPatterns": {
+            "isolation": ["任务隔离", "互不影响", "独立处理", "隔离执行", "互斥"],
+            "noSkip": ["禁止跳过", "不得跳过", "必须处理"]
+          },
+          "codeAntiPatterns": {
+            "silentSkip": "continue\\s*;|return\\s*;|//.*跳过|//.*skip",
+            "swallowException": "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}"
+          },
+          "matchRule": "Spec 要求任务隔离时，代码中不得出现静默跳过或吞异常的模式",
+          "mismatchExample": "Spec 要求任务隔离，代码中存在 continue 静默跳过"
+        },
+        "onMismatch": "block",
+        "output": "任务隔离不一致：Spec 要求任务隔离，代码实现静默跳过（位置：{location}）"
+      },
+      {
+        "id": "MSG-001",
+        "name": "错误文案一致性",
+        "severity": "major",
+        "description": "Spec 中的错误提示文案必须与代码实现一致",
+        "checkRules": {
+          "specPatterns": {
+            "errorMessage": ["提示[\"\"「『].*[\"\"」』]", "错误信息[：:].*", "报错[：:].*"]
+          },
+          "codePatterns": {
+            "throwMessage": "throw\\s+new\\s+\\w*Exception\\s*\\(\\s*\"([^\"]+)\"",
+            "returnMessage": "return\\s+.*\"([^\"]+)\"",
+            "logMessage": "log\\.\\w+\\s*\\(\\s*\"([^\"]+)\""
+          },
+          "matchRule": "Spec 中出现的错误文案关键词必须与代码中的异常/返回消息匹配（允许参数化差异）",
+          "mismatchExample": "Spec 要求文案'功能号已存在'，代码中文案为'功能号冲突'",
+          "tolerance": "keyword",
+          "toleranceNote": "采用关键词匹配而非精确匹配，spec文案中的核心关键词需在代码文案中出现"
+        },
+        "onMismatch": "warn",
+        "output": "错误文案不一致：Spec 要求 '{specMessage}'，代码实现 '{codeMessage}'（位置：{location}）"
+      },
+      {
+        "id": "FLOW-001",
+        "name": "流程顺序一致性",
+        "severity": "major",
+        "description": "Spec 描述的处理流程顺序必须与代码实现一致",
+        "checkRules": {
+          "specPatterns": {
+            "sequence": ["步骤[1-9一二三四五六七八九]", "先.*后.*", "首先.*然后.*", "Step\\s*[1-9]"]
+          },
+          "matchRule": "Spec 中描述的步骤顺序必须与代码中方法调用顺序一致",
+          "mismatchExample": "Spec 要求先校验再处理，代码中先处理再校验"
+        },
+        "onMismatch": "warn",
+        "output": "流程顺序不一致：Spec 要求 {specSequence}，代码实现 {codeSequence}（位置：{location}）"
+      },
+      {
+        "id": "VALID-001",
+        "name": "参数校验一致性",
+        "severity": "major",
+        "description": "Spec 要求的参数校验必须在代码中实现",
+        "checkRules": {
+          "specPatterns": {
+            "required": ["必填", "不能为空", "必须提供", "required"],
+            "format": ["格式.*校验", "正则.*匹配", "长度.*限制"],
+            "range": ["范围.*校验", "最小值", "最大值", "不超过"]
+          },
+          "matchRule": "Spec 中提及的校验要求必须在代码中找到对应的校验逻辑",
+          "mismatchExample": "Spec 要求校验机构号为空，代码中未实现该校验"
+        },
+        "onMismatch": "warn",
+        "output": "参数校验不一致：Spec 要求 {specRequirement}，代码中未找到对应校验（位置：{location}）"
+      }
+    ]
+  },
+
+  "severityLevels": {
+    "description": "严重度级别定义及处理策略",
+    "levels": {
+      "critical": {
+        "description": "严重问题，必须修复后才能继续",
+        "action": "block",
+        "blockNote": "阻止后续流程，要求立即修复"
+      },
+      "major": {
+        "description": "主要问题，需要修复但可标记后继续",
+        "action": "warn",
+        "warnNote": "输出警告并记录，允许继续但需在交付文档中列出"
+      },
+      "minor": {
+        "description": "次要问题，建议修复",
+        "action": "info",
+        "infoNote": "仅提示信息，不影响流程"
+      }
+    }
+  },
+
+  "reportFormat": {
+    "description": "一致性检查报告输出格式",
+    "template": {
+      "summary": "Spec 一致性检查报告 - 共检查 {totalItems} 项，通过 {passed} 项，失败 {failed} 项",
+      "detail": "[{severity}] {checkId} {checkName}: {message}",
+      "conclusion": {
+        "allPass": "所有检查项通过，代码实现与 spec 一致",
+        "hasCritical": "存在严重问题（{criticalCount}项），必须修复后继续",
+        "hasMajorOnly": "存在主要问题（{majorCount}项），建议修复后在交付文档中列出"
+      }
+    }
+  }
+}

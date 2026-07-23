@@ -1,0 +1,206 @@
+# BEMP 文档图表生成配置
+
+> **版本**: v1.0.0 | **创建日期**: 2026-07-22
+> **目的**: 定义文档中各类图表的生成方式，集成 mcp-server-chart 替代不美观的手绘图表
+
+## 图表类型映射
+
+| 图表用途 | 推荐 mcp-server-chart 工具 | 数据格式 | 适用场景 |
+|---------|---------------------------|---------|---------|
+| 系统架构图 | `generate_flow_diagram` | nodes + edges | 系统架构、数据流图、调用链路图 |
+| 网络结构图 | `generate_network_graph` | nodes + edges | 服务依赖关系图、智能体调用关系图 |
+| 部署图 | `generate_organization_chart` | 层级结构 | 服务器部署图、服务拓扑图 |
+| 组件结构图 | `generate_mind_map` | 树状结构 | 模块分解图、功能树状图 |
+| 缺陷根因图 | `generate_fishbone_diagram` | 鱼骨结构 | 缺陷分析、问题排查 |
+| 数据流向图 | `generate_sankey_chart` | 源-目标-值 | 数据流向、资源分配 |
+| 功能交集图 | `generate_venn_chart` | 集合列表 | 功能交集、模块重叠 |
+| 模块占比图 | `generate_treemap_chart` | 层级+值 | 模块占比、用例分布 |
+| 优先级分布 | `generate_pie_chart` | 名称+值 | P0/P1/P2 分布 |
+| 趋势图 | `generate_line_chart` | 时间+值 | 测试进度趋势 |
+
+## 数据格式规范
+
+### 1. 系统架构图 / 网络结构图（flow_diagram / network_graph）
+
+```json
+{
+  "data": {
+    "nodes": [
+      { "name": "前端服务" },
+      { "name": "后端API" },
+      { "name": "Redis" },
+      { "name": "ZooKeeper" },
+      { "name": "Oracle" }
+    ],
+    "edges": [
+      { "source": "前端服务", "target": "后端API", "name": "HTTP请求" },
+      { "source": "后端API", "target": "Redis", "name": "缓存读写" },
+      { "source": "后端API", "target": "ZooKeeper", "name": "配置中心" },
+      { "source": "后端API", "target": "Oracle", "name": "数据持久化" }
+    ]
+  },
+  "theme": "academy",
+  "width": 800,
+  "height": 500
+}
+```
+
+### 2. 智能体调用关系图（network_graph）
+
+```json
+{
+  "data": {
+    "nodes": [
+      { "name": "bill-requirement-analyst" },
+      { "name": "bemp-auto-tester" },
+      { "name": "bemp-implementation-engineer" },
+      { "name": "test-lead-reviewer" },
+      { "name": "chrome-devtools-debugger" },
+      { "name": "bemp-personalized-developer" },
+      { "name": "document-delivery-engineer" }
+    ],
+    "edges": [
+      { "source": "bill-requirement-analyst", "target": "bemp-auto-tester", "name": "需求→用例" },
+      { "source": "bemp-auto-tester", "target": "test-lead-reviewer", "name": "用例→评审" },
+      { "source": "test-lead-reviewer", "target": "bemp-auto-tester", "name": "回退修复" },
+      { "source": "bemp-auto-tester", "target": "chrome-devtools-debugger", "name": "BLOCKED→二轮" },
+      { "source": "chrome-devtools-debugger", "target": "bemp-personalized-developer", "name": "缺陷→修复" },
+      { "source": "bemp-personalized-developer", "target": "document-delivery-engineer", "name": "修复→交付" }
+    ]
+  },
+  "theme": "academy",
+  "width": 800,
+  "height": 600
+}
+```
+
+### 3. 测试流程图（flow_diagram）
+
+```json
+{
+  "data": {
+    "nodes": [
+      { "name": "需求梳理" },
+      { "name": "需求确认" },
+      { "name": "用例编制" },
+      { "name": "启动服务" },
+      { "name": "用例评审" },
+      { "name": "功能测试" },
+      { "name": "二轮调试" },
+      { "name": "缺陷修复" },
+      { "name": "交付文档" }
+    ],
+    "edges": [
+      { "source": "需求梳理", "target": "需求确认" },
+      { "source": "需求确认", "target": "用例编制" },
+      { "source": "需求确认", "target": "启动服务", "name": "并行" },
+      { "source": "用例编制", "target": "用例评审" },
+      { "source": "启动服务", "target": "用例评审" },
+      { "source": "用例评审", "target": "功能测试" },
+      { "source": "功能测试", "target": "二轮调试" },
+      { "source": "二轮调试", "target": "缺陷修复" },
+      { "source": "缺陷修复", "target": "交付文档" },
+      { "source": "用例评审", "target": "用例编制", "name": "回退" },
+      { "source": "功能测试", "target": "用例编制", "name": "回退" }
+    ]
+  },
+  "theme": "academy",
+  "width": 800,
+  "height": 600
+}
+```
+
+### 4. 缺陷分布饼图（pie_chart）
+
+```json
+{
+  "data": [
+    { "name": "P0-环境缺陷", "value": 3 },
+    { "name": "P1-功能缺陷", "value": 2 },
+    { "name": "P2-界面缺陷", "value": 2 }
+  ],
+  "theme": "academy",
+  "width": 600,
+  "height": 400
+}
+```
+
+## 主题说明
+
+| 主题 | 说明 | 适用场景 |
+|------|------|---------|
+| `default` | 默认主题 | 一般文档 |
+| `academy` | 学术主题（推荐） | 正式交付文档 |
+| `dark` | 暗色主题 | 演示文稿 |
+
+## 调用方式
+
+在 document-delivery-engineer 智能体中，通过 `run_mcp` 工具调用 mcp-server-chart：
+
+```
+run_mcp:
+  server_name: mcp_mcp-server-chart
+  tool_name: generate_flow_diagram
+  args:
+    data:
+      nodes: [...]
+      edges: [...]
+    theme: academy
+    width: 800
+    height: 500
+```
+
+### URL 转本地 PNG（关键步骤）
+
+mcp-server-chart 工具返回的是 HTTP URL（如 `https://mdn.alipayobjects.com/...`），不是本地文件。
+插入 docx 文档需要本地 PNG 文件，因此必须执行以下下载流程：
+
+```python
+import requests
+from pathlib import Path
+
+def download_chart_to_local(url: str, output_dir: str, chart_type: str, module_name: str) -> str:
+    """下载 mcp-server-chart 生成的图表URL到本地PNG文件
+
+    Args:
+        url: mcp-server-chart 返回的图表URL
+        output_dir: 输出目录（通常为 output/diagrams/）
+        chart_type: 图表类型（如 architecture/network/deployment）
+        module_name: 模块名称，用于文件命名
+
+    Returns:
+        本地PNG文件绝对路径
+    """
+    output_path = Path(output_dir) / f"{chart_type}-{module_name}.png"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    output_path.write_bytes(response.content)
+    return str(output_path.resolve())
+```
+
+**文件命名规范**：`{图表类型}-{模块名}.png`（如 `architecture-hnnxbank.png`）
+
+**门禁集成**：下载后的 PNG 文件需通过 `enforceDiagramGate` 检查（文件存在 + 大小 > 10KB），才能插入文档。
+
+## 集成到 bemp-advanced-doc-generator
+
+在文档生成过程中，根据文档类型自动选择图表工具：
+
+1. **概要设计文档** → 系统架构图(flow_diagram) + 部署图(organization_chart)
+2. **详细设计文档** → 组件结构图(mind_map) + 流程图(flow_diagram)
+3. **测试报告** → 缺陷分布(pie_chart) + 测试进度(line_chart) + 缺陷根因(fishbone_diagram)
+4. **需求文档** → 功能分解(mind_map) + 业务流程(flow_diagram)
+5. **交付文档** → 智能体调用关系(network_graph) + 测试流程(flow_diagram)
+
+## 替代方案
+
+当 mcp-server-chart 不可用时，使用以下降级方案：
+
+| 图表类型 | 首选 | 降级方案1 | 降级方案2 |
+|---------|------|----------|----------|
+| 系统架构图 | mcp-server-chart/flow_diagram | drawio-skill | Mermaid流程图 |
+| 网络结构图 | mcp-server-chart/network_graph | drawio-skill | Mermaid关系图 |
+| 部署图 | mcp-server-chart/organization_chart | drawio-skill | HTML表格 |
+| 组件结构图 | mcp-server-chart/mind_map | mcp_ProcesOn_MCP | Markdown列表 |
+| 缺陷根因图 | mcp-server-chart/fishbone_diagram | Markdown表格 | 文字描述 |

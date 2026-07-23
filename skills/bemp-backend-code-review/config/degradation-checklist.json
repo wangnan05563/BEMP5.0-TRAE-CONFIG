@@ -1,0 +1,109 @@
+{
+    "description": "BEMP后端代码审查 - 降级处理模式检查清单。系统化检查代码中的降级处理是否符合规范，捕获降级处理不当导致的静默失败、数据丢失、流程中断等问题。所有降级模式通过本文件管理，无硬编码。",
+    "version": "1.0.0",
+    "lastUpdate": "2026-07-22",
+
+    "inheritance": {
+        "levels": ["skill", "project", "bank"],
+        "rule": "技能级默认(defaults) → 项目级覆盖(projectOverrides) → 银行级覆盖(bankOverrides.{bankCode})，后者覆盖前者同名检查项(id匹配)",
+        "overrideFields": ["severity", "correctHandling", "wrongHandling", "checkLogic", "enabled"],
+        "note": "覆盖时按id匹配，仅覆盖指定字段，未覆盖字段继承上一级默认值"
+    },
+
+    "defaults": {
+        "checks": [
+            {
+                "id": "DG-001",
+                "name": "文件不存在降级",
+                "severity": "阻塞",
+                "correctHandling": "关键配置文件(如CBS文件、模板文件)不存在时抛出BempRuntimeException终止流程并记录error日志；可选文件不存在时可降级返回空结果但必须记录warn日志说明原因。",
+                "wrongHandling": "文件不存在时仅warn+return或静默跳过，不区分关键文件和可选文件，导致后续流程数据缺失或空指针。",
+                "checkLogic": "检查代码中所有文件读取操作(File.exists/Files.exists/FileInputStream)的异常处理分支：1.是否区分关键文件和可选文件 2.关键文件不存在时是否抛异常 3.可选文件降级时是否记录warn日志 4.是否存在静默return无日志的情况。",
+                "enabled": true,
+                "example": {
+                    "wrong": "if (!file.exists()) { LOGGER.warn(\"文件不存在\"); return; }",
+                    "correct": "if (!file.exists()) { throw new BempRuntimeException(\"CBS配置文件不存在: \" + filePath); }"
+                }
+            },
+            {
+                "id": "DG-002",
+                "name": "文件为空降级",
+                "severity": "严重",
+                "correctHandling": "必填文件为空(内容为空或0字节)时抛出BempRuntimeException并记录error日志；可空文件为空时降级返回空集合(Collections.emptyList())并记录info日志。",
+                "wrongHandling": "文件为空时直接return null导致调用方NPE，或静默跳过不记录任何日志，或将空文件等同于文件不存在处理。",
+                "checkLogic": "检查代码中文件读取后的空内容判断分支：1.文件为空时是否区分必填和可空 2.必填文件为空是否抛异常 3.可空文件为空是否返回空集合而非null 4.是否记录日志说明降级原因。",
+                "enabled": true,
+                "example": {
+                    "wrong": "String content = readFile(file); if (content == null || content.isEmpty()) return null;",
+                    "correct": "String content = readFile(file); if (content == null || content.isEmpty()) { throw new BempRuntimeException(\"必填文件内容为空: \" + file.getName()); }"
+                }
+            },
+            {
+                "id": "DG-003",
+                "name": "数据为空降级",
+                "severity": "严重",
+                "correctHandling": "查询结果为空时返回空集合(Collections.emptyList())而非null；区分'无数据'(正常业务场景返回空集合)和'查询失败'(抛异常)；空数据场景记录info日志便于排查。",
+                "wrongHandling": "查询结果为空时返回null导致调用方NPE，或静默跳过不记录日志，或将查询失败等同于无数据降级处理。",
+                "checkLogic": "检查代码中所有查询操作的返回值处理：1.空结果是否返回null(应返回空集合) 2.是否区分无数据和查询失败 3.空数据场景是否有日志记录 4.调用方是否对返回值做了null检查(若返回空集合则无需检查)。",
+                "enabled": true,
+                "example": {
+                    "wrong": "List<OrgInfo> list = queryOrgs(); if (list == null) return null;",
+                    "correct": "List<OrgInfo> list = queryOrgs(); if (list == null || list.isEmpty()) { LOGGER.info(\"未查询到机构数据\"); return Collections.emptyList(); }"
+                }
+            },
+            {
+                "id": "DG-004",
+                "name": "网络异常降级",
+                "severity": "严重",
+                "correctHandling": "网络异常(超时/连接拒绝)时应有限次重试(默认3次，指数退避)；重试仍失败则抛异常终止关键链路；非关键链路可降级但必须记录error日志并返回明确错误信息。重试逻辑需检查是否会导致重复写入。",
+                "wrongHandling": "网络异常直接catch并return不重试，或无限重试导致线程阻塞，或重试时不考虑幂等性导致重复写入。",
+                "checkLogic": "检查代码中所有远程调用(RPC/HTTP/TCP)的异常处理分支：1.是否有重试机制 2.重试次数是否有限(≤3次) 3.重试是否有退避策略 4.重试操作是否幂等 5.重试失败后是否抛异常 6.是否区分关键链路和非关键链路。",
+                "enabled": true,
+                "example": {
+                    "wrong": "catch (RpcException e) { LOGGER.warn(\"调用失败\"); return null; }",
+                    "correct": "int retry = 0; while (retry < MAX_RETRY) { try { return remoteService.call(); } catch (RpcException e) { retry++; if (retry >= MAX_RETRY) throw new BempRuntimeException(\"远程调用失败\", e); Thread.sleep(1000L * retry); } }"
+                }
+            },
+            {
+                "id": "DG-005",
+                "name": "服务不可用降级",
+                "severity": "阻塞",
+                "correctHandling": "核心服务(如机构同步、账务处理)不可用时抛出BempRuntimeException终止流程并记录error日志；非核心服务不可用时可降级但必须记录warn日志、返回默认值或空结果、通知监控。",
+                "wrongHandling": "核心服务不可用时静默跳过继续执行，导致业务数据不一致；或非核心服务不可用时抛异常导致整个流程中断。",
+                "checkLogic": "检查代码中服务调用不可用(服务降级/熔断/限流)的处理分支：1.是否区分核心服务和非核心服务 2.核心服务不可用是否抛异常 3.非核心服务降级是否记录warn日志 4.降级后是否返回合理的默认值 5.是否有监控通知机制。",
+                "enabled": true,
+                "example": {
+                    "wrong": "try { orgService.sync(); } catch (Exception e) { LOGGER.warn(\"机构服务不可用\"); }",
+                    "correct": "try { orgService.sync(); } catch (Exception e) { LOGGER.error(\"核心机构同步服务不可用\", e); throw new BempRuntimeException(\"机构同步服务不可用\", e); }"
+                }
+            },
+            {
+                "id": "DG-006",
+                "name": "配置缺失降级",
+                "severity": "严重",
+                "correctHandling": "必填配置缺失时抛出BempRuntimeException终止流程并记录error日志提示缺失的配置项；可选配置缺失时使用预设默认值并记录info日志说明使用了默认值。默认值必须在代码中有明确语义化常量定义和注释说明。",
+                "wrongHandling": "必填配置缺失时使用默认值(如0或空字符串)导致业务逻辑错误；或配置获取失败时静默使用null不记录日志；或魔法数字直接硬编码无注释。",
+                "checkLogic": "检查代码中所有配置读取(ConfigUtil/@Value/Properties)的处理分支：1.是否区分必填配置和可选配置 2.必填配置缺失是否抛异常 3.可选配置缺失是否使用默认值 4.默认值是否有语义化常量定义 5.是否记录日志说明降级原因。",
+                "enabled": true,
+                "example": {
+                    "wrong": "int batchSize = config.getInt(\"batch.size\", 10);",
+                    "correct": "int batchSize = config.getInt(\"batch.size\", DEFAULT_BATCH_SIZE); LOGGER.info(\"未配置batch.size，使用默认值: {}\", DEFAULT_BATCH_SIZE);"
+                }
+            }
+        ]
+    },
+
+    "projectOverrides": {
+        "note": "项目级覆盖配置，按id匹配defaults中的检查项，仅覆盖指定字段。默认为空，需要时在此添加。"
+    },
+
+    "bankOverrides": {
+        "note": "银行级覆盖配置，按bankCode分组，每组内按id匹配覆盖。默认为空，新银行需要特殊降级规则时在此添加。",
+        "example": {
+            "DG-001": {
+                "severity": "严重",
+                "note": "示例银行将文件不存在降级检查从阻塞降为严重"
+            }
+        }
+    }
+}

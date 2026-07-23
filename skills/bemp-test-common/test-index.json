@@ -1,24 +1,40 @@
 {
   "_comment": "BEMP 测试用例索引 - test-cases ↔ scripts 双向映射。用于追踪覆盖率、定位关联脚本。由 bemp-test-common 统一管理，bemp-testcase-generator 和 bemp-webapp-testing 共享。注意：file 和 scripts 中的路径均相对于 .trae/skills/ 目录，如 'bemp-test-common/test-cases/common/login.md' 实际路径为 '.trae/skills/bemp-test-common/test-cases/common/login.md'。",
   "index_version": "2.0",
-  "generated": "2026-05-20",
+  "generated": "2026-07-21",
   "scripts_index": {
     "bemp-webapp-testing/scripts/run_test.py": {
       "description": "通用测试运行器，配置驱动执行所有 bank_config.pages 中的页面测试",
       "covered_cases": [
-        "TC-BRANCH-001", "TC-BRANCH-002", "TC-CUSTCORP-001", "TC-CUSTACCT-001", "TC-CUSTINFO-001",
-        "TC-CUSTSIGN-001", "TC-SIGNAUDIT-001", "TC-SIGNRECORD-001", "TC-CREDITBATCH-001", "TC-CREDITINFO-001", "TC-CREDITRECHECK-001"
+        "TC-BRANCH-001",
+        "TC-BRANCH-002",
+        "TC-CUSTCORP-001",
+        "TC-CUSTACCT-001",
+        "TC-CUSTINFO-001",
+        "TC-CUSTSIGN-001",
+        "TC-SIGNAUDIT-001",
+        "TC-SIGNRECORD-001",
+        "TC-CREDITBATCH-001",
+        "TC-CREDITINFO-001",
+        "TC-CREDITRECHECK-001"
       ],
       "test_type": "page_smoke"
     },
     "bemp-webapp-testing/scripts/login_manager.py": {
       "description": "统一登录管理器，提供会话复用和多角色切换",
-      "covered_cases": ["TC-COMMON-001", "TC-COMMON-002"],
+      "covered_cases": [
+        "TC-COMMON-001",
+        "TC-COMMON-002"
+      ],
       "test_type": "utility"
     },
     "bemp-webapp-testing/scripts/test_accept_bank_credit.py": {
       "description": "承兑行额度管理端到端测试",
-      "covered_cases": ["TC-CREDITBATCH-001", "TC-CREDITINFO-001", "TC-CREDITRECHECK-001"],
+      "covered_cases": [
+        "TC-CREDITBATCH-001",
+        "TC-CREDITINFO-001",
+        "TC-CREDITRECHECK-001"
+      ],
       "test_type": "e2e"
     },
     "bemp-webapp-testing/scripts/health_check.py": {
@@ -35,7 +51,9 @@
       "feature": "登录基础功能",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/login_manager.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/login_manager.py"
+      ],
       "description": "用户名密码登录、强制登录弹窗处理"
     },
     {
@@ -45,7 +63,9 @@
       "feature": "登录与会话管理",
       "priority": "P0",
       "case_count": 21,
-      "scripts": ["bemp-webapp-testing/scripts/login_manager.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/login_manager.py"
+      ],
       "description": "密码登录、强制登录、会话过期检测、多角色管理"
     },
     {
@@ -55,7 +75,9 @@
       "feature": "机构管理",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "机构查询、新增、修改、删除，个性化路径验证"
     },
     {
@@ -65,7 +87,9 @@
       "feature": "简版机构管理",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "简版机构页面功能验证"
     },
     {
@@ -105,7 +129,9 @@
       "feature": "企业客户查询",
       "priority": "P1",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "企业客户信息查询功能"
     },
     {
@@ -115,7 +141,9 @@
       "feature": "企业账号同步",
       "priority": "P1",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "企业账号同步功能验证"
     },
     {
@@ -125,7 +153,9 @@
       "feature": "企业信息在线查询",
       "priority": "P1",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "企业信息在线查询功能验证（test_config.json 已配置页面，用例文档待补充）"
     },
     {
@@ -145,7 +175,9 @@
       "feature": "企业信息报备",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "企业信息报备录入功能"
     },
     {
@@ -155,7 +187,9 @@
       "feature": "企业信息报备复核",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "报备信息复核流程验证"
     },
     {
@@ -165,7 +199,9 @@
       "feature": "企业报备记录查询",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py"
+      ],
       "description": "报备历史记录查询功能"
     },
     {
@@ -205,12 +241,18 @@
       "feature": "承兑行额度管理（完整）",
       "priority": "P0",
       "case_count": 124,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py", "bemp-webapp-testing/scripts/test_accept_bank_credit.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py",
+        "bemp-webapp-testing/scripts/test_accept_bank_credit.py"
+      ],
       "description": "额度使用规则(14)、额度申请查询(8)、新增(7)、删除(2)、批复明细查询(7)、新增批复明细(11)、修改(3)、删除确认(2)、额度复核(11)、状态流转(6)、状态守卫(4+3)、跨页面(2)、冻结额度(1)、有效期(1)、循环逻辑(2)、同步幂等(1)、查询重置(3)、默认值与约束(4)、确认弹窗(4)、弹窗关闭与只读(2)、分页(1)、导出栏位(1)、边界值与异常(8)、辅助功能(3)、河南农信个性化(13)",
       "tested": "2026-05-17",
       "tested_count": 20,
       "tested_result": "PASS:18, FAIL:0, BLOCKED:2",
-      "bugs": ["P3:提示文本'请选择'vs需求'请选中'", "P2:导出模板acceptBankCreditGrantReCheckExport未配置"]
+      "bugs": [
+        "P3:提示文本'请选择'vs需求'请选中'",
+        "P2:导出模板acceptBankCreditGrantReCheckExport未配置"
+      ]
     },
     {
       "id": "TC-CREDITINFO-001",
@@ -219,7 +261,10 @@
       "feature": "批复明细管理",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py", "bemp-webapp-testing/scripts/test_accept_bank_credit.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py",
+        "bemp-webapp-testing/scripts/test_accept_bank_credit.py"
+      ],
       "description": "批复明细弹窗操作、提交复核/撤销复核验证"
     },
     {
@@ -229,7 +274,10 @@
       "feature": "额度复核",
       "priority": "P0",
       "case_count": null,
-      "scripts": ["bemp-webapp-testing/scripts/run_test.py", "bemp-webapp-testing/scripts/test_accept_bank_credit.py"],
+      "scripts": [
+        "bemp-webapp-testing/scripts/run_test.py",
+        "bemp-webapp-testing/scripts/test_accept_bank_credit.py"
+      ],
       "description": "复核按钮验证、选择数据复核、清单导出"
     },
     {
@@ -411,23 +459,231 @@
       "case_count": 2,
       "scripts": [],
       "description": "机构不具备角色精确报错(2): 单角色精确报错/多角色聚合返回；P1:2"
+    },
+    {
+      "id": "TC-BRANCH-ORG-001",
+      "file": "bemp-test-common/test-cases/sm/branch/org-mgmt-optimization.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化-机构树查询+批量删除+同步校验",
+      "priority": "P0",
+      "case_count": 44,
+      "scripts": [],
+      "description": "机构树查询多页面覆盖(11)、批量删除管理员(8)、统一身份认证校验(5)、同步机构树定时任务(6)、新增机构校验(4)、贴现业务校验(4)、安全权限测试(2)、联动测试(2)、边界异常补充(2)；P0:11 P1:24 P2:9 P3:0；编号格式TC-BRANCH-ORG/TC-ADMIN-ORG/TC-SYNC-ORG"
+    },
+    {
+      "id": "TC-F01-P0-001~010",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-01 机构批量导入（P0）",
+      "priority": "P0",
+      "case_count": 10,
+      "scripts": [],
+      "description": "机构批量导入 P0 用例：正常导入、必填字段缺失、Excel 内机构号重复、系统已存在、上级机构不存在、层级超 4 级、主系统不存在、机构状态异常、票交所一码绑多机构、票交所代码非必填",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F03-P0-001~005",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-03 机构批量复制角色（P0）",
+      "priority": "P0",
+      "case_count": 5,
+      "scripts": [],
+      "description": "机构批量复制角色 P0 用例：正常覆盖、目标机构号未填、角色被柜员使用阻止、多目标复制、源机构无角色",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F04-P0-001~008",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-04 机构树查询增强（P0）",
+      "priority": "P0",
+      "case_count": 8,
+      "scripts": [],
+      "description": "机构树查询增强 P0 用例：懒加载、关键字搜索、跨层级查询、机构状态标识、个性化路径、数据隔离、9 个机构树改造页面、加载性能",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F05-P0-001~008",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-05 管理员批量新增（P0）",
+      "priority": "P0",
+      "case_count": 8,
+      "scripts": [],
+      "description": "管理员批量新增 P0 用例：正常新增、必填字段缺失、用户号重复、机构不存在、角色校验、状态校验、批量大小限制、二次确认",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F06-P0-001~005",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-06 管理员批量删除（P0）",
+      "priority": "P0",
+      "case_count": 5,
+      "scripts": [],
+      "description": "管理员批量删除 P0 用例：正常删除、用户在用阻止、二次确认、权限校验、批量大小限制",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F08-P0-001~005",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-08 管理员批量复制角色（P0）",
+      "priority": "P0",
+      "case_count": 5,
+      "scripts": [],
+      "description": "管理员批量复制角色 P0 用例：正常覆盖、目标用户号未填、角色被柜员使用阻止、多目标复制、源用户无角色",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F09-P0-001~007",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-09 机构数据同步定时任务（P0）",
+      "priority": "P0",
+      "case_count": 7,
+      "scripts": [],
+      "description": "机构数据同步定时任务 P0 用例：JOB-01 正常同步、文件不存在、文件格式错误、文件分隔符校验（0x03）、整批回滚、同步日志、调度时间窗口",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F10-P0-001~004",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-10 新增机构主系统校验（P0）",
+      "priority": "P0",
+      "case_count": 4,
+      "scripts": [],
+      "description": "新增机构主系统校验 P0 用例：API-09 正常校验、PJGCS 不存在、JILUZT 异常、接口超时降级",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F11-P0-001~005",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-P0-20260721.md",
+      "subsystem": "sm",
+      "feature": "F-11 贴现业务账务机构校验（P0）",
+      "priority": "P0",
+      "case_count": 5,
+      "scripts": [],
+      "description": "贴现业务账务机构校验 P0 用例：API-10 正常校验、PJGGX 不存在、YWGXZL≠ZNGWSJ、机构状态异常、贴现业务阻断",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F01-P1~F11-P1",
+      "file": "aotutests-devtools/机构管理优化/test-case-P1.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化（P1 扩展）",
+      "priority": "P1",
+      "case_count": 43,
+      "scripts": [],
+      "description": "机构管理优化 P1 用例：F-02 模板下载、F-07 管理员模板下载、各功能点边界扩展、安全/性能/审计测试（含 TC-SEC-P1-001~003、TC-PERF-P1-001~006）",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F01-P2~F11-P2",
+      "file": "aotutests-devtools/机构管理优化/test-case-P2.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化（P2 兼容性/UI）",
+      "priority": "P2",
+      "case_count": 12,
+      "scripts": [],
+      "description": "机构管理优化 P2 用例：兼容性测试（Excel 版本/浏览器）、极端边界值（文件大小/数据量/字段长度）、UI 视觉、国际化文本",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-DB-01~08",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-20260721.xlsx",
+      "subsystem": "sm",
+      "feature": "机构管理优化（暂缓用例）",
+      "priority": "—",
+      "case_count": 8,
+      "scripts": [],
+      "description": "Q-15 数据库字段扩展相关暂缓用例：PJGCS/PJGGX 表字段扩展验证（待需求确认后补充）",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-F01~F11-EXCEL",
+      "file": "aotutests-devtools/机构管理优化/机构管理优化-测试用例-20260721.xlsx",
+      "subsystem": "sm",
+      "feature": "机构管理优化（Excel 主文件）",
+      "priority": "全优先级",
+      "case_count": 112,
+      "scripts": [],
+      "description": "机构管理优化测试用例主文件（15 个 Sheet：用例汇总 + F-01~F-11 + 安全性能审计 + 暂缓用例清单 + 优先级矩阵）",
+      "version": "v2-20260721"
+    },
+    {
+      "id": "TC-ORGMGMT-V3-MAP",
+      "file": "aotutests-devtools/testcases/机构管理优化/机构管理优化-功能地图与优先级矩阵-v3.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化-功能地图与优先级矩阵",
+      "priority": "—",
+      "case_count": 0,
+      "scripts": [],
+      "description": "v3 功能地图（11页面+10API+2定时任务）与优先级矩阵（94条用例分布）、11种测试类型覆盖矩阵、10种组件测试覆盖矩阵、基于假设用例清单",
+      "version": "v3-20260722"
+    },
+    {
+      "id": "TC-ORGMGMT-V3-P0",
+      "file": "aotutests-devtools/testcases/机构管理优化/机构管理优化-P0用例-v3.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化-P0核心用例",
+      "priority": "P0",
+      "case_count": 48,
+      "scripts": [],
+      "description": "P0用例48条：TC-ORG(10)机构批量导入、TC-ROLE(4)机构复制角色、TC-TREE(6)机构树查询、TC-ADM(5)管理员批量新增、TC-DEL(4)管理员批量删除、TC-ADMROLE(4)管理员复制角色、TC-SYNC(5)机构数据同步、TC-DISC(3)贴现账务机构校验、TC-DB(3)数据库验证、TC-SEC(2)安全测试、TC-LINK(2)联动测试；基于假设：TC-DEL-001/004(H-10)、TC-TREE-002(H-13)、TC-DISC-003(H-14)",
+      "version": "v3-20260722"
+    },
+    {
+      "id": "TC-ORGMGMT-V3-P1",
+      "file": "aotutests-devtools/testcases/机构管理优化/机构管理优化-P1用例-v3.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化-P1扩展用例",
+      "priority": "P1",
+      "case_count": 37,
+      "scripts": [],
+      "description": "P1用例37条：TC-ORG(2)导入扩展、TC-API(6)接口测试、TC-DB(5)数据库扩展、TC-PERF(4)性能测试、TC-COMP(4)组件测试、TC-AUDIT(2)审计测试、TC-UI(2)UI视觉、TC-SEC(2)安全测试、TC-ROLE(1)复制角色扩展、TC-TREE(1)机构树扩展、TC-LINK(1)联动测试、TC-ADMROLE(1)管理员复制角色扩展、F-02模板下载(3)、F-07模板下载(3)",
+      "version": "v3-20260722"
+    },
+    {
+      "id": "TC-ORGMGMT-V3-P2",
+      "file": "aotutests-devtools/testcases/机构管理优化/机构管理优化-P2用例-v3.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化-P2兼容边界用例",
+      "priority": "P2",
+      "case_count": 9,
+      "scripts": [],
+      "description": "P2用例9条：TC-COMPAT(3)兼容测试（Excel版本/浏览器）、TC-BOUND(2)极端边界值（文件大小/数据量/字段长度）、TC-ROUTE(2)路由测试、TC-UI(1)UI视觉、TC-COMP(1)组件测试",
+      "version": "v3-20260722"
+    },
+    {
+      "id": "TC-ORGMGMT-V3-DATA",
+      "file": "aotutests-devtools/testcases/机构管理优化/机构管理优化-测试数据准备-v3.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化-测试数据准备",
+      "priority": "—",
+      "case_count": 0,
+      "scripts": [],
+      "description": "测试数据准备：账号数据、PJGCS/PJGGX表数据、机构层级链、管理员数据、角色数据、CBS同步文件、Excel测试文件、系统参数、数据就绪检查SQL、数据清理SQL",
+      "version": "v3-20260722"
     }
   ],
   "summary": {
-    "total_cases": 38,
-    "total_estimated_count": 469,
+    "total_cases": 44,
+    "total_estimated_count": 605,
     "by_subsystem": {
       "common": 2,
-      "sm": 9,
+      "sm": 15,
       "bm": 18,
       "be": 4,
       "ce": 4,
       "adapter": 2
     },
     "by_priority": {
-      "P0": 27,
-      "P1": 14,
-      "P2": 3,
+      "P0": 29,
+      "P1": 16,
+      "P2": 5,
       "P3": 0,
       "unknown": 0
     },
@@ -438,11 +694,24 @@
       "bemp-webapp-testing/scripts/health_check.py": 0
     },
     "uncovered_cases": [
-      "TC-BRANCH-003", "TC-ROLE-001", "TC-CLEAR-001", "TC-CUSTCORP-002",
-      "TC-APPROVAL-001", "TC-CONTRACT-001", "TC-PAYMENT-001",
-      "TC-TRUST-001", "TC-MARKET-001", "TC-MARKET-002", "TC-MARKET-003",
-      "TC-ACCEPT-001", "TC-DISCOUNT-001", "TC-PLEDGE-001",
-      "TC-BRANCH-010", "TC-ROLE-010", "TC-CUSTCORP-010", "TC-BRANCH-020"
+      "TC-BRANCH-003",
+      "TC-ROLE-001",
+      "TC-CLEAR-001",
+      "TC-CUSTCORP-002",
+      "TC-APPROVAL-001",
+      "TC-CONTRACT-001",
+      "TC-PAYMENT-001",
+      "TC-TRUST-001",
+      "TC-MARKET-001",
+      "TC-MARKET-002",
+      "TC-MARKET-003",
+      "TC-ACCEPT-001",
+      "TC-DISCOUNT-001",
+      "TC-PLEDGE-001",
+      "TC-BRANCH-010",
+      "TC-ROLE-010",
+      "TC-CUSTCORP-010",
+      "TC-BRANCH-020"
     ],
     "uncovered_note": "以上用例尚无对应的 Python 自动化脚本，仅有 markdown 文档描述。如需自动化覆盖，需创建对应脚本。"
   }

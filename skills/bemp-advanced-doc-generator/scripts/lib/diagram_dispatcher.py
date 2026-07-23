@@ -114,11 +114,21 @@ class DiagramDispatcher:
         return 'none'
 
     def _is_engine_available(self, engine: str) -> bool:
-        """探测引擎是否可用（AntV MCP / Graphviz / matplotlib）。"""
+        """探测引擎是否可用（drawio / mcp / Graphviz / AntV / matplotlib）。
+
+        v13.0: 5级降级链支持。drawio 和 mcp 需要 AI agent 通过 Skill/run_mcp 调用，
+        Python 端通过环境变量检测是否已注册。
+        """
+        if engine == 'drawio':
+            # drawio-skill 通过 Skill 工具调用，Python 端无法直接调用
+            # 通过环境变量 BEMP_DRAWIO_AVAILABLE=1 表示 AI agent 已注册 drawio-skill
+            return os.environ.get('BEMP_DRAWIO_AVAILABLE', '0') == '1'
+        if engine == 'mcp':
+            # mcp-server-chart 通过 run_mcp 调用，Python 端无法直接调用
+            # 通过环境变量 BEMP_MCP_CHART_AVAILABLE=1 表示 AI agent 已注册 mcp-server-chart
+            return os.environ.get('BEMP_MCP_CHART_AVAILABLE', '0') == '1'
         if engine == 'antv':
             try:
-                # AntV MCP 探测：默认不可用（无 MCP server 注册时）
-                # 实际项目可通过环境变量 BEMP_ANTV_AVAILABLE=1 强制启用
                 return os.environ.get('BEMP_ANTV_AVAILABLE', '0') == '1'
             except Exception:
                 return False
@@ -139,7 +149,7 @@ class DiagramDispatcher:
     def dispatch_er(self, scan_data: dict) -> Dict:
         """ER 图生成调度。
 
-        优先复用已生成的 ER_*.png；否则调用 er-diagram-generator.js
+        优先复用已生成的 ER_*.png；否则按5级降级链选择引擎。
         """
         # 1) 复用已有 ER 图
         existing = self._find_existing('ER_*.png', subdir='.')
@@ -151,8 +161,10 @@ class DiagramDispatcher:
                 'output_paths': existing,
                 'errors': [],
             }
-        # 2) 引擎调度
+        # 2) 引擎调度（v13.0: 5级降级链）
         engine = self._select_engine('er')
+        if engine in ('drawio', 'mcp'):
+            return self._dispatch_ai_agent(engine, 'er', 'ER_diagram.png', scan_data)
         if engine == 'antv':
             return self._dispatch_er_antv(scan_data)
         if engine == 'matplotlib':
@@ -197,8 +209,11 @@ class DiagramDispatcher:
                 'output_paths': existing,
                 'errors': [],
             }
-        # 2) 引擎调度
+        # 2) 引擎调度（v13.0: drawio 首选 UML 图）
         engine = self._select_engine('uml')
+        if engine in ('drawio', 'mcp'):
+            uml_file = f'uml-{diagram_subtype.replace("图", "")}.png'
+            return self._dispatch_ai_agent(engine, 'uml', uml_file, scan_data)
         if engine == 'graphviz':
             return self._dispatch_uml_graphviz(diagram_subtype, business_module, scan_data)
         return self._dispatch_placeholder('uml', subtype=diagram_subtype)
@@ -218,8 +233,54 @@ class DiagramDispatcher:
                 'errors': [],
             }
         engine = self._select_engine(diagram_type)
-        # 实际项目可在此处调用 AntV/matplotlib 生成
+        # v13.0: drawio/mcp 引擎需要 AI agent 执行，生成配置文件并返回 pending
+        if engine in ('drawio', 'mcp'):
+            return self._dispatch_ai_agent(engine, diagram_type, expected_file, scan_data)
+        # graphviz/antv/matplotlib 由 Python 端直接生成（实际项目可在此处调用）
         return self._dispatch_placeholder(diagram_type)
+
+    # ------------------------------------------------------------------
+    # v13.0: AI agent 引擎调度（drawio/mcp）
+    # ------------------------------------------------------------------
+    def _dispatch_ai_agent(self, engine: str, diagram_type: str,
+                           expected_file: str, scan_data: dict) -> Dict:
+        """生成 AI agent 调用配置文件，返回 pending 状态。
+
+        AI agent（如 document-delivery-engineer）读取配置文件后：
+        - drawio: 通过 Skill 工具调用 drawio-skill
+        - mcp: 通过 run_mcp 调用 mcp_mcp-server-chart
+        生成 PNG 后保存到 output/diagrams/ 目录。
+        """
+        config = {
+            'engine': engine,
+            'diagram_type': diagram_type,
+            'expected_file': expected_file,
+            'output_path': os.path.join(self.output_dir, expected_file),
+            'scan_data_summary': {
+                'project_name': scan_data.get('projectName', self.project_name),
+                'subsystems_count': len(scan_data.get('subsystems', [])),
+            },
+        }
+        config_path = os.path.join(self.output_dir, f'{diagram_type}-{engine}-config.json')
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            return {
+                'success': False,
+                'type': diagram_type,
+                'engine': engine,
+                'output_paths': [],
+                'errors': [f'配置文件写入失败: {e}'],
+            }
+        return {
+            'success': False,
+            'type': diagram_type,
+            'engine': f'{engine}-pending',
+            'output_paths': [],
+            'errors': [f'AI agent 需执行 {engine} 调用，配置文件: {config_path}'],
+            'config_path': config_path,
+        }
 
     # ------------------------------------------------------------------
     # 内部：AntV / matplotlib ER 图（占位实现，由后续 PR 完善）

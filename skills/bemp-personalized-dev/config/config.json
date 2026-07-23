@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "bemp-personalized-dev 技能配置 - 个性化开发参数集中管理",
+  "version": "1.0.0",
+  "usage": "通过 _shared/Resolve-EnvConfig.ps1 引用 _shared/env-config.json 获取环境参数",
+
+  "envConfigRef": {
+    "path": "_shared/env-config.json",
+    "description": "全局环境配置引用，以下参数均从 env-config.json 解析",
+    "bank": {
+      "code": "${ENV:BANK_CODE}",
+      "projectDir": "${ENV:BANK_PROJECT_DIR}",
+      "urlPrefix": "${ENV:BANK_URL_PREFIX}",
+      "packagePrefix": "${ENV:BANK_PACKAGE_PREFIX}",
+      "classPrefix": "${ENV:BANK_CLASS_PREFIX}",
+      "modulePrefix": "${ENV:BANK_MODULE_PREFIX}"
+    },
+    "paths": {
+      "workspaceRoot": "${ENV:BEMP_WORKSPACE_ROOT}",
+      "banksProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}",
+      "frontendProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\frontend"
+    }
+  },
+
+  "compileDeploy": {
+    "ref": "config/compile-deploy.json",
+    "description": "编译部署配置，详见同目录 compile-deploy.json"
+  },
+
+  "codeReview": {
+    "frontend": {
+      "steps": ["frontend-code-review", "bemp-frontend-code-review"],
+      "description": "前端代码走查两步串联：先通用后项目规范"
+    },
+    "backend": {
+      "steps": ["backend-code-review", "bemp-backend-code-review"],
+      "description": "后端代码走查两步串联：先通用后项目规范"
+    },
+    "gateRule": "走查发现的问题必须全部修复后才能继续，不得跳过"
+  },
+
+  "codingStandards": {
+    "frontend": {
+      "i18nRequired": true,
+      "i18nNote": "所有按钮名称与文本必须写入国际化文件(zh-CN.js)，禁止在模板中硬编码",
+      "apiPathCheck": "强制核实后端 @RequestMapping 实际路径，禁止仅凭规范直接修改前端 API 路径"
+    },
+    "backend": {
+      "injectionAnnotation": "@Autowired",
+      "injectionNote": "禁止使用 @Resource 注解，统一使用 @Autowired",
+      "aopLogRequired": true,
+      "aopNote": "AOP 切面重写逻辑必须打印日志",
+      "redisLockOutsideTransaction": true,
+      "redisNote": "Redis 锁必须在事务外使用"
+    },
+    "common": {
+      "collectorsToMapMerge": "Collectors.toMap 处理重复 key 时必须提供 merge 函数",
+      "bigDecimalPrecision": "BigDecimal.divide 必须设置精度",
+      "threadLocalFinallyRelease": "ThreadLocal 必须在 finally 块中释放",
+      "sqlNullCheck": "SQL 查询需包含空判断",
+      "mybatisJdbcType": "MyBatis 映射需指定 jdbcType"
+    }
+  },
+
+  "incrementalDevPrinciples": {
+    "mode": "incremental",
+    "rules": [
+      "以增量开发与修改为主，不进行大规模重构",
+      "保留现有功能与 API，保证向后兼容",
+      "尽可能在扩展包中新增代码，而非修改系统核心文件",
+      "新建文件前务必检查当前目录结构，按规范放置",
+      "禁止在指定开发目录外创建文件"
+    ]
+  }
+}

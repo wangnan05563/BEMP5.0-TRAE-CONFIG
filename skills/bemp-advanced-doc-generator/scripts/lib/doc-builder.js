@@ -495,6 +495,77 @@ class DocumentBuilder {
     _getTestReportMarkdownTemplate() {
         return `## 第一章 测试概述\n\n（待补充）\n\n## 第二章 测试执行情况\n\n（待补充）\n\n## 第三章 测试结果详情\n\n（待补充）\n\n## 第四章 缺陷统计与分析\n\n（待补充）\n\n## 第五章 质量评估\n\n（待补充）\n\n## 第六章 测试结论与建议\n\n（待补充）\n`;
     }
+
+    // ============================================================
+    // P2-2: 交叉校验机制 —— 集成 QualityGate 进行文档质量交叉校验
+    // ============================================================
+
+    /**
+     * 执行文档交叉校验
+     * 在文档生成完成后，调用 QualityGate 的综合质量检查矩阵进行交叉校验
+     * @param {Object} params 校验参数（与 QualityGate.checkDocQualityMatrix 一致）
+     * @returns {Object} 校验结果 { passed, matrix, summary, report }
+     */
+    crossValidate(params = {}) {
+        let QualityGate;
+        try {
+            ({ QualityGate } = require('./quality-gate'));
+        } catch (e) {
+            return {
+                passed: false,
+                error: 'QualityGate 模块加载失败: ' + e.message,
+                report: '交叉校验跳过：quality-gate.js 不可用'
+            };
+        }
+
+        const qg = new QualityGate(this.profile.qualityGate || {});
+        const result = qg.checkDocQualityMatrix(params);
+
+        // 生成交叉校验报告
+        const reportLines = ['## 文档交叉校验报告'];
+        reportLines.push('');
+        reportLines.push(`- 校验结论：${result.passed ? '✅ 通过' : '❌ 未通过'}`);
+        reportLines.push(`- 校验类别数：${result.summary.totalCategories}`);
+        reportLines.push(`- 通过类别数：${result.summary.passedCategories}`);
+        reportLines.push(`- 未通过类别数：${result.summary.failedCategories}`);
+        reportLines.push('');
+
+        if (result.matrix.length > 0) {
+            reportLines.push('| 校验类别 | 结果 | 详情 |');
+            reportLines.push('|:---|:---|:---|');
+            result.matrix.forEach((m) => {
+                const details = m.items
+                    .filter((i) => !i.pass)
+                    .map((i) => `${i.name}: ${i.message}`)
+                    .join('; ');
+                reportLines.push(
+                    `| ${m.category} | ${m.passed ? '✅' : '❌'} | ${details || '全部通过'} |`
+                );
+            });
+        }
+
+        result.report = reportLines.join('\n');
+        return result;
+    }
+
+    /**
+     * 解析已生成的 docx 文档结构，提取章节信息用于交叉校验
+     * @param {string} docxPath docx 文件路径
+     * @returns {Object} 文档结构 { chapterTitle: { hasContent, wordCount } }
+     */
+    extractDocStructure(docxPath) {
+        // 简化实现：通过文件存在性和大小推断结构完整性
+        // 完整实现需要解析 docx XML，此处提供接口供 AI agent 调用
+        if (!fs.existsSync(docxPath)) {
+            return { _error: '文件不存在: ' + docxPath };
+        }
+        const stat = fs.statSync(docxPath);
+        return {
+            _filePath: docxPath,
+            _fileSize: stat.size,
+            _note: '完整的章节结构解析需要 AI agent 通过 docx 解析工具提取，此处仅提供文件级信息',
+        };
+    }
 }
 
 module.exports = { DocumentBuilder };

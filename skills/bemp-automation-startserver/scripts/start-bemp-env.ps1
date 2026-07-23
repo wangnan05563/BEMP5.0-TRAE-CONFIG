@@ -19,6 +19,56 @@ $script:LastStartupLogPath = ""
 
 . (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
 
+# ──────────────────────────── 折叠式进度条函数 ────────────────────────────
+# 使用ASCII兼容的spinner字符
+$script:SpinnerFrames = @('|', '/', '-', '\')
+
+function Test-AnsiSupport {
+    if ([Console]::IsOutputRedirected) { return $false }
+    try { $null = $Host.UI.RawUI.ForegroundColor; return $true } catch { return $false }
+}
+
+function Show-WaitProgress {
+    param(
+        [string]$Message,
+        [int]$Elapsed,
+        [int]$MaxWait,
+        [switch]$Complete,
+        [string]$FinalMessage,
+        [ValidateSet('Spinner','Bar','Minimal')]
+        [string]$Style = 'Bar'
+    )
+    $supportsAnsi = Test-AnsiSupport
+    $ESC = [char]27
+    
+    if ($Complete) {
+        # 完成时先回车+空格覆盖进度条残留，再回车输出完成消息
+        # 双重保障：ANSI清行 + 空格覆盖，兼容不支持ANSI的终端
+        Write-Host -NoNewline ("`r" + (" " * 100) + "`r")
+        if ($supportsAnsi) { Write-Host "$ESC[2K$ESC[32m[OK]$ESC[0m $FinalMessage" }
+        else { Write-Host "[OK] $FinalMessage" }
+    } else {
+        $spinnerFrame = $script:SpinnerFrames[$Elapsed % $script:SpinnerFrames.Count]
+        $pct = if ($MaxWait -gt 0) { [Math]::Min(100, [Math]::Round($Elapsed * 100 / $MaxWait)) } else { 0 }
+        
+        if ($Style -eq 'Bar' -and $supportsAnsi) {
+            # 进度条样式：显示百分比和进度条
+            $barW = 16
+            $filled = [Math]::Round($pct * $barW / 100)
+            $bar = "=" * $filled + "-" * ($barW - $filled)
+            $msg = "$ESC[2K$ESC[G$ESC[36m[$spinnerFrame]$ESC[0m $Message [$ESC[32m$bar$ESC[0m] ${pct}% ($Elapsed/${MaxWait}s)"
+            Write-Host -NoNewline $msg
+        } elseif ($Style -eq 'Spinner' -and $supportsAnsi) {
+            # Spinner样式：仅显示动画和文字
+            $msg = "$ESC[2K$ESC[G$ESC[36m[$spinnerFrame]$ESC[0m $Message ($Elapsed/${MaxWait}s)"
+            Write-Host -NoNewline $msg
+        } else {
+            # Minimal/非ANSI样式：简洁显示
+            Write-Host -NoNewline "`r[$Message] $pct% ($Elapsed/${MaxWait}s)"
+        }
+    }
+}
+
 # ──────────────────────────── 通用工具函数 ────────────────────────────
 
 function Set-ConsoleEncoding {
@@ -116,10 +166,12 @@ function Wait-Dependencies {
 
         while ($elapsed -lt $MaxWaitSeconds) {
             if (Test-PortListening -Port $port) {
-                Write-Success "$dep is ready (port $port)"
+                # 使用折叠式进度显示：完成状态
+                Show-WaitProgress -Complete -FinalMessage "$dep ready (port $port)"
                 break
             }
-            Write-Host "  [WAIT] $dep port $port not ready... ($elapsed/${MaxWaitSeconds}s)" -ForegroundColor Gray
+            # 使用折叠式进度显示：等待中
+            Show-WaitProgress -Message "${dep}:$port" -Elapsed $elapsed -MaxWait $MaxWaitSeconds
             Start-Sleep -Seconds $PollIntervalSeconds
             $elapsed += $PollIntervalSeconds
         }
@@ -143,11 +195,12 @@ function Wait-ServiceReady {
     $elapsed = 0
     while ($elapsed -lt $MaxWaitSeconds) {
         if (Test-PortListening -Port $Port) {
-            Write-Success "$ServiceName is ready (port $Port)"
+            # 使用折叠式进度显示：完成状态
+            Show-WaitProgress -Complete -FinalMessage "$ServiceName ready (port $Port)"
             return $true
         }
-        # 统一进度反馈风格，与Wait-Dependencies保持一致
-        Write-Host "  [WAIT] $ServiceName port $Port not ready... ($elapsed/${MaxWaitSeconds}s)" -ForegroundColor Gray
+        # 使用折叠式进度显示：等待中
+        Show-WaitProgress -Message "${ServiceName}:$Port" -Elapsed $elapsed -MaxWait $MaxWaitSeconds
         Start-Sleep -Seconds $PollIntervalSeconds
         $elapsed += $PollIntervalSeconds
     }
@@ -349,11 +402,36 @@ function Build-ExternalTerminalScript {
     [void]$sb.AppendLine("Write-Host '========================================' -ForegroundColor Cyan")
     [void]$sb.AppendLine("Write-Host 'Log: $LogPath' -ForegroundColor Gray")
     [void]$sb.AppendLine("Write-Host ''")
+
+    # 过滤原生命令stderr的ErrorRecord包装
+    # PowerShell 的 2>&1 会把原生命令(Java/Redis等)的stderr包装为ErrorRecord(NativeCommandError)，
+    # 导致JVM的"Picked up JAVA_TOOL_OPTIONS"等正常提示被红色显示为错误。
+    # 此函数提取ErrorRecord的纯文本，按普通输出处理，避免误导。
+    [void]$sb.AppendLine("function Convert-NativeOutput {")
+    [void]$sb.AppendLine("    `$input | ForEach-Object {")
+    [void]$sb.AppendLine("        if (`$_ -is [System.Management.Automation.ErrorRecord]) {")
+    [void]$sb.AppendLine("            `$_.ToString()")
+    [void]$sb.AppendLine("        } else {")
+    [void]$sb.AppendLine("            `$_")
+    [void]$sb.AppendLine("        }")
+    [void]$sb.AppendLine("    }")
+    [void]$sb.AppendLine("}")
+    [void]$sb.AppendLine("")
+
+    # 版本诊断等预启动输出（如前端 node/npm 版本确认）
+    if ($StartInfo.PreStartLines -and $StartInfo.PreStartLines.Count -gt 0) {
+        foreach ($line in $StartInfo.PreStartLines) {
+            [void]$sb.AppendLine($line)
+        }
+        [void]$sb.AppendLine("Write-Host ''")
+    }
+
     [void]$sb.AppendLine("")
 
     # 执行服务命令 + Tee-Object同时输出到终端和日志文件
     # 使用参数数组直接传递给可执行文件，避免PowerShell解析特殊字符(;=)
     # 数组在launcher脚本中会自动展开为独立参数
+    # 2>&1 后接 Convert-NativeOutput 过滤，把原生命令stderr的ErrorRecord转为纯文本
     if ($StartInfo.CommandArgs -is [array] -and $StartInfo.CommandArgs.Count -gt 0) {
         # 生成参数数组声明：$cmdArgs = @('arg1', 'arg2', ...)
         $argsStr = ($StartInfo.CommandArgs | ForEach-Object {
@@ -361,9 +439,9 @@ function Build-ExternalTerminalScript {
             "'$escaped'"
         }) -join ', '
         [void]$sb.AppendLine("`$cmdArgs = @($argsStr)")
-        [void]$sb.AppendLine("& '$($StartInfo.Command)' @cmdArgs 2>&1 | Tee-Object -FilePath '$LogPath' -Append")
+        [void]$sb.AppendLine("& '$($StartInfo.Command)' @cmdArgs 2>&1 | Convert-NativeOutput | Tee-Object -FilePath '$LogPath' -Append")
     } elseif ($StartInfo.CommandLine) {
-        [void]$sb.AppendLine("& $($StartInfo.CommandLine) 2>&1 | Tee-Object -FilePath '$LogPath' -Append")
+        [void]$sb.AppendLine("& $($StartInfo.CommandLine) 2>&1 | Convert-NativeOutput | Tee-Object -FilePath '$LogPath' -Append")
     }
 
     [void]$sb.AppendLine("")
@@ -485,6 +563,14 @@ function Start-BempService {
             foreach ($kv in $startInfo.EnvVars.GetEnumerator()) {
                 Set-Item -Path "env:$($kv.Key)" -Value $kv.Value
             }
+        }
+
+        # 版本诊断等预启动输出（如前端 node/npm 版本确认）
+        if ($startInfo.PreStartLines -and $startInfo.PreStartLines.Count -gt 0) {
+            foreach ($line in $startInfo.PreStartLines) {
+                Invoke-Expression $line
+            }
+            Write-Host ""
         }
 
         # 通过 Tee-Object 同时输出到终端和日志文件
@@ -675,12 +761,29 @@ function Build-FrontendCommand {
         $envVars["NODE_OPTIONS"] = "--max_old_space_size=$nodeMemLimit"
     }
 
+    # 将 node14 目录注入 PATH 最前面，确保 npm 子进程（webpack 等）使用正确 Node 版本
+    # 而非系统默认的高版本 Node（如 v24）
+    $currentPath = [Environment]::GetEnvironmentVariable("PATH")
+    if ($nodeDir -and ($currentPath -notlike "$nodeDir*")) {
+        $envVars["PATH"] = "$nodeDir;$currentPath"
+    }
+
+    # 版本诊断：启动前打印 node/npm 版本，便于在外部终端确认版本正确
+    $preStartLines = @()
+    if ($nodeExe -and (Test-Path $nodeExe -ErrorAction SilentlyContinue)) {
+        $preStartLines += "Write-Host 'Node version: ' -NoNewline -ForegroundColor Cyan; & '$nodeExe' --version"
+    }
+    if ($npmCmd -and (Test-Path $npmCmd -ErrorAction SilentlyContinue)) {
+        $preStartLines += "Write-Host 'NPM version:  ' -NoNewline -ForegroundColor Cyan; & '$npmCmd' --version"
+    }
+
     return @{
-        WorkingDir   = $projectPath
-        Command      = $npmCmd
-        CommandArgs  = @("run", "dev", "--scripts-prepend-node-path")
-        CommandLine  = "$npmCmd run dev --scripts-prepend-node-path"
-        EnvVars      = $envVars
+        WorkingDir     = $projectPath
+        Command        = $npmCmd
+        CommandArgs    = @("run", "dev", "--scripts-prepend-node-path")
+        CommandLine    = "$npmCmd run dev --scripts-prepend-node-path"
+        EnvVars        = $envVars
+        PreStartLines  = $preStartLines
     }
 }
 
@@ -853,7 +956,8 @@ if ($Service -ne "") {
                     continue
                 }
                 if (Test-PortListening -Port $pc.Port) {
-                    Write-Success "$($pc.ServiceName) is ready (port $($pc.Port))"
+                    # 使用折叠式进度显示：完成状态
+                    Show-WaitProgress -Complete -FinalMessage "$($pc.ServiceName) ready (port $($pc.Port))"
                     $pc._ready = $true
                 } else {
                     $allReady = $false
@@ -868,10 +972,10 @@ if ($Service -ne "") {
             }
             if ($allDone) { break }
 
-            # 进度提示：列出未就绪的服务
+            # 进度提示：列出未就绪的服务（折叠式单行更新）
             $pendingNames = ($pendingChecks | Where-Object { -not ($_.ContainsKey("_ready") -and $_._ready) -and -not ($_.ContainsKey("_timedOut") -and $_._timedOut) } |
                             ForEach-Object { "$($_.ServiceName):$($_.Port)" }) -join ", "
-            Write-Host "  [WAIT] Waiting for: $pendingNames ($globalElapsed/${globalMaxWait}s)" -ForegroundColor Gray
+            Show-WaitProgress -Message "Waiting: $pendingNames" -Elapsed $globalElapsed -MaxWait $globalMaxWait
 
             Start-Sleep -Seconds $globalPoll
             $globalElapsed += $globalPoll

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BEMP 图表生成配置",
+  "description": "DiagramService 图表生成优先级链配置。来源：P2-3 混合图表方案完整实施。",
+  "version": "1.0.0",
+  "updatedAt": "2026-07-22",
+  "priorityChain": ["mcp", "antv", "matplotlib"],
+  "priorityChainOptions": {
+    "mcp": {
+      "description": "mcp-server-chart（通过 McpChartClient 生成配置，AI agent 通过 run_mcp 执行）",
+      "toolMapping": {
+        "network": "generate_network_graph",
+        "architecture": "generate_flow_diagram",
+        "deployment": "generate_organization_chart"
+      }
+    },
+    "antv": {
+      "description": "AntV（通过 AntVClient 调用 antv-studio.alipay.com 接口渲染）",
+      "timeout": 60000,
+      "maxRetries": 2
+    },
+    "matplotlib": {
+      "description": "Matplotlib（Python 降级方案，通过 diagram-generator.py 执行）"
+    }
+  },
+  "qualityGate": {
+    "minFileSizeKB": 10,
+    "requiredTypes": ["architecture", "network", "deployment"]
+  }
+}

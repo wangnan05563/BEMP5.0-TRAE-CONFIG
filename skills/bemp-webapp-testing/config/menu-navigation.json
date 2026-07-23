@@ -1,0 +1,141 @@
+{
+  "_comment": "Vue懒加载路由导航配置。解决F-05问题：直接URL导航被路由守卫回退到主页，须通过菜单点击注册路由后才能访问目标页面。本文件定义导航策略、路由回退检测规则和菜单路径映射。",
+  "version": "1.0.0",
+  "_config_inheritance": "配置继承优先级（高→低）：bank_overrides.{bank_id}（银行级覆盖） > defaults（技能级默认）。test_config.json 的 pages 节点提供页面URL定义，本文件提供菜单导航路径，两者通过 page_id 关联。",
+
+  "defaults": {
+    "navigation_strategy": "auto",
+    "_strategy_comment": "auto=先URL跳转检测回退后切换菜单导航；url_first=仅URL跳转失败报错；menu_only=仅菜单点击导航",
+    "strategies": {
+      "auto": "先尝试URL直接跳转，检测到路由守卫回退后自动切换到菜单导航模式（推荐）",
+      "url_first": "优先使用URL直接跳转，失败则报错不回退",
+      "menu_only": "仅使用菜单点击导航，跳过URL直接跳转（适用于已知懒加载路由）"
+    },
+
+    "fallback_detection": {
+      "enabled": true,
+      "description": "检测URL跳转后是否被路由守卫重定向到主页。Vue懒加载路由未注册时，路由守卫会将URL回退到主页。",
+      "home_url_patterns": ["/#/", "/#/home", "/#/index", "/#/dashboard"],
+      "wait_after_navigation_ms": 2000,
+      "max_redirect_checks": 3,
+      "redirect_check_interval_ms": 500,
+      "detection_logic": "导航后等待wait_after_navigation_ms，比较当前URL与目标URL：若不一致且匹配home_url_patterns，判定为路由守卫回退"
+    },
+
+    "menu_navigation": {
+      "menu_item_selector": ".h-menu-item:has-text(\"{menu_text}\")",
+      "submenu_title_selector": ".h-menu-submenu-title:has-text(\"{menu_text}\")",
+      "active_submenu_selector": ".h-menu-submenu-open",
+      "click_wait_ms": 1000,
+      "submenu_wait_ms": 800,
+      "max_menu_depth": 4,
+      "expand_strategy": "逐级点击展开：点击父级菜单标题 → 等待子菜单可见 → 点击下一级，直到目标页面加载",
+      "page_ready_indicator": "目标页面特征元素可见（来自test_config.json pages.checks 的 text_visible 检查项）"
+    },
+
+    "url_navigation": {
+      "wait_until": "networkidle",
+      "timeout_ms": 10000,
+      "retry_count": 1
+    }
+  },
+
+  "menu_paths": {
+    "_comment": "页面ID与test_config.json banks.{id}.pages 的key对应。menu_path为菜单层级路径，从顶级菜单到目标页面。以下为基于URL路径推断的默认值，实际菜单文本可能因银行而异，请通过bank_overrides校正。",
+
+    "branch": {
+      "page_name": "机构管理",
+      "url_path": "/#/sm/auth/branch/branch",
+      "menu_path": ["系统管理", "机构管理"],
+      "strategy_override": null
+    },
+    "branchAdmin": {
+      "page_name": "机构管理(管理员)",
+      "url_path": "/#/sm/auth/branch/branchAdmin",
+      "menu_path": ["系统管理", "机构管理"],
+      "strategy_override": null
+    },
+    "custCorpSign": {
+      "page_name": "企业信息报备",
+      "url_path": "/#/bm/sign/cpes/custCorpSign",
+      "menu_path": ["票据管理", "企业报备", "企业信息报备"],
+      "strategy_override": null
+    },
+    "custCorpSignAudit": {
+      "page_name": "企业信息报备复核",
+      "url_path": "/#/bm/sign/cpes/custCorpSignAudit",
+      "menu_path": ["票据管理", "企业报备", "企业信息报备复核"],
+      "strategy_override": null
+    },
+    "custCorpSignRecord": {
+      "page_name": "企业信息报备记录查询",
+      "url_path": "/#/bm/sign/cpes/custCorpSignRecord",
+      "menu_path": ["票据管理", "企业报备", "报备记录查询"],
+      "strategy_override": null
+    },
+    "custInfoOnlineQuery": {
+      "page_name": "企业信息在线查询",
+      "url_path": "/#/bm/sign/cpes/custInfoOnlineQuery",
+      "menu_path": ["票据管理", "企业报备", "企业信息在线查询"],
+      "strategy_override": null
+    },
+    "custCorp": {
+      "page_name": "企业客户查询",
+      "url_path": "/#/bm/cust/corp/custCorp",
+      "menu_path": ["票据管理", "客户管理", "企业客户查询"],
+      "strategy_override": null
+    },
+    "custAcct": {
+      "page_name": "企业账号同步",
+      "url_path": "/#/bm/cust/acct/custAcct",
+      "menu_path": ["票据管理", "客户管理", "企业账号同步"],
+      "strategy_override": null
+    },
+    "creditBatch": {
+      "page_name": "额度申请批次管理",
+      "url_path": "/#/pc/credit/acceptBankCreditGrantBatch",
+      "menu_path": ["票据管理", "额度管理", "额度申请批次管理"],
+      "strategy_override": null
+    },
+    "creditInfo": {
+      "page_name": "额度申请明细管理",
+      "url_path": "/#/pc/credit/acceptBankCreditGrantInfo",
+      "menu_path": ["票据管理", "额度管理", "额度申请明细管理"],
+      "strategy_override": null
+    },
+    "creditReCheck": {
+      "page_name": "额度复核",
+      "url_path": "/#/pc/credit/acceptBankCreditGrantInfoReCheck",
+      "menu_path": ["票据管理", "额度管理", "额度复核"],
+      "strategy_override": null
+    }
+  },
+
+  "bank_overrides": {
+    "_comment": "银行级菜单路径覆盖。当银行个性化修改了菜单文本或层级时，在此覆盖。示例结构见下方_example。",
+    "_example": {
+      "huisbank": {
+        "menu_paths": {
+          "branch": {
+            "menu_path": ["系统设置", "权限管理", "机构管理"],
+            "strategy_override": "menu_only"
+          }
+        },
+        "defaults": {
+          "navigation_strategy": "menu_only"
+        }
+      }
+    }
+  },
+
+  "workflow": {
+    "step_1": "读取目标页面page_id，从menu_paths获取menu_path和url_path",
+    "step_2": "根据navigation_strategy决定导航方式：auto→先URL跳转；menu_only→直接菜单导航",
+    "step_3_url": "URL直接跳转：page.goto(url_path)，等待networkidle",
+    "step_4_detect": "回退检测：比较当前URL与目标URL，若匹配home_url_patterns则判定为路由守卫回退",
+    "step_5_fallback": "回退处理：若strategy为auto且检测到回退，切换到菜单导航模式",
+    "step_6_menu": "菜单导航：按menu_path逐级点击菜单项，每级等待子菜单可见后继续",
+    "step_7_verify": "页面就绪验证：检查test_config.json pages.checks 中的text_visible元素是否可见",
+    "step_8_fail": "失败处理：菜单导航仍无法到达目标页面时，标记BLOCKED并记录诊断信息"
+  }
+}

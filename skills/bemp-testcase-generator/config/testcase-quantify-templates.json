@@ -1,0 +1,97 @@
+{
+  "_comment": "测试用例预期结果量化模板。按用例类型提供量化指标要求，确保预期结果明确可判定，避免模糊描述。",
+  "version": "1.0.0",
+  "quantify_templates": {
+    "ui_operation": {
+      "name": "UI操作类",
+      "required_indicators": ["按钮/元素可见性", "交互响应结果"],
+      "examples": [
+        "[按钮名称]按钮可见且可点击",
+        "点击后弹出[弹窗名称]弹窗，弹窗标题包含[关键词]",
+        "关闭弹窗后页面无遮罩层残留（document.querySelectorAll('body > .h-modal-mask')长度=0）",
+        "下拉选项包含[N]个选项，首选项为[默认值]",
+        "表单提交后页面刷新，列表新增1条记录"
+      ],
+      "forbidden_patterns": ["成功", "正常", "通过", "无异常", "符合预期", "界面正确", "显示正常"]
+    },
+    "data_operation": {
+      "name": "数据操作类",
+      "required_indicators": ["表记录数变化", "字段值验证"],
+      "examples": [
+        "[表名]表新增N条记录（执行前记录数M → 执行后记录数M+N）",
+        "[字段名]=[预期值]（如：JILUZT='0'表示正常状态）",
+        "删除后[表名]表记录数不变（逻辑删除：JILUZT='1'或DEL_FLAG='Y'）",
+        "更新后[字段名]从[旧值]变为[新值]"
+      ],
+      "forbidden_patterns": ["数据正确", "记录已更新", "删除成功", "数据一致"]
+    },
+    "api_call": {
+      "name": "接口调用类",
+      "required_indicators": ["接口调用次数或被调用", "返回码/返回消息"],
+      "examples": [
+        "[接口名]被调用1次，返回码='000000'",
+        "[接口名]返回retCode='999999'，retMsg包含'[错误信息]'",
+        "[接口名]请求参数包含[字段名]=[值]",
+        "[接口名]响应时间<3000ms"
+      ],
+      "forbidden_patterns": ["接口正常", "调用成功", "返回正确", "接口响应正常"]
+    },
+    "scheduled_task": {
+      "name": "定时任务类",
+      "required_indicators": ["目标表记录数", "时间戳/状态更新"],
+      "examples": [
+        "定时任务执行后，[目标表]表记录数=文件行数",
+        "[目标表]更新时间>任务执行前时间",
+        "定时任务执行后，[目标表]新增[N]条记录，[字段名]值与源文件一致",
+        "文件不存在时，[目标表]记录数不变，日志输出'[文件名]不存在'"
+      ],
+      "forbidden_patterns": ["任务执行成功", "数据同步完成", "文件读取正常", "数据已更新"]
+    },
+    "validation_check": {
+      "name": "校验规则类",
+      "required_indicators": ["校验触发条件", "校验结果/提示信息"],
+      "examples": [
+        "输入[非法值]后，表单提交被阻止，页面显示'[校验提示信息]'",
+        "未满足[前置条件]时，[操作按钮]灰显/点击后提示'[提示信息]'",
+        "[校验规则]触发时，操作被拒绝，返回retMsg包含'[错误关键词]'"
+      ],
+      "forbidden_patterns": ["校验通过", "校验不通过", "提示报错", "校验生效"]
+    },
+    "permission_control": {
+      "name": "权限控制类",
+      "required_indicators": ["角色/权限状态", "操作可见性/可执行性"],
+      "examples": [
+        "[角色]登录后，[按钮/菜单]可见/不可见",
+        "[角色]点击[操作]后，返回retCode='[无权限编码]'，retMsg包含'[无权限提示]'",
+        "切换为[角色]后，[页面]自动跳转到[首页/无权限页面]"
+      ],
+      "forbidden_patterns": ["有权限", "无权限", "权限正确", "权限校验正常"]
+    }
+  },
+  "self_check_rules": {
+    "description": "用例编制完成后的自校验规则，逐条检查预期结果是否符合量化要求",
+    "check_items": [
+      {
+        "id": "QUANTIFY-01",
+        "name": "预期结果量化检查",
+        "rule": "每条用例的预期结果不得包含forbidden_patterns中的模糊描述",
+        "auto_fix": false,
+        "severity": "major"
+      },
+      {
+        "id": "QUANTIFY-02",
+        "name": "量化指标完整性检查",
+        "rule": "根据用例类型，预期结果必须包含对应required_indicators中的至少1项",
+        "auto_fix": false,
+        "severity": "major"
+      },
+      {
+        "id": "QUANTIFY-03",
+        "name": "可判定性检查",
+        "rule": "预期结果中的数值/字符串必须具体，不能使用N/M等变量占位（需替换为实际测试数据值或明确的计算关系）",
+        "auto_fix": false,
+        "severity": "minor"
+      }
+    ]
+  }
+}

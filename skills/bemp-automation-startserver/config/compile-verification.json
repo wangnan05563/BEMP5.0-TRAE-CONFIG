@@ -1,0 +1,121 @@
+{
+  "_doc": "编译产物验证配置 - 使用javap验证新方法是否已编译进运行时jar，防止旧class残留导致运行时行为不一致（BUG-005修复验证场景）",
+  "_ref": "路径与包前缀引用 _shared/env-config.json，通过 ${ENV:} 占位符解析。jar定位与 compile-deploy.json 的 warLibDir 保持一致",
+  "_inheritance": {
+    "_doc": "配置继承优先级：defaults → overrides.project → overrides.banks.{bankCode}，深度合并，后者覆盖前者同名键",
+    "mergeRule": "deep-merge-last-wins",
+    "bankKey": "${ENV:BANK_CODE}",
+    "levels": [
+      "defaults（技能级默认，本文件）",
+      "overrides.project（项目级覆盖）",
+      "overrides.banks.{bankCode}（银行级覆盖）"
+    ]
+  },
+
+  "defaults": {
+    "_doc": "验证工具与默认参数",
+    "javapPath": "${ENV:JAVA_HOME}\\bin\\javap",
+    "javapCommand": "-classpath \"{jarPath}\" {className}",
+    "methodCheckPattern": "{methodName}",
+    "methodCheckMode": "contains",
+    "_methodCheckDoc": "contains=输出中包含方法名即通过；regex=按正则匹配方法签名",
+    "failOnMissing": true,
+    "failSeverity": "block",
+    "_failSeverityDoc": "block=验证失败阻断后续启动；warn=仅警告不阻断",
+    "javaHome": "${ENV:JAVA_HOME}"
+  },
+
+  "verificationTargets": {
+    "_doc": "验证目标列表。每个目标定位一个WAR的WEB-INF/lib下的jar，验证指定类的方法是否存在。智能体按需补充验证条目",
+    "_usage": "编译完成后遍历targets，逐个执行javap验证。新增需求开发后，将涉及的新方法加入对应target的classes.methods",
+    "targets": [
+      {
+        "id": "served-biz-as",
+        "description": "Served WAR中的biz-as业务模块jar验证",
+        "enabled": true,
+        "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
+        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-as-*.jar",
+        "_jarPatternDoc": "glob模式匹配WEB-INF/lib下的jar文件，*匹配版本号",
+        "classes": [
+          {
+            "fullyQualifiedName": "${ENV:BANK_PACKAGE_PREFIX}.org.service.OrgSyncService",
+            "_fullyQualifiedNameDoc": "类全名=BANK_PACKAGE_PREFIX+业务子包+类名。解析后如 com.hundsun.bemp.{bankCode}.org.service.OrgSyncService",
+            "methods": [
+              "syncOrgTreeData",
+              "validateOrgData"
+            ],
+            "_methodsDoc": "需验证存在的方法名列表。javap输出中包含方法名即视为编译成功"
+          }
+        ]
+      },
+      {
+        "id": "served-biz-bs",
+        "description": "Served WAR中的biz-bs业务模块jar验证",
+        "enabled": false,
+        "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
+        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-bs-*.jar",
+        "classes": []
+      },
+      {
+        "id": "served-biz-cs",
+        "description": "Served WAR中的biz-cs业务模块jar验证",
+        "enabled": false,
+        "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
+        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-cs-*.jar",
+        "classes": []
+      },
+      {
+        "id": "served-biz-ds",
+        "description": "Served WAR中的biz-ds业务模块jar验证",
+        "enabled": false,
+        "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
+        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-ds-*.jar",
+        "classes": []
+      },
+      {
+        "id": "adapter-as",
+        "description": "Adapter WAR中的adapter-as适配器模块jar验证",
+        "enabled": false,
+        "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}adapter-deploy\\target\\bemp-adapter\\WEB-INF\\lib",
+        "jarPattern": "${ENV:BANK_MODULE_PREFIX}adapter-as-*.jar",
+        "classes": []
+      }
+    ]
+  },
+
+  "outputFormat": {
+    "_doc": "验证结果输出格式",
+    "passTemplate": "[OK]   {targetId}: {className}.{methodName} verified in {jarName}",
+    "failTemplate": "[FAIL] {targetId}: {className}.{methodName} NOT found in {jarName}",
+    "summaryTemplate": "Verification: {passed}/{total} methods verified ({failed} failed)",
+    "exitOnFail": true,
+    "_exitOnFailDoc": "true=有验证失败时退出码非0，阻断后续启动流程；false=仅输出警告"
+  },
+
+  "overrides": {
+    "_doc": "项目级和银行级覆盖配置",
+    "project": {
+      "_doc": "项目级覆盖：按项目调整验证严格度或输出格式。默认为空"
+    },
+    "banks": {
+      "_doc": "银行级覆盖：按银行差异调整验证类列表。key为银行code（BANK_CODE）",
+      "_example": {
+        "hnnxbank": {
+          "verificationTargets": {
+            "targets": [
+              {
+                "id": "served-biz-as",
+                "classes": [
+                  {
+                    "fullyQualifiedName": "${ENV:BANK_PACKAGE_PREFIX}.org.service.OrgSyncService",
+                    "methods": ["syncOrgTreeData", "validateOrgData", "rollbackOrgSync"]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

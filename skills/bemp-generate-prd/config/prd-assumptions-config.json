@@ -1,0 +1,93 @@
+{
+  "_comment": "PRD阻塞项→测试假设自动推演配置。当需求存在不确定项时，按类型自动匹配最保守假设方案。",
+  "version": "1.0.0",
+  "assumption_templates": [
+    {
+      "category": "batch_operation_failure_strategy",
+      "name": "批量操作失败策略",
+      "default_assumption": "整批回滚",
+      "keywords": ["批量", "导入", "失败", "策略", "回滚", "跳过"],
+      "reason": "最保守策略，确保数据一致性，避免部分成功导致脏数据",
+      "options": [
+        {"value": "整批回滚", "description": "任一记录失败则全部回滚，保证原子性"},
+        {"value": "跳过失败继续", "description": "失败记录跳过，成功记录入库，返回失败明细"},
+        {"value": "失败暂停人工确认", "description": "遇到失败暂停，提示用户选择继续或回滚"}
+      ]
+    },
+    {
+      "category": "deletion_method",
+      "name": "删除方式",
+      "default_assumption": "逻辑删除+前置校验",
+      "keywords": ["删除", "方式", "逻辑", "物理", "移除"],
+      "reason": "逻辑删除可恢复，前置校验防误删，最保守方案",
+      "options": [
+        {"value": "逻辑删除+前置校验", "description": "标记删除状态，删除前校验关联关系"},
+        {"value": "物理删除+前置校验", "description": "直接从数据库移除，删除前校验关联关系"},
+        {"value": "逻辑删除+后续校验", "description": "标记删除状态，使用时校验有效性"}
+      ]
+    },
+    {
+      "category": "interface_value_uncertain",
+      "name": "接口/配置取值不确定",
+      "default_assumption": "从附件SQL/示例数据推断",
+      "keywords": ["取值", "配置", "不确定", "字段值", "编码", "类型码"],
+      "reason": "以实际数据为准，无数据时标注待确认，避免猜测导致偏差",
+      "options": [
+        {"value": "从附件SQL/示例数据推断", "description": "从需求附件的SQL语句或示例数据中推断取值"},
+        {"value": "标注待确认", "description": "无法推断时直接标注待确认，不做假设"},
+        {"value": "从同类系统/历史需求类比", "description": "从已知的同类系统配置推断"}
+      ]
+    },
+    {
+      "category": "auth_permission_control",
+      "name": "权限控制方式",
+      "default_assumption": "仅指定角色可操作",
+      "keywords": ["权限", "角色", "控制", "授权", "管理员"],
+      "reason": "最小权限原则，默认限制操作角色范围",
+      "options": [
+        {"value": "仅指定角色可操作", "description": "仅需求中提到的角色有操作权限"},
+        {"value": "按机构层级控制", "description": "上级机构可管理下级机构数据"},
+        {"value": "功能权限+数据权限双重控制", "description": "功能权限控制操作可见性，数据权限控制数据范围"}
+      ]
+    },
+    {
+      "category": "status_initial_value",
+      "name": "新增记录初始状态",
+      "default_assumption": "默认无效/待审核，需激活后使用",
+      "keywords": ["初始状态", "默认状态", "新增后状态", "有效", "无效"],
+      "reason": "默认无效状态最安全，需明确操作后才可使用",
+      "options": [
+        {"value": "默认无效/待审核，需激活后使用", "description": "新增后状态为无效或待审核，需额外操作激活"},
+        {"value": "默认有效，立即可用", "description": "新增后直接可用，无需额外激活"},
+        {"value": "按业务类型区分", "description": "不同业务类型有不同初始状态"}
+      ]
+    },
+    {
+      "category": "conflict_resolution",
+      "name": "数据冲突处理策略",
+      "default_assumption": "提示冲突由用户选择处理方式",
+      "keywords": ["冲突", "重复", "覆盖", "跳过", "合并"],
+      "reason": "由用户决策最安全，避免自动覆盖导致数据丢失",
+      "options": [
+        {"value": "提示冲突由用户选择处理方式", "description": "检测到冲突时弹窗提示，由用户选择覆盖/跳过/取消"},
+        {"value": "冲突记录全部跳过", "description": "冲突记录不入库，在结果中列出跳过明细"},
+        {"value": "新数据覆盖旧数据", "description": "冲突时以新数据为准覆盖旧数据"}
+      ]
+    }
+  ],
+  "assumption_application_rules": {
+    "blocking_items": {
+      "action": "自动匹配assumption_templates中keywords最匹配的条目",
+      "output_format": "Q-{序号}：{问题描述} → 测试假设：{default_assumption}（{reason}）",
+      "confirmation_required": true
+    },
+    "suggestion_items": {
+      "action": "标记为🟡建议项，附推荐假设但不强制",
+      "confirmation_required": false
+    },
+    "hint_items": {
+      "action": "标记为🟢提示项，直接应用默认假设",
+      "confirmation_required": false
+    }
+  }
+}

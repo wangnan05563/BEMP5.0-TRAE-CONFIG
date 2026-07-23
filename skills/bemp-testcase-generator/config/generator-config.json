@@ -25,7 +25,12 @@
     "functional_map": "bemp-test-common/references/website-functional-map.md",
     "priority_matrix": "bemp-test-common/references/test-priority-matrix.md",
     "test_cases_dir": "bemp-test-common/test-cases",
-    "test_data_dir": "bemp-test-common/test-data"
+    "test_data_dir": "bemp-test-common/test-data",
+    "aotutests_dir": "aotutests-devtools",
+    "aotutests_testcases": "aotutests-devtools/testcases/${requirement_name}",
+    "aotutests_testdata": "aotutests-devtools/testdata/${requirement_name}",
+    "delivery_dir": "aotutests-devtools/delivery/${requirement_name}",
+    "_comment_aotutests": "aotutests_devtools 系列字段为 project_memory 约束的推荐输出路径，${requirement_name} 由智能体在调用时替换为实际需求名；root_dir 系列字段保留用于 bemp-test-common 共享资源层"
   },
   "banks": {
     "active_bank": "hnnxbank",

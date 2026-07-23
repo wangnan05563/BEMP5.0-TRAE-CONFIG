@@ -1,0 +1,84 @@
+{
+  "_comment": "测试用例编号协调配置。编制用例前自动扫描test-index.json中已有编号，分配不冲突的前缀。",
+  "version": "1.0.0",
+  "prefix_rules": {
+    "format": "TC-{MODULE}-{REQUIREMENT}-{SEQ}",
+    "description": "TC-固定前缀 + MODULE模块缩写 + REQUIREMENT需求标识 + SEQ三位序号",
+    "seq_length": 3,
+    "seq_start": 1
+  },
+  "module_codes": {
+    "BRANCH": "机构管理",
+    "ADMIN": "管理员管理",
+    "SYNC": "数据同步",
+    "ROLE": "角色权限",
+    "BILL": "票据业务",
+    "ACCEPT": "承兑",
+    "DISCOUNT": "贴现",
+    "PLEDGE": "质押",
+    "ENDORSE": "背书",
+    "GUARANTEE": "保证",
+    "PAYMENT": "支付",
+    "CLEARING": "清算",
+    "APPROVAL": "审批",
+    "CUST": "客户管理",
+    "SIGN": "签约报备",
+    "CREDIT": "额度管理",
+    "MARKET": "场内交易",
+    "TRUST": "信托/托管",
+    "COMMON": "通用",
+    "LOGIN": "登录会话",
+    "ECIFMRG": "客户合并",
+    "CONFIG": "系统配置",
+    "REPORT": "报表查询",
+    "INTERFACE": "接口对接"
+  },
+  "requirement_identifier_source": {
+    "description": "需求标识的来源和提取规则",
+    "sources": [
+      {
+        "priority": 1,
+        "source": "user_input",
+        "description": "用户在调用时明确指定需求标识",
+        "example": "ORG（机构管理优化）"
+      },
+      {
+        "priority": 2,
+        "source": "prd_filename",
+        "description": "从PRD文件名提取关键缩写",
+        "extract_rule": "取文件名主干中关键词的英文缩写（3-5字符大写）",
+        "example": "机构管理优化-v1.md → ORG"
+      },
+      {
+        "priority": 3,
+        "source": "module_auto",
+        "description": "自动从功能模块推断",
+        "example": "批量导入 → IMPORT"
+      }
+    ]
+  },
+  "coordination_workflow": {
+    "step_1": "读取 bemp-test-common/test-index.json",
+    "step_2": "提取所有已有用例的编号前缀（TC-{MODULE}-*部分）",
+    "step_3": "确定当前需求使用的MODULE和REQUIREMENT标识",
+    "step_4": "扫描已有编号中TC-{MODULE}-{REQUIREMENT}-*的最大SEQ值",
+    "step_5": "从max_seq+1开始分配新编号",
+    "step_6": "若无已有同前缀编号，从001开始",
+    "step_7": "编制完成后更新test-index.json"
+  },
+  "conflict_detection": {
+    "description": "编号冲突自动检测规则",
+    "rules": [
+      {
+        "id": "PREFIX-DUP",
+        "rule": "同一文件内的编号前缀不得重复",
+        "severity": "critical"
+      },
+      {
+        "id": "CROSS-FILE-DUP",
+        "rule": "跨文件的编号不得重复（通过test-index.json全局检查）",
+        "severity": "critical"
+      }
+    ]
+  }
+}

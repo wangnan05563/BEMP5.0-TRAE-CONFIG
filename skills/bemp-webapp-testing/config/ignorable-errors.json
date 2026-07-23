@@ -1,0 +1,198 @@
+{
+  "_comment": "控制台错误分类配置。解决WebSocket连接失败被误报为业务错误的问题：将控制台错误分为业务错误（需报告）、环境错误（可忽略）、网络错误（视情况），避免环境噪音干扰测试结果判定。",
+  "version": "1.0.0",
+  "_config_inheritance": "配置继承优先级（高→低）：bank_overrides.{bank_id}（银行级覆盖） > defaults + classification_rules（技能级默认）。test_config.json error_filters 作为向后兼容的回退来源，本文件提供更细粒度的三分类。",
+
+  "defaults": {
+    "classification_enabled": true,
+    "default_category": "business",
+    "_default_category_comment": "未匹配任何分类规则的错误默认归为business（需报告），确保未知错误不被静默忽略",
+    "console_error_source": ["javascript", "network", "console"],
+    "_console_error_source_comment": "javascript=JS运行时错误；network=网络请求失败；console=console.error输出",
+    "collect_stack_trace": true,
+    "_collect_stack_trace_comment": "对business类错误收集完整堆栈信息，便于定位代码缺陷"
+  },
+
+  "error_categories": {
+    "business": {
+      "description": "业务错误 - 需在测试报告中报告，可能导致测试FAIL",
+      "action": "report",
+      "severity": "high",
+      "report_in_summary": true,
+      "fail_test": true,
+      "_fail_test_comment": "business错误是否直接判定测试FAIL，取决于是否影响功能验证（可通过affects_functionality字段细化）"
+    },
+    "environment": {
+      "description": "环境错误 - 可忽略，不影响测试结果判定。如WebSocket端口未开放、favicon加载失败等环境配置问题",
+      "action": "ignore",
+      "severity": "low",
+      "report_in_summary": false,
+      "fail_test": false
+    },
+    "network": {
+      "description": "网络错误 - 视情况处理，记录警告但不直接FAIL。如API超时、连接被拒绝，需结合上下文判断是否影响测试",
+      "action": "warn",
+      "severity": "medium",
+      "report_in_summary": true,
+      "fail_test": false,
+      "_fail_test_comment": "network错误默认不FAIL，但如果关联的API是当前用例的验证目标，应在诊断阶段升级为FAIL"
+    }
+  },
+
+  "classification_rules": [
+    {
+      "id": "ENV-001",
+      "name": "WebSocket连接失败",
+      "pattern": "WebSocket connection failed",
+      "pattern_type": "contains",
+      "_pattern_type_comment": "contains=包含匹配；regex=正则匹配；equals=精确匹配",
+      "category": "environment",
+      "reason": "WebSocket端口（如9080）未开放属于环境配置问题，非业务代码缺陷。常见于开发环境未启动WebSocket服务。",
+      "action": "ignore",
+      "example": "WebSocket connection failed for ws://127.0.0.1:9080/ws"
+    },
+    {
+      "id": "ENV-002",
+      "name": "favicon资源加载失败",
+      "pattern": "Failed to load resource.*favicon",
+      "pattern_type": "regex",
+      "category": "environment",
+      "reason": "favicon.ico缺失是常见的环境噪音，不影响任何业务功能",
+      "action": "ignore",
+      "example": "GET http://127.0.0.1:8091/favicon.ico 404 (Not Found)"
+    },
+    {
+      "id": "ENV-003",
+      "name": "SourceMap文件加载失败",
+      "pattern": "Failed to parse SourceMap",
+      "pattern_type": "contains",
+      "category": "environment",
+      "reason": "SourceMap文件缺失仅影响调试体验，不影响运行时功能",
+      "action": "ignore",
+      "example": "Failed to parse SourceMap: http://127.0.0.1:8091/xxx.js.map"
+    },
+    {
+      "id": "ENV-004",
+      "name": "DevTools调试警告",
+      "pattern": "Download the Vue Devtools",
+      "pattern_type": "contains",
+      "category": "environment",
+      "reason": "Vue开发模式提示信息，非错误",
+      "action": "ignore",
+      "example": "Download the Vue Devtools extension for a better development experience"
+    },
+    {
+      "id": "BIZ-001",
+      "name": "JavaScript运行时错误-TypeError",
+      "pattern": "TypeError",
+      "pattern_type": "contains",
+      "category": "business",
+      "reason": "TypeError表示代码存在类型错误，属于明确的代码缺陷",
+      "action": "report",
+      "collect_stack": true,
+      "example": "TypeError: Cannot read property 'xxx' of undefined"
+    },
+    {
+      "id": "BIZ-002",
+      "name": "JavaScript运行时错误-ReferenceError",
+      "pattern": "ReferenceError",
+      "pattern_type": "contains",
+      "category": "business",
+      "reason": "ReferenceError表示引用了未定义的变量，属于明确的代码缺陷",
+      "action": "report",
+      "collect_stack": true,
+      "example": "ReferenceError: xxx is not defined"
+    },
+    {
+      "id": "BIZ-003",
+      "name": "ChunkLoadError模块加载错误",
+      "pattern": "ChunkLoadError",
+      "pattern_type": "contains",
+      "category": "business",
+      "reason": "ChunkLoadError通常表示前端构建产物不完整或路由配置错误，需检查构建部署",
+      "action": "report",
+      "collect_stack": true,
+      "example": "ChunkLoadError: Loading chunk xxx failed"
+    },
+    {
+      "id": "BIZ-004",
+      "name": "Vue渲染错误",
+      "pattern": "Error in (render|mounted|created|beforeMount)",
+      "pattern_type": "regex",
+      "category": "business",
+      "reason": "Vue生命周期或渲染过程中的错误，直接影响页面功能",
+      "action": "report",
+      "collect_stack": true,
+      "example": "Error in render: TypeError: Cannot read property 'xxx' of undefined"
+    },
+    {
+      "id": "NET-001",
+      "name": "API请求超时",
+      "pattern": "(timeout|ETIMEDOUT|请求超时)",
+      "pattern_type": "regex",
+      "category": "network",
+      "reason": "API超时可能是服务端性能问题或网络波动，需结合具体API判断是否影响测试",
+      "action": "warn",
+      "example": "NET:ERR_TIMEOUT or 后端返回'请求超时'"
+    },
+    {
+      "id": "NET-002",
+      "name": "连接被拒绝",
+      "pattern": "(ECONNREFUSED|ERR_CONNECTION_REFUSED|连接被拒绝)",
+      "pattern_type": "regex",
+      "category": "network",
+      "reason": "连接被拒绝通常表示目标服务未启动或端口未监听，需检查服务状态",
+      "action": "warn",
+      "example": "NET:ERR_CONNECTION_REFUSED at http://127.0.0.1:8010/xxx"
+    },
+    {
+      "id": "NET-003",
+      "name": "API返回5xx错误",
+      "pattern": "HTTP 5\\d\\d",
+      "pattern_type": "regex",
+      "category": "network",
+      "reason": "5xx服务端错误，可能是服务异常或依赖中间件故障",
+      "action": "warn",
+      "example": "POST http://127.0.0.1:8010/bemp-served/xxx 500 (Internal Server Error)"
+    }
+  ],
+
+  "bank_overrides": {
+    "_comment": "银行级错误分类覆盖。当银行环境有特定的可忽略错误或需要调整分类时，在此覆盖。示例结构见下方_example。",
+    "_example": {
+      "huisbank": {
+        "classification_rules": [
+          {
+            "id": "ENV-HUIS-001",
+            "name": "徽商银行定制WebSocket",
+            "pattern": "ws://.*:9090/connection failed",
+            "pattern_type": "regex",
+            "category": "environment",
+            "reason": "徽商银行环境9090端口为可选消息推送服务，未开放不影响核心功能",
+            "action": "ignore"
+          }
+        ],
+        "defaults": {
+          "default_category": "business"
+        }
+      }
+    }
+  },
+
+  "report_format": {
+    "_comment": "错误分类报告输出格式，嵌入测试报告的控制台错误章节",
+    "summary_template": "### 控制台错误分类统计\n| 分类 | 数量 | 处理策略 |\n|------|------|---------|\n| 业务错误(business) | {business_count} | 需报告 |\n| 环境错误(environment) | {environment_count} | 已忽略 |\n| 网络错误(network) | {network_count} | 已警告 |\n\n### 需关注错误详情\n{business_errors_detail}",
+    "business_error_detail_template": "- [{error_id}] {error_name}\n  消息: {error_message}\n  堆栈: {stack_trace}\n  发生时间: {timestamp}",
+    "ignored_summary_template": "已忽略 {environment_count} 条环境错误（WebSocket/favicon/SourceMap等），不影响测试结果"
+  },
+
+  "workflow": {
+    "step_1": "测试执行期间持续收集控制台错误（console.error / pageerror / requestfailed）",
+    "step_2": "对每条错误，按classification_rules顺序匹配：用pattern_type指定的方式（contains/regex/equals）匹配pattern",
+    "step_3": "匹配命中时，取对应category和action；未命中任何规则时，取defaults.default_category（business）",
+    "step_4": "按error_categories中定义的action处理：report=收集详情待报告；ignore=静默忽略；warn=记录警告",
+    "step_5": "business类错误收集stack_trace（若collect_stack=true）",
+    "step_6": "测试结束后按report_format模板生成分类统计和详情报告",
+    "step_7": "environment类错误在报告中仅输出忽略摘要，不逐条列举"
+  }
+}
