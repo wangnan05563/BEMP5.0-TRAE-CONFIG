@@ -48,12 +48,14 @@ triggers: "Jenkins/CD/CI/DevOps/自动化/部署/构建/触发"
 
 ```groovy
 environment {
-    JAVA_HOME_BUILD = 'D:/code/Java/jdk1.8.0_341'
-    MAVEN_HOME = 'D:/code/apache-maven-3.6.3'
-    REDIS_EXE = 'D:/code/Redis-x64-5.0.14.1/redis-server.exe'
+    JAVA_HOME_BUILD = '${ENV:JAVA_HOME}'
+    MAVEN_HOME = '${ENV:MAVEN_HOME}'
+    REDIS_EXE = '${ENV:REDIS_EXE}'
     // ... 其他配置
 }
 ```
+
+> 以上路径由 _shared/env-config.json 的 environmentDefaults 提供 fallback 值。示例值，实际使用时由环境变量注入。
 
 > 配置参考：[config/bemp-deploy.yml](config/bemp-deploy.yml)
 

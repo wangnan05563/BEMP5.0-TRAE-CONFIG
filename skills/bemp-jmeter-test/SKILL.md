@@ -49,7 +49,9 @@ triggers:
 
 **1.1 读取配置获取 JMeter 路径**
 
-首先读取技能根目录下的 `config/jmeter-config.yml`，从 `jmeter.path` 字段获取 JMeter 可执行文件路径（如 `D:\\code\\Jmeter\\apache-jmeter-5.6.3\\bin\\jmeter.bat`）。后续所有 JMeter 命令均使用该路径（而非依赖系统 PATH）。
+首先读取技能根目录下的 `config/jmeter-config.yml`，从 `jmeter.path` 字段获取 JMeter 可执行文件路径（由 _shared/env-config.json 的 `paths.jmeterPath`（即 `${ENV:JMETER_PATH}`）提供，或通过环境变量 `JMETER_PATH` 指定）。后续所有 JMeter 命令均使用该路径（而非依赖系统 PATH）。
+
+> JMeter 路径由 _shared/env-config.json 的 environmentDefaults 提供 fallback 值。
 
 若配置文件中的路径不存在，按优先级降级搜索：PATH → 常见安装目录（`D:\apache-jmeter-*`、`C:\apache-jmeter-*`）→ 提示用户手动安装。
 
@@ -224,76 +226,17 @@ JMeter PerfMon 插件集成方式：
 
 ### 步骤 5: 报告生成
 
-**【推荐】** 报告应包含以下内容：
+**【推荐】** 报告应包含 6 部分：测试概述（目标/时间/环境/工具）、测试配置（threads/rampUp/duration/loops）、关键指标表（TPS/平均响应/P95/错误率 + 评级）、趋势分析图（响应时间/TPS/错误率）、性能瓶颈、优化建议。
 
-```markdown
-# 性能测试报告
-
-## 1. 测试概述
-- 测试目标: [接口/服务名称]
-- 测试时间: [开始时间] - [结束时间]
-- 测试环境: [服务器配置、网络环境]
-- 测试工具: JMeter [版本号]
-
-## 2. 测试配置
-- 并发用户数: [threads]
-- Ramp-Up 时间: [rampUp] 秒
-- 测试持续时间: [duration] 秒
-- 循环次数: [loops]
-
-## 3. 关键指标
-| 指标 | 值 | 评级 |
-|------|-----|------|
-| TPS | xxx | 优秀/良好/一般/较差 |
-| 平均响应时间 | xxx ms | 优秀/良好/一般/较差 |
-| P95 响应时间 | xxx ms | 优秀/良好/一般/较差 |
-| 错误率 | x% | 优秀/良好/一般/较差 |
-
-## 4. 趋势分析
-[响应时间趋势图]
-[TPS 趋势图]
-[错误率趋势图]
-
-## 5. 性能瓶颈
-- 瓶颈 1: [描述]
-- 瓶颈 2: [描述]
-
-## 6. 优化建议
-- 建议 1: [描述]
-- 建议 2: [描述]
-```
+> 完整报告模板参见 `assets/report-templates/performance-report.md`。
 
 #### 5.1 历史基线对比报告
 
-**【推荐】** 每次压测完成后，将关键指标保存为基线记录，后续压测自动对比：
-
-```markdown
-## 7. 历史基线对比
-
-| 指标 | 当前值 | 基线值(上次) | 基线值(7天前) | 变化趋势 |
-|------|-------|------------|------------|---------|
-| TPS | 850 | 920 | 880 | ⬇ 下降 7.6% |
-| 平均响应时间 | 115ms | 105ms | 110ms | ⬆ 上升 9.5% |
-| P95 响应时间 | 380ms | 350ms | 360ms | ⬆ 上升 8.6% |
-| 错误率 | 0.05% | 0.02% | 0.03% | ⬆ 上升 |
+**【推荐】** 每次压测完成后将关键指标保存为基线记录，后续压测自动对比。基线文件存储于 `output/baselines/baseline-{date}-{time}.json`，指标字段与 §4 结果分析指标表对齐（test_target/test_env/timestamp/preset/metrics）。
 
 **趋势判定规则**:
 - TPS 变化 > ±10% 或响应时间变化 > ±20%，标记为 **显著变化**
 - 错误率上升 > 0.1%，标记为 **需关注**
-```
-
-基线文件存储格式（指标字段与§4 结果分析指标表对齐）：
-
-```json
-// output/baselines/baseline-{date}-{time}.json
-{
-  "test_target": "/api/business/*",
-  "test_env": "staging",
-  "timestamp": "2026-05-17T14:30:00",
-  "preset": "load",
-  "metrics": { "tps": 850, "avg_ms": 115, "p95_ms": 380, "p99_ms": 520, "error_pct": 0.05 }
-}
-```
 
 #### 5.2 报告生成回退策略
 
@@ -309,196 +252,34 @@ JMeter PerfMon 插件集成方式：
 优先级 4: 错误摘要（输出 JMeter 控制台日志 + 失败原因）
 ```
 
-**【强制】** 回退失败时，必须向用户明确报告：
-- 哪一级报告生成失败
-- 失败的具体原因
-- 当前产出的报告类型和可用信息
+**【强制】** 回退失败时必须向用户明确报告：哪一级失败、失败原因、当前产出的报告类型和可用信息。
 
 #### 5.3 PDF 报告生成方案
 
-**【推荐】** Markdown 转 PDF 的推荐方案：
-
-| 方案 | 工具 | 适用场景 | 命令示例 |
-|------|------|---------|---------|
-| 方案 A | `pandoc` + `wkhtmltopdf` | 本地快速转换 | `pandoc report.md -o report.pdf --pdf-engine=wkhtmltopdf` |
-| 方案 B | `mdpdf` (Node.js) | 自动化流水线 | `npx mdpdf report.md --style=github` |
-| 方案 C | `markdown-pdf` (VS Code 插件) | 手动导出 | 在 VS Code 中右键 Markdown → 导出 PDF |
-| 方案 D | Trae IDE 内置转换 | 无需额外安装 | 使用内置 markdown-converter 技能 |
+**【推荐】** Markdown 转 PDF 推荐方案（按优先级）：A. `pandoc --pdf-engine=wkhtmltopdf`（本地快速）；B. `npx mdpdf --style=github`（Node.js 自动化）；C. VS Code `markdown-pdf` 插件（手动导出）；D. Trae IDE 内置 `markdown-converter` 技能（无需额外安装）。
 
 ## 技术规范
 
 ### JMX 文件结构规范
 
-**【强制】** JMX 测试计划应遵循以下结构：
+**【强制】** JMX 测试计划采用 `jmeterTestPlan > hashTree > TestPlan + ThreadGroup + (Sampler + Assertion + Listener)` 的嵌套结构，关键节点：`TestPlan`（用户变量）、`ThreadGroup`（threads/ramp_time/duration/scheduler）、`HTTPSamplerProxy`（protocol/domain/port/path/method）、`ResponseAssertion`（响应码/内容断言）、`ResultCollector`（监听器/报告）。
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<jmeterTestPlan version="1.2" properties="5.0">
-  <hashTree>
-    <!-- Test Plan -->
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="测试计划名称">
-      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
-        <collectionProp name="Arguments.arguments">
-          <!-- 定义变量 -->
-        </collectionProp>
-      </elementProp>
-    </TestPlan>
-    <hashTree>
-      <!-- Thread Group -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="线程组名称">
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">-1</stringProp>
-        </elementProp>
-        <stringProp name="ThreadGroup.num_threads">100</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">10</stringProp>
-        <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">300</stringProp>
-      </ThreadGroup>
-      <hashTree>
-        <!-- HTTP Request -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="HTTP请求名称">
-          <stringProp name="HTTPSampler.protocol">http</stringProp>
-          <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">8080</stringProp>
-          <stringProp name="HTTPSampler.path">/api/test</stringProp>
-          <stringProp name="HTTPSampler.method">POST</stringProp>
-        </HTTPSamplerProxy>
-        <hashTree>
-          <!-- Response Assertion -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="响应断言">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">200</stringProp>
-            </collectionProp>
-          </ResponseAssertion>
-          <hashTree/>
-        </hashTree>
-        <!-- Listeners -->
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="汇总报告">
-          <boolProp name="ResultCollector.error_logging">false</boolProp>
-        </ResultCollector>
-        <hashTree/>
-      </hashTree>
-    </hashTree>
-  </hashTree>
-</jmeterTestPlan>
-```
+> 完整 JMX 模板参见 `assets/templates/api-test.jmx`（含基础结构与断言示例），多步骤业务模板参见 `assets/templates/web-test.jmx`。
 
-### 复杂业务场景模板
+### 复杂业务场景组件
 
-**【推荐】** 真实业务压测通常涉及多步骤事务流程（如登录→查询→操作），需使用以下扩展组件：
+**【推荐】** 真实业务压测通常涉及多步骤事务流程（如登录→查询→操作），需使用以下扩展组件，详见 `assets/templates/web-test.jmx`：
 
-#### HTTP Header Manager（请求头管理器）
+| 组件 | 用途 | 关键属性 |
+|------|------|---------|
+| HTTP Header Manager | 全局请求头管理（Content-Type、Authorization） | `HeaderManager.headers` |
+| HTTP Cookie Manager | 会话 Cookie 保持登录态 | `clearEachIteration=false` |
+| Transaction Controller | 多步操作组合为逻辑事务，统计整体耗时 | `includeTimers=false`, `parent=true` |
+| Constant Timer | 固定思考时间（500ms 典型 Web 间隔） | `delay=500`，置于 Sampler 子节点 |
+| GaussianRandom Timer | 随机思考时间（更真实） | `delay=300, range=200`（正态分布） |
+| JSON Extractor | 从 JSON 响应提取动态值（token、ID） | `referenceNames`, `jsonPathExprs` |
 
-用于管理全局 HTTP 请求头（如 Content-Type、Authorization）：
-
-```xml
-<HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP请求头管理器">
-  <collectionProp name="HeaderManager.headers">
-    <elementProp name="" elementType="Header">
-      <stringProp name="Header.name">Content-Type</stringProp>
-      <stringProp name="Header.value">application/json</stringProp>
-    </elementProp>
-    <elementProp name="" elementType="Header">
-      <stringProp name="Header.name">Authorization</stringProp>
-      <stringProp name="Header.value">Bearer ${TOKEN}</stringProp>
-    </elementProp>
-    <elementProp name="" elementType="Header">
-      <stringProp name="Header.name">Accept</stringProp>
-      <stringProp name="Header.value">application/json</stringProp>
-    </elementProp>
-  </collectionProp>
-</HeaderManager>
-```
-
-#### HTTP Cookie Manager（Cookie 管理器）
-
-用于自动管理会话 Cookie，保持登录态：
-
-```xml
-<CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP Cookie管理器">
-  <boolProp name="CookieManager.clearEachIteration">false</boolProp>
-  <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
-</CookieManager>
-```
-
-#### Transaction Controller（事务控制器）
-
-用于将多步操作组合为一个逻辑事务，统计整体耗时：
-
-```xml
-<TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="完整业务流程">
-  <boolProp name="TransactionController.includeTimers">false</boolProp>
-  <boolProp name="TransactionController.parent">true</boolProp>
-</TransactionController>
-<hashTree>
-  <!-- 步骤 1: 登录 -->
-  <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="01-登录">
-    <stringProp name="HTTPSampler.path">/api/auth/login</stringProp>
-    <stringProp name="HTTPSampler.method">POST</stringProp>
-  </HTTPSamplerProxy>
-  <hashTree>
-    <!-- 从登录响应提取 token（JSON Extractor 配置参见下方规范） -->
-    <hashTree/>
-  </hashTree>
-  <!-- 步骤 2: 业务查询 -->
-  <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="02-业务查询">
-    <stringProp name="HTTPSampler.path">/api/business/query</stringProp>
-    <stringProp name="HTTPSampler.method">POST</stringProp>
-  </HTTPSamplerProxy>
-  <hashTree>
-    <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="思考时间">
-      <stringProp name="ConstantTimer.delay">500</stringProp>
-    </ConstantTimer>
-    <hashTree/>
-  </hashTree>
-  <!-- 步骤 3: 业务操作 -->
-  <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="03-业务操作">
-    <stringProp name="HTTPSampler.path">/api/business/action</stringProp>
-    <stringProp name="HTTPSampler.method">POST</stringProp>
-  </HTTPSamplerProxy>
-  <hashTree/>
-</hashTree>
-```
-
-#### Constant Timer（固定定时器 / 思考时间）
-
-用于模拟真实用户的思考间隔，避免请求过于密集：
-
-```xml
-<ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="思考时间">
-  <stringProp name="ConstantTimer.delay">500</stringProp>
-  <!-- 单位：毫秒，500ms 为典型 Web 用户操作间隔 -->
-</ConstantTimer>
-```
-
-**【推荐】** Timer 应放在 HTTP Request 的 `<hashTree>` 子节点中，这样只作用于当前请求，
-而非整个线程组。如需要更真实的随机间隔，可使用 `GaussianRandomTimer` 替代：
-
-```xml
-<GaussianRandomTimer guiclass="GaussianRandomTimerGui" testclass="GaussianRandomTimer" testname="随机思考时间">
-  <stringProp name="ConstantTimer.delay">300</stringProp>
-  <stringProp name="RandomTimer.range">200</stringProp>
-  <!-- 实际延迟 = delay ± range，呈正态分布 -->
-</GaussianRandomTimer>
-```
-
-#### JSON Extractor（后置处理器）
-
-用于从 JSON 响应中提取动态值（如 token、ID）传递给后续请求：
-
-```xml
-<JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="提取Token">
-  <stringProp name="JSONPostProcessor.referenceNames">TOKEN,USER_ID</stringProp>
-  <stringProp name="JSONPostProcessor.jsonPathExprs">$.data.accessToken;$.data.userId</stringProp>
-  <stringProp name="JSONPostProcessor.match_numbers">1;1</stringProp>
-  <stringProp name="JSONPostProcessor.defaultValues">NOT_FOUND;0</stringProp>
-</JSONPostProcessor>
-```
-
-#### 完整多步骤业务压测模板
-
-**【推荐】** 建议的复杂场景结构（从上到下）：
+**【推荐】** 完整多步骤业务压测模板结构（从上到下）：
 
 ```
 Test Plan
@@ -527,19 +308,7 @@ Test Plan
 
 ### 断言规则规范
 
-**【强制】** 必须配置响应断言验证测试结果（响应码断言参见基础 JMX 模板）：
-
-```xml
-<!-- 响应内容断言 -->
-<ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="响应内容断言">
-  <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-  <boolProp name="Assertion.assume_success">false</boolProp>
-  <intProp name="Assertion.test_type">2</intProp>
-  <collectionProp name="Asserion.test_strings">
-    <stringProp name="49586">"success":true</stringProp>
-  </collectionProp>
-</ResponseAssertion>
-```
+**【强制】** 必须配置 `ResponseAssertion` 验证测试结果：响应码断言（`Assertion.response_code`，匹配 200）参见基础 JMX 模板 `assets/templates/api-test.jmx`；响应内容断言（`Assertion.response_data`，`test_type=2`，匹配 `"success":true`）详见 `assets/templates/web-test.jmx`。
 
 ## 输出标准
 
@@ -621,78 +390,28 @@ PDF 报告在 Markdown 报告生成成功后，通过 `pandoc`、`mdpdf` 或 Tra
 
 ## 配置管理
 
-### jmeter-config.yml 完整配置
+### jmeter-config.yml 字段说明
 
-```yaml
-# ====== JMeter 路径配置（自动检测优先级最高） ======
-jmeter:
-  # 【推荐】优先使用自动检测，以下为 fallback 路径
-  auto_detect: true
-  # 自动检测顺序：$JMETER_HOME/bin/jmeter > PATH 中的 jmeter > 以下 fallback
-  fallback_paths:
-    windows: "D:\\apache-jmeter-5.6.3\\bin\\jmeter.bat"
-    macos: "/usr/local/bin/jmeter"
-    linux: "/opt/apache-jmeter-5.6.3/bin/jmeter"
-  java_home_auto_detect: true
-  java_home_fallback:
-    windows: "C:\\Program Files\\Java\\jdk-17"
-    macos: "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home"
-    linux: "/usr/lib/jvm/java-17-openjdk"
+> 完整配置文件参见 `config/jmeter-config.json`，下表列出关键字段：
 
-# ====== 多环境配置 ======
-environments:
-  dev:
-    host: "dev.example.com"
-    port: 8080
-    protocol: "http"
-    description: "开发环境 - 用于功能验证"
+| 配置块 | 字段 | 用途 |
+|-------|------|------|
+| `jmeter` | `auto_detect` / `fallback_paths` / `java_home_*` | JMeter 与 JDK 路径自动检测与降级路径（Win/Mac/Linux） |
+| `environments` | `dev` / `staging` / `prod-like` | 多环境 host/port/protocol，类生产环境必须与生产网络隔离 |
+| `test_presets` | `smoke/baseline/load/stress/endurance/spike` | 测试类型预设，格式 `[threads, ramp_up, duration, desc]`，通过 `-Jpreset=<name>` 指定 |
+| `report` | `format` / `output_dir` / `include_charts` / `baseline` | 报告格式（html+markdown）、输出目录、图表开关、基线存储与对比 |
+| `safety` | `production_blacklist` / `allowed_targets` | 生产环境黑名单（匹配即拒绝）与白名单（空则用黑名单模式） |
 
-  staging:
-    host: "staging.example.com"
-    port: 8081
-    protocol: "https"
-    description: "预发布环境 - 用于集成压测"
+**预设模板一览**（threads/ramp_up/duration）：
 
-  prod-like:
-    host: "perf.example.com"
-    port: 443
-    protocol: "https"
-    description: "类生产环境 - 用于正式压测报告"
-    # 【强制】类生产环境必须与生产环境网络隔离，使用独立数据
-
-# ====== 测试类型预设模板 ======
-# 通过 -Jpreset=<name> 指定，格式: {threads}/{ramp_up}/{duration}/{description}
-test_presets:
-  smoke:     [10,   5,  60,   "冒烟测试 - 验证接口基本可用"]
-  baseline:  [50,   10, 300,  "基准测试 - 建立性能基线值"]
-  load:      [100,  30, 600,  "负载测试 - 模拟正常峰值业务"]
-  stress:    [200,  60, 900,  "压力测试 - 寻找系统吞吐量拐点"]
-  endurance: [150,  60, 3600, "稳定性测试 - 验证长时间运行资源泄漏"]
-  spike:     [500,  5,  120,  "峰值测试 - 模拟突发流量冲击"]
-
-# ====== 报告配置 ======
-report:
-  format: ["html", "markdown"]
-  output_dir: "output/reports"
-  include_charts: true
-  # 历史基线管理
-  baseline:
-    enabled: true
-    storage_dir: "output/baselines"
-    # 基线对比时自动加载最近 N 条记录
-    compare_recent: 5
-
-# ====== 安全检查 ======
-safety:
-  # 生产环境黑名单，匹配即拒绝执行
-  production_blacklist:
-    - "*.prod.example.com"
-    - "*.production.example.com"
-    - "api.example.com"
-    - "10\\.0\\..*"
-  # 目标地址白名单，仅允许对白名单内目标压测（为空则使用黑名单模式）
-  allowed_targets: []
-```
+| 预设 | threads | ramp_up | duration | 说明 |
+|------|---------|---------|----------|------|
+| smoke | 10 | 5 | 60 | 冒烟测试 - 验证接口基本可用 |
+| baseline | 50 | 10 | 300 | 基准测试 - 建立性能基线值 |
+| load | 100 | 30 | 600 | 负载测试 - 模拟正常峰值业务 |
+| stress | 200 | 60 | 900 | 压力测试 - 寻找系统吞吐量拐点 |
+| endurance | 150 | 60 | 3600 | 稳定性测试 - 验证长时间运行资源泄漏 |
+| spike | 500 | 5 | 120 | 峰值测试 - 模拟突发流量冲击 |
 
 ### 环境切换命令
 
@@ -709,4 +428,4 @@ jmeter -n -t test.jmx -Jenv=prod-like -Jpreset=stress -l results.jtl -e -o repor
 
 ### JMeter HOME 自动检测
 
-**【推荐】** 自动检测优先级：`$JMETER_HOME/bin/jmeter`（或 `%JMETER_HOME%\bin\jmeter.bat`）→ PATH → fallback_paths（见 yml 配置）。全部失败则提示手动安装。
+**【推荐】** 自动检测优先级：`$JMETER_HOME/bin/jmeter`（或 `%JMETER_HOME%\bin\jmeter.bat`）→ PATH → fallback_paths（见配置文件）。全部失败则提示手动安装。

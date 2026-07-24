@@ -31,7 +31,7 @@ alwaysApply: true
 | 代码同步 | bemp-implementation-engineer | bemp-git-maven-automation |
 | 代码开发 | bemp-personalized-developer | bemp-personalized-dev |
 | 适配器开发 | bemp-adapter-developer | bemp-adapter-dev |
-| 代码评审修复 | bemp-personalized-developer | bemp-frontend-code-review + bemp-backend-code-review |
+| 代码评审修复 | bemp-personalized-developer（适配器开发阶段的自查由 bemp-adapter-developer 执行） | bemp-frontend-code-review + bemp-backend-code-review |
 | 代码质量扫描 | bemp-implementation-engineer | bemp-sonarqube-mcp |
 | 启动服务 | bemp-implementation-engineer | bemp-automation-startserver |
 | 测试用例编制 | bemp-auto-tester | bemp-testcase-generator |
@@ -55,11 +55,16 @@ alwaysApply: true
 | 代码质量扫描 | SonarQube 服务可用 + Token 有效 + 扫描结果上传成功 | 服务不可用→启动服务；Token无效→提示配置；结果未上传→重新扫描 |
 
 # 降级处理规则
+## 服务降级（MCP/外部服务不可用时）
 | 场景 | 降级方案 |
 |------|---------|
 | SonarQube MCP 不可用 | 使用 sonar-scanner 命令行工具 |
 | SonarQube 服务未启动 | 启动服务后重新扫描 |
 | Token 无效 | 提示用户配置后重新扫描 |
+
+## 工具降级（生成类工具不可用时）
+| 场景 | 降级方案 |
+|------|---------|
 | 图表生成工具降级 | drawio → mcp-server-chart → graphviz → antv → matplotlib → 占位文字（5级降级链，详见 chart-tools.json） |
 
 # 回退规则

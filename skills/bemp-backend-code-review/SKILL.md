@@ -21,13 +21,15 @@ checklists:
 
 | 占位符 | 当前值 | 说明 |
 |--------|--------|------|
-| `{bankName}` | 河南农信 | 中文名称 |
-| `{bankCode}` | hnnxbank | 目录/包名 |
-| `{sourceDir}` | banks/ext-hnnxbank | 源码根目录 |
-| `{packagePath}` | com.hundsun.bemp.hnnxbank | 包路径 |
-| `{classPrefix}` | HnnxBank | 类名前缀 |
-| `{dtoPrefix}` | Hnnx | DTO前缀 |
-| `{urlPrefixes}` | /hnnx/, /hnnxbank/ | 请求路径前缀 |
+| `{bankName}` | `${ENV:BANK_NAME}` | 中文名称 |
+| `{bankCode}` | `${ENV:BANK_CODE}` | 目录/包名 |
+| `{sourceDir}` | banks/ext-${ENV:BANK_CODE} | 源码根目录 |
+| `{packagePath}` | com.hundsun.bemp.${ENV:BANK_CODE} | 包路径 |
+| `{classPrefix}` | `${ENV:BANK_CLASS_NAME_PREFIX}` | 类名前缀 |
+| `{dtoPrefix}` | `${ENV:BANK_CLASS_PREFIX}` | DTO前缀 |
+| `{urlPrefixes}` | /hnnx/, `${ENV:BANK_URL_PREFIX}` | 请求路径前缀 |
+
+> 以上为占位符示例，实际值由 _shared/env-config.json 的 environmentDefaults 提供。
 
 > 切换指南见 [附录B](#附录b银行配置切换指南)
 
@@ -86,10 +88,13 @@ checklists:
 - 使用语义化HTTP动词：GET查询、POST创建、PUT全量更新、PATCH局部更新、DELETE删除
 - 禁止GET做状态变更操作（如激活、删除）
 - 集合接口必须有分页（默认20条），禁止返回全量数据
-- URL使用名词而非动词（`/users` 而非 `/getUsers`）
+- URL使用复数名词而非动词（`/users` 而非 `/getUsers`），路径层级表达关联（`/users/{id}/orders`）
+- 响应体一致性：同一集合要么全包装要么全裸返回，不可混合
 - 禁止返回200+错误体（应使用4xx/5xx状态码）
 - 响应使用DTO而非实体对象（避免JPA懒加载N+1和字段泄漏）
 - 全局异常处理器统一错误格式，禁止暴露堆栈信息
+- 向后兼容：同版本内禁止删除接口/字段、变更字段类型、增加必填参数
+- API版本化：公共接口路径包含版本号（`/v1/`、`/v2/`）
 
 ### 4. Service 规范
 - 【强制】实现类 `@CloudComponent`，接口 `@CloudService`，方法 `@CloudFunction`
@@ -267,18 +272,7 @@ public class HnnxXxxReq implements Serializable {
 - 并发场景（共享缓存、计数器、懒加载初始化）
 - 事务边界（跨服务调用、回滚条件）
 
-### 18. API设计规范
-
-- HTTP动词语义化（GET=查询、POST=创建、PUT=替换、PATCH=局部更新、DELETE=删除）
-- 禁止GET请求引发状态变更
-- 集合接口必须支持分页，默认20条上限
-- URL使用复数名词（`/users` 非 `/getUsers`），路径层级表达关联（`/users/{id}/orders`）
-- 响应体一致性：同一集合要么全包装要么全裸返回，不可混合
-- 错误响应：HTTP状态码区分4xx（客户端）/5xx（服务端），禁止200+error体
-- 向后兼容：同版本内禁止删除接口/字段、变更字段类型、增加必填参数
-- API版本化：公共接口路径包含版本号（`/v1/`、`/v2/`）
-
-### 19. 架构与分层
+### 18. 架构与分层
 
 - 包组织策略明确：按功能（推荐）或按层，不可混合
 - 禁止跨层调用：Controller不调Service实现、Service不依赖Controller
@@ -288,7 +282,7 @@ public class HnnxXxxReq implements Serializable {
 - DTO在边界处转换，领域对象不出边界
 - 新增功能应仅影响对应功能包，不应触碰多个包
 
-### 20. SQL与数据库专项 🆕v3.0
+### 19. SQL与数据库专项 🆕v3.0
 - 大表查询必须加索引；关联查询字段加索引
 - 查询条件中使用函数会导致索引失效，改用范围查询
 - SQL兼容：Oracle空字符串=null、下划线转义escape '\'、MySQL删除无别名、信创环境通用写法
@@ -304,7 +298,7 @@ public class HnnxXxxReq implements Serializable {
 - varchar截取需转字节处理（中文GBK 2字节/UTF-8 3字节）
 - 更新时where条件加前置状态控制防并发，并判断更新结果集
 
-### 21. 票据业务专项 🆕v3.0
+### 20. 票据业务专项 🆕v3.0
 - 金额计算：需求评审明确规则、金额加减通过数据库操作
 - 保证金/扣款/利率：算法累加一致性、扣款分摊正确性、利率单位确认(÷100问题)
 - 日终任务：分页处理全部数据(非默认10条)、连接超时调参、日期计算考虑月份变化
@@ -320,7 +314,7 @@ public class HnnxXxxReq implements Serializable {
 - 加字段后：DTO转换方法(dto→entity/entity→dto/dto→example)也要补充字段
 - 产品号判断：优先用父产品号，可做到向后兼容
 
-### 22. BEMP项目规范 🆕v3.1
+### 21. BEMP项目规范 🆕v3.1
 - `@CloudComponent`继承顺序：implements接口，不extends实现类
 - 依赖注入严格用`@Autowired`，禁止`@Resource`
 - StringUtils统一用`commons-lang3`（`org.apache.commons.lang3.StringUtils`），禁止commons-lang
@@ -333,7 +327,7 @@ public class HnnxXxxReq implements Serializable {
 - Dto属性类型不要Date，导出用专门Dto再转换
 - 首页提醒必须用Controller模式，禁止sql模式
 
-### 23. Spec一致性检查 🆕v3.2
+### 22. Spec一致性检查 🆕v3.2
 
 比对代码实现与spec（需求文档/设计文档）要求的一致性，捕获"实现与设计偏差"类缺陷。检查项通过 `config/spec-consistency-checklist.json` 管理，支持三级配置继承。
 
@@ -360,7 +354,7 @@ public class HnnxXxxReq implements Serializable {
 - 代码实现"LOGGER.warn + return"（降级处理）
 - 判定：SC-001日志级别不一致(严重) + SC-002异常处理不一致(阻塞)
 
-### 24. 降级处理模式检查 🆕v3.2
+### 23. 降级处理模式检查 🆕v3.2
 
 系统化检查代码中的降级处理模式是否符合规范，捕获"降级处理不当"导致的静默失败、数据丢失、流程中断。检查项通过 `config/degradation-checklist.json` 管理，支持三级配置继承。
 
@@ -456,37 +450,12 @@ public class HnnxXxxReq implements Serializable {
 
 ## 审查判断标准
 
-| 🟠阻塞(必须修复) | 🟠严重(强烈建议) | 🟡警告(建议) |
-|-----------------|-----------------|-------------|
-| 文件不在 `{sourceDir}` | 服务调用缺必需字段 | 格式化不规范 |
-| Service/Atom缺 `@CustomizedBean`(extends产品实现类时) | 未查看服务方法实现 | 变量命名不规范 |
-| Controller加 `@CustomizedBean` | 缺中文注释 | 冗余代码 |
-| 路径不以 `{urlPrefixes}` 开头 | 异常处理不完善(吞异常/丢堆栈) | 注释不清晰 |
-| DTO缺getter/setter | 空指针风险(链式调用未判空) | DTO未实现Serializable |
-| Maven编译失败 | 日志不规范 | 非线程安全类误用 |
-| 硬编码密码/密钥 | 日志含敏感信息 | equals/hashCode未配对 |
-| SQL字符串拼接 | N+1查询/循环调远程 | toString含敏感字段 |
-| DTO前缀不符合 `{dtoPrefix}` | 事务边界不合理 | 遍历中修改集合 |
-| 参数名与前端不一致 | 资源未关闭/循环内String拼接 | 构造参数过多未用Builder |
-| 公共API返回null(应返回Optional) | check-then-act竞态条件 | 并行Stream滥用 |
-| GET请求引发状态变更 | 集合接口无分页 | URL使用动词(getUsers) |
-| 响应返回实体对象 | 200+错误体(应4xx/5xx) | API无版本路径 |
-| 领域包引入框架注解 | @Async同类自调用 | CompletableFuture无异常处理 |
-| 循环依赖A→B→C→A | util包无限增长 | Executor未配置关闭 |
-| BigDecimal用==或equals比较 | 分页查询缺唯一排序 | 日终任务默认10条未改分页 |
-| Integer/Long用==比较 | 大循环查询(应用Map) | 硬编码产品代码/机构号 |
-| 边界值遗漏等于 | 大事务未拆分 | 时间格式hh误用为HH |
-| SQL兼容性未考虑 | Redis锁缺失 | 金额计算未通过数据库 |
-| 使用@Resource注入(应用@Autowired) | Redis锁在事务内 | @CloudComponent继承实现类 |
-| 查询/更新条件缺空判断 | Collectors.toMap缺merge函数 | Dto属性用Date类型 |
-| mybatis非String类型写!= '' | 分录配置编号重复 | StringUtils用commons-lang |
-| Spec要求抛异常但代码return(SC-002) | Spec日志级别不一致(SC-001) | Spec错误文案不一致(SC-004) |
-| Spec要求参数校验但未实现(SC-006) | Spec任务隔离不一致(SC-003) |
-| 关键文件不存在静默return(DG-001) | Spec流程顺序不一致(SC-005) |
-| 核心服务不可用静默跳过(DG-005) | 文件为空return null(DG-002) |
-| | 数据为空return null(DG-003) |
-| | 网络异常不重试直接return(DG-004) |
-| | 必填配置缺失用默认值(DG-006) |
+严重度分级（详细规则参见前述各章节）：
+
+- 🟠**阻塞**（必须修复）：结构违规（文件位置/包路径/类前缀/`@CustomizedBean`/`@RestController`/URL前缀/DTO前缀）、Maven编译失败、安全漏洞（硬编码密钥/SQL拼接）、公共API返回null、GET引发状态变更、Spec要求抛异常但代码return（SC-002/SC-006）、关键文件不存在静默return（DG-001）、核心服务不可用静默跳过（DG-005）、`@Resource`注入、mybatis非String类型写`!= ''`、循环依赖、BigDecimal/Integer/Long用`==`比较、查询/更新条件缺空判断、领域包引入框架注解
+- 🟠**严重**（强烈建议）：服务调用缺必需字段、异常处理不完善（吞异常/丢堆栈）、空指针风险、日志含敏感信息/不规范、N+1查询/循环调远程、事务边界不合理、资源未关闭、`@Async`同类自调用、`Collectors.toMap`缺merge函数、Redis锁缺失/在事务内、Spec日志级别/任务隔离/流程顺序不一致（SC-001/SC-003/SC-005）、降级处理不当（DG-002~DG-004/DG-006）、分页查询缺唯一排序、大事务未拆分
+- 🟡**警告**（建议）：格式化/变量命名/注释规范、DTO未实现Serializable、equals/hashCode未配对、toString含敏感字段、遍历中修改集合、并行Stream滥用、URL使用动词、API无版本路径、`Executor`未配置关闭、日终任务默认10条未改分页、硬编码产品代码/机构号、时间格式hh误用为HH、`@CloudComponent`继承实现类、Dto属性用Date类型、`StringUtils`用commons-lang、Spec错误文案不一致（SC-004）
+- 🟢**提示**（可选）：轻微问题，不影响功能，建议优化。如：注释拼写/措辞、局部变量命名风格细节、过度防御性判空、可读性改进（提取局部变量/简化条件表达式）、未使用的private方法、import顺序、魔法值未抽取常量但语义清晰、日志级别info/debug选择失当但不影响排障
 
 ---
 
@@ -502,20 +471,6 @@ public class HnnxXxxReq implements Serializable {
 2. 【推荐】新功能参数用DTO对象，兼容旧代码用BaseRequest（见第5节）
 3. 【强制】代码在 `{sourceDir}` 下；DTO前缀 `{dtoPrefix}`；编译通过
 4. 【强制】提交前执行 `auto-scan.ps1`；完成后调用本技能走查
-
----
-
-## 快速问题定位
-
-| 现象 | 原因 | 方案 |
-|------|------|------|
-| "法人编号和机构号都不能为空" | 调用服务未设brchNo | `userDto.setBrchNo(...)` |
-| "用户名或密码错误" | 前后端参数格式不匹配 | 对齐DTO/requestDto/JSON格式 |
-| 参数为null | 参数名不一致 | 确保大小写一致 |
-| Content type not supported | @RequestBody vs form-data冲突 | 去@RequestBody或前端改JSON |
-| 类型转换异常 | 参数格式不匹配 | DTO↔直接对象 / BaseRequest↔requestDto |
-| Maven编译失败 | Java版本/依赖 | `mvn compile -DskipTests` |
-| DTO前缀不符 | 切换银行后未更新命名 | 改为 `{dtoPrefix}`+功能名 |
 
 ---
 
@@ -540,19 +495,6 @@ public class HnnxXxxReq implements Serializable {
 2. 改 `currentBank` 为目标 bankCode
 3. 若无该银行配置，参照 `example` 模板在 `banks` 中添加
 
-**配置参数**：
-
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `bankName` | 是 | 中文名称 |
-| `bankCode` | 是 | 目录名/包名（如 hnnxbank） |
-| `bankCodeShort` | 是 | URL前缀简码（如 hnnx） |
-| `sourceDir` | 是 | 源码根目录（如 banks/ext-hnnxbank） |
-| `packagePath` | 是 | 包路径（如 com.hundsun.bemp.hnnxbank） |
-| `classPrefix` | 是 | 类名前缀（如 HnnxBank） |
-| `dtoPrefix` | 是 | DTO前缀（如 Hnnx） |
-| `urlPrefixes` | 是 | URL前缀数组（如 ["/hnnx/","/hnnxbank/"]） |
-| `dtoSourceDir` | 是 | DTO源码目录 |
-| `enableAutoScan` | 是 | 是否启用自动扫描 |
+> 配置参数说明见开头 [银行配置](#银行配置) 表，关键字段：`bankName`/`bankCode`/`bankCodeShort`/`sourceDir`/`packagePath`/`classPrefix`/`dtoPrefix`/`urlPrefixes`/`dtoSourceDir`/`enableAutoScan`
 
 **切换后检查**：`sourceDir` 存在✓ `dtoSourceDir` 存在✓ 运行 `auto-scan.ps1` 通过✓ 报告银行名正确✓

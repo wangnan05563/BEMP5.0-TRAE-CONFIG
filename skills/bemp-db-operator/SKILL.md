@@ -44,8 +44,7 @@ triggers:
 | 批量操作支持       | 多脚本顺序执行，进度跟踪，部分失败处理                       |
 | 操作日志记录       | 全程记录操作轨迹，满足审计追溯要求                         |
 | 数据导出为文件     | 查询数据并导出为MD/CSV/JSON格式文件，支持时间范围和条件筛选      |
-| 智能体委托策略     | MCP工具在不同智能体间可用性不同时，自动选择正确的执行路径          |
-| 多级降级策略      | MCP不可用时依次降级：子智能体委托→命令行工具→报错终止            |
+| 智能体委托与多级降级   | MCP不可用时自动委托子智能体→命令行工具→报错终止                |
 | 多数据库类型支持     | Oracle 和 MySQL 双引擎，统一操作范式                 |
 
 ### 1.2 适用范围
@@ -55,19 +54,6 @@ triggers:
 - 数据变更的复核与验证
 - 异常场景的数据回退
 - 数据导出为文件（MD/CSV/JSON）
-
-### 1.3 预期解决的问题
-
-- 数据库连接不稳定导致操作中断
-- SQL执行无复核导致数据错误
-- 异常操作无法回退造成数据损失
-- 操作无日志导致无法追溯
-- Oracle 与 MySQL 操作方式不统一导致学习成本高
-- MySQL DML 执行后无法安全回退
-- SQL执行结果中文乱码（终端编码与数据库编码不匹配）
-- Oracle DML/DDL 无法通过MCP直接执行
-- MCP工具可用性不确定导致无效调用（主智能体可能缺少Oracle MCP工具）
-- 数据导出无标准流程和模板
 
 ***
 
@@ -94,29 +80,11 @@ triggers:
 ```
 bemp-db-operator/
 ├── SKILL.md
-├── config/
-│   ├── db-config.json
-│   ├── execution-policy.json
-│   ├── query-templates.json
-│   └── version-compat.json
-├── scripts/
-│   ├── db-connect-test.sql / db-connect-test-mysql.sql
-│   ├── db-type-detect.sql / db-version-detect.sql
-│   ├── db-encoding-setup.sql
-│   ├── execute-oracle-sql.ps1 / execute-mysql-sql.ps1
-│   ├── export-db-data.ps1
-│   ├── pre-check.sql / pre-check-mysql.sql
-│   ├── post-verify.sql / post-verify-mysql.sql
-│   ├── rollback-template.sql / rollback-template-mysql.sql
-│   └── sql-compat-check-mysql.sql
-├── assets/templates/
-│   ├── execution-report.md / rollback-report.md
-│   ├── data-export-report.md
-│   └── execution-result-schema.json
-└── references/
-    ├── connection-guide.md
-    ├── sql-standards.md
-    └── safety-guide.md
+├── config/        # db-config.json / execution-policy.json / query-templates.json / version-compat.json
+├── scripts/       # 连接测试、类型/版本检测、编码设置、预检查、验证、回退、兼容性检查 SQL 脚本
+│                  # execute-oracle-sql.ps1 / execute-mysql-sql.ps1 / export-db-data.ps1
+├── assets/templates/   # execution-report.md / rollback-report.md / data-export-report.md / execution-result-schema.json
+└── references/    # connection-guide.md / sql-standards.md / safety-guide.md
 ```
 
 ***
@@ -155,19 +123,7 @@ bemp-db-operator/
 
 > 详见 config/db-config.json → agentToolMapping.degradationStrategy
 
-**委托判断决策树**：
-
-```
-需要Oracle操作？
-├── 是 → 主智能体有mcp_oracle-mcp_*工具？
-│   ├── 是 → 直接调用
-│   └── 否 → 委托bemp-implementation-engineer子智能体
-│       ├── 成功 → 返回结果
-│       └── 失败 → 降级到sqlplus命令行
-│           ├── 成功 → 返回结果
-│           └── 失败 → 报错终止
-└── 否（MySQL操作）→ 主智能体直接调用mcp_MySQL_execute_sql
-```
+**委托判断决策树**：需要Oracle操作 → 主智能体有mcp_oracle-mcp_*工具？→ 是则直接调用；否则委托bemp-implementation-engineer子智能体 → 成功则返回；失败则降级到sqlplus命令行 → 成功则返回；失败则报错终止。MySQL操作由主智能体直接调用mcp_MySQL_execute_sql。
 
 > **重要**：当主智能体调用MCP工具返回"Tool's name is not available in given tool list"时，**不要反复尝试不同命名变体**，应立即进入降级策略Level 1（委托子智能体）。
 
@@ -175,15 +131,7 @@ bemp-db-operator/
 
 > **重要**：`config/db-config.json` 中的连接参数**仅为记录用途**，实际连接由MCP服务端管理。修改实际连接参数请编辑MCP配置文件（路径见 `db-config.json` → `mcpConfigRef`）。`bankName` 和 `sqlScriptDirs` 由本技能直接使用。
 
-**连接验证时获取实际连接信息**：
-
-```
-# Oracle - 通过MCP获取实际连接信息
-mcp_oracle-mcp_execute_query(query="SELECT USER FROM DUAL")
-
-# MySQL - 通过MCP获取实际连接信息
-mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS current_db")
-```
+**连接验证时获取实际连接信息**：Oracle用 `mcp_oracle-mcp_execute_query(query="SELECT USER FROM DUAL")`；MySQL用 `mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS current_db")`。
 
 ### 4.4 数据库类型自动检测
 
@@ -191,24 +139,13 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 
 > 完整配置详见 `config/db-config.json` → `autoDetection`。关键字段：triggerValue="auto", detectionPriority=\["oracle","mysql"], fallbackDbType="mysql", cacheResult=true
 
-**自动检测流程**：
+**自动检测流程**（配置详见 config/db-config.json → autoDetection 和 config/execution-policy.json → autoDetection）：
 
-> 配置详见 config/db-config.json → autoDetection 和 config/execution-policy.json → autoDetection
-
-```
-1. 读取 defaultDbType 配置
-2. 如 defaultDbType != "auto" → 使用配置值，跳过检测
-3. 如 defaultDbType == "auto" → 进入自动检测：
-   a. 按 detectionPriority 顺序探测MCP工具
-   b. 探测Oracle MCP：调用 mcp_oracle-mcp_list_schemas
-      - 成功 → dbType = oracle，结束检测
-      - 失败 → 继续探测MySQL
-   c. 探测MySQL MCP：调用 mcp_MySQL_execute_sql("SELECT 1 AS db_type_probe")
-      - 成功 → dbType = mysql，结束检测
-      - 失败 → 使用 fallbackDbType
-4. 缓存检测结果（cacheResult=true时）
-5. 后续操作使用检测到的数据库类型
-```
+1. 读取 defaultDbType 配置；如非"auto"则使用配置值，跳过检测
+2. 如为"auto"则按 detectionPriority 顺序探测MCP工具：
+   - 探测Oracle MCP（mcp_oracle-mcp_list_schemas）：成功则dbType=oracle；失败继续探测MySQL
+   - 探测MySQL MCP（mcp_MySQL_execute_sql("SELECT 1 AS db_type_probe")）：成功则dbType=mysql；失败使用fallbackDbType
+3. 缓存检测结果（cacheResult=true时），后续操作使用检测到的数据库类型
 
 **检测失败处理**：
 
@@ -227,20 +164,10 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 
 **版本检测流程**：
 
-```
-1. 连接建立成功后，执行版本检测查询：
-   - Oracle: SELECT BANNER FROM V$VERSION WHERE ROWNUM = 1
-   - MySQL: SELECT VERSION(); SELECT @@sql_mode;
-2. 解析版本号，确定主版本和次版本
-3. 加载 config/version-compat.json 兼容性矩阵
-4. 根据版本号确定支持的特性列表（featureFlags）
-5. 如检测到不支持的版本：
-   - warnOnUnsupportedVersion=true → 发出警告
-6. SQL执行前检查特性兼容性：
-   - 如SQL使用了当前版本不支持的特性
-   - blockOnIncompatibleFeature=true → 阻止执行并提示
-   - blockOnIncompatibleFeature=false → 发出警告但允许执行
-```
+1. 连接建立后执行版本检测查询：Oracle用 `SELECT BANNER FROM V$VERSION WHERE ROWNUM = 1`；MySQL用 `SELECT VERSION(); SELECT @@sql_mode;`
+2. 解析版本号，加载 config/version-compat.json 兼容性矩阵，确定支持的特性列表（featureFlags）
+3. 如检测到不支持的版本：warnOnUnsupportedVersion=true → 发出警告
+4. SQL执行前检查特性兼容性：blockOnIncompatibleFeature=true → 阻止执行；false → 发出警告但允许执行
 
 **关键特性兼容性速查**：
 
@@ -254,40 +181,17 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 
 #### 步骤1：读取数据库配置
 
-从 `config/db-config.json` 读取连接参数，根据 `defaultDbType` 确定使用哪套配置。
+从 `config/db-config.json` 读取连接参数，根据 `defaultDbType` 确定使用哪套配置。数据库类型识别与自动检测逻辑详见第4章（4.1/4.4节）。
 
-**数据库类型确定逻辑**：
-
-```
-1. 读取 defaultDbType 值
-2. 如 defaultDbType 为 "oracle" 或 "mysql" → 直接使用配置值
-3. 如 defaultDbType 为 "auto" → 执行自动检测（见4.5节）
-4. 确定数据库类型后，加载对应的连接配置
-```
-
-> 注意：连接参数仅为记录用途，实际连接由 MCP 服务端管理。连接验证时可获取实际连接信息。
+> 注意：连接参数仅为记录用途，实际连接由 MCP 服务端管理。
 
 #### 步骤2：建立数据库连接
 
-根据数据库类型，通过对应的 MCP 工具建立连接：
+根据数据库类型，通过对应的 MCP 工具建立连接（探测SQL详见 config/execution-policy.json → autoDetection 和 versionDetection）。
 
-> 连接探测SQL详见 config/execution-policy.json → autoDetection 和 versionDetection
+**连接验证流程**（Oracle/MySQL统一）：执行连接探测 → 成功则执行表列表确认 → 失败则检查配置 → 重试(最多3次) → 仍失败则报错终止。具体探测SQL见4.4节自动检测流程。
 
-**连接验证流程**（Oracle/MySQL统一）：
-
-```
-1. 执行连接探测：
-   Oracle: mcp_oracle-mcp_list_schemas
-   MySQL:  mcp_MySQL_execute_sql("SELECT 1")
-2. 成功 → 执行表列表确认：
-   Oracle: mcp_oracle-mcp_list_tables(schema={从db-config.json读取})
-   MySQL:  mcp_MySQL_execute_sql("SHOW TABLES")
-3. 失败 → 检查配置 → 重试(最多3次) → 仍失败 → 报错终止
-```
-
-**连接失败处理**：
-
-> 详见 config/execution-policy.json → connectionFailure
+**连接失败处理**：详见 config/execution-policy.json → connectionFailure
 
 #### 步骤2.5：编码初始化（解决中文乱码）
 
@@ -295,24 +199,13 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 
 > **中文乱码根因**：Windows终端默认使用GBK(代码页936)，而数据库使用UTF-8编码，导致查询结果中的中文显示为乱码。
 
-> 终端编码命令详见 config/execution-policy.json → encodingCheck.terminal.initCommands
-> MySQL编码初始化SQL详见 config/execution-policy.json → encodingCheck.mysql.initSqls
-> Oracle编码初始化SQL详见 config/execution-policy.json → encodingCheck.oracle.initSqls
+> 终端/MySQL/Oracle编码初始化命令详见 config/execution-policy.json → encodingCheck；编码验证SQL详见 `scripts/db-encoding-setup.sql`
 
-> **注意**：Oracle的字符集由 `NLS_LANG` 环境变量控制，需在MCP服务端启动前设置。NLS_LANG值详见 config/execution-policy.json → encodingCheck.oracle.nlsLangEnvVar。ALTER SESSION仅能修改日期格式和语言，无法修改字符集。
-
-> 编码验证SQL和排查清单详见 `scripts/db-encoding-setup.sql`
+> **注意**：Oracle的字符集由 `NLS_LANG` 环境变量控制，需在MCP服务端启动前设置。ALTER SESSION仅能修改日期格式和语言，无法修改字符集。
 
 #### 步骤2.6：版本检测
 
-编码初始化完成后，检测数据库版本用于特性兼容性判断（versionDetection.enabled=true时）：
-
-```
-1. Oracle: mcp_oracle-mcp_execute_query(query={从execution-policy.json → versionDetection.oracleVersionQuery读取})
-2. MySQL:  mcp_MySQL_execute_sql(query={从execution-policy.json → versionDetection.mysqlVersionQuery读取})
-3. 解析版本号，与version-compat.json比对，确定featureFlags
-4. 记录版本信息到执行结果header.dbVersion和header.featureFlags
-```
+编码初始化完成后，检测数据库版本用于特性兼容性判断（versionDetection.enabled=true时）。版本检测流程与特性兼容性速查详见4.5节。
 
 ***
 
@@ -333,39 +226,26 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 | 数据库兼容性  | 检查SQL语法是否兼容当前数据库        | 无不兼容语法             |
 | 版本特性兼容  | 检查SQL是否使用了当前版本不支持的特性    | 特性在当前版本可用          |
 
-**Oracle 预检查执行方式**：
+**预检查执行方式**（Oracle/MySQL统一）：
 
 ```
-1. 对DDL脚本：调用 mcp_oracle-mcp_describe_table 检查目标表是否存在
+1. 对DDL脚本：检查目标表是否存在
+   Oracle: mcp_oracle-mcp_describe_table
+   MySQL:  mcp_MySQL_execute_sql("DESCRIBE {table}")
 2. 对DML脚本：
    a. 提取DELETE/UPDATE的WHERE条件，转为SELECT COUNT(*)查询
-   b. 调用 mcp_oracle-mcp_execute_query 执行预估查询
-   c. 确认影响行数在合理范围内
+   b. 执行预估查询，确认影响行数在合理范围内
 3. 对INSERT脚本：检查目标表结构是否匹配
-```
-
-**MySQL 预检查执行方式**：
-
-```
-1. 对DDL脚本：调用 mcp_MySQL_execute_sql("DESCRIBE {table}") 检查目标表是否存在
-2. 对DML脚本：
-   a. 提取DELETE/UPDATE的WHERE条件，转为SELECT COUNT(*)查询
-   b. 调用 mcp_MySQL_execute_sql 执行预估查询
-   c. 确认影响行数在合理范围内
-3. 对INSERT脚本：调用 mcp_MySQL_execute_sql("DESCRIBE {table}") 检查目标表结构是否匹配
-4. 对Oracle迁移脚本：调用 sql-compat-check-mysql.sql 检查兼容性
+4. MySQL对Oracle迁移脚本：调用 sql-compat-check-mysql.sql 检查兼容性
 ```
 
 #### 步骤4：执行前数据快照
 
 对变更涉及的数据进行执行前快照，用于复核和回退：
 
-```
-快照策略：
 - DML变更：SELECT目标数据，记录变更前状态
 - DDL变更：记录表结构信息（describe/DESCRIBE结果）
 - 快照结果作为复核基准
-```
 
 ***
 
@@ -383,23 +263,15 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 
 > 执行策略（超时/安全执行模式等）详见 config/execution-policy.json → execution.mysql
 
-**MySQL 普通执行流程**（autoCommit=true）：
+**MySQL 执行流程**（autoCommit=true）：
 
-```
 1. 读取SQL脚本文件内容
-2. [安全模式] 检测脚本中的DDL语句，如存在则拆分：
-   - DDL语句单独执行（DDL隐式提交，无法被事务包裹）
-   - DML语句进入事务流程
-3. [安全模式] 调用 mcp_MySQL_execute_sql("START TRANSACTION") 开启事务
-4. 按分号拆分为独立SQL语句
-5. 逐语句执行：
-   a. 调用 mcp_MySQL_execute_sql 执行当前语句
-   b. 记录执行结果（成功/失败/影响行数）
-   c. 如失败：
-      - [安全模式] 调用 mcp_MySQL_execute_sql("ROLLBACK") 回滚整个事务
-      - [普通模式] 根据策略决定是否继续，如需回退进入第五阶段
-6. 全部成功后进入第四阶段复核（COMMIT/ROLLBACK决策由步骤6负责）
-```
+2. [安全模式] 检测DDL语句并拆分：DDL单独执行（隐式提交），DML进入事务流程
+3. [安全模式] 调用 `mcp_MySQL_execute_sql("START TRANSACTION")` 开启事务
+4. 按分号拆分为独立SQL语句，逐语句执行：
+   - 调用 mcp_MySQL_execute_sql 执行，记录结果（成功/失败/影响行数）
+   - 失败时：[安全模式] ROLLBACK回滚事务；[普通模式] 根据策略决定继续或回退
+5. 全部成功后进入第四阶段复核（COMMIT/ROLLBACK决策由步骤6负责）
 
 **安全执行模式的优势**：
 
@@ -420,21 +292,13 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 
 **批量操作执行流程**：
 
-```
 1. 读取批量脚本清单，按文件名或目录结构确定脚本类型（DDL/DML/CONFIG）
 2. 按 executionOrder 排序脚本：DDL组 → DML组 → CONFIG组
 3. 逐组执行：
-   a. DDL组：逐脚本执行，每个脚本内逐语句执行
-      - DDL语句隐式提交，无法回退
-   b. DML组（safeModeForBatch=true）：
-      - 开启事务：mcp_MySQL_execute_sql("START TRANSACTION")
-      - 逐脚本执行DML
-      - 全部成功 → 验证 → COMMIT
-      - 任一失败 → 根据batchRollbackStrategy处理
-   c. CONFIG组：逐脚本执行
-4. 记录每个脚本的执行结果
-5. 全部完成后生成批量执行报告
-```
+   - DDL组：逐脚本逐语句执行（DDL隐式提交，无法回退）
+   - DML组（safeModeForBatch=true）：START TRANSACTION → 逐脚本执行 → 全部成功则验证后COMMIT，任一失败则按batchRollbackStrategy处理
+   - CONFIG组：逐脚本执行
+4. 记录每个脚本执行结果，全部完成后生成批量执行报告
 
 **批量回退策略**：
 
@@ -445,43 +309,21 @@ mcp_MySQL_execute_sql(query="SELECT USER() AS current_user, DATABASE() AS curren
 
 #### 步骤5C：Oracle DML/DDL 命令行执行（S10场景）
 
-Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令行执行。
+Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令行执行（CLI执行配置详见 config/execution-policy.json → cliExecution）。
 
-> CLI执行配置详见 config/execution-policy.json → cliExecution
-
-**执行方式**：使用封装脚本 `scripts/execute-oracle-sql.ps1`
+**执行方式**：使用封装脚本 `scripts/execute-oracle-sql.ps1`（脚本功能详情见该脚本，包含自动NLS_LANG设置、编码初始化、错误检测、日志保存）。
 
 ```powershell
-# 示例（参数实际从db-config.json读取）
+# 示例（参数实际从db-config.json读取），MySQL CLI 备选执行用 execute-mysql-sql.ps1
 .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "config\db-config.json"
 ```
 
-> 脚本功能详情（自动NLS\_LANG设置、编码初始化、错误检测、日志保存）见 `scripts/execute-oracle-sql.ps1`
-
 **Oracle DML/DDL 执行流程**：
 
-```
-1. 预检查（通过Oracle MCP）：
-   a. mcp_oracle-mcp_describe_table → 确认目标表存在
-   b. mcp_oracle-mcp_execute_query → 执行前数据快照
-2. 执行SQL脚本（通过execute-oracle-sql.ps1）：
-   a. 设置NLS_LANG环境变量
-   b. 调用sqlplus执行SQL脚本
-   c. 检测执行结果中的ORA-/SP2-/TNS-错误
-3. 执行后验证（通过Oracle MCP）：
-   a. mcp_oracle-mcp_execute_query → 验证数据变更
-   b. 比对执行前快照与执行后数据
-4. 异常回退：
-   a. 生成回退SQL脚本
-   b. 通过execute-oracle-sql.ps1执行回退脚本
-```
-
-**MySQL CLI 备选执行**（大数据量或MCP不可用时）：
-
-```powershell
-# 示例（参数实际从db-config.json读取）
-.\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "config\db-config.json"
-```
+1. 预检查（通过Oracle MCP）：describe_table确认目标表存在 + execute_query执行前数据快照
+2. 执行SQL脚本（通过execute-oracle-sql.ps1）：设置NLS_LANG → 调用sqlplus执行 → 检测ORA-/SP2-/TNS-错误
+3. 执行后验证（通过Oracle MCP）：execute_query验证数据变更，比对执行前快照
+4. 异常回退：生成回退SQL脚本 → 通过execute-oracle-sql.ps1执行
 
 **DML/DDL执行方式选择**：
 
@@ -503,31 +345,12 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 
 **数据导出执行流程**：
 
-```
-1. 确定导出参数：
-   a. 数据库类型（Oracle/MySQL）
-   b. 目标表名
-   c. 查询条件（时间范围/WHERE条件）
-   d. 导出格式（MD/CSV/JSON）
-   e. 输出文件路径
-2. 查询表结构：
-   - Oracle: mcp_oracle-mcp_describe_table 或 USER_TAB_COLUMNS
-   - MySQL: DESCRIBE {table} 或 INFORMATION_SCHEMA.COLUMNS
-3. 构建查询SQL：
-   - 根据条件构建WHERE子句
-   - 时间字段需注意Oracle/MySQL语法差异
-   - 大数据量查询需加分页（Oracle用ROWNUM，MySQL用LIMIT）
-4. 执行查询（按降级策略选择执行方式）：
-   a. 主智能体MCP工具可用 → 直接执行
-   b. 不可用 → 委托bemp-implementation-engineer子智能体
-   c. 仍不可用 → 使用export-db-data.ps1命令行脚本
-5. 格式化查询结果：
-   - MD格式：表结构表格 + 数据表格 + 数据说明 + 执行日志
-   - CSV格式：表头 + 数据行
-   - JSON格式：结构化JSON对象
-6. 写入文件并验证
-7. 生成导出报告（使用 assets/templates/data-export-report.md 模板）
-```
+1. 确定导出参数：数据库类型、目标表名、查询条件（时间范围/WHERE）、导出格式（MD/CSV/JSON）、输出文件路径
+2. 查询表结构：Oracle用describe_table/USER_TAB_COLUMNS，MySQL用DESCRIBE/INFORMATION_SCHEMA.COLUMNS
+3. 构建查询SQL：根据条件构建WHERE子句；时间字段注意Oracle/MySQL语法差异；大数据量加分页（Oracle用ROWNUM，MySQL用LIMIT）
+4. 执行查询（按降级策略）：主智能体MCP → 委托bemp-implementation-engineer子智能体 → export-db-data.ps1命令行脚本
+5. 格式化结果：MD（表结构+数据+说明+日志）/ CSV（表头+数据行）/ JSON（结构化对象）
+6. 写入文件并验证，生成导出报告（使用 assets/templates/data-export-report.md 模板）
 
 **时间范围查询SQL模板**：
 
@@ -562,18 +385,10 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 | UPDATE验证 | `mcp_oracle-mcp_execute_query`  | `mcp_MySQL_execute_sql`                     | 数据已更新且值正确  |
 | DELETE验证 | `mcp_oracle-mcp_execute_query`  | `mcp_MySQL_execute_sql`                     | 数据已删除      |
 
-**复核流程**：
+**复核流程**：根据脚本类型选择验证方式 → 执行验证查询 → 比对执行前快照与执行后数据 → 生成复核报告（使用 assets/templates/execution-report.md 模板）。
 
-```
-1. 根据脚本类型选择验证方式
-2. 执行验证查询
-3. 比对执行前快照与执行后数据
-4. 生成复核报告（使用 assets/templates/execution-report.md 模板）
-5. MySQL安全执行模式：
-   - 复核通过 → COMMIT 提交事务
-   - 复核不通过 → ROLLBACK 回滚事务
-6. 普通模式如复核不通过，进入回退流程
-```
+- MySQL安全执行模式：复核通过 → COMMIT；复核不通过 → ROLLBACK
+- 普通模式：复核不通过则进入回退流程
 
 #### 步骤7：生成执行报告
 
@@ -585,31 +400,22 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 
 #### 步骤8：异常处理
 
-| 异常类型               | 处理策略               | 后续操作                                     |
-| ------------------ | ------------------ | ---------------------------------------- |
-| 连接失败               | 重试3次，间隔5秒          | 仍失败则终止并报告                                |
-| SQL语法错误            | 停止执行，记录错误          | 修正后重新执行                                  |
-| 执行超时               | 终止当前语句             | 评估是否需要回退                                 |
-| 约束冲突               | 停止执行，记录冲突          | 检查数据后决定回退或修正                             |
-| 影响行数超限             | 停止执行，发出警告          | 确认后继续或回退                                 |
-| 连接断开               | 自动重连               | 重连后重试或回退                                 |
-| 编码异常-中文乱码          | 终端/会话编码与数据库不匹配     | 执行编码初始化 → SET NAMES utf8mb4 → chcp 65001 |
-| 编码异常-Oracle NLS    | NLS\_LANG未正确设置     | 设置NLS\_LANG环境变量 → ALTER SESSION          |
-| Oracle DML/DDL执行失败 | sqlplus未安装或SQL语法错误 | 检查sqlplus路径 → 检查ORA-错误码 → 执行回退           |
+| 异常类型               | 处理策略与后续操作                                     |
+| ------------------ | ---------------------------------------- |
+| 连接失败               | 重试3次（间隔5秒），仍失败则终止并报告                                |
+| SQL语法错误            | 停止执行并记录错误，修正后重新执行                                  |
+| 执行超时               | 终止当前语句，评估是否需要回退                                 |
+| 约束冲突               | 停止执行并记录冲突，检查数据后决定回退或修正                             |
+| 影响行数超限             | 停止执行并发出警告，确认后继续或回退                                 |
+| 连接断开               | 自动重连，重连后重试或回退                                 |
+| 编码异常-中文乱码/Oracle NLS | 执行编码初始化/SET NAMES utf8mb4/chcp 65001；Oracle设置NLS_LANG环境变量 |
+| Oracle DML/DDL执行失败 | 检查sqlplus路径 → 检查ORA-错误码 → 执行回退           |
 
-**MySQL 特有异常处理**：
-
-> MySQL错误码映射详见 config/execution-policy.json → mysqlErrorCodes
+**MySQL 特有异常处理**：MySQL错误码映射详见 config/execution-policy.json → mysqlErrorCodes
 
 #### 步骤9：回退操作
 
-当执行失败或复核不通过时，执行回退：
-
-**Oracle 回退**：通过 SQL\*Plus 执行回退脚本
-
-**MySQL 安全执行模式回退**：调用 `mcp_MySQL_execute_sql("ROLLBACK")` 回滚事务
-
-**MySQL 普通模式回退**：通过 `mcp_MySQL_execute_sql` 执行回退SQL
+当执行失败或复核不通过时，根据执行模式选择回退方式：
 
 | 回退方式             | 适用场景     | 可靠性 | 说明             |
 | ---------------- | -------- | --- | -------------- |
@@ -618,15 +424,7 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 | MySQL 回退SQL      | 普通模式     | 中   | 可能因数据依赖导致回退失败  |
 | Oracle 回退SQL     | Oracle   | 中   | 需通过SQL\*Plus执行 |
 
-**MySQL 普通模式回退流程**：
-
-```
-1. 确定回退级别
-2. 生成回退SQL（基于执行前快照）
-3. 调用 mcp_MySQL_execute_sql 逐语句执行回退SQL
-4. 验证回退结果
-5. 生成回退报告
-```
+**MySQL 普通模式回退流程**：确定回退级别 → 基于执行前快照生成回退SQL → 调用mcp_MySQL_execute_sql逐语句执行 → 验证回退结果 → 生成回退报告。
 
 ***
 
@@ -640,20 +438,9 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 
 **保活执行流程**：
 
-```
-1. 操作开始时记录最后活动时间
-2. 每次MCP调用前检查距上次活动的时间间隔
-3. 如间隔 > intervalSeconds：
-   a. 执行保活检查SQL
-   b. 成功 → 更新活动时间，继续操作
-   c. 失败 → 进入重连流程
-4. 重连流程：
-   a. 等待 reconnectIntervalSeconds 秒
-   b. 重新执行连接验证
-   c. 成功 → 更新活动时间，继续操作
-   d. 失败 → 重试，最多 maxReconnectAttempts 次
-   e. 仍失败 → 报错终止
-```
+1. 操作开始时记录最后活动时间，每次MCP调用前检查距上次活动的时间间隔
+2. 如间隔 > intervalSeconds：执行保活检查SQL → 成功则更新活动时间继续；失败则进入重连流程
+3. 重连流程：等待reconnectIntervalSeconds秒 → 重新执行连接验证 → 成功则继续；失败则重试最多maxReconnectAttempts次 → 仍失败则报错终止
 
 **MySQL 连接断开自动恢复**：
 
@@ -665,30 +452,19 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 
 ### 6.1 执行成功标准
 
-| 指标    | 标准               |
-| ----- | ---------------- |
-| 连接状态  | 一次性连接成功，无重试      |
-| 执行状态  | 所有SQL语句执行成功      |
-| 复核状态  | 数据一致性验证通过        |
-| 日志完整性 | 操作全程有日志记录        |
-| 报告生成  | 执行报告已生成（标注数据库类型） |
+- 连接状态：一次性连接成功，无重试
+- 执行状态：所有SQL语句执行成功
+- 复核状态：数据一致性验证通过
+- 日志完整性：操作全程有日志记录
+- 报告生成：执行报告已生成（标注数据库类型）
 
 ### 6.2 日志记录要求
 
-每次操作必须记录以下日志：
-
-> 日志格式模板详见 config/execution-policy.json → logging.logFormat
+每次操作必须记录全程日志，格式模板详见 config/execution-policy.json → logging.logFormat
 
 ### 6.3 结果验证标准
 
-验证方式见步骤6，通过标准如下：
-
-| 验证维度 | 通过标准 |
-|--------|--------|
-| 结构验证 | 表结构符合预期 |
-| 数据验证 | 数据内容与预期一致 |
-| 行数验证 | 影响行数在预期范围内 |
-| 关联验证 | 关联数据无异常 |
+验证方式见步骤6。通过标准：结构验证（表结构符合预期）、数据验证（数据内容与预期一致）、行数验证（影响行数在预期范围内）、关联验证（关联数据无异常）。
 
 ### 6.4 结构化输出
 
@@ -704,19 +480,14 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 | --------- | ----------------------------------------------------------------- |
 | Oracle    | 读配置→MCP连接→编码初始化→版本检测→预检查→快照→\[SELECT用MCP/DML用sqlplus]→验证→报告            |
 | MySQL(安全) | 读配置→MCP连接→编码初始化→版本检测→预检查→快照→START TRANSACTION→执行→验证→COMMIT/ROLLBACK→报告 |
-| MySQL(普通) | 读配置→MCP连接→编码初始化→版本检测→预检查→快照→执行→验证→报告                                   |
+| MySQL(普通) | 同安全模式，但无事务包裹，直接执行→验证→报告                                  |
 | 批量        | 读配置→连接→DDL组→DML组(事务)→CONFIG组→批量报告                                 |
 | 自动检测      | defaultDbType=auto→探测Oracle MCP→探测MySQL MCP→缓存结果                  |
 | 数据导出(S11) | 确定参数→查表结构→构建SQL→执行查询(含降级策略)→格式化结果→写文件→验证→导出报告                     |
 | 降级策略      | 主智能体MCP→子智能体委托→命令行工具→报错终止                                         |
 
-> 详细步骤见第5章各阶段说明。
+### 7.2 常用查询模板与SQL差异速查
 
-### 7.2 常用查询模板
-
-> 查询模板详见 config/query-templates.json
-
-### 7.3 Oracle/MySQL SQL 差异速查
-
-> 详见 references/sql-standards.md 第3章
+- 查询模板详见 config/query-templates.json
+- Oracle/MySQL SQL 差异速查详见 references/sql-standards.md 第3章
 

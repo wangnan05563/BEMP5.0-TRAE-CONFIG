@@ -11,10 +11,12 @@ triggers: "代码/规范/code 走查/审查/审核/把关/review"
 
 审查BEMP工程各银行个性化模块的前端代码。先运行自动化脚本，再人工逐项走查。通过 `scripts/review-config.json` 或 `--bank=xxx` 切换银行。
 
+> **银行配置统一约定**：银行参数（bankName/bankCode/sourceDir/urlPrefixes/classPrefix/dtoPrefix 等）统一使用 `config/bank-config.json` 作为单一数据源，与 `bemp-backend-code-review`、`bemp-adapter-dev` 保持一致。`scripts/review-config.json` 仅作为前端审查脚本的运行入口配置（路径模板、可用银行列表等前端特有配置），其 `bankName` 字段映射到 `config/bank-config.json` 的 `currentBank`，不重复维护银行参数。
+
 ## 🚀 快速开始
 
 ```bash
-# 默认银行 (review-config.json 中配置)
+# 默认银行 (config/bank-config.json 的 currentBank 决定，scripts/review-config.json 同步映射)
 node .trae/skills/bemp-frontend-code-review/scripts/check-all.js
 
 # 指定银行
@@ -23,7 +25,7 @@ node .trae/skills/bemp-frontend-code-review/scripts/check-all.js --bank=jinzbank
 
 3 个自动化脚本覆盖：硬编码中文检测 `check-hardcode.js`、路由注册完整性 `check-routes.js`、国际化覆盖率 `check-i18n.js`。
 
-**银行切换**：修改 `scripts/review-config.json` 的 `bankName`（永久）或加 `--bank=xxx`（临时）。可用：`hnnxbank|huisbank|jinzbank|huzbank|hxbank|yibbank|tianjbank|shaoxbank|qinnbank|nmgbank|hlsecurity|fxbank`。
+**银行切换**：修改 `config/bank-config.json` 的 `currentBank`（永久，银行参数单一数据源）或加 `--bank=xxx`（临时，仅切换本次审查目标）。`scripts/review-config.json` 的 `bankName` 字段同步映射 `config/bank-config.json` 的 `currentBank`，不单独维护。可用：`hnnxbank|huisbank|jinzbank|huzbank|hxbank|yibbank|tianjbank|shaoxbank|qinnbank|nmgbank|hlsecurity|fxbank`。
 
 **流程**：`编码完成 → 运行 check-all.js → 修复阻塞问题 → 人工逐项审查`
 
@@ -163,4 +165,5 @@ node .trae/skills/bemp-frontend-code-review/scripts/check-all.js [--bank=xxx]
 ## 参考文件
 - 异步代码模板：`scripts/examples/async-patterns.js`
 - 审查报告模板：`report-template.md`
-- 自动化配置：`scripts/review-config.json`
+- 银行配置（统一）：`config/bank-config.json`（与 backend-code-review、adapter-dev 共用的银行参数单一数据源）
+- 前端审查脚本入口配置：`scripts/review-config.json`（路径模板、可用银行列表等前端特有配置）
