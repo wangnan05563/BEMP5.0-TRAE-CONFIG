@@ -120,7 +120,7 @@
     "ORACLE_PORT": "1521",
     "ORACLE_SERVICE": "orcl",
     "ORACLE_USERNAME": "bemp_hnnx",
-    "ORACLE_PASSWORD": "",
+    "ORACLE_PASSWORD": "123456",
     "ORACLE_SCHEMA": "BEMP_HNNX",
     "ORACLE_DSN": "10.20.42.211:1521/orcl",
     "MYSQL_HOST": "127.0.0.1",
