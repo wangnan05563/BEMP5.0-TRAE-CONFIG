@@ -155,15 +155,24 @@ Served/Adapter启动超时
 | `Spinner` | 仅显示动画：`[|] Message (30/600s)` |
 | `Minimal` | 简洁文本：`[Message] 25% (30/600s)` |
 
-## 日志文件
+## 日志文件与实时流式输出
 
 启动日志自动写入 `scripts/../logs/` 目录：
-- **启动日志**：`{ServiceName}_startup_{timestamp}.log` — 控制台输出
+- **运行日志（stdout）**：`{ServiceName}_startup_{timestamp}.log` — 服务标准输出（启动信息、请求记录、INFO/DEBUG 等）
+- **运行日志（stderr）**：`{ServiceName}_startup_{timestamp}.log.stderr` — 服务标准错误（JVM 致命错误、原生错误等，避免与 stdout 交错）
 - **启动脚本**：`launcher_{ServiceName}_{timestamp}.ps1` — 外部终端启动脚本
 - **自动清理**：超过 `logCleanupHours`（默认24小时）的日志自动清理
-- IDE模式：通过 Tee-Object 同时输出到终端和日志文件
-- 外部模式：PowerShell窗口实时显示 + Tee-Object写入日志文件
-- 诊断时扫描启动日志和应用日志双源
+
+### 实时滚动（关键改进）
+
+服务进程的标准输出/错误由 OS 级重定向到上面的 run-log 文件，终端再通过 `Follow-ServiceLog` **实时 tail 该文件逐行打印**，覆盖启动/请求/错误/调试全部输出。
+
+- **为什么不用 Tee-Object**：旧版 `cmd 2>&1 | Tee-Object` 走 PowerShell 管道，Java/Node 的 stdout 接管道会被**块缓冲**，终端不能逐行实时滚动（表现为"启动后没动静/只在文件里有"）。重定向落盘 + 文件跟随彻底绕开该问题。
+- **IDE 模式**：当前终端前台实时滚动，终端被该服务占用；Ctrl+C 会停止该服务。
+- **外部模式**：独立 PowerShell 窗口内实时彩色滚动；Ctrl+C 停止服务。
+- **`-Follow` 附加观察**：服务已在外部窗口运行后，任意空闲终端执行 `.\start-bemp-env.ps1 -Service served -Follow`（或 `-Tail 200` 先看近 200 行历史）即可持续观察，便于排查，无需切回原窗口。
+- **着色**：ERROR/异常/堆栈→红，WARN→黄，DEBUG/TRACE→灰，INFO→青；输出被重定向/捕获时自动关闭着色。
+- 诊断时扫描运行日志（stdout）与其 `.stderr` 兄弟文件、以及应用日志三源。
 
 ## Node.js 版本控制
 

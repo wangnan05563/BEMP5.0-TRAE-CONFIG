@@ -1,4 +1,4 @@
----
+﻿---
 name: "bemp-advanced-doc-generator"
 description: "BEMP项目技术文档自动生成：基于.docx模板和代码扫描数据，填充生成概要设计说明书、详细设计文档。支持单元测试报告(xlsx/Word)、测试用例、测试报告的模板驱动生成。支持配置驱动的Excel从零生成（excel-custom）。触发时机：用户要求生成/编制/撰写BEMP项目的概要设计、详细设计、测试文档，或要求基于模板填充文档内容，或要求将MD/JSON数据源转为格式化Excel。"
 ---
@@ -129,7 +129,7 @@ Output:
 ## 命令速查
 
 ```bash
-cd .trae/skills/bemp-advanced-doc-generator
+cd bemp-advanced-doc-generator
 
 # 概要设计说明书（代码库自动扫描 + 模板填充）
 node scripts/cli.js -t outline-design -m "银行名称" -r "项目根目录" --json

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     BEMP 增量编译脚本（F-03）
 .DESCRIPTION

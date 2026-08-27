@@ -1,4 +1,4 @@
-# JMeter Performance Test Execution Script (PowerShell)
+﻿# JMeter Performance Test Execution Script (PowerShell)
 
 param(
     [Parameter(Mandatory = $true)]

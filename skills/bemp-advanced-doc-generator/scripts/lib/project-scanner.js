@@ -476,7 +476,7 @@ class ProjectScanner {
         try {
             const dirs = fs.readdirSync(banksDir, { withFileTypes: true })
                 .filter(d => d.isDirectory() && d.name.startsWith('ext-'));
-            const envConfigPath = path.join(this.projectRoot, '.trae', 'skills', '_shared', 'env-config.json');
+            const envConfigPath = path.resolve(__dirname, '..', '..', '..', '_shared', 'env-config.json');
             let preferredBank = null;
             if (fs.existsSync(envConfigPath)) {
                 try {

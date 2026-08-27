@@ -1,3 +1,8 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 # -*- coding: utf-8 -*-
 """
 验证测试报告.docx 的旧功能号出现在合理上下文中（缺陷描述）
@@ -5,7 +10,7 @@
 import os
 from docx import Document
 
-OUTPUT_DIR = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output"
+OUTPUT_DIR = str(SKILL_ROOT / "output")
 TEST_REPORT_FILE = os.path.join(OUTPUT_DIR, "河南农商银行_同步机构树数据并校验_测试报告_v3.0.docx")
 
 doc = Document(TEST_REPORT_FILE)

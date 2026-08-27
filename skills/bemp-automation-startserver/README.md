@@ -1,4 +1,4 @@
-# BEMP 开发环境启动工具
+﻿# BEMP 开发环境启动工具
 
 BEMP 项目开发环境自动化启动工具，用于在 IDE 终端中一键启动和管理 Redis、ZooKeeper、Served 后端、Adapter 适配器及前端开发服务器。
 
@@ -36,7 +36,7 @@ bemp-automation-startserver/
 ### 一、查看服务状态
 
 ```powershell
-cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts
+cd scripts/
 .\start-bemp-env.ps1 -Status
 ```
 

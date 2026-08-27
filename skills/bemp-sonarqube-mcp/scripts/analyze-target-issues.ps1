@@ -1,4 +1,4 @@
-# Analyze SonarQube issues - extract target file issues
+﻿# Analyze SonarQube issues - extract target file issues
 $files = @(
     'C:\Users\HSPCAD~1\AppData\Local\Temp\trae\toolcall-output\4b564290-dc77-4072-8a55-31d00563288a.txt',
     'C:\Users\HSPCAD~1\AppData\Local\Temp\trae\toolcall-output\56d55022-59d1-4b3a-9900-33fe8460d386.txt',

@@ -1,4 +1,4 @@
-# 机构管理优化 - 测试用例
+﻿# 机构管理优化 - 测试用例
 
 > 需求来源：河南农商银行 - 机构管理优化 PRD v1
 > 菜单位置：【系统管理子系统】-【系统管理】-【机构管理】/【机构管理员管理】
@@ -1442,4 +1442,4 @@
 | BUG-003 | BUG-001叠加修复，TC-SYNC-ORG-013批量导入场景补充父机构节点选择 | TC-SYNC-ORG-013 | 已修复 |
 | BUG-004 | 按钮名称"模版下载"更正为"导入模板下载" | TC-ADMIN-ORG-003, TC-ADMIN-ORG-041 | 已修复 |
 | BUG-005 | "重置密码"按钮标注为待确认项（需求文档未明确），新增测试假设Q-08 | TC-ADMIN-ORG-041 | 已修复（待产品确认） |
-| BUG-006 | 批量复制角色弹窗DataGrid选择器从getByRole调整为nth-child行定位或evaluate_script | TC-ADMIN-ORG-041 | 已修复 |<tool_call>Edit<arg_key>file_path</arg_key><arg_value>d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-test-common\test-cases\sm\branch\org-mgmt-optimization.md
+| BUG-006 | 批量复制角色弹窗DataGrid选择器从getByRole调整为nth-child行定位或evaluate_script | TC-ADMIN-ORG-041 | 已修复 |<tool_call>Edit<arg_key>file_path</arg_key><arg_value>bemp-test-common\test-cases\sm\branch\org-mgmt-optimization.md

@@ -1,8 +1,13 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """验证v2文档质量"""
 from docx import Document
 import json
 
-v2_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理和管理员管理功能优化-详细设计文档-v2-20260617.docx"
+v2_path = str(SKILL_ROOT / "output" / "机构管理和管理员管理功能优化-详细设计文档-v2-20260617.docx")
 doc = Document(v2_path)
 
 result = {
@@ -62,7 +67,7 @@ for table in doc.tables:
 result["checks"] = checks
 
 # 保存结果
-with open(r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\v2_validation.json", 'w', encoding='utf-8') as f:
+with open(str(SKILL_ROOT / "output" / "v2_validation.json"), 'w', encoding='utf-8') as f:
     json.dump(result, f, ensure_ascii=False, indent=2)
 
 print("=== v2文档质量验证 ===")

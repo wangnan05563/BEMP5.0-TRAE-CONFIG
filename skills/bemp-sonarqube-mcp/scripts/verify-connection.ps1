@@ -1,4 +1,4 @@
-# BEMP SonarQube MCP 连接验证脚本
+﻿# BEMP SonarQube MCP 连接验证脚本
 # 用途：验证 SonarQube 服务器状态和 MCP 工具是否可用
 # 使用：在 Trae 终端中运行此脚本，确认服务器和 MCP 连接状态
 

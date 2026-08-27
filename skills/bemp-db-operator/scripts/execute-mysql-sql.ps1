@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     MySQL CLI 执行封装脚本
 .DESCRIPTION
@@ -27,7 +27,7 @@
 .EXAMPLE
     .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "127.0.0.1" -Database "bemp_hnnx" -Username "root" -Password "123456"
 .EXAMPLE
-    .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-db-operator\config\db-config.json"
+    .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "..\config\db-config.json"
 #>
 
 param(

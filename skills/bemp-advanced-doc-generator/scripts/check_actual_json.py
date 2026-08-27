@@ -1,9 +1,14 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """检查实际使用的 design_data JSON"""
 import json
 import os
 
 # 检查 _design-data-20260617.json
-json_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\_design-data-20260617.json"
+json_path = str(SKILL_ROOT / "output" / "_design-data-20260617.json")
 
 if os.path.exists(json_path):
     with open(json_path, 'r', encoding='utf-8') as f:

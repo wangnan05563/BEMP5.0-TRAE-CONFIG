@@ -1,4 +1,4 @@
-$content = Get-Content 'C:\Users\HSPCAD~1\AppData\Local\Temp\trae\toolcall-output\63ee10e7-859f-4091-8761-0dc03d05d737.txt' -Raw
+﻿$content = Get-Content 'C:\Users\HSPCAD~1\AppData\Local\Temp\trae\toolcall-output\63ee10e7-859f-4091-8761-0dc03d05d737.txt' -Raw
 
 # 提取 JSON 数组部分（从第一个 [ 开始）
 $jsonStart = $content.IndexOf('[')

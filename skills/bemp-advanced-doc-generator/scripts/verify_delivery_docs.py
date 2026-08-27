@@ -1,10 +1,15 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 # -*- coding: utf-8 -*-
 """交付文档质量审核脚本 - 验证两份 .docx 文档的结构完整性"""
 import os
 from docx import Document
 from docx.oxml.ns import qn
 
-OUTPUT_DIR = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output"
+OUTPUT_DIR = str(SKILL_ROOT / "output")
 
 DOCS = [
     ("详细设计说明书", os.path.join(OUTPUT_DIR, "河南农商同步机构树数据并校验-详细设计说明书-20260715.docx")),

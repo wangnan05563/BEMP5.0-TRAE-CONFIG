@@ -1,4 +1,4 @@
-try {
+﻿try {
     $status = Invoke-RestMethod -Uri 'http://localhost:9000/api/system/status' -Method GET -TimeoutSec 5
     Write-Output "SonarQube状态: $($status.status)"
     Write-Output "版本: $($status.version)"

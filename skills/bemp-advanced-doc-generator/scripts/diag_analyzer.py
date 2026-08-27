@@ -1,3 +1,8 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """诊断：检查 requirement-analyzer.js 输出的 design_data"""
 import subprocess
 import json
@@ -5,7 +10,7 @@ import os
 
 # 运行 requirement-analyzer.js 生成 design_data
 prd_path = r"d:\code\QJ\BEMP5.0DEV\docs\prd\02-机构管理和管理员管理功能优化.md"
-script_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\scripts\requirement-analyzer.js"
+script_path = str(SKILL_ROOT / "scripts" / "requirement-analyzer.js")
 
 result = subprocess.run(
     ['node', script_path, prd_path, '--design'],

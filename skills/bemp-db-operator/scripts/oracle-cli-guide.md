@@ -1,4 +1,4 @@
-# Oracle DML/DDL 命令行执行指南
+﻿# Oracle DML/DDL 命令行执行指南
 
 ## 适用场景
 
@@ -18,7 +18,7 @@ S10：Oracle MCP不支持DML/DDL，需通过SQL*Plus命令行执行。
 
 ```powershell
 .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" `
-    -ConfigFile "D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-db-operator\config\db-config.json"
+    -ConfigFile "bemp-db-operator\config\db-config.json"
 ```
 
 脚本功能：自动NLS_LANG设置、编码初始化（ALTER SESSION）、Schema切换、ORA-/SP2-/TNS-错误检测、超时控制（默认300s）、日志保存。
@@ -55,7 +55,7 @@ S10：Oracle MCP不支持DML/DDL，需通过SQL*Plus命令行执行。
 
 ```powershell
 .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" `
-    -ConfigFile "D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-db-operator\config\db-config.json"
+    -ConfigFile "bemp-db-operator\config\db-config.json"
 ```
 
 ## DML/DDL执行方式选择矩阵

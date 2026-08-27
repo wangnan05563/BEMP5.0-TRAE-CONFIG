@@ -82,7 +82,7 @@ function createBempDocError(code, message, detail) {
 const paths = {
     skillRoot: SKILL_ROOT,
     // 2026-07-02 修正：paths.projectRoot 从 SKILL_ROOT 往上 3 级
-    // (.trae/skills/bemp-advanced-doc-generator -> .trae/skills -> .trae -> BEMP5.0DEV)
+    // (技能目录 → skills 父目录 → 项目根，共向上 3 级)
     projectRoot: path.resolve(SKILL_ROOT, '..', '..', '..'),
     templateDir: path.join(SKILL_ROOT, 'assets', 'templates'),
     assetDir: path.join(SKILL_ROOT, 'assets'),

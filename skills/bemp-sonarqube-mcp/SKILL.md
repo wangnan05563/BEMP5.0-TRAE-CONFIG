@@ -1,4 +1,4 @@
----
+﻿---
 name: "bemp-sonarqube-mcp"
 description: "BEMP项目SonarQube代码质量扫描与问题修复技能。基于SonarQube MCP对BEMP新增代码进行质量门禁检查、问题扫描、代码片段分析、问题分类与修复建议。"
 whenToUse: "编码/开发/缺陷 修复后调用、BEMP工作流中代码 Review 与修复阶段、用户完成新功能开发后要求代码质量检查、代码 Review 环节需要 SonarQube 扫描结果、提交代码前需要质量门禁验证、用户想要在合并 PR 前检查项目是否通过质量门禁、用户想要在一个或多个 SonarQube 项目中查找严重或阻断性问题、用户想要在推送到 CI 前分析代码片段中的问题、用户想要理解为什么特定的 Sonar 规则标记了他们的代码、用户请求提交前或推送前的质量反馈"
@@ -47,7 +47,7 @@ triggers:
 
 **自动启动命令（Agent 执行）**：
 ```powershell
-cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-sonarqube-mcp\scripts
+cd scripts/
 .\start-sonarqube.ps1
 ```
 
@@ -107,7 +107,7 @@ cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-sonarqube-mcp\scripts
 
 **降级执行命令（Agent 执行）**：
 ```powershell
-cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-sonarqube-mcp\scripts
+cd scripts/
 .\run-sonar-scanner.ps1 -ProjectKey "bemp-ext-hnnxbank-org-management" -Sources "hnnxbank-biz-as/src/main/java"
 ```
 

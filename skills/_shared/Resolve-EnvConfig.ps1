@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     BEMP Skills Global Environment Config Resolver
 .DESCRIPTION

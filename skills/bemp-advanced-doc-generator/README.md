@@ -1,4 +1,4 @@
-# BEMP 高级文档生成器 v8.0
+﻿# BEMP 高级文档生成器 v8.0
 
 BEMP 高级文档生成器是专业的技术文档生成工具，支持概要设计说明书、详细设计文档、单元测试报告（Word/Excel双格式）、测试用例和测试报告的自动生成。V8.0 新增 xlsx 模板填充标准管线（含 SOP 与复盘文档），V7.0 引入 7 阶段执行管线、空章节双重检测、图表生成降级链、蓝色文本双重清理等关键策略，V6.0 基于 .docx 模板填充引擎重构。
 
@@ -164,7 +164,7 @@ bemp-advanced-doc-generator/
 ### 安装依赖
 
 ```bash
-cd .trae/skills/bemp-advanced-doc-generator
+cd bemp-advanced-doc-generator
 npm install
 ```
 

@@ -1,79 +1,102 @@
 {
-  "_doc": "BEMP服务启动配置 - 所有路径通过 ${ENV:VAR_NAME} 占位符解析，回退到 _shared/env-config.json",
-  "globalPaths": {
-    "workspaceRoot": "${ENV:BEMP_WORKSPACE_ROOT}",
-    "banksProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}",
-    "frontendProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\frontend",
-    "traePath": "${ENV:TRAE_PATH}",
-    "javaHome": "${ENV:JAVA_HOME}",
-    "nodePath": "${ENV:NODE_PATH}",
-    "mavenPath": "${ENV:MAVEN_PATH}"
+  "_doc": "BEMP 服务启动统一配置（单一事实来源）。脚本零硬编码，所有参数在此 + local.json 管理。机器相关路径通过 ${local:dotted.path} 引用 local.json；银行/业务相关（模块名、端口、mainClass、JVM、编译模块）写在 profiles 下，便于切换不同银行。占位符支持 ${local:x.y}、${env:VAR}、${global.x}、${profiles.x.y}。",
+  "defaultProfile": "hnnxxbank",
+  "global": {
+    "workspaceRoot": "${local:global.workspaceRoot}",
+    "banksProjectPath": "${local:global.workspaceRoot}\\banks\\ext-hnnxbank",
+    "frontendProjectPath": "${local:global.workspaceRoot}\\frontend",
+    "javaHome": "${local:global.javaHome}",
+    "nodePath": "${local:global.nodePath}",
+    "mavenHome": "${local:global.mavenHome}",
+    "mavenLocalRepo": "${local:global.mavenLocalRepo}",
+    "logDir": "${local:global.logDir}"
+  },
+  "profiles": {
+    "hnnxxbank": {
+      "_doc": "河南农信 bank 开发环境。模块名/端口/mainClass 为本行逻辑；机器路径走 local.json。",
+      "redis": {
+        "exe": "${local:profiles.hnnxxbank.redis.exe}",
+        "redisCli": "${local:profiles.hnnxxbank.redis.redisCli}",
+        "dataDir": "${local:profiles.hnnxxbank.redis.dataDir}",
+        "extraArgs": [],
+        "postStart": [
+          "CONFIG SET stop-writes-on-bgsave-error no"
+        ]
+      },
+      "zookeeper": {
+        "home": "${local:profiles.hnnxxbank.zookeeper.home}",
+        "clientPort": 21811,
+        "readinessWaitSec": 45,
+        "env": { "JAVA_TOOL_OPTIONS": "-Dfile.encoding=UTF-8" }
+      },
+      "served": {
+        "module": "hnnxbank-served-deploy",
+        "warDir": "bemp-served",
+        "mainClass": "com.hundsun.bemp.BempServedAppStarter",
+        "jvmOptions": "-server -Xms1024m -Xmx2048m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
+        "compileModules": ["hnnxbank-served-deploy"]
+      },
+      "adapter": {
+        "module": "hnnxbank-adapter-deploy",
+        "warDir": "bemp-adapter",
+        "mainClass": "com.hundsun.bemp.BempAdapterAppStarter",
+        "jvmOptions": "-server -Xms512m -Xmx1024m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
+        "compileModules": ["hnnxbank-adapter-deploy"]
+      },
+      "frontend": {
+        "startCommand": "run dev",
+        "nodeMemoryLimitMb": 8192
+      }
+    }
   },
   "services": {
     "redis": {
       "enabled": true,
-      "name": "Redis",
       "type": "redis",
-      "executable": "${ENV:REDIS_EXE}",
       "port": 6379,
-      "dependencies": []
+      "dependencies": [],
+      "healthCheck": { "type": "port", "timeoutSec": 30 }
     },
     "zookeeper": {
       "enabled": true,
-      "name": "ZooKeeper",
       "type": "zookeeper",
-      "executable": "${ENV:ZOOKEEPER_EXE}",
-      "port": 2181,
-      "dependencies": []
+      "port": 21811,
+      "dependencies": [],
+      "healthCheck": { "type": "port", "timeoutSec": 60 }
     },
     "served": {
       "enabled": true,
-      "name": "Served",
       "type": "springboot",
-      "mainClass": "com.hundsun.bemp.BempServedAppStarter",
-      "modulePath": "${ENV:BANK_MODULE_PREFIX}served-deploy",
-      "warFile": "bemp-served.war",
       "port": 8010,
-      "debugPort": 5005,
-      "jvmOptions": "-server -Xms1024m -Xmx2048m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
-      "launchMode": "terminal",
-      "autoCompile": true,
-      "mavenCommand": "clean install -DskipTests=true",
       "dependencies": ["redis", "zookeeper"],
-      "diagnostics": {
-        "checkDependencies": ["redis", "zookeeper"],
-        "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
-        "logFile": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\logs\\bemp-served.log"
-      }
+      "healthCheck": { "type": "http", "path": "/", "expectedStatus": [200, 404], "timeoutSec": 600 }
     },
     "adapter": {
       "enabled": true,
-      "name": "Adapter",
       "type": "springboot",
-      "mainClass": "com.hundsun.bemp.BempAdapterAppStarter",
-      "modulePath": "${ENV:BANK_MODULE_PREFIX}adapter-deploy",
-      "warFile": "bemp-adapter.war",
       "port": 8090,
-      "jvmOptions": "-server -Xms512m -Xmx1024m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
-      "launchMode": "terminal",
-      "autoCompile": true,
-      "mavenCommand": "clean install -DskipTests=true",
       "dependencies": ["redis", "zookeeper"],
-      "diagnostics": {
-        "checkDependencies": ["zookeeper", "redis"],
-        "logKeywords": ["Exception", "ERROR", "SessionExpired", "ConnectionLoss"],
-        "logFile": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}adapter-deploy\\target\\bemp-adapter\\logs\\bemp-adapter.log"
-      }
+      "healthCheck": { "type": "http", "path": "/", "expectedStatus": [200, 404], "timeoutSec": 600 }
     },
     "frontend": {
       "enabled": true,
-      "name": "Frontend",
       "type": "frontend",
-      "startCommand": "npm run dev",
       "port": 8091,
-      "nodeMemoryLimit": 8192,
       "dependencies": [],
-      "_quickStartNote": "使用 -QuickStart 参数可跳过依赖安装检查, 适合 dependencies 未变更的日常启动"
+      "healthCheck": { "type": "http", "path": "/", "expectedStatus": [200], "timeoutSec": 600 }
     }
+  },
+  "launch": {
+    "method": "wmi-detached",
+    "readinessPollSec": 1,
+    "healthCheckTimeoutSec": 300,
+    "healthCheckRetries": 3,
+    "fatalLogKeywords": ["ClassNotFoundException", "APPLICATION FAILED TO START", "BUILD FAILED", "javax.servlet.Filter"]
+  },
+  "compile": {
+    "enabled": false,
+    "skipIfBuilt": true,
+    "mavenCommand": "install -DskipTests -am",
+    "useLocalRepo": true
   }
 }

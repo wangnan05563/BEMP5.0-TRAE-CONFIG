@@ -1,8 +1,13 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """检查 design_data JSON 的 businessSubmodules 和 chapters 结构"""
 import json
 import os
 
-json_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理和管理员管理功能优化_design_data.json"
+json_path = str(SKILL_ROOT / "output" / "机构管理和管理员管理功能优化_design_data.json")
 
 if os.path.exists(json_path):
     with open(json_path, 'r', encoding='utf-8') as f:

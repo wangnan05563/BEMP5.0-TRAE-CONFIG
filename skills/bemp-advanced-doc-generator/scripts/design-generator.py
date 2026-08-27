@@ -1,3 +1,8 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """
 详细设计文档生成器 - 基于 .docx 模板填充
 复用 outline-design-generator.py 的模板处理基础设施（蓝色文本清理、封面替换等）
@@ -435,7 +440,7 @@ def _insert_section_as_h2(after_para, sec):
     insert_after = after_para
 
     try:
-        trace_f = open(r'D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\scripts\_insert_section.log', 'a', encoding='utf-8')
+        trace_f = open(str(SKILL_ROOT / "scripts" / "_insert_section.log"), 'a', encoding='utf-8')
         trace_f.write(f'[INSERT-SEC] title={sec_title[:30]!r} anchor_text={(after_para.text or "")[:30]!r} has_table={bool(sec_content.get("headers") and sec_content.get("rows"))}\n')
         trace_f.close()
     except Exception:

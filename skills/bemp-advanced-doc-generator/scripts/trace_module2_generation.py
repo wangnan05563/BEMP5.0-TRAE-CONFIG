@@ -1,3 +1,8 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """追踪文档生成过程中模块2的变化"""
 from docx import Document
 import re
@@ -22,7 +27,7 @@ def count_h2_under_h1(doc, h1_text):
     return h2_count
 
 # 检查生成的文档
-doc_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理和管理员管理功能优化-详细设计文档-20260617.docx"
+doc_path = str(SKILL_ROOT / "output" / "机构管理和管理员管理功能优化-详细设计文档-20260617.docx")
 doc = Document(doc_path)
 
 print("=" * 70)

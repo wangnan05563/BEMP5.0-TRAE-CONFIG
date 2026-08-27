@@ -1,3 +1,8 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """完整数据流诊断：从 JSON 到文档生成"""
 import json
 import os
@@ -5,7 +10,7 @@ from docx import Document
 from docx.oxml.ns import qn
 
 # 1. 检查 JSON 文件
-json_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\_design-data-20260617.json"
+json_path = str(SKILL_ROOT / "output" / "_design-data-20260617.json")
 print("=" * 70)
 print("1. JSON 文件检查")
 print("=" * 70)
@@ -50,7 +55,7 @@ print("\n" + "=" * 70)
 print("2. 生成的文档检查")
 print("=" * 70)
 
-doc_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理和管理员管理功能优化-详细设计文档-20260617.docx"
+doc_path = str(SKILL_ROOT / "output" / "机构管理和管理员管理功能优化-详细设计文档-20260617.docx")
 
 if os.path.exists(doc_path):
     doc = Document(doc_path)

@@ -1,3 +1,7 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
 """
 2026-07-02 新增：技能内 output -> 项目根 output 迁移脚本
 

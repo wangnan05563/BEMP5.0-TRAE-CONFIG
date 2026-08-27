@@ -1,4 +1,4 @@
----
+﻿---
 name: "bemp-testcase-generator"
 version: "2.1.0"
 description: "BEMP 票据系统测试用例生成技能。基于五步方法论（功能地图→优先级矩阵→P0用例设计→案例集扩展→测试数据准备），融合11种测试类型与10种组件测试设计，通过 Playwright MCP 自动探索网站、Oracle/MySQL MCP 准备数据，生成高质量测试用例。支持代码审查类用例生成（注解值/错误文案/逻辑验证/配置验证4种模板）与测试方式自动选择判断（代码审查/Playwright/数据库查询/运行时测试）。"
@@ -404,7 +404,7 @@ bemp-testcase-generator/config/      →    bemp-test-common/config/       →  
 ### 手动调用方式
 
 ```bash
-node .trae/skills/bemp-advanced-doc-generator/scripts/cli.js \
+node scripts/cli.js \
   -t excel-custom \
   --excel-doc-type test-case-custom \
   --md-files "用例文件1.md" "用例文件2.md" \

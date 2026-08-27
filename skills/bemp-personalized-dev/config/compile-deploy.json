@@ -19,7 +19,7 @@
     }
   },
   "restart": {
-    "scriptPath": ".trae/skills/bemp-automation-startserver/scripts/start-bemp-env.ps1",
+    "scriptPath": "bemp-automation-startserver/scripts/start-bemp-env.ps1",
     "parameters": "-Service springboot -QuickStart -ForceRestart",
     "startupIndicator": "Started BempApplication"
   },

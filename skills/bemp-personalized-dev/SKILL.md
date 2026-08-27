@@ -1,4 +1,4 @@
----
+﻿---
 name: "bemp-personalized-dev"
 description: "BEMP 票据系统个性化开发技能。该技能专门用于在指定目录下进行增量功能开发与修改，严格遵循项目编码规范与目录结构要求"
 whenToUse: "用户需要开发/实现新功能、修复功能 bug、进行代码审查、遵循开发规范时调用"
@@ -102,7 +102,7 @@ bemp-personalized-dev/
 | [spec-consistency-checklist.json](config/spec-consistency-checklist.json) | Spec 一致性检查清单：日志级别、异常处理、任务隔离、错误文案 | 是 |
 
 **配置继承机制**：
-- 技能级配置（`.trae/skills/bemp-personalized-dev/config/`）：默认配置，适用于所有银行
+- 技能级配置（`bemp-personalized-dev/config/`）：默认配置，适用于所有银行
 - 项目级配置（项目根目录 `config/`）：覆盖技能级配置
 - 银行级配置（`banks/ext-{BANK_CODE}/config/`）：优先级最高，覆盖前两级
 - 合并策略：对象类型深度合并（deepMerge），数组类型整体替换（replace）

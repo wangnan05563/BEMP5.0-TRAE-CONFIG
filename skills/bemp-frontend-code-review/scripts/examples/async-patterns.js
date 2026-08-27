@@ -2,7 +2,7 @@
  * BEMP 前端异步处理代码模板
  *
  * 使用方式：SKILL.md 中引用此文件，Agent 需要代码示例时自行读取。
- * 路径：.trae/skills/bemp-frontend-code-review/scripts/examples/async-patterns.js
+ * 路径：scripts/examples/async-patterns.js（位于本技能目录内）
  */
 
 // ✅ 正确：async/await + try-catch + 防重复提交

@@ -154,8 +154,7 @@ def dismiss_all_modals(page):
         pass
 
 
-_ENV_CONFIG_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', '..', '..',
-    '.trae', 'skills', '_shared', 'env-config.json'))
+_ENV_CONFIG_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', '_shared', 'env-config.json'))
 
 
 def _load_env_defaults():

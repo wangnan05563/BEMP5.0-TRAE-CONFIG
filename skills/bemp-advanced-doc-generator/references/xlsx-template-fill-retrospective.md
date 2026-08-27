@@ -1,4 +1,4 @@
-# 复盘：以用户输入 xlsx 模板生成单元测试报告（机构管理优化场景）
+﻿# 复盘：以用户输入 xlsx 模板生成单元测试报告（机构管理优化场景）
 
 > 时间：2026-06-06 ~ 2026-06-07  
 > 智能体：document-delivery-engineer  
@@ -247,7 +247,7 @@ Windows + PowerShell 调试 Node.js 脚本：
 ## 七、最终交付
 
 ```
-报告路径：D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理优化-单元测试报告-20260606.xlsx
+报告路径：bemp-advanced-doc-generator\output\机构管理优化-单元测试报告-20260606.xlsx
 17 列 × 30 行，填充率 100%
 字体：宋体 10.5pt（统一）
 摘要 Sheet：52 行（7 小节）

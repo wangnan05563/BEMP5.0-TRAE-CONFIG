@@ -59,7 +59,7 @@
       }
     },
     "zookeeper": {
-      "port": 2181,
+      "port": 21811,
       "diagnostics": {
         "logKeywords": ["Error", "ERROR", "SessionExpired", "ConnectionLoss"]
       }

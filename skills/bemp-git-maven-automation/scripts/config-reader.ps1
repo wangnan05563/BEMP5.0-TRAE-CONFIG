@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 配置读取与验证工具
 .DESCRIPTION
@@ -27,10 +27,9 @@ function Get-BuildConfig {
         $skillRoot = Split-Path -Parent $script:ScriptRoot
     }
     if (!$skillRoot) {
-        $projectRoot = if ($script:ScriptRoot) { (Resolve-Path (Join-Path $script:ScriptRoot "..\..\..")).Path } else { $null }
-        if ($projectRoot) {
-            $candidate = Join-Path $projectRoot ".trae\skills\bemp-git-maven-automation"
-            if (Test-Path $candidate) { $skillRoot = (Resolve-Path $candidate).Path }
+        # Fallback: derive skill root from this script's location (scripts -> skill root)
+        if ($script:ScriptRoot) {
+            $skillRoot = Split-Path -Parent $script:ScriptRoot
         }
     }
     if (!$skillRoot) {

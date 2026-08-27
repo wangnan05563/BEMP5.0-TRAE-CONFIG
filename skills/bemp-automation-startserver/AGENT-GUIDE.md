@@ -43,13 +43,31 @@ RunCommand: cd "scripts" ; .\start-bemp-env.ps1 -Status
 
 简要流程：编译前置检查(F-01) → 增量编译(F-03) → 编译产物验证(BUG-005) → 启动服务
 
+## 实时观察运行日志（推荐）
+
+服务启动后，运行日志会在启动它的终端实时滚动（覆盖启动/请求/错误/调试）。除了直接看启动终端外，还可用 `-Follow` 在任意空闲终端附加观察，避免切窗口：
+
+```
+# 在外部 PowerShell 窗口启动后，于空闲终端持续观察某个服务的实时日志
+RunCommand: cd "scripts" ; .\start-bemp-env.ps1 -Service served -Follow
+→ target_terminal: "new", blocking: false
+
+# 先看最近 200 行历史，再跟随新增（服务已运行很久、日志很长时很有用）
+RunCommand: cd "scripts" ; .\start-bemp-env.ps1 -Service adapter -Follow -Tail 200
+→ target_terminal: "new", blocking: false
+```
+
+- `-Follow` 不启动服务，只跟随其最新 run-log（含 `.stderr`）；`-Tail N` 先回看末尾 N 行。
+- 着色规则：ERROR/异常/堆栈→红，WARN→黄，DEBUG→灰，INFO→青；被捕获到文件时自动关闭着色。
+- 排查问题时优先看实时滚动日志，`-Status` 仅看端口级状态。
+
 ## IDE终端模式注意事项
 
 | 操作 | 终端策略 | 原因 |
 |------|---------|------|
-| 启动服务 | `target_terminal: "new"` | 服务独占终端 |
+| 启动服务 | `target_terminal: "new"` | 服务独占终端，前台实时滚动日志 |
 | 检查状态 | `target_terminal: "new"` | 复用会杀死服务 |
-| 查看日志 | `CheckCommandStatus` | 只读，安全 |
+| 查看日志 | `-Follow`（空闲终端）或 `CheckCommandStatus` | 只读，安全，且不干扰运行服务的终端 |
 
 **致命错误**：在已运行服务的终端执行新命令会终止服务进程。
 

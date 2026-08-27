@@ -16,7 +16,7 @@ SKILL_ROOT = Path(os.environ.get(
     str(Path(__file__).resolve().parent.parent)
 )).resolve()
 
-# PROJECT_ROOT: BEMP5.0DEV 目录（SKILL_ROOT 往上 4 级：scripts → bemp-advanced-doc-generator → .trae → skills → .trae → 项目根）
+# PROJECT_ROOT: BEMP5.0DEV 项目根目录（SKILL_ROOT 向上：技能目录 → skills → 项目根；优先取环境变量 BEMP_PROJECT_ROOT，否则向上查找含 BEMP 的目录）
 # 更稳健：从 SKILL_ROOT 逐级向上查找含 pom.xml 的目录
 _project_root_env = os.environ.get('BEMP_PROJECT_ROOT')
 if _project_root_env:

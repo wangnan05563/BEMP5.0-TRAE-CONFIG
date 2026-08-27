@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     数据库数据导出脚本
 .DESCRIPTION

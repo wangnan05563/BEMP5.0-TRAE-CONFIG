@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     BEMP 编译产物验证脚本（BUG-005）
 .DESCRIPTION

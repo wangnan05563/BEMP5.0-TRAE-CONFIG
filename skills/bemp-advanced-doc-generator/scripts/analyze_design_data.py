@@ -1,9 +1,14 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """深入分析：检查 design_data 中的 businessSubmodules 和 chapters 结构"""
 import json
 import os
 
 # 查找最新的 design_data JSON 文件
-output_dir = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output"
+output_dir = str(SKILL_ROOT / "output")
 design_data_files = [f for f in os.listdir(output_dir) if f.startswith('_design-data') and f.endswith('.json')]
 
 if design_data_files:

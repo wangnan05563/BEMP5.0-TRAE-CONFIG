@@ -1,4 +1,4 @@
-# run-sonar-scanner.ps1
+﻿# run-sonar-scanner.ps1
 # SonarQube MCP 不可用时的降级扫描脚本
 # 使用 sonar-scanner 命令行工具执行代码质量扫描
 

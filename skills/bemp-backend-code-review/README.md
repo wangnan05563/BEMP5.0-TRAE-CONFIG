@@ -1,4 +1,4 @@
-# bemp-backend-code-review v3.2.0
+﻿# bemp-backend-code-review v3.2.0
 
 BEMP 银行个性化后端代码审查技能。配置驱动，支持多银行切换，整合 java-code-review、concurrency-review、api-contract-review、architecture-review 四项技能及票据系统问题汇总，覆盖 24 个审查维度。
 
@@ -131,10 +131,10 @@ bemp-backend-code-review/
 
 ```powershell
 # Windows
-pwsh .trae/skills/bemp-backend-code-review/scripts/auto-scan.ps1
+pwsh scripts/auto-scan.ps1
 
 # Unix/Linux/Mac
-bash .trae/skills/bemp-backend-code-review/scripts/auto-scan.sh
+bash scripts/auto-scan.sh
 ```
 
 自动检查 16 项：`@CustomizedBean` 注解、请求路径前缀、`@RestController`、DTO Serializable、DTO 命名前缀、Controller 返回值类型、`e.printStackTrace()`、BigDecimal 比较方式、Integer/Long == 比较、时间格式 hh/HH、SQL 字符串拼接、硬编码机构号/产品代码、`@Resource`注入(应用`@Autowired`)、StringUtils lang3、Collectors.toMap merge。

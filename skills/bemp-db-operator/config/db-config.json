@@ -18,7 +18,7 @@
     "configPurposeNote": "本文件中的连接参数（host/port/username/password等）仅为记录和参考用途，实际数据库连接由MCP服务端配置管理。修改本文件中的连接参数不会影响MCP的实际连接行为。如需修改实际连接，请编辑MCP服务端配置文件。",
     "mcpConfigRef": {
         "description": "MCP服务端配置文件路径，修改实际连接参数需编辑此文件",
-        "path": ".trae/mcp.json"
+        "path": "mcp.json"
     },
     "databases": {
         "oracle": {
@@ -177,7 +177,9 @@
         "bankName 用于定位SQL脚本存放目录",
         "MySQL MCP的execute_sql支持DDL/DML/SELECT全类型操作",
         "Oracle MCP的execute_query仅支持SELECT语句",
-        "建议为MySQL MCP配置专用数据库用户，参照permissionTemplates"
+        "建议为MySQL MCP配置专用数据库用户，参照permissionTemplates",
+        "【识别真值来源】本文件中 ${ENV:ORACLE_*} 占位符的实际值在 _shared/env-config.json 的 environmentDefaults 中：ORACLE_HOST=10.20.42.211、ORACLE_PORT=1521、ORACLE_SERVICE=orcl、ORACLE_USERNAME=bemp_hnnx、ORACLE_PASSWORD=123456、ORACLE_SCHEMA=BEMP_HNNX。执行脚本(execute-oracle-sql.ps1/run-oracle-jdbc.ps1)通过 Resolve-EnvConfig.ps1 自动解析，勿因看到占位符而误判'无数据库配置'。",
+        "【Oracle DML/DDL 写通道】Oracle MCP 只读、本机旧版 sqlplus 会报 ORA-28040。请优先用 scripts/run-oracle-jdbc.ps1（ojdbc8 JDBC 直连，绕过 ORA-28040）：.\\run-oracle-jdbc.ps1 -SqlFile <脚本> -Schema BEMP_HNNX；仅测连接用 -TestOnly。连接用户 bemp_hnnx 即 BEMP_HNNX schema owner。"
     ],
     "agentToolMapping": {
         "description": "智能体-工具可用性映射，用于降级策略判断。主智能体可能缺少Oracle MCP工具，需委托子智能体执行",

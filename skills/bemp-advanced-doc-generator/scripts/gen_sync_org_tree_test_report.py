@@ -1,3 +1,8 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 # -*- coding: utf-8 -*-
 """
 BEMP 河南农商银行"同步机构树数据并校验"个性化开发 - 测试报告生成器
@@ -12,7 +17,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-OUTPUT_DIR = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output"
+OUTPUT_DIR = str(SKILL_ROOT / "output")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "河南农商同步机构树数据并校验-测试报告-20260715.docx")
 
 # ===================== 样式工具函数 =====================

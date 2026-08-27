@@ -1,7 +1,7 @@
 {
-  "_comment": "BEMP 测试用例索引 - test-cases ↔ scripts 双向映射。用于追踪覆盖率、定位关联脚本。由 bemp-test-common 统一管理，bemp-testcase-generator 和 bemp-webapp-testing 共享。注意：file 和 scripts 中的路径均相对于 .trae/skills/ 目录，如 'bemp-test-common/test-cases/common/login.md' 实际路径为 '.trae/skills/bemp-test-common/test-cases/common/login.md'。",
+  "_comment": "BEMP 测试用例索引 - test-cases ↔ scripts 双向映射。用于追踪覆盖率、定位关联脚本。由 bemp-test-common 统一管理，bemp-testcase-generator 和 bemp-webapp-testing 共享。注意：file 和 scripts 中的路径均相对于技能根（skills）目录，如 'bemp-test-common/test-cases/common/login.md' 实际路径为 '<skills 目录>/bemp-test-common/test-cases/common/login.md'。",
   "index_version": "2.0",
-  "generated": "2026-07-21",
+  "generated": "2026-08-19",
   "scripts_index": {
     "bemp-webapp-testing/scripts/run_test.py": {
       "description": "通用测试运行器，配置驱动执行所有 bank_config.pages 中的页面测试",
@@ -667,23 +667,78 @@
       "scripts": [],
       "description": "测试数据准备：账号数据、PJGCS/PJGGX表数据、机构层级链、管理员数据、角色数据、CBS同步文件、Excel测试文件、系统参数、数据就绪检查SQL、数据清理SQL",
       "version": "v3-20260722"
+    },
+    {
+      "id": "TC-MARKET-067",
+      "file": "bemp-test-common/test-cases/be/market/hnnx-interest-zero-check.md",
+      "subsystem": "be",
+      "feature": "hnnxbank应付利息为0弹窗拦截",
+      "priority": "P0",
+      "case_count": 20,
+      "scripts": [],
+      "description": "hnnxbank个性化：转贴现买入/卖出/再贴现提交时校验首期应付利息为0的弹窗拦截。P0:10(正常场景3+单张拦截3+多张拦截1+混合拦截1+校验顺序1+全量零利息1) P1:8(草稿/暂存不触发2+弹窗交互2+修改场景1+null处理1+未计算状态1+API拦截1) P2:2(弹窗文案1+预删除跳过1)；修复v2：新增测试数据准备章节、全局前置条件(interestStatus保障)、TC-MARKET-075拆分多轮验证、TC-MARKET-079补充操作路径、TC-MARKET-080补充数据准备、新增TC-MARKET-083~086四个场景",
+      "version": "v2-20260819"
+    },
+    {
+      "id": "TC-AML-MAP-V1",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-功能地图与优先级矩阵.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-功能地图与优先级矩阵",
+      "priority": "—",
+      "case_count": 21,
+      "scripts": [],
+      "description": "功能地图（3功能模块+1页面+2服务+1定时任务HNNXTK020113）与优先级矩阵（P0:11 P1:10），11种测试类型覆盖矩阵、关键前置条件；定时任务默认INCR增量(OBJ_ID upsert)、可切FULL(deleteAll+insertBatch)",
+      "version": "v2-20260826"
+    },
+    {
+      "id": "TC-AML-P0-001~011",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P0用例.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-P0核心用例",
+      "priority": "P0",
+      "case_count": 11,
+      "scripts": [],
+      "description": "P0用例11条：定时抽取(001-INCR增量/002-FULL全量替换)、转贴现/买断式/质押式/再贴现黑名单拦截(4)、灰名单人工审批(1)、未命中放行(1)、开关开启/关闭(1)、服务异常降级(1)、非有效证件类型(01)不参与命中(1)；证件类型21/2s、OBJ_ID主键对齐代码实现",
+      "version": "v2-20260826"
+    },
+    {
+      "id": "TC-AML-P1-011~020",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P1用例.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-P1扩展用例",
+      "priority": "P1",
+      "case_count": 10,
+      "scripts": [],
+      "description": "P1用例10条：名单查询(1)、导出码值转中文(1)、匹配口径-名称全等+有效证件类型过滤(1)、时效规则(1)、抽取异常(1)、文件解析(1)、名单页面(1)、审计留痕(1)、权限控制(1)、回归(1)",
+      "version": "v2-20260826"
+    },
+    {
+      "id": "TC-AML-DATA-V1",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-测试数据准备.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-测试数据准备",
+      "priority": "—",
+      "case_count": 0,
+      "scripts": [],
+      "description": "测试数据准备：中互金名单文件(0x03/GBK、R1-R10记录含唯一OBJ_ID)、落库目标表数据、校验开关+增量同步模式参数、交易要素名称映射、ECIF对照数据、多角色账号、SQL就绪检查/插入/清理",
+      "version": "v2-20260826"
     }
   ],
   "summary": {
-    "total_cases": 44,
-    "total_estimated_count": 605,
+    "total_cases": 49,
+    "total_estimated_count": 646,
     "by_subsystem": {
       "common": 2,
       "sm": 15,
       "bm": 18,
-      "be": 4,
+      "be": 9,
       "ce": 4,
       "adapter": 2
     },
     "by_priority": {
-      "P0": 29,
-      "P1": 16,
-      "P2": 5,
+      "P0": 49,
+      "P1": 31,
+      "P2": 7,
       "P3": 0,
       "unknown": 0
     },

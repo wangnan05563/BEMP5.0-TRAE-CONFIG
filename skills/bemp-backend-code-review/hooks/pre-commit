@@ -1,7 +1,7 @@
 #!/bin/bash
 # BEMP Backend Pre-commit Hook v2.7.0
 # Install: copy to .git/hooks/pre-commit and chmod +x
-# Or:   git config core.hooksPath .trae/skills/bemp-backend-code-review/hooks
+# Or:   git config core.hooksPath "<技能所在的 skills 目录>/bemp-backend-code-review/hooks"
 
 STAGED_JAVA=$(git diff --cached --name-only --diff-filter=ACM | grep '\.java$' | grep '^banks/')
 

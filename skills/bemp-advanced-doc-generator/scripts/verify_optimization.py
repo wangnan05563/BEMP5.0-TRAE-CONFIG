@@ -23,7 +23,7 @@ except Exception:
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_DIR.parent
-PROJECT_ROOT = SKILL_ROOT.parent.parent.parent  # 技能根的 4 层上级: skill -> skills -> .trae -> BEMP5.0DEV
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent  # 技能根的 4 层上级：scripts → 技能目录 → skills → 项目根
 
 print('=' * 60)
 print('bemp-advanced-doc-generator 优化验证')
@@ -235,7 +235,7 @@ for f in [SKILL_ROOT / 'scripts' / 'paths.js', SKILL_ROOT / 'scripts' / 'paths.p
     if not f.exists():
         continue
     content = f.read_text(encoding='utf-8')
-    # 找硬编码的 .trae/skills/bemp-advanced-doc-generator/output
+    # 找硬编码的绝对输出路径（如 .../skills/bemp-advanced-doc-generator/output）
     matches = re.findall(r"['\"]([A-Za-z]:[/\\\\].*?output)['\"]", content)
     if matches:
         print(f'    [INFO] {f.name} 硬编码路径: {matches}')

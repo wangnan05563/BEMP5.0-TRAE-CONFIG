@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     BEMP 编译前置检查脚本（F-01）
 .DESCRIPTION

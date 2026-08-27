@@ -79,7 +79,7 @@
     "java:S116"
   ],
   "report": {
-    "output_dir": ".trae/skills/bemp-sonarqube-mcp/reports",
+    "output_dir": "reports",
     "template": "assets/report-template.md"
   }
 }

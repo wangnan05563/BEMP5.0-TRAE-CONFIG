@@ -1,4 +1,4 @@
-# BEMP SonarQube 扫描工作流程
+﻿# BEMP SonarQube 扫描工作流程
 
 ## 完整操作手册
 
@@ -23,7 +23,7 @@ Agent 在执行扫描前，先通过端口检测判断服务是否运行：
 
 ```
 1. 在 IDE 终端中执行：
-   cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-sonarqube-mcp\scripts
+   cd scripts/
    .\start-sonarqube.ps1 -StatusOnly
 
 2. 退出码 0 = 服务已运行且健康
@@ -46,7 +46,7 @@ Invoke-WebRequest -Uri "http://localhost:9000/api/system/status" -UseBasicParsin
 
 ```
 1. 在 IDE 终端中执行（blocking=false，后台运行）：
-   cd d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-sonarqube-mcp\scripts
+   cd scripts/
    .\start-sonarqube.ps1
 
 2. 脚本内部执行流程：

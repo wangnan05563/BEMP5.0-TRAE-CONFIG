@@ -1,4 +1,4 @@
-# BEMP 前端代码审查技能
+﻿# BEMP 前端代码审查技能
 
 审查BEMP工程各银行个性化模块的前端代码。**自动化脚本一键扫描 + 人工逐项审查**双模式，支持 12 家银行配置切换。
 
@@ -36,15 +36,15 @@ bemp-frontend-code-review/
 
 ```bash
 # 默认银行（review-config.json 中配置的 bankName）
-node .trae/skills/bemp-frontend-code-review/scripts/check-all.js
+node scripts/check-all.js
 
 # 指定银行（临时切换，不修改配置文件）
-node .trae/skills/bemp-frontend-code-review/scripts/check-all.js --bank=jinzbank
+node scripts/check-all.js --bank=jinzbank
 
 # 单独运行某个检查
-node .trae/skills/bemp-frontend-code-review/scripts/check-hardcode.js
-node .trae/skills/bemp-frontend-code-review/scripts/check-routes.js
-node .trae/skills/bemp-frontend-code-review/scripts/check-i18n.js
+node scripts/check-hardcode.js
+node scripts/check-routes.js
+node scripts/check-i18n.js
 ```
 
 ### 2. 切换银行
@@ -156,7 +156,7 @@ node .trae/skills/bemp-frontend-code-review/scripts/check-i18n.js
 ### 第零阶段 — 自动化扫描（优先）
 
 ```bash
-node .trae/skills/bemp-frontend-code-review/scripts/check-all.js [--bank=xxx]
+node scripts/check-all.js [--bank=xxx]
 ```
 
 工作流：修复所有 🔴阻塞 → 评估 🟠严重 → 🟡警告入报告

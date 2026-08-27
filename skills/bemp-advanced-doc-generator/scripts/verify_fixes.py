@@ -1,6 +1,11 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 from docx import Document
 
-doc_path = r"D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理和管理员管理功能优化-详细设计文档-20260617.docx"
+doc_path = str(SKILL_ROOT / "output" / "机构管理和管理员管理功能优化-详细设计文档-20260617.docx")
 doc = Document(doc_path)
 
 print("=" * 80)
@@ -59,7 +64,7 @@ print("\n【数据检查】businessSubmodules 字段")
 import json
 import os
 
-design_data_path = r"D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\_design-data-20260617.json"
+design_data_path = str(SKILL_ROOT / "output" / "_design-data-20260617.json")
 if os.path.exists(design_data_path):
     with open(design_data_path, 'r', encoding='utf-8') as f:
         design_data = json.load(f)

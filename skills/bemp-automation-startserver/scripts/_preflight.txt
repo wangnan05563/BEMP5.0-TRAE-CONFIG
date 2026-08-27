@@ -1,0 +1,12 @@
+True: D:\code\Redis-x64-5.0.14.1\redis-server.exe
+True: D:\code\apache-zookeeper-3.8.3-bin\bin\zkServer.cmd
+True: D:\code\Java\jdk1.8.0_341\bin\java.exe
+True: D:\code\apache-maven-3.6.3\bin\mvn.cmd
+True: D:\code\nodejs14\node.exe
+True: D:\code\QJ\BEMP5.0DEV\banks\ext-hnnxbank
+True: D:\code\QJ\BEMP5.0DEV\frontend
+--- compiled artifacts ---
+served classes: True
+served exploded: True
+adapter classes: True
+frontend node_modules: True

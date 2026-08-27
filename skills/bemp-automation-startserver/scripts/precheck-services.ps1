@@ -1,9 +1,9 @@
-# BEMP PreCheck Environment Check
+﻿# BEMP PreCheck Environment Check
 # Run from any shell: powershell.exe -ExecutionPolicy Bypass -File precheck-services.ps1
 
 $ErrorActionPreference = "Continue"
-$ScriptDir = "d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-automation-startserver\scripts"
-$SharedDir = "d:\code\QJ\BEMP5.0DEV\.trae\skills\_shared"
+$ScriptDir = $PSScriptRoot
+$SharedDir = Join-Path $PSScriptRoot '..\..\_shared'
 
 # Set encoding to UTF-8 to handle Chinese text
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -143,7 +143,7 @@ Write-Host "  Summary: PASS=$passCount  WARN=$warnCount  FAIL=$failCount  /  TOT
 Write-Host "==========================================" -ForegroundColor Cyan
 
 # Save report
-$reportDir = "d:\code\QJ\BEMP5.0DEV\.trae\specs\add-ecif-cust-merge-pice070701"
+$reportDir = Join-Path $PSScriptRoot '..\..\..\specs\add-ecif-cust-merge-pice070701'
 if (-not (Test-Path $reportDir)) { New-Item -ItemType Directory -Path $reportDir -Force | Out-Null }
 $reportPath = Join-Path $reportDir "precheck-report.txt"
 $results | Format-Table -AutoSize | Out-String | Out-File -FilePath $reportPath -Encoding UTF8

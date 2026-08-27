@@ -1,3 +1,8 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """优化详细设计文档v2版本"""
 from docx import Document
 from docx.shared import Pt, RGBColor
@@ -5,8 +10,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import copy
 
 # 读取v1文档
-v1_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理和管理员管理功能优化-详细设计文档-20260617.docx"
-v2_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\机构管理和管理员管理功能优化-详细设计文档-v2-20260617.docx"
+v1_path = str(SKILL_ROOT / "output" / "机构管理和管理员管理功能优化-详细设计文档-20260617.docx")
+v2_path = str(SKILL_ROOT / "output" / "机构管理和管理员管理功能优化-详细设计文档-v2-20260617.docx")
 
 doc = Document(v1_path)
 

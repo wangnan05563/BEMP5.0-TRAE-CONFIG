@@ -1,4 +1,4 @@
-﻿# BEMP Development Environment Startup Script
+# BEMP Development Environment Startup Script
 # Function: Check service status, start services in IDE or external PowerShell terminal
 # Optimized: PowerShell external terminal, config-driven defaults, unified lifecycle, dep-wait, health-check, log-tee
 
@@ -11,13 +11,17 @@ param(
     [switch]$AutoRestart,
     [switch]$ExternalTerminal,
     [switch]$WaitForDeps,
-    [string]$LaunchMode = ""
+    [string]$LaunchMode = "",
+    [switch]$Follow,
+    [int]$Tail = 0
 )
 
 $originalLocation = Get-Location
 $script:LastStartupLogPath = ""
 
 . (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
+# 实时日志流工具（Colorize-LogLine / Follow-ServiceLog）：让服务日志在终端按时间顺序逐行实时滚动
+. (Join-Path $PSScriptRoot "log-stream.ps1")
 
 # ──────────────────────────── 折叠式进度条函数 ────────────────────────────
 # 使用ASCII兼容的spinner字符
@@ -245,6 +249,13 @@ function Invoke-Diagnostics {
         _ScanLogFile -Path $StartupLog -Keywords $LogKeywords -ServiceName $ServiceName -ServicePort $Port
     }
 
+    # 扫描启动日志的 stderr 兄弟文件（JVM 致命错误/原生错误常落在 stderr，不进 stdout）
+    $stderrLog = "$StartupLog.stderr"
+    if (Test-Path $stderrLog) {
+        Write-Step "Scanning stderr log: $stderrLog"
+        _ScanLogFile -Path $stderrLog -Keywords $LogKeywords -ServiceName $ServiceName -ServicePort $Port
+    }
+
     # 扫描应用日志（服务自身写的log文件）
     if ($AppLogFile -and (Test-Path $AppLogFile)) {
         Write-Step "Scanning app log: $AppLogFile"
@@ -322,10 +333,10 @@ function Clear-OldLauncherScripts {
     $cutoff = (Get-Date).AddHours(-$cleanupHours)
     Get-ChildItem -Path $logDir -Filter "launcher_*.ps1" -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTime -lt $cutoff } |
-        Remove-Item -Force -ErrorAction SilentlyContinue
+        Microsoft.PowerShell.Management\Remove-Item -Force -ErrorAction SilentlyContinue
     Get-ChildItem -Path $logDir -Filter "*_startup_*.log" -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTime -lt $cutoff } |
-        Remove-Item -Force -ErrorAction SilentlyContinue
+        Microsoft.PowerShell.Management\Remove-Item -Force -ErrorAction SilentlyContinue
 }
 # 注意：Clear-OldLauncherScripts 在加载 healthConfig 后调用，以读取配置的清理时间
 
@@ -403,21 +414,6 @@ function Build-ExternalTerminalScript {
     [void]$sb.AppendLine("Write-Host 'Log: $LogPath' -ForegroundColor Gray")
     [void]$sb.AppendLine("Write-Host ''")
 
-    # 过滤原生命令stderr的ErrorRecord包装
-    # PowerShell 的 2>&1 会把原生命令(Java/Redis等)的stderr包装为ErrorRecord(NativeCommandError)，
-    # 导致JVM的"Picked up JAVA_TOOL_OPTIONS"等正常提示被红色显示为错误。
-    # 此函数提取ErrorRecord的纯文本，按普通输出处理，避免误导。
-    [void]$sb.AppendLine("function Convert-NativeOutput {")
-    [void]$sb.AppendLine("    `$input | ForEach-Object {")
-    [void]$sb.AppendLine("        if (`$_ -is [System.Management.Automation.ErrorRecord]) {")
-    [void]$sb.AppendLine("            `$_.ToString()")
-    [void]$sb.AppendLine("        } else {")
-    [void]$sb.AppendLine("            `$_")
-    [void]$sb.AppendLine("        }")
-    [void]$sb.AppendLine("    }")
-    [void]$sb.AppendLine("}")
-    [void]$sb.AppendLine("")
-
     # 版本诊断等预启动输出（如前端 node/npm 版本确认）
     if ($StartInfo.PreStartLines -and $StartInfo.PreStartLines.Count -gt 0) {
         foreach ($line in $StartInfo.PreStartLines) {
@@ -428,28 +424,39 @@ function Build-ExternalTerminalScript {
 
     [void]$sb.AppendLine("")
 
-    # 执行服务命令 + Tee-Object同时输出到终端和日志文件
-    # 使用参数数组直接传递给可执行文件，避免PowerShell解析特殊字符(;=)
-    # 数组在launcher脚本中会自动展开为独立参数
-    # 2>&1 后接 Convert-NativeOutput 过滤，把原生命令stderr的ErrorRecord转为纯文本
+    # ── 实时日志：服务输出重定向到文件，再由 Follow-ServiceLog 滚动到终端 ──
+    # 关键改进：旧实现 `cmd 2>&1 | Tee-Object` 走 PowerShell 管道，Java/Node 的 stdout
+    # 接管道会被块缓冲，终端不能逐行实时滚动（看起来"静默/只在文件里"）。
+    # 改为 OS 级重定向落盘（按行 flush），终端 tail 文件逐行打印，覆盖启动/请求/错误/调试全部输出。
+    $streamModule = Join-Path $PSScriptRoot "log-stream.ps1"
+    [void]$sb.AppendLine(". '$streamModule'")
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("`$stdoutLog = '$LogPath'")
+    [void]$sb.AppendLine("`$stderrLog = '$LogPath.stderr'")
+    # 构造 Start-Process 参数数组（避免 PowerShell 把 ; = 解析为语句分隔符）
+    # 注意：无参数时不得给 -ArgumentList 传 $null / 空数组（PowerShell 会抛 ParameterBindingValidationException），
+    # 因此无参数时让生成脚本省略 -ArgumentList 参数。
+    $argListFragment = ""
     if ($StartInfo.CommandArgs -is [array] -and $StartInfo.CommandArgs.Count -gt 0) {
-        # 生成参数数组声明：$cmdArgs = @('arg1', 'arg2', ...)
         $argsStr = ($StartInfo.CommandArgs | ForEach-Object {
             $escaped = $_ -replace "'", "''"
             "'$escaped'"
         }) -join ', '
-        [void]$sb.AppendLine("`$cmdArgs = @($argsStr)")
-        [void]$sb.AppendLine("& '$($StartInfo.Command)' @cmdArgs 2>&1 | Convert-NativeOutput | Tee-Object -FilePath '$LogPath' -Append")
-    } elseif ($StartInfo.CommandLine) {
-        [void]$sb.AppendLine("& $($StartInfo.CommandLine) 2>&1 | Convert-NativeOutput | Tee-Object -FilePath '$LogPath' -Append")
+        [void]$sb.AppendLine("`$procArgs = @($argsStr)")
+        $argListFragment = "-ArgumentList `$procArgs "
     }
-
+    [void]$sb.AppendLine("`$proc = Start-Process -FilePath '$($StartInfo.Command)' $argListFragment-WorkingDirectory '$($StartInfo.WorkingDir)' -RedirectStandardOutput `$stdoutLog -RedirectStandardError `$stderrLog -PassThru -NoNewWindow")
+    [void]$sb.AppendLine("Write-Host 'Service PID:' `$proc.Id -ForegroundColor Gray")
+    [void]$sb.AppendLine("Write-Host 'Streaming logs in real-time (Ctrl+C to stop this service)...' -ForegroundColor Gray")
+    [void]$sb.AppendLine("Write-Host ''")
+    [void]$sb.AppendLine("Follow-ServiceLog -Paths @(`$stdoutLog, `$stderrLog) -Process `$proc")
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("Write-Host ''")
     [void]$sb.AppendLine("Write-Host '[Service exited] Press any key to close...' -ForegroundColor Yellow")
     [void]$sb.AppendLine("`$null = [Console]::ReadKey(`$true)")
 
-    $sb.ToString() | Set-Content -Path $scriptPath -Encoding UTF8
+    # 无 BOM UTF8 写入（避免双 BOM 破坏脚本解析）
+    [System.IO.File]::WriteAllText($scriptPath, $sb.ToString(), [System.Text.UTF8Encoding]::new($false))
     return $scriptPath
 }
 
@@ -538,7 +545,7 @@ function Start-BempService {
 
     if ($useExternal) {
         # 外部终端模式：生成.ps1启动脚本，在独立PowerShell窗口运行
-        # 原生支持Tee-Object，终端实时显示服务日志
+        # 脚本内把服务输出重定向到文件，再由 Follow-ServiceLog 实时滚动到窗口（逐行、带级别着色）
         $launcherScript = Build-ExternalTerminalScript -StartInfo $startInfo -LogPath $logPath `
             -TerminalTitle $terminalTitle -ServiceName $serviceName
         Write-Step "Launching in external PowerShell: $serviceName"
@@ -573,11 +580,24 @@ function Start-BempService {
             Write-Host ""
         }
 
-        # 通过 Tee-Object 同时输出到终端和日志文件
-        if ($startInfo.CommandArgs -is [array]) {
-            & $startInfo.Command $startInfo.CommandArgs 2>&1 | Tee-Object -FilePath $logPath -Append
-        } else {
-            & $startInfo.CommandLine 2>&1 | Tee-Object -FilePath $logPath -Append
+        # 通过 OS 级重定向落盘 + Follow-ServiceLog 实时滚动到当前终端
+        # 绕开 PowerShell 管道缓冲，保证启动/请求/错误/调试日志按时间顺序逐行实时输出
+        $stderrLog = "$logPath.stderr"
+        $procArgs = $null
+        if ($startInfo.CommandArgs -is [array] -and $startInfo.CommandArgs.Count -gt 0) {
+            $procArgs = $startInfo.CommandArgs
+        }
+        $proc = Start-Process -FilePath $startInfo.Command -ArgumentList $procArgs `
+            -WorkingDirectory $startInfo.WorkingDir `
+            -RedirectStandardOutput $logPath -RedirectStandardError $stderrLog `
+            -PassThru -NoNewWindow
+        Write-Host "Service PID: $($proc.Id)" -ForegroundColor Gray
+        Write-Host "Streaming logs in real-time. This terminal is occupied by the service." -ForegroundColor Yellow
+        Write-Host ""
+        try {
+            Follow-ServiceLog -Paths @($logPath, $stderrLog) -Process $proc
+        } finally {
+            if ($proc -and -not $proc.HasExited) { try { $proc | Stop-Process -Force } catch {} }
         }
     }
 
@@ -746,8 +766,8 @@ function Build-FrontendCommand {
         $env:PUPPETEER_SKIP_DOWNLOAD = "true"
         $env:ELECTRON_SKIP_BINARY_DOWNLOAD = "true"
         & $npmCmd install --prefer-offline --no-audit --no-fund --scripts-prepend-node-path
-        Remove-Item Env:PUPPETEER_SKIP_DOWNLOAD -ErrorAction SilentlyContinue
-        Remove-Item Env:ELECTRON_SKIP_BINARY_DOWNLOAD -ErrorAction SilentlyContinue
+        Microsoft.PowerShell.Management\Remove-Item Env:PUPPETEER_SKIP_DOWNLOAD -ErrorAction SilentlyContinue
+        Microsoft.PowerShell.Management\Remove-Item Env:ELECTRON_SKIP_BINARY_DOWNLOAD -ErrorAction SilentlyContinue
         if ($LASTEXITCODE -ne 0) {
             Write-Error "npm install failed"
             return $null
@@ -855,6 +875,45 @@ Clear-OldLauncherScripts -HConfig $healthConfig
 
 if ($Status) {
     Show-Status -Config $config
+    Set-Location $originalLocation
+    exit 0
+}
+
+# ── 附加到已运行服务的实时日志（不启动，仅跟随观察） ──
+if ($Follow) {
+    if ($Service -eq "") {
+        Write-Error "Specify -Service to follow, e.g. -Service served -Follow  (-Tail 100 to preview history)"
+        Set-Location $originalLocation
+        exit 1
+    }
+    $keys = ($Service.ToLower() -split "," | ForEach-Object { $_.Trim() }) | Where-Object { $_ -ne "" }
+    $logDir = Join-Path $PSScriptRoot "..\logs"
+    $paths = @()
+    foreach ($k in $keys) {
+        $svcName = $k
+        if ($config.services.PSObject.Properties.Name -contains $k) {
+            $svcName = $config.services.$k.name
+        }
+        # 匹配 {ServiceName}_startup_*.log（取最新一份 run-log）
+        $candidates = Get-ChildItem -Path $logDir -Filter "*_startup_*.log" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "$svcName*_startup_*.log" }
+        $latest = $candidates | Sort-Object LastWriteTime | Select-Object -Last 1
+        if ($latest) {
+            $paths += $latest.FullName
+            $errPath = $latest.FullName + ".stderr"
+            if (Test-Path $errPath) { $paths += $errPath }
+        } else {
+            Write-Warning "No startup log found for '$svcName' (service may not have been started yet)"
+        }
+    }
+    if ($paths.Count -eq 0) {
+        Write-Error "No logs to follow. Start the service first, then use -Follow."
+        Set-Location $originalLocation
+        exit 1
+    }
+    Write-Step "Following live logs (Ctrl+C to stop):"
+    foreach ($p in $paths) { Write-Host "  $p" -ForegroundColor Gray }
+    Follow-ServiceLog -Paths $paths -Process $null -Tail $Tail
     Set-Location $originalLocation
     exit 0
 }

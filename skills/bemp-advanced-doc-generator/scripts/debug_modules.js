@@ -6,7 +6,7 @@ const prdPath = 'd:\\code\\QJ\\BEMP5.0DEV\\docs\\prd\\02-机构管理和管理�
 const mdContent = fs.readFileSync(prdPath, 'utf-8');
 
 // 导入 RequirementAnalyzer
-const { RequirementAnalyzer } = require('d:\\code\\QJ\\BEMP5.0DEV\\.trae\\skills\\bemp-advanced-doc-generator\\scripts\\lib\\requirement-analyzer.js');
+const { RequirementAnalyzer } = require('./lib/requirement-analyzer.js');
 
 const analyzer = new RequirementAnalyzer();
 

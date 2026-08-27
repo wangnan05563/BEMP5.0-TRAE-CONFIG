@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 BEMP Git同步与Maven构建统一入口
 .DESCRIPTION
@@ -24,10 +24,9 @@ if (!$skillRoot -and $PSScriptRoot) {
     $skillRoot = Split-Path -Parent $PSScriptRoot
 }
 if (!$skillRoot) {
-    $projectRoot = if ($PSScriptRoot) { (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path } else { $null }
-    if ($projectRoot) {
-        $candidate = Join-Path $projectRoot ".trae\skills\bemp-git-maven-automation"
-        if (Test-Path $candidate) { $skillRoot = (Resolve-Path $candidate).Path }
+    # Fallback: derive skill root from this script's location (scripts -> skill root)
+    if ($PSScriptRoot) {
+        $skillRoot = Split-Path -Parent $PSScriptRoot
     }
 }
 if (!$skillRoot) {

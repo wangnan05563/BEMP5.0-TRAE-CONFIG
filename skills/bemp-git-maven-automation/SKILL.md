@@ -1,4 +1,4 @@
-﻿﻿---
+﻿---
 name: "bemp-git-maven-automation"
 description: "自动同步工作空间中的Git仓库并执行Maven构建，支持Banks个性化工程增量编译。"
 whenToUse: "当用户需要更新 所有/全部/全量/增量 仓库代码/编译项目/maven构建/构建时调用"
@@ -36,11 +36,11 @@ triggers:
 
 | 用户意图 | Mode | 命令 |
 |---------|------|------|
-| 同步代码 | sync | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode sync` |
-| 增量打包/增量编译 | incremental | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode incremental` |
-| 全量打包/全量编译 | full | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode full` |
-| 同步代码并增量打包 | incremental | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode incremental` |
-| 同步代码并全量打包 | full | `& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode full` |
+| 同步代码 | sync | `& ".\scripts/run-build.ps1" -Mode sync` |
+| 增量打包/增量编译 | incremental | `& ".\scripts/run-build.ps1" -Mode incremental` |
+| 全量打包/全量编译 | full | `& ".\scripts/run-build.ps1" -Mode full` |
+| 同步代码并增量打包 | incremental | `& ".\scripts/run-build.ps1" -Mode incremental` |
+| 同步代码并全量打包 | full | `& ".\scripts/run-build.ps1" -Mode full` |
 
 **【强制】** 必须使用 `run-build.ps1` 统一入口，禁止手动分步调用或直接执行 `mvn` 命令，否则增量构建逻辑不会生效。
 

@@ -1,4 +1,4 @@
----
+﻿---
 name: "bemp-backend-code-review"
 description: "审查BEMP银行个性化后端代码是否符合项目规范，含代码结构、注解、参数传递、安全性、性能等检查。支持多银行配置切换。"
 whenToUse: "需要审查BEMP工程各银行个性化后端代码是否符合项目规范"
@@ -384,7 +384,7 @@ public class HnnxXxxReq implements Serializable {
 
 ## 快速自检
 
-执行 `pwsh .trae/skills/bemp-backend-code-review/scripts/auto-scan.ps1` 自动检查以下阻塞项：
+执行 `pwsh scripts/auto-scan.ps1` 自动检查以下阻塞项：
 
 1. Service/Atom（extends产品实现类）是否缺少 `@CustomizedBean`
 2. Controller 是否误加 `@CustomizedBean`
@@ -461,7 +461,7 @@ public class HnnxXxxReq implements Serializable {
 
 ## 审查报告
 
-报告保存路径：`.trae/skills/bemp-backend-code-review/reports/{bankCode}_YYYY-MM-DD_HHmmss_[full|incremental]_report.md`
+报告保存路径：`bemp-backend-code-review/reports/{bankCode}_YYYY-MM-DD_HHmmss_[full|incremental]_report.md`
 
 ---
 

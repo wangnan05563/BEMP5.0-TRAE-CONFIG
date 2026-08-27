@@ -1,151 +1,122 @@
 ---
 name: "bemp-automation-startserver"
-description: "BEMP项目开发环境启动Skill，支持IDE终端和外部PowerShell终端两种模式，统一服务生命周期管理，含依赖等待、健康检查、自动诊断、日志并行输出、两阶段并行启动"
-whenToUse: "需要启动BEMP项目开发环境，包括Redis、ZooKeeper、Served后端、Adapter适配器及前端开发服务器，执行测试用例、功能验证、回归测试前启动服务时，查询BEMP服务状态时调用"
+description: "BEMP项目开发环境启动Skill。配置驱动、零硬编码、WMI脱离式启动Redis/ZooKeeper/Served/Adapter/Frontend，含拓扑排序、依赖就绪等待、健康检查（404即存活）、致命日志扫描、可选Maven编译。支持多银行profile切换与机器路径local覆盖，泛化适配不同业务场景。"
+whenToUse: "需要启动BEMP项目开发环境（Redis、ZooKeeper、Served后端、Adapter适配器、前端开发服务器），执行测试用例/功能验证/回归测试前拉起服务，或查询BEMP服务状态时调用。Windows + PowerShell 5.1 环境优先使用。"
 triggers:
     - "启动/快速启动/重启/检查 环境/Redis/ZooKeeper/Served/SpringBoot/Adapter/适配器/前端/服务/所有服务"
     - "查询服务状态"
-    - "外部终端启动"
+    - "编译并启动 BEMP 服务"
+    - "切换银行 profile 启动"
 ---
 
 # BEMP 开发环境启动 Skill
 
-支持 IDE 终端和外部 PowerShell 终端两种模式启动 BEMP 项目所需服务，统一服务生命周期管理。
+配置驱动、零硬编码、WMI 脱离式启动 BEMP 全套开发服务。**所有参数（路径/端口/模块/MainClass/JVM/编译）均来自配置文件，脚本不含任何字面绝对路径或端口数字**，可泛化到不同银行与不同机器。
 
-## 服务列表
+## 核心脚本
 
-| 服务 | 类型 | 端口 | -Service 参数 | 依赖 |
-|------|------|------|---------------|------|
+`scripts/start-bemp.ps1` —— 统一启动器（推荐，配置驱动）。
+
+> 旧版 `scripts/start-bemp-env.ps1`（IDE/外部终端双模式 + 实时流式日志）仍保留作参考，但新流程以 `start-bemp.ps1` 为准。
+
+## 服务列表（默认值，可经 profile 覆盖）
+
+| 服务 | type | 默认端口 | -Service 参数 | 依赖 |
+|------|------|---------|---------------|------|
 | Redis | redis | 6379 | `redis` | 无 |
-| ZooKeeper | zookeeper | 2181 | `zookeeper` | 无 |
+| ZooKeeper | zookeeper | **21811** | `zookeeper` | 无 |
 | Served | springboot | 8010 | `served` | redis, zookeeper |
 | Adapter | springboot | 8090 | `adapter` | redis, zookeeper |
-| Frontend | frontend | 8091 | `frontend` | 无（需Node.js 14） |
+| Frontend | frontend | 8091 | `frontend` | 无（需 Node.js 14） |
 
-## 核心规则
+> ⚠️ ZK 端口为 **21811**（非默认 2181）：因 hnnxxbank 的 `application.properties` 中 `app.registry.address=127.0.0.1:21811`，注册中心端口必须一致，否则 dubbo `ConnectionLoss`。切换银行时改 profile/配置即可。
 
-1. **外部终端优先**：使用 `-ExternalTerminal` 在独立PowerShell窗口启动服务，释放IDE终端用于诊断
-2. **终端隔离**：IDE模式下每个服务独占终端，严禁复用运行中服务的终端
-3. **依赖等待**：使用 `-WaitForDeps` 让SpringBoot服务自动等待基础设施就绪
-4. **启动前检测**：启动前自动检测端口，已运行则跳过（除非 -ForceRestart）
-5. **重启即强制**："重启"等价于 `-ForceRestart`
-6. **两阶段启动**：多服务逗号分隔时，先全部启动进程，再统一并行健康检查
-7. **Node.js版本锁定**：前端通过 `_shared/env-config.json` 的 `NODE_PATH` 配置指定 Node 14 路径
-8. **前置环境检查（G-02）**：启动服务前应执行前置环境检查（`-PreCheck`），验证环境变量、可执行文件、端口可用性、数据库连通性。检查失败时输出明确修复建议，不强行启动
+## 配置文件（单一事实来源）
 
-## 启动模式
+| 文件 | 作用 | 是否含机器路径 |
+|------|------|---------------|
+| `config/config.json` | 业务参数：服务定义、type、端口、依赖、JVM、编译模块、健康检查、启动方式、profile 列表 | 否（路径用 `${local:...}` 引用） |
+| `config/local.json` | **机器相关**绝对路径（workspaceRoot/javaHome/nodePath/mavenHome/redis/zk 等），可 gitignore | 是 |
+| `config/health-check.json` | 健康检查默认值、byType、启动分组、`services` 级覆盖、诊断关键字 | 否 |
 
-### 模式A：外部PowerShell终端（推荐）
+**占位符语法**（在 `config.json` 内使用，脚本递归解析，6 层上限防环）：
+- `${local:x.y}` → 取 `local.json` 的 `x.y`（机器路径）
+- `${env:VAR}` → 取环境变量
+- `${global.x}` / `${profiles.x.y}` → 取 `config.json` 内的全局或指定 profile 值
 
-服务在独立PowerShell窗口运行，终端实时显示服务日志，IDE终端完全空闲：
+**泛化规则**：
+- 新增银行 = 在 `config.json` 的 `profiles` 下加一个 profile（模块名/端口/MainClass/JVM/编译模块），脚本零改动。
+- 新增机器 = 改 `local.json`（路径），脚本零改动。
 
-```powershell
-.\start-bemp-env.ps1 -Service redis -ExternalTerminal
-.\start-bemp-env.ps1 -Service zookeeper -ExternalTerminal
-.\start-bemp-env.ps1 -Service served -QuickStart -ExternalTerminal -WaitForDeps
-.\start-bemp-env.ps1 -Service adapter -QuickStart -ExternalTerminal -WaitForDeps
-.\start-bemp-env.ps1 -Service frontend -QuickStart -ExternalTerminal
-```
-
-或一次性启动（两阶段：先启进程，再并行等健康检查）：
-
-```powershell
-.\start-bemp-env.ps1 -Service "redis,zookeeper" -ExternalTerminal
-.\start-bemp-env.ps1 -Service "served,adapter,frontend" -QuickStart -ExternalTerminal -WaitForDeps
-```
-
-优势：
-- 不受IDE终端数量（5个）限制
-- IDE终端完全空闲，可随时执行 `-Status` 诊断
-- 自动健康检查和诊断（启动日志+应用日志双扫描）
-- 多服务并行健康检查，不叠加等待时间
-
-### 模式B：IDE终端（传统模式）
-
-服务在IDE终端前台运行，每个终端被独占：
-
-```powershell
-.\start-bemp-env.ps1 -Service redis
-.\start-bemp-env.ps1 -Service zookeeper
-.\start-bemp-env.ps1 -Service served -QuickStart
-.\start-bemp-env.ps1 -Service adapter -QuickStart
-.\start-bemp-env.ps1 -Service frontend -QuickStart
-```
-
-## 启动分组与依赖关系
+## 启动流程（固定链路）
 
 ```
-┌─ 基础设施层（并行启动，无依赖） ────────┐
-│  Redis (6379)      type: redis           │
-│  ZooKeeper (2181)  type: zookeeper       │
-└──────────────────────────────────────────┘
-         ↓ (-WaitForDeps 自动等待)
-┌─ 应用层（可并行，依赖基础设施就绪） ────┐
-│  Served (8010)     type: springboot      │
-│  Adapter (8090)    type: springboot      │
-│  Frontend (8091)   type: frontend        │
-└──────────────────────────────────────────┘
+前置确认 → (按需 -Compile) → 基础设施层(redis,zookeeper 并行) → 依赖就绪等待
+        → 应用层(served,adapter,frontend) → 健康检查(端口+HTTP+日志) → 汇总 _launch_summary_<ts>.txt
 ```
 
-分组编排可通过 `config/health-check.json` 的 `startupGroups` 配置。
+- **拓扑排序**：按 `dependencies` 生成启动顺序（DFS 后序），基础设施必先于应用层。
+- **端口跳过 / 强制重启**：端口已 `Listen` 且非 `-ForceRestart` → SKIP；`-ForceRestart` → 杀占用进程后重拉。
+- **依赖就绪等待**：应用层启动前 `Wait-Port` 等 Redis+ZK 端口就绪，避免 dubbo 注册失败。
+- **健康探活**：端口 `Listen` + HTTP 探活（**`/` 返回 404 即视为存活**，BEMP API 无根路由，`expectedStatus=[200,404]`）+ 致命日志关键字扫描（`ClassNotFoundException`/`APPLICATION FAILED TO START`/`javax.servlet.Filter` 等）。
+- **WMI 脱离式启动**：`Win32_Process.Create` 使服务进程脱离启动会话存活（规避 PS5.1 `Start-Process` 的 `Path/PATH` 环境块冲突与回合结束被杀）；用 `.cmd` wrapper 内部 `>> log 2>&1` 重定向绕开 cmd 引号坑。
 
 ## 命令模板
 
-脚本路径：`{bemp-automation-startserver}/scripts/start-bemp-env.ps1`
-
 ```powershell
-# 启动服务
-.\start-bemp-env.ps1 -Service <redis|zookeeper|served|adapter|frontend>
+# 启动全部（默认 profile = config.json 的 defaultProfile）
+.\start-bemp.ps1
 
-# 外部终端启动（推荐）
-.\start-bemp-env.ps1 -Service <name> -ExternalTerminal
+# 指定 profile（多银行切换）
+.\start-bemp.ps1 -Profile hnnxxbank
 
-# 快速启动 + 依赖等待 + 外部终端（日常推荐组合）
-.\start-bemp-env.ps1 -Service served -QuickStart -ExternalTerminal -WaitForDeps
+# 启动子集（逗号分隔，自动拓扑排序）
+.\start-bemp.ps1 -Service "redis,zookeeper"
+.\start-bemp.ps1 -Service served,adapter -ForceRestart
 
-# 逗号分隔多服务启动（两阶段并行健康检查）
-.\start-bemp-env.ps1 -Service "redis,zookeeper" -ExternalTerminal
+# 启动前先编译受影响模块（Maven -pl 精准构建，绕过离线增量判定）
+.\start-bemp.ps1 -Compile
+.\start-bemp.ps1 -Service served,adapter -Compile -ForceRestart
 
-# 查看状态
-.\start-bemp-env.ps1 -Status
+# 仅查看状态，不启动
+.\start-bemp.ps1 -Status
 
-# 强制重启
-.\start-bemp-env.ps1 -Service <name> -ForceRestart -ExternalTerminal
+# 自定义配置/本机路径文件位置
+.\start-bemp.ps1 -ConfigPath "..\config\config.json" -LocalPath "..\config\local.json"
 ```
 
 ## 参数说明
 
-| 参数 | 适用服务 | 作用 |
-|------|---------|------|
-| `-Service` | 全部 | 指定要启动的服务，支持逗号分隔多服务 |
-| `-Status` | 全部 | 查看所有服务运行状态 |
-| `-QuickStart` | springboot, frontend | 跳过编译/依赖检查，直接启动 |
-| `-ForceRestart` | 全部 | 强制停止占用端口的进程后重启 |
-| `-AutoRestart` | 全部 | 智能模式：运行中则停止后重启，未运行则正常启动 |
-| `-ExternalTerminal` | 全部 | 在独立PowerShell窗口启动，释放IDE终端 |
-| `-WaitForDeps` | springboot | 启动前自动等待依赖服务端口就绪 |
-| `-LaunchMode` | springboot | 覆盖配置的launchMode（terminal/debug） |
-| `-PreCheck` | 全部 | 启动前执行前置环境检查（G-02），验证环境变量/可执行文件/端口/数据库连通性。可单独使用：`-PreCheck -Service served` 仅检查不启动 |
+| 参数 | 作用 |
+|------|------|
+| `-Profile <name>` | 指定银行 profile（默认取 `config.json` 的 `defaultProfile`） |
+| `-Service <a,b,c>` | 仅启动指定服务（逗号分隔），自动拓扑排序；省略则启动全部 enabled 服务 |
+| `-Compile` | 启动前用 Maven 精准编译各服务的 `compileModules`（绕开离线增量静默跳过问题） |
+| `-SkipCompile` | 强制跳过编译（即使 `compile.enabled=true`） |
+| `-ForceRestart` | 端口已占用时先杀占用进程再重拉；否则跳过 |
+| `-Status` | 只读报告各服务 UP/DOWN 与 HTTP 状态码，不启动任何服务 |
+| `-ConfigPath <path>` | 覆盖 `config.json` 位置 |
+| `-LocalPath <path>` | 覆盖 `local.json` 位置 |
 
-## 配置文件
+## 关键设计原则（零硬编码 / 泛化）
 
-| 配置文件 | 用途 |
-|---------|------|
-| `config/config.json` | 服务定义、类型、端口、依赖、JVM参数等 |
-| `config/health-check.json` | 健康检查默认值、byType、startupGroups、服务级覆盖、诊断策略 |
-| `config/pre-check.json` | 前置环境检查规则（G-02）：检查项定义、严重度、超时、跳过策略 |
-| `config/compile-deploy.json` | Java单文件编译后自动部署配置 |
-| `config/compile-options.json` | 增量编译模式配置（F-03）：编译模式、模块映射、自动模式选择 |
-| `config/compile-verification.json` | 编译产物验证配置（BUG-005）：javap验证类与方法 |
-| `config/pre-compile-check.json` | 编译前置检查配置（F-01）：大括号匹配、文件完整性 |
-| `_shared/env-config.json` | 全局环境变量默认值 |
+1. **脚本不含字面路径或端口**：所有值经 `config.json` + `local.json` + 占位符解析注入。
+2. **类型分派启动器**：`Start-Wrapped` 统一 WMI detached + wrapper 重定向；按 `type` 调 redis / zookeeper / springboot / frontend / cmd。
+3. **SpringBoot 统一 `java -cp` 启动**：`java -cp WEB-INF\classes;WEB-INF\lib\* <mainClass>`（修复 servlet 后 `WEB-INF/lib` 须含 `tomcat-embed-core-*.jar`）。
+4. **Frontend**：`npm run dev` + `NODE_OPTIONS=--max_old_space_size=8192` + 注入 Node 14 到 PATH。
+5. **PS5.1 坑规避**：脚本 ASCII 注释（防 GBK 解码乱码）；`Get-Content -Encoding UTF8`（防中文 JSON 乱码）；`$ProgressPreference='SilentlyContinue'`（消 `Invoke-WebRequest` 进度噪声）；`Get-ByPath` 兼容 hashtable 与 PSCustomObject；HTTP 探活对 4xx/5xx 从 `Exception.Response.StatusCode` 取码。
+
+## 适用 / 不适用
+
+- ✅ 适用：BEMP 多银行切换、服务需脱离启动进程存活、Windows PS5.1（无可靠 `Start-Process` 环境块）、外置/内嵌 Tomcat 的 `java -cp` 启动、开发环境可复现拉起。
+- ❌ 不适用：容器化/k8s（用 Docker Compose/Deployment）、需崩溃自拉起看门狗（用 supervisor/RestartPolicy）、非 Windows 无 WMI（用 systemd/nohup）、强一致跨服务事务、超大规模编排、需 stdin 交互的服务。
 
 ## 详细文档（渐进式披露）
 
-以下文档包含详细的操作指南，按需查阅：
-
 | 文档 | 内容 | 何时查阅 |
 |------|------|---------|
-| [OPERATIONS.md](./OPERATIONS.md) | 前置环境检查、两阶段并行启动、健康检查配置、诊断流程、折叠式进度条、日志文件、Node.js版本控制、故障排查、复盘经验 | 需要了解运维细节、排查启动问题、理解健康检查配置时 |
-| [COMPILE-GUIDE.md](./COMPILE-GUIDE.md) | 编译前置检查(F-01)、编译后自动部署、增量编译模式(F-03)、编译产物验证(BUG-005)、代码修改后编译验证流程 | Java代码修改后需要编译验证时 |
-| [AGENT-GUIDE.md](./AGENT-GUIDE.md) | 推荐启动流程、IDE终端模式注意事项、常见错误及避免 | 智能体执行启动操作前 |
+| [docs/RETROSPECTIVE.md](./docs/RETROSPECTIVE.md) | **四维度复盘**：成功步骤 / 失败点 / 可抽象流程与判断逻辑 / 适用与不适用场景 | 理解设计动机、排查同类问题、做泛化改造时 |
+| [OPERATIONS.md](./OPERATIONS.md) | 前置环境检查、两阶段并行启动、健康检查配置、诊断流程、日志文件、Node.js 版本控制、故障排查 | 需要了解运维细节、排查启动问题 |
+| [COMPILE-GUIDE.md](./COMPILE-GUIDE.md) | 编译前置检查、编译后自动部署、增量编译模式、编译产物验证 | Java 代码修改后需要编译验证时 |
+| [AGENT-GUIDE.md](./AGENT-GUIDE.md) | 推荐启动流程、IDE 终端模式注意事项、常见错误及避免 | 智能体执行启动操作前 |
+| [README.md](./README.md) | 技能总览 | 首次了解技能时 |

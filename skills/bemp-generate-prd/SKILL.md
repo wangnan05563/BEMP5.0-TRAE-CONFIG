@@ -1,4 +1,4 @@
----
+﻿---
 name: "bemp-generate-prd"
 version: "1.1.0"
 description: "BEMP票据系统需求文档(PRD)智能生成。将会议纪要、需求草稿、原型图转为结构化PRD，三角色审查补全业务规则、合规细节与交互体验。Invoke when user needs to generate/complete/convert PRD for bill/exchange system requirements."
@@ -221,7 +221,7 @@ triggers: "生成PRD/需求文档/完善需求/会议纪要转需求/原型图�
 | 主文档 | `[OriginalStem]-v1.md` | 完整 PRD 文档，含原文 + 【补充】内容 |
 | 待确认清单 | `[OriginalStem]-待确认-v1.md` | 需用户确认的问题清单 |
 
-**输出路径：** 与需求源文件同级目录。若源文件在 `河南农商个性化需求/` 下，输出到该目录；若直接粘贴文本，输出到 `.trae/skills/bemp-generate-prd/output/`。
+**输出路径：** 与需求源文件同级目录。若源文件在 `河南农商个性化需求/` 下，输出到该目录；若直接粘贴文本，输出到 `bemp-generate-prd/output/`。
 
 **主文档结构（详见 `references/document-templates.md`）：**
 1. 文档信息（版本、作者、日期）

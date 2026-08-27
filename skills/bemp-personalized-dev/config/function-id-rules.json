@@ -9,7 +9,7 @@
     "levels": [
       {
         "level": "skill",
-        "path": ".trae/skills/bemp-personalized-dev/config/function-id-rules.json",
+        "path": "config/function-id-rules.json",
         "description": "技能默认配置，适用于所有银行"
       },
       {

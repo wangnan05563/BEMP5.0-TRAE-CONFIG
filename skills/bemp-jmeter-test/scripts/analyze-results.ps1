@@ -1,4 +1,4 @@
-# JMeter Result Analysis Script (PowerShell)
+﻿# JMeter Result Analysis Script (PowerShell)
 # Supports CSV and XML format, auto-detection, per-label stats, distribution histogram
 
 param(

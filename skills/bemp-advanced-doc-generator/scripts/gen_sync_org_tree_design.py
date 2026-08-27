@@ -1,4 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿# -*- coding: utf-8 -*-
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
+# -*- coding: utf-8 -*-
 """
 BEMP 河南农商银行"同步机构树数据并校验"个性化开发 - 详细设计文档生成器
 基于实际代码实现内容生成 .docx 文档，包含目录、页码、页眉页脚。
@@ -12,7 +17,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-OUTPUT_DIR = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output"
+OUTPUT_DIR = str(SKILL_ROOT / "output")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "河南农商同步机构树数据并校验-详细设计说明书-20260715.docx")
 
 # ===================== 样式工具函数 =====================
@@ -929,7 +934,7 @@ cbsFile.cbsFilePath=/data/bemp/cbs/""")
             ["2", "测试用例文档", ".md", "aotutests-devtools/sync-org-tree-validation.md"],
             ["3", "测试报告", ".docx", "河南农商同步机构树数据并校验-测试报告-20260715.docx"],
             ["4", "需求文档(PRD)", ".md", "docs/prd/机构管理优化/河南农商银行关于新一代票据系统机构管理及机构管理员功能变更的需求 (20260707).md"],
-            ["5", "Spec 文档", ".md", ".trae/specs/sync-org-tree-validation/spec.md"],
+            ["5", "Spec 文档", ".md", str(PROJECT_ROOT / "sync-org-tree-validation" / "spec.md")],
         ],
         col_widths=[1, 3, 2, 10]
     )

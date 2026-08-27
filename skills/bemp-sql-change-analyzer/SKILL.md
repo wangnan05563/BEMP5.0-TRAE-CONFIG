@@ -1,4 +1,4 @@
----
+﻿---
 name: bemp-sql-change-analyzer
 description: |
   BEMP项目SQL增量脚本变更分析技能。自动解析DDL/DML SQL脚本，提取表结构变更（新增/修改/删除字段、新增表、索引变更）和配置数据变更（字典/参数/流程/权限/产品/定时任务），按模板格式生成多Sheet Excel汇总文档。触发时机：用户要求分析/梳理/汇总SQL增量脚本的表结构变更，或要求生成上线变更影响文档。
@@ -201,7 +201,7 @@ Output:
 1. **确认输入**：确认SQL脚本目录路径，如用户未指定则使用配置默认值
 2. **执行脚本**：
    ```bash
-   python .trae/skills/bemp-sql-change-analyzer/scripts/analyze_sql_changes.py --project-root d:\code\QJ\BEMP5.0DEV
+   python scripts/analyze_sql_changes.py --project-root d:\code\QJ\BEMP5.0DEV
    ```
 3. **检查输出**：验证生成的Excel包含3个Sheet且数据行数 > 0
 4. **补充人工列**：提醒用户填写"是否影响下游"和"核心是否已升级"列

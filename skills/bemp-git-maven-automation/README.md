@@ -1,4 +1,4 @@
-# BEMP Git Maven 自动化构建技能
+﻿# BEMP Git Maven 自动化构建技能
 
 为 Trae IDE 提供工作空间 Git 仓库批量同步 + Maven 智能构建能力，支持 Banks 个性化工程增量编译。
 
@@ -52,13 +52,13 @@ BUILD_TYPE=incremental
 
 ```powershell
 # 仅同步代码
-& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode sync
+& ".\scripts/run-build.ps1" -Mode sync
 
 # 增量打包（默认）
-& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode incremental
+& ".\scripts/run-build.ps1" -Mode incremental
 
 # 全量打包
-& ".\.trae\skills\bemp-git-maven-automation\scripts\run-build.ps1" -Mode full
+& ".\scripts/run-build.ps1" -Mode full
 ```
 
 **自然语言描述**：

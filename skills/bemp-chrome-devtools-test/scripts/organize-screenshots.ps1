@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     [已废弃] 请使用 aotutests-devtools/organize-screenshots.ps1（新版）
 
@@ -9,13 +9,13 @@
     本文件保留用于兼容已有的调用。如有新任务请使用新版。
 #>
 
-Write-Warning "本脚本已废弃，请使用新版: aotutests-devtools/organize-screenshots.ps1"
-
 param(
     [string]$SourceDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..\..")) "aotutests-devtools\screenshots\_incoming"),
     [string]$ArchiveBase = "",
     [string]$Prefix = ""
 )
+
+Write-Warning "本脚本已废弃，请使用新版: aotutests-devtools/organize-screenshots.ps1"
 
 Write-Warning "执行旧版归档脚本（兼容模式）..."
 

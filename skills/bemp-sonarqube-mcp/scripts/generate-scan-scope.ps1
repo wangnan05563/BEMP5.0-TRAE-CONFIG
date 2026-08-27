@@ -1,4 +1,4 @@
-# BEMP SonarQube 扫描范围生成脚本
+﻿# BEMP SonarQube 扫描范围生成脚本
 # 用途：根据功能模块关键词，生成需要扫描的文件清单
 # 使用：.\generate-scan-scope.ps1 -Keyword "credit" -ModulePath "banks/${ENV:BANK_PROJECT_DIR}"
 

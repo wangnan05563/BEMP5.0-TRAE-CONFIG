@@ -129,7 +129,7 @@
     "MYSQL_USERNAME": "root",
     "MYSQL_PASSWORD": "",
     "MYSQL_DSN": "root@127.0.0.1:3306/bemp_hnnx",
-    "BEMP_TEST_PASSWORD": "",
+    "BEMP_TEST_PASSWORD": "888888",
     "BEMP_TEST_USER_DEFAULT": "wangnan02",
     "BEMP_TEST_USER_ADMIN": "mllzs01",
     "BEMP_TEST_USER_BRANCH_ADMIN": "wangnan01",

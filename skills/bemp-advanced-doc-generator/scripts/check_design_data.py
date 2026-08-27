@@ -1,8 +1,13 @@
+﻿from pathlib import Path
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = SKILL_ROOT.parent.parent.parent
+
+from pathlib import Path
 """检查 design_data.json 中的 businessSubmodules 和 chapters 结构"""
 import json
 import os
 
-data_path = r"d:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-advanced-doc-generator\output\_design-data-20260617.json"
+data_path = str(SKILL_ROOT / "output" / "_design-data-20260617.json")
 if not os.path.exists(data_path):
     print(f"文件不存在: {data_path}")
     exit(1)

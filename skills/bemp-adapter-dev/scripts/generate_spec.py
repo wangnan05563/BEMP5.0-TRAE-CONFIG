@@ -4,7 +4,7 @@ BEMP 适配器 MessageConverter Spec 文档生成脚本
 支持多银行报文风格（XML/JSON+基类/JSON直通）
 
 用法:
-    python generate_spec.py --pice PICE070701 --bank hnnxbank --module ecif --ext-code EBBS.0402006.01 --output .trae/specs/<change-id>
+    python generate_spec.py --pice PICE070701 --bank hnnxbank --module ecif --ext-code EBBS.0402006.01 --output specs/<change-id>
 
 环境变量:
     BEMP_ROOT  - 项目根目录（优先级低于 --root 参数）

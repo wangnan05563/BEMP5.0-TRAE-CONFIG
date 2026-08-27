@@ -1,4 +1,4 @@
-# BEMP SonarQube Server Detection and Startup Script
+﻿# BEMP SonarQube Server Detection and Startup Script
 # Port detection logic referenced from bemp-automation-startserver
 
 param(

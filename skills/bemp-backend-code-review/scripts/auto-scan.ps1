@@ -1,10 +1,9 @@
-# ========== BEMP 后端代码阻塞级问题自动扫描 v3.1.0 ==========
+﻿# ========== BEMP 后端代码阻塞级问题自动扫描 v3.1.0 ==========
 # 银行参数从 config/bank-config.json 读取，切换银行时修改 currentBank 即可
 
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
 $ConfigSearchPaths = @(
-    (Join-Path $PSScriptRoot "..\config\bank-config.json"),
-    (Join-Path $ProjectRoot ".trae\skills\bemp-backend-code-review\config\bank-config.json")
+    (Join-Path $PSScriptRoot "..\config\bank-config.json")
 )
 $ConfigPath = ""
 foreach ($p in $ConfigSearchPaths) {

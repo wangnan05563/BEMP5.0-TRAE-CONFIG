@@ -1,4 +1,4 @@
-# BEMP河南农信(hnnxbank)个性化小需求项目 - 测试报告
+﻿# BEMP河南农信(hnnxbank)个性化小需求项目 - 测试报告
 
 | 项目信息 | |
 |---------|---------|
@@ -416,12 +416,12 @@
 
 | 文件路径 | 用例数量 | 模块 |
 |---------|---------|------|
-| .trae/skills/bemp-test-common/test-cases/bm/org-mgmt-batch-import.md | 17 | 机构管理和管理员管理功能优化 |
-| .trae/skills/bemp-test-common/test-cases/bm/batch-copy-role.md | 14 | 批量复制角色 |
-| .trae/skills/bemp-test-common/test-cases/bm/enterprise-cust-opt.md | 6 | 企业客户管理优化 |
-| .trae/skills/bemp-test-common/test-cases/bm/sub-branch-opt.md | 23 | 分理处机构业务办理优化 |
-| .trae/skills/bemp-test-common/test-cases/bm/credit/credit-management.md | 122 | 承兑行额度管理 |
-| .trae/skills/bemp-test-common/test-cases/be/market/repo-accounting-logic.md | 27 | 修改票据回购记账逻辑 |
+| bemp-test-common/test-cases/bm/org-mgmt-batch-import.md | 17 | 机构管理和管理员管理功能优化 |
+| bemp-test-common/test-cases/bm/batch-copy-role.md | 14 | 批量复制角色 |
+| bemp-test-common/test-cases/bm/enterprise-cust-opt.md | 6 | 企业客户管理优化 |
+| bemp-test-common/test-cases/bm/sub-branch-opt.md | 23 | 分理处机构业务办理优化 |
+| bemp-test-common/test-cases/bm/credit/credit-management.md | 122 | 承兑行额度管理 |
+| bemp-test-common/test-cases/be/market/repo-accounting-logic.md | 27 | 修改票据回购记账逻辑 |
 
 ## 附录B：修改文件索引
 

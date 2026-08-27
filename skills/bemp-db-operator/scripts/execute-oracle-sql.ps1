@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Oracle SQL*Plus 执行封装脚本
 .DESCRIPTION
@@ -27,7 +27,7 @@
 .EXAMPLE
     .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "10.20.18.177" -ServiceName "orcl" -Username "bemp_hnnx" -Password "123456" -Schema "BEMP_HNNX"
 .EXAMPLE
-    .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "D:\code\QJ\BEMP5.0DEV\.trae\skills\bemp-db-operator\config\db-config.json"
+    .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "..\config\db-config.json"
 #>
 
 param(

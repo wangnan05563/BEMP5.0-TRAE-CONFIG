@@ -1,4 +1,4 @@
-$projectKey = 'bemp-ext-hnnxbank-org-management'
+﻿$projectKey = 'bemp-ext-hnnxbank-org-management'
 $uri = "http://localhost:9000/api/issues/search?componentKeys=$projectKey&ps=500"
 
 try {
@@ -15,7 +15,7 @@ try {
         Write-Output "[$($g.Name)] -> $($g.Count)"
     }
 
-    $data | ConvertTo-Json -Depth 10 | Out-File -FilePath 'd:\code\QJ\BEMP5.0DEV\.trae\specs\add-ecif-cust-merge-pice070701\sonar-raw.json' -Encoding utf8
+    $data | ConvertTo-Json -Depth 10 | Out-File -FilePath (Join-Path $PSScriptRoot '..\..\..\specs\add-ecif-cust-merge-pice070701\sonar-raw.json') -Encoding utf8
     Write-Output "----"
     Write-Output "Saved raw to sonar-raw.json"
 } catch {
