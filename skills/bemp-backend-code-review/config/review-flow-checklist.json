@@ -1,0 +1,92 @@
+{
+    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性四类检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL'四类典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
+    "version": "1.0.0",
+    "lastUpdate": "2026-08-27",
+
+    "inheritance": {
+        "levels": ["skill", "project", "bank"],
+        "rule": "技能级默认(defaults) → 项目级覆盖(projectOverrides) → 银行级覆盖(bankOverrides.{bankCode})，后者覆盖前者同名检查项(id匹配)",
+        "overrideFields": ["severity", "checkLogic", "correctHandling", "wrongHandling", "enabled", "parameters"],
+        "note": "覆盖时按id匹配，仅覆盖指定字段，未覆盖字段继承上一级默认值；parameters 整节覆盖(需同时给出本项用到的全部参数)"
+    },
+
+    "parameters": {
+        "note": "检查项可引用的全局参数（业务阈值集中管理，避免散落硬编码）",
+        "maxInClauseSize": 1000,
+        "description": "in() 查询元素上限；批处理检查以此判断'未分片的超大批量'风险",
+        "batchCollectionPattern": "先收集缺失项集合 → 分片一次 in 查询 → 内存按 key 回填(仅空缺项)；分片大小取 maxInClauseSize"
+    },
+
+    "defaults": {
+        "checks": [
+            {
+                "id": "RF-001",
+                "name": "环境真实性验证",
+                "severity": "阻塞",
+                "correctHandling": "评审/编辑前对 sourceDir、dtoSourceDir 及将修改的关键文件执行 RunCommand 级存在性核验(Test-Path/Get-ChildItem/等价命令)；子智能体报告的'文件存在/缺失'结论必须由主会话复核后才可采信。",
+                "wrongHandling": "仅凭 Glob/Grep/Read 索引命中即认定文件存在并直接行动；或盲信子智能体的缺失性报告跳过本应完成的改动——索引缓存与真实磁盘可能不一致(submodule未检出、目录误建、路径一字之差)。典型案例：改动写入不存在的 banks/ext-hhnxbank 假目录(真实为 ext-hnnxbank)。",
+                "checkLogic": "1.sourceDir/dtoSourceDir 是否经 RunCommand 核验存在 2.本次将读写的每个关键文件是否核验过 3.子智能体交付结论中的存在性断言是否被主会话二次验证 4.同一目录是否出现多个近似名称候选(如 hnnx/hnnnx)需人工裁决。",
+                "enabled": true,
+                "example": {
+                    "wrong": "Glob 找到 HnnxAntiMoneyValidateUtil.java → 直接 Edit（该路径实际来自陈旧索引，磁盘上不存在 ext-hhnxbank 目录）",
+                    "correct": "RunCommand: Test-Path 'banks/ext-hnnxbank/hnnxbank-biz-as/pom.xml' 为 True 后才读写；对子智能体报称'不存在'的 service 文件再跑 Get-ChildItem 复核后确认存在并继续改造"
+                }
+            },
+            {
+                "id": "RF-002",
+                "name": "循环内逐条查库补全(N+1)",
+                "severity": "严重",
+                "correctHandling": "批量收集缺失项 → 按 parameters.maxInClauseSize 分片一次 in 查询 → 内存构建索引(key 用 票号+子票区间 或业务唯一键) → 仅回填空缺项；单条场景作为批量 size==1 的退化形态委托同一实现，避免逻辑双份漂移。",
+                "wrongHandling": "在 for 循环内逐条调用带 DB 查询的补全方法(singletonList 单查)，N 张票据产生 N 次 DB 往返；或批量与单条两套实现并存导致回填口径漂移。",
+                "checkLogic": "1.for/while 循环体内是否直接调用含 select 的补全方法 2.单条查询参数是否为 singletonList/Collections.singletonList 包裹的即时构造 3.批量查询结果回填是否保持'仅回填空缺项'(不覆盖调用方已有值)口径 4.key 构造的类型转换是否有 null-safe 处理(空白字符串视同无值而非抛 NumberFormatException)。",
+                "enabled": true,
+                "example": {
+                    "wrong": "for (BillCheckItem b : bills) { b.setName(dao.queryByName(Collections.singletonList(q)).get(0)...); }",
+                    "correct": "// 收集缺失 → 分片 in 查询 → 内存 Map 回填\nList<Query> qs = collectMissing(bills);\nfor (List<Query> batch : partition(qs, maxInClauseSize)) { fillFromHitMap(bills, toHitMap(dao.query(batch))); }"
+                }
+            },
+            {
+                "id": "RF-003",
+                "name": "注释实现漂移",
+                "severity": "严重",
+                "correctHandling": "javadoc/行注释中引用的字段名、表名、取数路径、常量值必须与当前代码实现一致；口径变更时同步更新相关注释，历史版本差异以修订记录沉淀而非残留在活代码注释中。",
+                "wrongHandling": "口径多轮迭代后(如承兑行取数从 ACPT_SOC_CODE 直取改为 acpt_bank_no 经 trans_brch_bank_no 反查机构表)，旧注释仍描述废弃口径——后人据注释恢复旧实现或误解取数链路；'注释即凭证'的合规场景凭证失真。",
+                "checkLogic": "1.抽取注释中出现的实体字段名/表名/常量字面量/方法签名 2.逐一与代码实际引用比对 3.特别审查经历过多轮口径变更的方法(命名含 FromDb/Fill/Merge 类补全语义) 4.同一方法多处注释(类头/方法头/行内)口径是否互相一致。",
+                "enabled": true,
+                "example": {
+                    "wrong": "/** 承兑行信用代码由校验工具按票号查票据主档 ACPT_SOC_CODE 补全 */ —— 实现代码已改为 acpt_bank_no → tm_cpes_branch.trans_brch_bank_no 反查",
+                    "correct": "/** 承兑行信用代码缺省时按 acptBankNo 经 tm_cpes_branch.trans_brch_bank_no(ST01) 反查 soc_code 补全（口径 v3.4.4 变更） */"
+                }
+            },
+            {
+                "id": "RF-004",
+                "name": "SQL 引用真实性",
+                "severity": "阻塞",
+                "correctHandling": "mapper XML 中新增的表名、列名、JOIN 条件必须有存量 XML/实体/DDL 佐证后才可写入；写入前先 grep 存量 mapper 确认同类用法，写完后回读全文自查语法(join/on/in/union all 结构完整性)。",
+                "wrongHandling": "凭记忆拼接 SQL：JOIN 条件写出不存在的函数(如 rebill_id_check)、三段 UNION 只写一段、表名列名按惯例猜测而未经佐证——运行期才发现 SQLSyntaxErrorException。",
+                "checkLogic": "1.select 涉及的每张表名是否在存量 mapper 中出现过 2.join 的列名是否可在对应实体字段(getter驼峰→下划线)核对 3.union all 各段结构是否完整(select 列对齐/where 各自带 in 条件/foreach 参数一致) 4.resultType 载体类的字段与别名映射是否成立 5.in() 元素数量受 parameters.maxInClauseSize 约束是否在调用方落实分片。",
+                "enabled": true,
+                "example": {
+                    "wrong": "inner join TE_REBUY_BATCH b on rebill_id_check(a.BATCH_ID, b.ID)   ← 臆造函数\n+ 仅写 rebuy 一段 union（缺 sale/redisc 两段同构查询）",
+                    "correct": "先 grep 存量：from TE_REDISC_SALE_BATCH a,TE_REDISC_SALE_BILL b where a.ID=b.BATCH_ID → 确认关联列为 ID=BATCH_ID；三段 UNION ALL 各自完整带 in foreach"
+                }
+            }
+        ]
+    },
+
+    "projectOverrides": {
+        "note": "项目级覆盖配置，按id匹配defaults中的检查项，仅覆盖指定字段。默认为空，需要时在此添加。"
+    },
+
+    "bankOverrides": {
+        "note": "银行级覆盖配置，按bankCode分组，每组内按id匹配覆盖。默认为空，新银行需要特殊流程规则时在此添加。",
+        "example": {
+            "RF-002": {
+                "parameters": {
+                    "maxInClauseSize": 500,
+                    "note": "示例银行 Oracle 环境调低 in() 上限"
+                }
+            }
+        }
+    }
+}

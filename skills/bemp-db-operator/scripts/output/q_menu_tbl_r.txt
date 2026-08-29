@@ -1,0 +1,9 @@
+﻿=== Compile JDBC executor ===
+=== Execute SQL (testOnly=False) ===
+[ROWS] SELECT TABLE_NAME FROM USER_TABLES WHERE TABLE_NAME LIKE '%M
+TABLE_NAME
+  total=0+
+[ROWS] SELECT TABLE_NAME FROM ALL_TABLES WHERE TABLE_NAME LIKE '%ME
+TABLE_NAME
+  total=0+
+DONE success[2] fail[0]

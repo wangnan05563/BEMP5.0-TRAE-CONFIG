@@ -25,7 +25,8 @@ from login_manager import LoginManager, LoginError
 from common import (
     PROJECT_ROOT, get_output_root, take_screenshot, update_index,
     get_screenshot_dir, get_report_dir, wait_for_network_idle,
-    safe_click, dismiss_all_modals, get_default_host, get_default_port
+    safe_click, dismiss_all_modals, get_default_host, get_default_port,
+    get_default_bank_url_prefix
 )
 
 STATUS_MAP = {
@@ -48,7 +49,14 @@ EXPORT_TEMPLATE_NAME = "acceptBankCreditGrantReCheckExport"
 
 def run_accept_bank_credit_test(config, bank_config, bank_id):
     """执行承兑行额度管理自动化测试，所有银行特定信息从配置读取"""
-    url_prefix = bank_config.get('url_prefix', '/hnnxbank/')
+    # url_prefix 由测试配置的 banks 段提供；缺省走单一入口（环境变量/_shared），不硬编码具体银行
+    url_prefix = bank_config.get('url_prefix') or get_default_bank_url_prefix()
+    # 双 None 时显式失败：None 流入后续 `url_prefix in request.url` 会抛 TypeError，错误信息不指向真实原因
+    if not url_prefix:
+        raise SystemExit(
+            "[ERROR] 无法确定银行 url_prefix：请配置 banks.{bank}.url_prefix、"
+            "设置环境变量 BANK_URL_PREFIX 或在 _shared/env-config.json environmentDefaults 配置"
+        )
     host = config.get('host', get_default_host())
     frontend_port = config.get('services', {}).get('frontend', {}).get('port', get_default_port('BEMP_FRONTEND_PORT', 8091))
     backend_port = config.get('services', {}).get('backend_api', {}).get('port', get_default_port('BEMP_BACKEND_PORT', 8010))

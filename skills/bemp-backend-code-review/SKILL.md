@@ -1,4 +1,4 @@
-﻿---
+---
 name: "bemp-backend-code-review"
 description: "审查BEMP银行个性化后端代码是否符合项目规范，含代码结构、注解、参数传递、安全性、性能等检查。支持多银行配置切换。"
 whenToUse: "需要审查BEMP工程各银行个性化后端代码是否符合项目规范"
@@ -12,6 +12,20 @@ checklists:
   specConsistency: "config/spec-consistency-checklist.json"
   degradation: "config/degradation-checklist.json"
 ---
+
+## 配置加载铁律（取参前必读）
+
+本技能 config 下 JSON 中的 `${ENV:VAR}` 是占位符，直接读文件得到的是字面量，不是参数值。取参数值必须先解析：
+
+```powershell
+# 解析整个配置 / 取单键（以解析结果为参数值，禁止拿 ${ENV:XXX} 字面量当值用）
+python  "..\_shared\load_config.py"  --file "<本技能配置路径>"  --get <a.b.c>
+node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.b.c>
+```
+
+- 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
+- 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
+- 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
 
 # BEMP后端代码审查
 
@@ -49,15 +63,18 @@ checklists:
 
 | 文件 | 用途 | 检查项数 |
 |------|------|---------|
-| `config/bank-config.json` | 银行参数（目录/包名/前缀等） | - |
+| `config/bank-config.json` | 银行参数（目录/包名/前缀等）+ 执行环境参数（`environment.shellInterpreter` 等） | - |
 | `config/spec-consistency-checklist.json` | Spec一致性检查（代码实现vs spec要求） | 6项 |
 | `config/degradation-checklist.json` | 降级处理模式检查（异常/空值/服务降级） | 6项 |
+| `config/review-flow-checklist.json` | 流程与真实性检查（环境真实性/N+1批处理/注释漂移/SQL引用真实性） | 4项 |
+
+> **执行命令参数化**：审查相关 shell 命令的解释器统一从 `bank-config.json` 的 `environment.shellInterpreter`（默认 `powershell`，可被 `banks.{bankCode}.environment` 覆盖）读取，文档中以 `{shellInterpreter}` 占位——禁止在任何环境硬编码 `pwsh` 或 `powershell` 字面量。
 
 ## 审查模式
 
 | 模式 | 扫描范围 | 触发 |
 |------|---------|------|
-| 快速自检 | 仅阻塞级 | `pwsh scripts/auto-scan.ps1` |
+| 快速自检 | 仅阻塞级 | `{shellInterpreter} {shellArguments} scripts/auto-scan.ps1` |
 | 增量审查 | `git diff --name-only` 变更文件 | 粘贴变更文件列表 |
 | 全量审查 | `{sourceDir}/**/*.java` | 默认 |
 
@@ -382,9 +399,22 @@ public class HnnxXxxReq implements Serializable {
 
 ---
 
+## 24. 流程与真实性检查 🆕v3.3
+
+> 源自反洗钱(中互金)需求开发复盘：修复真实案例——改动误写入一字之差的假目录(`ext-hhnxbank` vs `ext-hnnxbank`)、循环内逐条查库补全 N+1、口径六轮迭代后注释仍描述废弃取数路径、SQL 臆造出不存在函数。四项检查配置化于 `config/review-flow-checklist.json`，逐项检查方式见 [阶段4.5](#阶段45流程与真实性检查--v33)。
+
+| ID | 检查项 | 典型缺陷信号 |
+|----|--------|-------------|
+| RF-001 | 环境真实性验证(阻塞) | 子智能体称"文件缺失/存在"但未复核；仅凭 Glob/Grep 命中即编辑 |
+| RF-002 | 循环内逐条查库补全(严重) | for 循环体内 singletonList 单查；批量/单条双实现并存 |
+| RF-003 | 注释实现漂移(严重) | javadoc 引用的字段名/表名/常量在代码中已无对应引用路径 |
+| RF-004 | SQL 引用真实性(阻塞) | 新增 mapper 含存量中从未出现的表名/函数；UNION 段结构不对称 |
+
+---
+
 ## 快速自检
 
-执行 `pwsh scripts/auto-scan.ps1` 自动检查以下阻塞项：
+执行 `{shellInterpreter} {shellArguments} scripts/auto-scan.ps1` 自动检查以下阻塞项：
 
 1. Service/Atom（extends产品实现类）是否缺少 `@CustomizedBean`
 2. Controller 是否误加 `@CustomizedBean`
@@ -408,6 +438,8 @@ public class HnnxXxxReq implements Serializable {
 ## 审查流程
 
 ### 阶段1：前置检查
+- **环境真实性验证 🆕v3.3（RF-001，阻塞）**：对 `{sourceDir}`、`{dtoSourceDir}` 及本次将读写的每个关键文件执行 RunCommand 级存在性核验（`Test-Path`/`Get-ChildItem` 或等价命令）后方可行动——Glob/Grep/Read 的索引命中不作为存在依据；子智能体交付的"文件存在/缺失"结论必须由主会话复核后才可采信；同一目录出现多个近似名称候选时人工裁决
+- **Spec口径冲突预检 🆕v3.3**：读取 spec 前先汇总会话内同一业务要素的不同表述（字段名/表名/码值/版本），生成口径冲突清单；未消歧项以 AskUserQuestion 定案后再比对实现，禁止静默选边——冲突记录写入报告"口径变更记录"段
 - 文件位置 `{sourceDir}` ✓ → 包结构 `{packagePath}.{module}.{layer}` ✓ → 类名前缀 `{classPrefix}` ✓
 - `@CustomizedBean`(Service/Atom extends产品实现类) / `@RestController`(Controller) / `@CloudReference`(依赖注入)
 - 路径以 `{urlPrefixes}` 开头 ✓ → DTO 实现 `Serializable` ✓ → DTO 前缀 `{dtoPrefix}` ✓
@@ -444,6 +476,19 @@ public class HnnxXxxReq implements Serializable {
 - 逐项检查：文件不存在✓ 文件为空✓ 数据为空✓ 网络异常✓ 服务不可用✓ 配置缺失✓
 - 每个不符合项记录：检查ID、降级场景、当前处理方式、正确处理方式、修复建议
 
+### 阶段4.5：流程与真实性检查 🆕v3.3
+
+**检查项配置见 `config/review-flow-checklist.json`**，数值阈值（如 `maxInClauseSize`）集中在该文件 `parameters` 节管理：
+
+| ID | 检查项 | 严重度 | 核心逻辑 |
+|----|--------|--------|---------|
+| RF-001 | 环境真实性验证 | 阻塞 | sourceDir/关键文件 RunCommand 级核验；子智能体存在性结论须主会话复核 |
+| RF-002 | 循环内逐条查库补全(N+1) | 严重 | 批量收集缺失项 → 按 `maxInClauseSize` 分片一次 in 查询 → 内存回填（仅空缺项）；批量与单条共用同一实现 |
+| RF-003 | 注释实现漂移 | 严重 | 注释中的字段名/表名/取数路径与代码实现逐一比对；口径变更必须同步注释 |
+| RF-004 | SQL 引用真实性 | 阻塞 | 新增 SQL 的表名/列名/JOIN 条件须存量 mapper 或实体佐证；写后回读自查 UNION/join/in 结构完整性 |
+
+每个不符合项记录：检查ID、问题场景、当前写法 vs 正确写法、修复建议（示例已内置 JSON `example` 节）。
+
 ### 阶段5：Maven编译 → 阶段6：输出报告（模板见 `templates/report-template.md`）
 
 ---
@@ -452,8 +497,8 @@ public class HnnxXxxReq implements Serializable {
 
 严重度分级（详细规则参见前述各章节）：
 
-- 🟠**阻塞**（必须修复）：结构违规（文件位置/包路径/类前缀/`@CustomizedBean`/`@RestController`/URL前缀/DTO前缀）、Maven编译失败、安全漏洞（硬编码密钥/SQL拼接）、公共API返回null、GET引发状态变更、Spec要求抛异常但代码return（SC-002/SC-006）、关键文件不存在静默return（DG-001）、核心服务不可用静默跳过（DG-005）、`@Resource`注入、mybatis非String类型写`!= ''`、循环依赖、BigDecimal/Integer/Long用`==`比较、查询/更新条件缺空判断、领域包引入框架注解
-- 🟠**严重**（强烈建议）：服务调用缺必需字段、异常处理不完善（吞异常/丢堆栈）、空指针风险、日志含敏感信息/不规范、N+1查询/循环调远程、事务边界不合理、资源未关闭、`@Async`同类自调用、`Collectors.toMap`缺merge函数、Redis锁缺失/在事务内、Spec日志级别/任务隔离/流程顺序不一致（SC-001/SC-003/SC-005）、降级处理不当（DG-002~DG-004/DG-006）、分页查询缺唯一排序、大事务未拆分
+- 🟠**阻塞**（必须修复）：结构违规（文件位置/包路径/类前缀/`@CustomizedBean`/`@RestController`/URL前缀/DTO前缀）、Maven编译失败、安全漏洞（硬编码密钥/SQL拼接）、公共API返回null、GET引发状态变更、Spec要求抛异常但代码return（SC-002/SC-006）、关键文件不存在静默return（DG-001）、核心服务不可用静默跳过（DG-005）、环境真实性未验证即行动（RF-001）、SQL表名列名join条件无佐证或臆造函数（RF-004）、`@Resource`注入、mybatis非String类型写`!= ''`、循环依赖、BigDecimal/Integer/Long用`==`比较、查询/更新条件缺空判断、领域包引入框架注解
+- 🟠**严重**（强烈建议）：服务调用缺必需字段、异常处理不完善（吞异常/丢堆栈）、空指针风险、日志含敏感信息/不规范、N+1查询/循环调远程、循环内逐条查库补全且未批量化（RF-002）、注释实现漂移致凭证失真（RF-003）、事务边界不合理、资源未关闭、`@Async`同类自调用、`Collectors.toMap`缺merge函数、Redis锁缺失/在事务内、Spec日志级别/任务隔离/流程顺序不一致（SC-001/SC-003/SC-005）、降级处理不当（DG-002~DG-004/DG-006）、分页查询缺唯一排序、大事务未拆分
 - 🟡**警告**（建议）：格式化/变量命名/注释规范、DTO未实现Serializable、equals/hashCode未配对、toString含敏感字段、遍历中修改集合、并行Stream滥用、URL使用动词、API无版本路径、`Executor`未配置关闭、日终任务默认10条未改分页、硬编码产品代码/机构号、时间格式hh误用为HH、`@CloudComponent`继承实现类、Dto属性用Date类型、`StringUtils`用commons-lang、Spec错误文案不一致（SC-004）
 - 🟢**提示**（可选）：轻微问题，不影响功能，建议优化。如：注释拼写/措辞、局部变量命名风格细节、过度防御性判空、可读性改进（提取局部变量/简化条件表达式）、未使用的private方法、import顺序、魔法值未抽取常量但语义清晰、日志级别info/debug选择失当但不影响排障
 
@@ -490,10 +535,10 @@ public class HnnxXxxReq implements Serializable {
 
 ## 附录B：银行配置切换指南
 
-**切换步骤**：
-1. 编辑 `config/bank-config.json`
-2. 改 `currentBank` 为目标 bankCode
-3. 若无该银行配置，参照 `example` 模板在 `banks` 中添加
+**切换步骤**（单一入口在 `_shared/env-config.json`）：
+1. 编辑 `_shared/env-config.json` 的 `environmentDefaults.BANK_CODE` 为目标 bankCode（同时同步该文件其它 `BANK_*` 参数）；本技能 `config/bank-config.json` 的 `currentBank` 为 `${ENV:BANK_CODE}` 占位符，无需修改
+2. 若 `config/bank-config.json` 的 `banks` 字典中无该银行参数，参照 `example` 模板添加
+3. 会话级临时切换可用 `$env:BANK_CODE = 'xxx'`（优先级高于 _shared 默认值）
 
 > 配置参数说明见开头 [银行配置](#银行配置) 表，关键字段：`bankName`/`bankCode`/`bankCodeShort`/`sourceDir`/`packagePath`/`classPrefix`/`dtoPrefix`/`urlPrefixes`/`dtoSourceDir`/`enableAutoScan`
 

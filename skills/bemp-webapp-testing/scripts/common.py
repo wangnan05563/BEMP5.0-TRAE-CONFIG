@@ -194,7 +194,9 @@ def resolve_env_placeholder(value, defaults=None):
 
 def resolve_config_placeholders(config, defaults=None):
     if isinstance(config, dict):
-        return {k: resolve_config_placeholders(v, defaults) for k, v in config.items()}
+        # key 也可能承载占位符（如 banks 的 key 写作 ${ENV:BANK_CODE}），
+        # 只解析 value 会导致 banks[active_bank] 取空——W9 加固实证缺陷
+        return {resolve_env_placeholder(k, defaults): resolve_config_placeholders(v, defaults) for k, v in config.items()}
     elif isinstance(config, list):
         return [resolve_config_placeholders(item, defaults) for item in config]
     elif isinstance(config, str):
@@ -207,11 +209,29 @@ def get_default_host():
 
 
 def get_default_bank_code():
-    """从 _shared/env-config.json 读取默认银行编码，失败时回退到 'hnnxbank'"""
+    """银行单一入口：环境变量 BANK_CODE > _shared/env-config.json environmentDefaults。
+    两者均不可得时返回 None（而非回退到具体银行名），由调用方决定是否报错——
+    硬编码回退值会在切换银行后产生静默错误配置。
+    注意：不读顶层 bank.code——该字段是 ${ENV:BANK_CODE} 嵌套占位符，
+    json.load 后为字面量，拿来当银行名会产生 '${ENV:BANK_CODE}' 这样的非法值。"""
+    val = os.environ.get('BANK_CODE', '')
+    if val:
+        return val
     env_config = _load_full_env_config()
-    if env_config and 'bank' in env_config and 'code' in env_config['bank']:
-        return env_config['bank']['code']
-    return 'hnnxbank'
+    if env_config:
+        defaults = env_config.get('environmentDefaults') or {}
+        if defaults.get('BANK_CODE'):
+            return defaults['BANK_CODE']
+    return None
+
+
+def get_default_bank_url_prefix():
+    """银行 URL 前缀单一入口：环境变量 BANK_URL_PREFIX > _shared environmentDefaults，读不到返回 None"""
+    val = os.environ.get('BANK_URL_PREFIX', '')
+    if val:
+        return val
+    defaults = _load_env_defaults()
+    return defaults.get('BANK_URL_PREFIX')
 
 
 def get_default_port(env_var, default_val):

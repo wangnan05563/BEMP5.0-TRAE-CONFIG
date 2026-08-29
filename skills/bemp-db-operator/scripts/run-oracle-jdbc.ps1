@@ -77,20 +77,28 @@ if ($Port -eq 0) { $Port = 1521 }
 if ([string]::IsNullOrEmpty($ServiceName)) { $ServiceName = "orcl" }
 
 # ---------------------------------------------------------------------------
-# 4. locate ojdbc8 jar
+# 4. locate ojdbc8 jar (paths derived from _shared env-config, no hardcode)
 # ---------------------------------------------------------------------------
+$wsRoot = Resolve-EnvPlaceholder '${ENV:BEMP_WORKSPACE_ROOT}'
+$bankProjDir = Resolve-EnvPlaceholder '${ENV:BANK_PROJECT_DIR}'
+$bankModulePrefix = Resolve-EnvPlaceholder '${ENV:BANK_MODULE_PREFIX}'
 $ojdbcCandidates = @(
-    "D:\code\QJ\BEMP5.0DEV\banks\ext-hnnxbank\hnnxbank-served-deploy\target\bemp-served\WEB-INF\lib\ojdbc8-12.2.0.1.jar",
-    "D:\code\QJ\BEMP5.0DEV\banks\ext-hnnxbank\hnnxbank-adapter-deploy\target\bemp-adapter\WEB-INF\lib\ojdbc8-12.2.0.1.jar",
-    "D:\code\QJ\BEMP5.0DEV\banks\ext-hnnxbank\hnnxbank-cpesmq-deploy\target\bemp-cpesmq\WEB-INF\lib\ojdbc8-12.2.0.1.jar"
+    (Join-Path $wsRoot "banks\$bankProjDir\${bankModulePrefix}served-deploy\target\bemp-served\WEB-INF\lib\ojdbc8-12.2.0.1.jar"),
+    (Join-Path $wsRoot "banks\$bankProjDir\${bankModulePrefix}adapter-deploy\target\bemp-adapter\WEB-INF\lib\ojdbc8-12.2.0.1.jar"),
+    (Join-Path $wsRoot "banks\$bankProjDir\${bankModulePrefix}cpesmq-deploy\target\bemp-cpesmq\WEB-INF\lib\ojdbc8-12.2.0.1.jar")
 )
 $ojdbc = $ojdbcCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ([string]::IsNullOrEmpty($ojdbc)) {
-    Write-Host "[ERROR] ojdbc8 jar not found" -ForegroundColor Red
+    Write-Host "[ERROR] ojdbc8 jar not found. Tried:" -ForegroundColor Red
+    $ojdbcCandidates | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
     exit 1
 }
 
-$javaHome = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { "D:\code\Java\jdk1.8.0_341" }
+# JAVA_HOME priority: environment variable > _shared environmentDefaults (single entry)
+$javaHome = $env:JAVA_HOME
+if ([string]::IsNullOrEmpty($javaHome)) {
+    $javaHome = Resolve-EnvPlaceholder '${ENV:JAVA_HOME}'
+}
 $classDir = $PSScriptRoot
 $templatePath = Join-Path $classDir "OracleExec.template.java"
 

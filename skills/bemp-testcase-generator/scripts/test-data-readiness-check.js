@@ -15,9 +15,23 @@
 const fs = require('fs');
 const path = require('path');
 
+// 银行单一入口：环境变量 BANK_CODE > _shared/env-config.json environmentDefaults
+function resolveDefaultBankId() {
+    const envPath = path.resolve(__dirname, '..', '..', '_shared', 'env-config.json');
+    try {
+        const shared = JSON.parse(fs.readFileSync(envPath, 'utf8'));
+        return (shared.environmentDefaults && shared.environmentDefaults.BANK_CODE) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
 class TestDataReadinessChecker {
     constructor(options = {}) {
-        this.bankId = options.bankId || 'hnnxbank';
+        this.bankId = options.bankId || process.env.BANK_CODE || resolveDefaultBankId();
+        if (!this.bankId) {
+            throw new Error('无法确定当前银行：请通过 options.bankId、环境变量 BANK_CODE 或 _shared/env-config.json 指定');
+        }
         this.module = options.module || '';
         this.configPath = options.configPath || path.join(__dirname, '..', 'config', 'test_config.json');
         this.casesPath = options.casesPath || '';
@@ -170,7 +184,8 @@ if (require.main === module) {
     const bankIdx = args.indexOf('--bank');
     const moduleIdx = args.indexOf('--module');
     const checker = new TestDataReadinessChecker({
-        bankId: bankIdx >= 0 ? args[bankIdx + 1] : 'hnnxbank',
+        // 缺省走单一入口（constructor 内已处理 env > _shared 链），不硬编码银行名
+        bankId: bankIdx >= 0 ? args[bankIdx + 1] : undefined,
         module: moduleIdx >= 0 ? args[moduleIdx + 1] : '',
     });
     checker.check().then((result) => {

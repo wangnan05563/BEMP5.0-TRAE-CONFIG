@@ -1,9 +1,15 @@
 {
-    "description": "BEMP后端代码审查 - 银行个性化配置参数。切换银行时修改此文件即可，无需修改SKILL.md。",
-    "version": "2.7.0",
-    "lastUpdate": "2026-05-21",
+    "description": "BEMP后端代码审查 - 银行个性化配置参数。当前银行不在此硬编码：currentBank 支持 ${ENV:BANK_CODE} 占位符（解析链：环境变量 > _shared/env-config.json environmentDefaults.BANK_CODE，单一入口在 _shared）。banks 为各银行参数字典（数据，新增银行在此登记）。",
+    "version": "2.9.0",
+    "lastUpdate": "2026-08-29",
 
-    "currentBank": "hnnxbank",
+    "currentBank": "${ENV:BANK_CODE}",
+
+    "environment": {
+        "note": "执行环境参数（可被 banks.{bankCode}.environment 同名键覆盖），审查脚本与流程命令统一从本节读取，禁止在文档/脚本中硬编码解释器名称",
+        "shellInterpreter": "powershell",
+        "shellArguments": ["-ExecutionPolicy", "Bypass", "-File"]
+    },
 
     "banks": {
         "hnnxbank": {
@@ -47,12 +53,12 @@
         "设置 dtoPrefix（如 EbXxxReq / EbXxxResp）",
         "设置 urlPrefixes（至少两个：短前缀和完整前缀）",
         "设置 dtoSourceDir（DTO文件存放的源码目录）",
-        "修改 currentBank 为新的 bankCode",
+        "在 _shared/env-config.json environmentDefaults 中将 BANK_CODE 及 BANK_* 系列参数切换为新银行值（单一入口）",
         "在SKILL.md中，将 bankCodeShort 的代码示例从 hnnx 改为实际值（如项目中有特殊约定）"
     ],
 
     "notes": [
-        "修改 currentBank 即可切换当前活跃的银行配置",
+        "currentBank 为 ${ENV:BANK_CODE} 占位符，解析链：环境变量 BANK_CODE > _shared/env-config.json environmentDefaults.BANK_CODE；切换银行只改 _shared，本文件无需动",
         "SKILL.md 中使用 {bankName} {bankCode} {classPrefix} 等占位符，运行审查时替换为实际值",
         "自动扫描脚本会读取此配置文件的 activeConfig",
         "新增银行时在 banks 中添加配置即可，审查规则无需修改"

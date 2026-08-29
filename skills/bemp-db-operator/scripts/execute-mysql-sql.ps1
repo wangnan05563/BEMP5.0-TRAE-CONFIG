@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     MySQL CLI 执行封装脚本
 .DESCRIPTION
@@ -25,7 +25,7 @@
 .PARAMETER ConfigFile
     db-config.json路径，自动读取连接参数（DbHost/Port/Database/Username/Password）
 .EXAMPLE
-    .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "127.0.0.1" -Database "bemp_hnnx" -Username "root" -Password "123456"
+    .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "127.0.0.1" -Database "<database>" -Username "<user>" -Password "<pwd>"   # 连接真值优先走 db-config.json/_shared，勿在命令行写死
 .EXAMPLE
     .\execute-mysql-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "..\config\db-config.json"
 #>

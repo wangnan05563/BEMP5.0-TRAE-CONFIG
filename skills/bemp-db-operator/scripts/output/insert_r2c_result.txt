@@ -1,0 +1,7 @@
+﻿=== Compile JDBC executor ===
+=== Execute SQL (testOnly=False) ===
+[ROWS] SELECT OBJ_ID, CUST_NM, LIST_CHRC, VLD_ST, DATA_SRC FROM HNN
+OBJ_ID | CUST_NM | LIST_CHRC | VLD_ST | DATA_SRC
+OBJ20260825000002 | ���ϻ��������տͻ�R2���޹�˾ | 2 | 1 | 18
+  total=1+
+DONE success[3] fail[0]

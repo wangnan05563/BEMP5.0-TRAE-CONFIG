@@ -1,4 +1,4 @@
-﻿# BEMP 前端代码审查技能
+# BEMP 前端代码审查技能
 
 审查BEMP工程各银行个性化模块的前端代码。**自动化脚本一键扫描 + 人工逐项审查**双模式，支持 12 家银行配置切换。
 
@@ -21,10 +21,11 @@ bemp-frontend-code-review/
 ├── scripts/
 │   ├── review-config.json                # 银行配置：默认银行、12家可用银行、路径模板
 │   ├── config-loader.js                  # 共享配置加载模块（--bank=xxx CLI覆盖）
-│   ├── check-all.js                      # 一键全量检查：串行执行3个脚本 + 汇总结果
+│   ├── check-all.js                      # 一键全量检查：串行执行4个脚本 + 汇总结果
 │   ├── check-hardcode.js                 # 硬编码中文检测：按钮/表单/弹窗标题的中文
 │   ├── check-routes.js                   # 路由注册完整性：Vue文件↔路由映射 双向校验
 │   ├── check-i18n.js                     # $t() 国际化覆盖：多语言同步 + 逐文件覆盖率
+│   ├── check-dialog-component.js         # 弹窗组件规约（W8沉淀）：弹窗内datagrid v-if/autoLoad、scoped样式命中
 │   ├── package.json                      # npm 配置（check-all/check-hardcode/check-routes/check-i18n）
 │   └── examples/
 │       └── async-patterns.js             # 异步处理代码模板（async/then正确示例 + 错误示例）

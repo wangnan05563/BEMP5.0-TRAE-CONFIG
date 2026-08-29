@@ -194,7 +194,7 @@ def generate_checklist(args, mappings, bank_info):
 def main():
     parser = argparse.ArgumentParser(description='BEMP 适配器 MessageConverter Spec 文档生成')
     parser.add_argument('--pice', required=True, help='PICE代码，如 PICE070701')
-    parser.add_argument('--bank', required=True, help='银行标识，如 hnnxbank')
+    parser.add_argument('--bank', required=True, help='银行标识，取 _shared/env-config.json 的 BANK_CODE（如 hnnxbank），勿硬编码在脚本中')
     parser.add_argument('--module', required=True, help='业务模块，如 ecif/credit/ebank')
     parser.add_argument('--ext-code', required=True, help='外部服务码，如 EBBS.0402006.01')
     parser.add_argument('--output', required=True, help='输出目录')

@@ -1,0 +1,2 @@
+﻿-- find batch tables and in-flight bills
+SELECT TABLE_NAME FROM USER_TABLES WHERE TABLE_NAME LIKE 'TE_%' ORDER BY TABLE_NAME;

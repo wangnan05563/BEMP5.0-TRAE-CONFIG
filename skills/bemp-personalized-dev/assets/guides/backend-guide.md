@@ -705,6 +705,51 @@ public class XxbankBookServiceImpl extends DemoBookServiceImpl {
 2. 使用 `@Table`、`@Column` 注解
 3. 避免 N+1 查询
 
+### 11.4 批量数据补全模式（防 N+1 与口径漂移）
+
+> 参数来源：[config.json](../../config/config.json) `developmentWorkflow.batchFillPattern`（含 `maxInClauseSize` 等阈值，禁止在代码中硬编码）。触发场景见同文件 `dataAvailabilityResearch.triggers`。
+
+**【强制】** 循环体内禁止直接调用含 DB 查询的补全方法。批量补全统一按以下范式实现：
+
+```java
+// 第一步：一次收集缺失项（名称/代码任一为空即需补全）
+List<QueryDto> queries = new ArrayList<>();
+for (BizCheckItem item : items) {
+    if (item == null || StringUtils.isBlank(item.getBillNo())) {
+        continue;
+    }
+    if (isMissingAny(item)) {                       // 缺失判定集中一处
+        queries.add(buildQuery(item));              // 数值转换用 null-safe 工具方法，
+    }                                               // 空白串视同无值，非数字格式交由统一 catch 降级
+}
+if (queries.isEmpty()) {
+    return;
+}
+
+// 第二步：按 maxInClauseSize 分片，一次 in 查询合并结果
+Map<String, ResultDto> hitIndex = new HashMap<>();
+for (List<QueryDto> batch : partition(queries, MAX_IN_CLAUSE_SIZE)) {
+    for (ResultDto hit : dao.queryByKeys(batch)) {
+        hitIndex.putIfAbsent(keyOf(hit), hit);      // 同 key 多行仅取第一条
+    }
+}
+
+// 第三步：内存回填——【强制】仅覆盖空缺项，不覆盖调用方已提供的值
+for (BizCheckItem item : items) {
+    ResultDto hit = findHit(hitIndex, item);
+    if (hit != null && StringUtils.isBlank(item.getFieldA())) {
+        item.setFieldA(hit.getFieldA());
+    }
+}
+```
+
+**防漂移纪律：**
+
+1. **单条入口委托批量实现**：保留单条签名时内部必须委托批量方法（size==1），禁止另写一份单条逻辑——双份实现是口径漂移的主因
+2. **仅回填空缺项**：调用方已提供的值优先于查库结果；所有补全方法共用该语义并在 javadoc 显式声明
+3. **降级不阻断**：查询异常/DAO 未注入时记录 warn 后保持原值返回，不得让补全异常中断主流程
+4. **注释同步义务**：取数路径、字段名、表名口径变更时，方法 javadoc 必须与实现同步更新（注释即凭证）；历史口径差异通过版本修订记录溯源而非残留在活代码注释
+
 ---
 
 ## 12. 缓存规约

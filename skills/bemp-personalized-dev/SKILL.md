@@ -1,4 +1,4 @@
-﻿---
+---
 name: "bemp-personalized-dev"
 description: "BEMP 票据系统个性化开发技能。该技能专门用于在指定目录下进行增量功能开发与修改，严格遵循项目编码规范与目录结构要求"
 whenToUse: "用户需要开发/实现新功能、修复功能 bug、进行代码审查、遵循开发规范时调用"
@@ -7,6 +7,20 @@ triggers:
    - "修复/修改 bug、问题、缺陷"
    - "个性化 编码/开发/实现功能/需求"
 ---
+
+## 配置加载铁律（取参前必读）
+
+本技能 config 下 JSON 中的 `${ENV:VAR}` 是占位符，直接读文件得到的是字面量，不是参数值。取参数值必须先解析：
+
+```powershell
+# 解析整个配置 / 取单键（以解析结果为参数值，禁止拿 ${ENV:XXX} 字面量当值用）
+python  "..\_shared\load_config.py"  --file "<本技能配置路径>"  --get <a.b.c>
+node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.b.c>
+```
+
+- 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
+- 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
+- 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
 
 # 个性化开发 Skill
 
@@ -147,6 +161,13 @@ bemp-personalized-dev/
      - 组件间交互场景：需同时查询多个相关组件的文档，确保组合使用的兼容性
    - 禁止凭记忆或猜测使用组件 API，必须以官方文档为准
 
+6. **环境真实性核验【强制】**
+   - **配置文件**：[config.json](config/config.json) 的 `developmentWorkflow.preDevVerification`
+   - 对 `{BANK_PROJECT_DIR}` 源码目录及本次将读写的每个关键文件执行存在性核验命令（按 `existenceCommandTemplate` 生成），**Glob/Grep/Read 的索引命中不作为存在依据**
+   - 每次编辑落盘后按 `postEditRereadRequired` 回读验证内容真实写入磁盘
+   - 同一路径出现多个近似名称候选时按 `nearNameManualArbitration` 要求人工裁决，禁止自动猜测（真实案例：一字之差的兄弟目录导致全部改动写入假路径）
+   - 接受子智能体/他人交付结论前，必须复核其"文件存在/缺失"断言的真实性证据
+
 ### 第二阶段：开发实施
 
 **前置检查：@CloudFunction 功能号冲突检查【强制】**
@@ -163,6 +184,18 @@ bemp-personalized-dev/
   - 仅凭记忆认为功能号未占用 → 必须查询数据库验证
   - 复制其他银行代码未改功能号 → 必须检查功能号唯一性
   - 功能号格式不规范 → 按 `generationRules.format` 规则生成
+
+**前置检查：取数前置调研【条件强制】**
+- **配置文件**：[config.json](config/config.json) 的 `developmentWorkflow.dataAvailabilityResearch`
+- **触发条件**：需求命中 `triggers` 中任一关键词（如"新增取数/查库补全/新增DAO查询"）时
+- **调研要求**：编写代码前产出"来源表 × 字段名 × 数据分布"核对清单，并逐项佐证：
+  1. 表/字段真实性：经存量 mapper XML 或实体类 grep 佐证，禁止按命名惯例猜测
+  2. 数据可用性：候选表/查询条件是否有真实数据支撑（空表即触发 `emptyTablePolicy: blockAndEscalate`——阻止方案落地并升级业务方确认替代口径，禁止静默选边强行实现）
+  3. 批量模式：批量补全场景必须遵守 `batchFillPattern`（循环体内禁止逐条查库；收集缺失项→按 `maxInClauseSize` 分片一次 in 查询→内存回填且仅覆盖空缺项；单条入口委托批量实现）
+- **常见遗漏**：
+  - 凭 DTO 命名惯例断言字段存在 → 必须打开实体/接口源码核实 getter
+  - 候选来源表为空表仍坚持该方案 → 会引入"查空即跳过"的静默失效
+  - 循环内 singletonList 单查补全 → 违反批量化模式（N+1）
 
 1. **后端开发 (必须在 banks/ext-{BANK_CODE} 目录下)**
    - **指南参考**: 先参考 [后端开发指南](assets/guides/backend-guide.md) 中的代码模板章节
@@ -335,3 +368,22 @@ bemp-personalized-dev/
   - 仅检查了部分检查项 → 必须执行配置中的所有检查项
   - 错误文案要求精确匹配 → 应按 `tolerance: keyword` 进行关键词匹配
   - critical 级别问题未修复就继续 → 必须修复后才能进入后续流程
+
+### 第四阶段：变更闭环与交付证据【强制】
+
+**配置文件**：[config.json](config/config.json) 的 `developmentWorkflow.changeClosureSteps` 与 `developmentWorkflow.deliveryEvidence`
+
+1. **变更闭环节奏（allowSkip=false）**：口径变更（业务方澄清/需求更正产生的结论）必须按 `steps` 顺序完整执行——
+   - `docSync`：同步 PRD 小版本号与正文口径（遗留旧口径在历史修订记录中溯源），并更新项目记忆
+   - `codeChange`：代码按新口径实现；注释中引用的字段名/表名/取数路径必须与实现同步更新（注释即凭证，防凭证失真）
+   - `compile`：编译验证通过
+   - `unitTest`：单测全绿；模块无单测能力时按 `unitTestFallback` 降级并在交付声明标注缺口
+2. **常量集中管理**：本次新增的产品码/错误码/状态码等业务常量统一入 `{constantManagement.classNamePattern}` 常量类，`forbidInlineBusinessConstants` 禁止在逻辑或 SQL 中散落字面量
+3. **交付证据化（deliveryEvidence.required）**：交付报告的断言必须附证据原文——
+   - `existenceProof`：关键文件的核验命令输出（如 Test-Path 结果）
+   - `compileOutput`：编译结果（BUILD SUCCESS / 错误明细）
+   - `testSummary`：单测统计行（Tests run/Failures/Errors）或 fallback 说明
+4. **常见遗漏**：
+   - 口径已定案但只改代码不回写文档 → 文档-实现漂移，下轮评审必返工
+   - 交付称"已完成"但未附编译/测试证据 → 视为未闭环
+   - 新增业务字面量散落在 if 判断或 mapper 里 → 违反 constantManagement

@@ -1868,6 +1868,60 @@ if (!this.copyRoleForm.targetBrchNo) {
 
 **【强制】** 路径映射在 `frontend/src/api/bank/{BANK_CODE}Index.js` 中维护
 
+### 12.8 弹窗组件开发规约（W8 实战沉淀）
+
+> 来源：W8 端到端调试中 HDatagrid 弹窗初始数据不同步、scoped 样式无法命中子组件两类根因。
+> 核心原则：**最小侵入**——禁止修改共享框架组件（HUI 库、产品化公共组件），所有修复收敛在个性化文件内。
+
+#### 12.8.1 弹窗内嵌 Datagrid 数据同步（J-HD1）
+
+**【强制】** 弹窗（h-msg-box）内嵌 `h-datagrid` 且数据由父级异步传入时，必须同时满足以下两项：
+
+1. `v-if="visible"` —— 让弹窗打开时重建 datagrid 实例，避免复用上一次关闭前的旧实例；
+2. `:autoLoad="false"` —— 禁用组件自动加载，数据统一由父级赋值后经 watcher 同步。
+
+**为什么**：HUI Datagrid 的 `gridData` watcher 不带 `immediate`，且 `autoLoad` 为空的分支中 `setGridData` 调用被注释；弹窗复用实例时首帧必然渲染空数据，等待异步赋值也无法触发已错过的同步时机。
+
+```vue
+<!-- 正确 -->
+<h-msg-box v-model="visible">
+  <h-datagrid v-if="visible" :columns="columns" :data="detailRows" :autoLoad="false" ref="detailGrid"/>
+</h-msg-box>
+
+<!-- 错误：无 v-if 复用旧实例 + 默认 autoLoad 抢跑加载 -->
+<h-msg-box v-model="visible">
+  <h-datagrid :columns="columns" :data="detailRows"/>
+</h-msg-box>
+```
+
+**失败表现**：弹窗首次打开明细表空白、二次打开显示上一次残留数据。
+
+#### 12.8.2 scoped 样式命中子组件 render 元素（J-SC1）
+
+**【强制】** 需要样式化的目标元素位于子组件 `render` 函数内部（如 datagrid 列 render 生成的按钮/单元格）时，禁止写在 `<style scoped>` 块内——scoped 的属性选择器（`data-v-xxx`）只会命中本组件模板节点，必然落空。
+
+**正确做法**：将此类规则移入独立的**非 scoped** `<style>` 块，并用唯一类名前缀隔离防止全局污染：
+
+```vue
+<style scoped>
+/* 仅本组件模板节点样式 */
+</style>
+
+<style>
+/* 非 scoped：命中子组件 render 元素；前缀隔离防止污染其他页面 */
+.custom-page-xxx .datagrid-cell-highlight {
+  color: rgb(212, 56, 13);
+}
+</style>
+```
+
+**失败表现**：样式规则语法正确却完全无效果，DevTools 中元素无对应 CSS 规则。
+
+#### 12.8.3 适用边界
+
+- ✅ Vue2 + H-UI 弹窗类组件开发、弹窗内数据明细展示、单元格级样式定制
+- ❌ Vue3（`$children`/实例遍历语义变化）、常驻页面级 Datagrid（无弹窗复用问题）、CSS Modules 方案（类名已隔离，可直接 scoped）
+
 ---
 
 ## 附录 A. 恒生电子前端编码规范补充

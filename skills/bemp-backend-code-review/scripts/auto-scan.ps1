@@ -1,4 +1,4 @@
-﻿# ========== BEMP 后端代码阻塞级问题自动扫描 v3.1.0 ==========
+# ========== BEMP 后端代码阻塞级问题自动扫描 v3.1.0 ==========
 # 银行参数从 config/bank-config.json 读取，切换银行时修改 currentBank 即可
 
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
@@ -14,6 +14,26 @@ if ([string]::IsNullOrEmpty($ConfigPath)) {
     exit 1
 }
 $CONFIG = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+
+# currentBank 支持 ${ENV:BANK_CODE} 占位符：解析链 = 环境变量 > _shared/env-config.json environmentDefaults（单一入口在 _shared）
+$RawCurrentBank = $CONFIG.currentBank
+if ($RawCurrentBank -match '\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}') {
+    $envVarName = $Matches[1]
+    $resolved = [Environment]::GetEnvironmentVariable($envVarName)
+    if ([string]::IsNullOrEmpty($resolved)) {
+        $SharedEnvConfig = Join-Path $PSScriptRoot "..\..\_shared\env-config.json"
+        if (Test-Path $SharedEnvConfig) {
+            $Shared = Get-Content $SharedEnvConfig -Raw -Encoding UTF8 | ConvertFrom-Json
+            $defaultProp = $Shared.environmentDefaults.PSObject.Properties | Where-Object { $_.Name -eq $envVarName } | Select-Object -First 1
+            if ($defaultProp) { $resolved = $defaultProp.Value }
+        }
+    }
+    if ([string]::IsNullOrEmpty($resolved)) {
+        Write-Host "[ERROR] 无法解析 ${envVarName}：环境变量未设置且 _shared/env-config.json environmentDefaults 无默认值" -ForegroundColor Red
+        exit 1
+    }
+    $CONFIG.currentBank = $resolved
+}
 $BANK = $CONFIG.banks.($CONFIG.currentBank)
 $SOURCE_DIR = if ([System.IO.Path]::IsPathRooted($BANK.sourceDir)) { $BANK.sourceDir } else { Join-Path $ProjectRoot $BANK.sourceDir }
 $DTO_SRC_DIR = if ([System.IO.Path]::IsPathRooted($BANK.dtoSourceDir)) { $BANK.dtoSourceDir } else { Join-Path $ProjectRoot $BANK.dtoSourceDir }

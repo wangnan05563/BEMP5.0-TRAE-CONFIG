@@ -5,6 +5,20 @@ whenToUse: "当用户需要CI/CD流水线配置、Jenkinsfile创建、自动化�
 triggers: "Jenkins/CD/CI/DevOps/自动化/部署/构建/触发"
 ---
 
+## 配置加载铁律（取参前必读）
+
+本技能 config 下 JSON 中的 `${ENV:VAR}` 是占位符，直接读文件得到的是字面量，不是参数值。取参数值必须先解析：
+
+```powershell
+# 解析整个配置 / 取单键（以解析结果为参数值，禁止拿 ${ENV:XXX} 字面量当值用）
+python  "..\_shared\load_config.py"  --file "<本技能配置路径>"  --get <a.b.c>
+node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.b.c>
+```
+
+- 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
+- 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
+- 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
+
 # BEMP Jenkins Pipeline Deployer
 
 ## 核心特性

@@ -33,7 +33,8 @@
     "_comment_aotutests": "aotutests_devtools 系列字段为 project_memory 约束的推荐输出路径，${requirement_name} 由智能体在调用时替换为实际需求名；root_dir 系列字段保留用于 bemp-test-common 共享资源层"
   },
   "banks": {
-    "active_bank": "hnnxbank",
+    "active_bank": "${ENV:BANK_CODE}",
+    "_comment_active_bank": "当前银行选择器走单一入口：${ENV:BANK_CODE} 占位符解析链 = 环境变量 > _shared/env-config.json environmentDefaults，切换银行勿在此写死银行名；banks 下各银行为数据字典",
     "hnnxbank": {
       "name": "河南农信",
       "url_prefix": "/hnnxbank/"

@@ -1,0 +1,11 @@
+﻿=== Compile JDBC executor ===
+=== Execute SQL (testOnly=False) ===
+[ROWS] SELECT COUNT(*) REMAIN FROM HNNX_M_CUST_SPECIAL_INFO WHERE O
+REMAIN
+0
+  total=1+
+[ROWS] SELECT COUNT(*) TOTAL FROM HNNX_M_CUST_SPECIAL_INFO
+TOTAL
+4
+  total=1+
+DONE success[4] fail[0]

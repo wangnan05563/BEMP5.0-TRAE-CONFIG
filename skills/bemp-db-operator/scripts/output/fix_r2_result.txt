@@ -1,0 +1,7 @@
+﻿=== Compile JDBC executor ===
+=== Execute SQL (testOnly=False) ===
+[ROWS] SELECT OBJ_ID, LIST_CHRC, CTRL_START_TIME FROM HNNX_M_CUST_S
+OBJ_ID | LIST_CHRC | CTRL_START_TIME
+OBJ20260825000002 | 2 | 20250101
+  total=1+
+DONE success[3] fail[0]

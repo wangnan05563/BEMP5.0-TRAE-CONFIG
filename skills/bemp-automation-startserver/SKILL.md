@@ -9,15 +9,29 @@ triggers:
     - "切换银行 profile 启动"
 ---
 
+## 配置加载铁律（取参前必读）
+
+本技能 config 下 JSON 中的 `${ENV:VAR}` 是占位符，直接读文件得到的是字面量，不是参数值。取参数值必须先解析：
+
+```powershell
+# 解析整个配置 / 取单键（以解析结果为参数值，禁止拿 ${ENV:XXX} 字面量当值用）
+python  "..\_shared\load_config.py"  --file "<本技能配置路径>"  --get <a.b.c>
+node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.b.c>
+```
+
+- 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
+- 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
+- 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
+
 # BEMP 开发环境启动 Skill
 
 配置驱动、零硬编码、WMI 脱离式启动 BEMP 全套开发服务。**所有参数（路径/端口/模块/MainClass/JVM/编译）均来自配置文件，脚本不含任何字面绝对路径或端口数字**，可泛化到不同银行与不同机器。
 
-## 核心脚本
+## 核心脚本（双通道）
 
-`scripts/start-bemp.ps1` —— 统一启动器（推荐，配置驱动）。
+`scripts/start-bemp-env.ps1` —— **工作区门禁指定通道**（流程规则强制：PreCheck 通过后必须走本脚本）。三层占位符解析（`${local:}` → `${ENV:}` → 字面量）+ profile 合并注入，IDE/外部终端双模式 + 实时流式日志。启动一个服务占一个终端。
 
-> 旧版 `scripts/start-bemp-env.ps1`（IDE/外部终端双模式 + 实时流式日志）仍保留作参考，但新流程以 `start-bemp.ps1` 为准。
+`scripts/start-bemp.ps1` —— WMI 脱离式批量启动器（拓扑排序 + 依赖等待 + 健康检查一条龙），适合一次性拉起全套服务，无需逐个开终端。
 
 ## 服务列表（默认值，可经 profile 覆盖）
 
@@ -29,24 +43,26 @@ triggers:
 | Adapter | springboot | 8090 | `adapter` | redis, zookeeper |
 | Frontend | frontend | 8091 | `frontend` | 无（需 Node.js 14） |
 
-> ⚠️ ZK 端口为 **21811**（非默认 2181）：因 hnnxxbank 的 `application.properties` 中 `app.registry.address=127.0.0.1:21811`，注册中心端口必须一致，否则 dubbo `ConnectionLoss`。切换银行时改 profile/配置即可。
+> ⚠️ ZK 端口为 **21811**（非默认 2181）：因当前银行工程（ext-hnnxbank）的 `application.properties` 中 `app.registry.address=127.0.0.1:21811`，注册中心端口必须一致，否则 dubbo `ConnectionLoss`。端口在 config.json services 段按服务配置，切换银行时同步核对目标银行注册中心端口。
 
 ## 配置文件（单一事实来源）
 
 | 文件 | 作用 | 是否含机器路径 |
 |------|------|---------------|
-| `config/config.json` | 业务参数：服务定义、type、端口、依赖、JVM、编译模块、健康检查、启动方式、profile 列表 | 否（路径用 `${local:...}` 引用） |
-| `config/local.json` | **机器相关**绝对路径（workspaceRoot/javaHome/nodePath/mavenHome/redis/zk 等），可 gitignore | 是 |
+| `config/config.json` | 业务参数：服务定义、type、端口、依赖、JVM、编译模块、健康检查、启动方式、profile 列表 | 否（路径用 `${ENV:...}` 引用 _shared） |
+| `_shared/env-config.json` | **全技能库唯一配置入口**：机器路径（BEMP_WORKSPACE_ROOT/JAVA_HOME/NODE_PATH/MAVEN_*/REDIS_*/ZOOKEEPER_EXE）+ 银行参数（BANK_CODE/BANK_*）+ 数据库连接（ORACLE_*/MYSQL_*）。换电脑/银行/配置只改此文件 | 是（集中承载） |
 | `config/health-check.json` | 健康检查默认值、byType、启动分组、`services` 级覆盖、诊断关键字 | 否 |
 
-**占位符语法**（在 `config.json` 内使用，脚本递归解析，6 层上限防环）：
-- `${local:x.y}` → 取 `local.json` 的 `x.y`（机器路径）
-- `${env:VAR}` → 取环境变量
-- `${global.x}` / `${profiles.x.y}` → 取 `config.json` 内的全局或指定 profile 值
+**占位符语法**（两套方言，按脚本通道区分）：
+- `start-bemp-env.ps1`：`${ENV:VAR}` → 环境变量，fallback `_shared/env-config.json` 的 `environmentDefaults`（唯一入口）。解析失败**硬失败**，防止未解析串流入 `Test-Path` 产生误导诊断。递归解析时跳过 `_doc` 文档字段。
+- `start-bemp.ps1`：`${local:x.y}`、`${env:VAR}`、`${global.x}`、`${profiles.x.y}`，6 层上限防环。
+
+**profile 合并机制**（`start-bemp-env.ps1`）：启动时按 `-ProfileName` > `defaultProfile`（=${ENV:BANK_CODE}）激活 profile，`Merge-ProfileIntoServices` 将 `profiles.<active>` 下各服务节点的业务参数（modulePath/mainClass/jvmOptions/startCommand 等）注入 `services` 同名服务（别名映射 module→modulePath、warDir→warFile、nodeMemoryLimitMb→nodeMemoryLimit）。**services 只保留编排属性（type/port/dependencies/healthCheck）与银行无关参数，不得内联业务参数**——profile 是业务参数唯一来源，防止换银行时被残留值覆盖。
 
 **泛化规则**：
-- 新增银行 = 在 `config.json` 的 `profiles` 下加一个 profile（模块名/端口/MainClass/JVM/编译模块），脚本零改动。
-- 新增机器 = 改 `local.json`（路径），脚本零改动。
+- 新增银行 = 在 `config.json` 的 `profiles` 下加一个 profile（key=BANK_CODE；模块名用 `${ENV:BANK_MODULE_PREFIX}` 派生），脚本零改动。
+- 新增机器/换电脑 = 只改 `_shared/env-config.json` 的 `environmentDefaults`（机器路径），脚本零改动。
+- 新增服务 = `services` 加编排条目 +（如属银行业务）profile 加对应节点，脚本零改动。
 
 ## 启动流程（固定链路）
 
@@ -64,11 +80,21 @@ triggers:
 ## 命令模板
 
 ```powershell
+# ── 通道一：start-bemp-env.ps1（门禁指定，外部终端实时日志） ──
+.\start-bemp-env.ps1 -Status                          # 只查状态
+.\start-bemp-env.ps1 -Service redis -ExternalTerminal # 外部终端启动单服务
+.\start-bemp-env.ps1 -Service served -ExternalTerminal -WaitForDeps
+.\start-bemp-env.ps1 -Service served -ForceRestart    # IDE 终端前台重启
+.\start-bemp-env.ps1 -Service served -Follow -Tail 100  # 跟随已运行服务日志
+.\start-bemp-env.ps1 -Service redis -ExternalTerminal   # profile 缺省取 defaultProfile=${ENV:BANK_CODE}（_shared/env-config.json environmentDefaults），单点切换
+.\start-bemp-env.ps1 -ProfileName ${BANK_CODE} -Service redis -ExternalTerminal   # 显式指定银行（值为 BANK_CODE，如 hnnxbank）
+
+# ── 通道二：start-bemp.ps1（WMI 批量，一条命令拉全套） ──
 # 启动全部（默认 profile = config.json 的 defaultProfile）
 .\start-bemp.ps1
 
-# 指定 profile（多银行切换）
-.\start-bemp.ps1 -Profile hnnxxbank
+# 指定 profile（多银行切换；值为 BANK_CODE，缺省同 defaultProfile=${ENV:BANK_CODE}）
+.\start-bemp.ps1 -Profile ${BANK_CODE}
 
 # 启动子集（逗号分隔，自动拓扑排序）
 .\start-bemp.ps1 -Service "redis,zookeeper"
@@ -81,26 +107,25 @@ triggers:
 # 仅查看状态，不启动
 .\start-bemp.ps1 -Status
 
-# 自定义配置/本机路径文件位置
-.\start-bemp.ps1 -ConfigPath "..\config\config.json" -LocalPath "..\config\local.json"
+# 自定义配置文件位置
+.\start-bemp.ps1 -ConfigPath "..\config\config.json"
 ```
 
 ## 参数说明
 
 | 参数 | 作用 |
 |------|------|
-| `-Profile <name>` | 指定银行 profile（默认取 `config.json` 的 `defaultProfile`） |
+| `-Profile <name>` | 指定银行 profile（默认取 `config.json` 的 `defaultProfile`=${ENV:BANK_CODE}） |
 | `-Service <a,b,c>` | 仅启动指定服务（逗号分隔），自动拓扑排序；省略则启动全部 enabled 服务 |
 | `-Compile` | 启动前用 Maven 精准编译各服务的 `compileModules`（绕开离线增量静默跳过问题） |
 | `-SkipCompile` | 强制跳过编译（即使 `compile.enabled=true`） |
 | `-ForceRestart` | 端口已占用时先杀占用进程再重拉；否则跳过 |
 | `-Status` | 只读报告各服务 UP/DOWN 与 HTTP 状态码，不启动任何服务 |
 | `-ConfigPath <path>` | 覆盖 `config.json` 位置 |
-| `-LocalPath <path>` | 覆盖 `local.json` 位置 |
 
 ## 关键设计原则（零硬编码 / 泛化）
 
-1. **脚本不含字面路径或端口**：所有值经 `config.json` + `local.json` + 占位符解析注入。
+1. **脚本不含字面路径或端口**：所有值经 `config.json` + `${ENV:...}` 占位符解析注入，真值统一在 `_shared/env-config.json`。
 2. **类型分派启动器**：`Start-Wrapped` 统一 WMI detached + wrapper 重定向；按 `type` 调 redis / zookeeper / springboot / frontend / cmd。
 3. **SpringBoot 统一 `java -cp` 启动**：`java -cp WEB-INF\classes;WEB-INF\lib\* <mainClass>`（修复 servlet 后 `WEB-INF/lib` 须含 `tomcat-embed-core-*.jar`）。
 4. **Frontend**：`npm run dev` + `NODE_OPTIONS=--max_old_space_size=8192` + 注入 Node 14 到 PATH。

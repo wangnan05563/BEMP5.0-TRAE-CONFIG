@@ -6,6 +6,40 @@
 
 ---
 
+## 维度〇：双配置体系并存根因分析（为何曾有 globalPaths 与硬编码）
+
+> 复盘问题：`config.json` 的 global 配置明明可在 `_shared/env-config.json` 中获取，为何历史上还要添加 `globalPaths` 节点和大量硬编码值？
+
+### 根因（三层）
+
+1. **占位符方言不匹配（直接原因）**
+   `_shared/Resolve-EnvConfig.ps1` 的解析器只认 `${ENV:VAR}` 语法；而 config.json 需要引用「本机绝对路径」（redis exe、ZK home、JDK 等），当时没有 local 机器层机制。
+   占位符写进去也无法解析 → 只能把真实路径**内联**成字面量 → config.json 出现"占位符示例 + 硬编码真实值"的第二事实来源。`globalPaths` 就是这一妥协的产物。
+
+2. **职责未分层（结构原因）**
+   服务编排属性（type/port/dependencies/healthCheck，与银行无关）和银行业务参数（modulePath/mainClass/JVM/redis 路径）混在 `services` 一层。
+   换银行或换机器都要改 config.json 多处内联值，无法做到"脚本零改动"。
+
+3. **派生值被内联固化（漂移原因）**
+   `banksProjectPath` 等可由 `workspaceRoot + banksDirName` 派生，却被固化为独立节点；派生关系一旦变化（如 banks 目录改名）就产生配置漂移。
+
+### 修复决策（v2 优化，2026-08-29 落地）
+
+| 决策 | 内容 | 消除的问题 |
+|------|------|-----------|
+| 新增机器层 | `config/local.json`（可 gitignore）+ `${local:dotted.path}` 占位符，本脚本补齐解析，`_shared` 只认 `${ENV:}` 的边界不动 | 根因 1：机器路径有了正确归宿，无需内联 |
+| 废除 globalPaths | 路径统一由 `config.global`（`${local:}` 引用）+ `Get-GlobalPaths` 派生：`mavenHome`→`bin\mvn.cmd`，`nodePath` 归一化为 exe | 根因 3：派生关系收拢到代码单点 |
+| services 减负 | 只保留编排属性与银行无关参数；银行业务参数进 `profiles`，启动时 `Merge-ProfileIntoServices` 按名注入（含别名映射 module→modulePath、warDir→warFile、nodeMemoryLimitMb→nodeMemoryLimit） | 根因 2：换银行 = 改 profile，services 无残留值可覆盖 |
+
+**解析优先级**：`${local:x.y}`（local.json，机器层）→ `${ENV:VAR}`（环境变量，fallback 至 `_shared/env-config.json` 的 `environmentDefaults`）→ 字面量。
+
+### 实机验证记录（2026-08-29）
+
+- Redis 单服务 `-ForceRestart -ExternalTerminal` 重拉成功：`${ENV:REDIS_EXE}` 解析、profile 激活、外部终端进程隔离均正常。
+- 全量 `-Status` 与完整启动流程幂等重跑：`[OK] Active profile: hnnxxbank`，5 服务全 UP，已运行服务正确 SKIP。
+
+---
+
 ## 维度一：成功执行任务的完整步骤
 
 一次完整的「BEMP 全套服务启动」链路（已验证全绿）：
@@ -53,6 +87,11 @@
 | F5 | supervisor 无限循环被杀 | 看门狗反复拉起服务、终被回收 | 启动逻辑写成「永远重启」的死循环 | 改为一次性启动器 + 端口跳过逻辑，不做崩溃自拉起 |
 | F6 | frontend「超时」实为已编译 | 等了很久仍报超时，其实已在跑 | 误用「进程退出」判存活；前端是长期进程，不会退出 | 改以**端口监听**判存活，超时只是等待策略问题 |
 | F7 | servlet 缺失 | `NoClassDefFoundError: javax.servlet.Filter` | `pom.xml` 排除了 `spring-boot-starter-tomcat`（servlet API 丢失） | 注释掉该 exclusion 并重编译，使 `WEB-INF/lib` 含 `tomcat-embed-core-9.0.70.jar` |
+| F8 | `_doc` 文档字段被误解析 | `_doc` 中的 `${local:...}` 示例文本被当作真占位符解析报错 | `Resolve-ConfigFull` 未区分文档性字段 | 解析时跳过 `_doc` 属性原样保留 |
+| F9 | ZK 环境变量硬编码在脚本 | `JAVA_TOOL_OPTIONS` 固定值写在编排代码里 | 编排层内联了本属 profile 的业务值 | `env` 由 `profile.zookeeper.env` 注入，缺省回退 UTF-8 编码 |
+| F10 | `nodePath` 语义二义 | local 层有时存目录有时存 exe，`Test-Path`/`Join-Path` 行为不一致 | 机器层字段语义未约定 | `Get-GlobalPaths` 归一化：目录则追加 `node.exe` |
+| F11 | profile 修改被 services 残留值覆盖 | 改了 profile 却不生效，排查困难 | services 仍内联同名业务参数，注入顺序含糊 | services 清空业务参数，profile 注入成为唯一来源 |
+| F12 | 占位符解析失败静默流入下游 | 未解析串被当作路径做 `Test-Path`，产生误导性诊断 | 解析失败只告警不阻断 | 解析失败硬失败（Write-Error + 返回 null），宁可启动报错 |
 
 **共性规律**：失败多来自「环境/配置错配」与「PowerShell 5.1 原生限制」，而非业务逻辑。
 
@@ -84,6 +123,14 @@
    - 所有路径/端口/模块名/MainClass/JVM 参数全部来自 `config.json`（含 `profiles`）+ `local.json`（机器相关，可 gitignore）。
    - 占位符解析：`${local:x.y}`（本机路径）、`${env:VAR}`、`${global.x}`、`${profiles.x.y}`。
    - 脚本体**不含任何字面绝对路径或端口数字**。
+5a. **三层占位符解析（start-bemp-env.ps1 通道）**
+   - 优先级：`${local:x.y}`（config/local.json 机器层）→ `${ENV:VAR}`（环境变量，fallback `_shared/env-config.json` 的 environmentDefaults）→ 字面量。
+   - `Resolve-ConfigFull` 递归解析对象/数组/字符串，跳过 `_doc` 文档字段（其中的占位符写法只是示例）。
+   - `${local:}` 解析失败 → **硬失败**，绝不让未解析串流入 `Test-Path` 产生误导诊断（对应 F12）。
+5b. **profile 合并（银行业务参数注入）**
+   - 激活顺序：`-ProfileName` 参数 > `config.defaultProfile`。
+   - `Merge-ProfileIntoServices`：遍历 `profiles.<active>` 下每个服务节点（跳过 `_doc`），按别名映射（module→modulePath、warDir→warFile、nodeMemoryLimitMb→nodeMemoryLimit）或同名注入 `services.<同名服务>`；已存在字段覆盖，不存在字段 Add-Member。
+   - profile 服务在 services 中无对应条目 → Warning 跳过（不中止）；services 不内联业务参数 → profile 是唯一业务参数来源（对应 F11）。
 6. **WMI 脱离式启动**
    - `Win32_Process.Create` 使服务进程脱离启动会话存活（规避 PS5.1 `Start-Process` 的 `Path/PATH` 冲突与回合结束被杀）。
    - 用 `.cmd` wrapper 内部 `>> log 2>&1` 重定向，绕开 cmd 引号重定向坑。

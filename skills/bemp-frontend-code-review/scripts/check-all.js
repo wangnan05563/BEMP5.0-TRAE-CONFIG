@@ -2,9 +2,10 @@
  * BEMP 前端代码审查 - 一键全量检查
  *
  * 依次执行以下检查脚本并汇总结果：
- * 1. check-hardcode.js - 硬编码中文文本检测
- * 2. check-routes.js   - 路由注册完整性检查
- * 3. check-i18n.js     - $t() 国际化覆盖率检查
+ * 1. check-hardcode.js          - 硬编码中文文本检测
+ * 2. check-routes.js            - 路由注册完整性检查
+ * 3. check-i18n.js              - $t() 国际化覆盖率检查
+ * 4. check-dialog-component.js  - 弹窗组件规约检查（W8 沉淀 J-HD1/J-SC1）
  *
  * 用法: node check-all.js [--bank=hnnxbank]
  */
@@ -18,7 +19,8 @@ const SCRIPTS_DIR = __dirname;
 const SCRIPTS = [
   { name: '硬编码中文文本检测', file: 'check-hardcode.js' },
   { name: '路由注册完整性检查', file: 'check-routes.js' },
-  { name: '$t() 国际化覆盖率检查', file: 'check-i18n.js' }
+  { name: '$t() 国际化覆盖率检查', file: 'check-i18n.js' },
+  { name: '弹窗组件规约检查', file: 'check-dialog-component.js' }
 ];
 
 // 解析 bank 参数
@@ -45,7 +47,8 @@ for (const script of SCRIPTS) {
     });
     console.log(result);
 
-    if (result.includes('❌') || result.includes('阻塞')) {
+    // 仅以“审查不通过”标记失败；脚本输出含“阻塞”字样的成功文案（如“无阻塞级问题”）不应误判
+    if (result.includes('❌ 审查不通过')) {
       totalFailed++;
     } else {
       totalPassed++;

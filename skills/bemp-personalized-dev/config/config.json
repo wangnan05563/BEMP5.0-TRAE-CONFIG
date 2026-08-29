@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "bemp-personalized-dev 技能配置 - 个性化开发参数集中管理",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "usage": "通过 _shared/Resolve-EnvConfig.ps1 引用 _shared/env-config.json 获取环境参数",
 
   "envConfigRef": {
@@ -71,5 +71,59 @@
       "新建文件前务必检查当前目录结构，按规范放置",
       "禁止在指定开发目录外创建文件"
     ]
+  },
+
+  "developmentWorkflow": {
+    "description": "开发工作流强制规则（源自需求开发复盘：假目录写入、空表强行取数、DTO 字段误断言、循环内逐条查库、注释凭证失真等真实案例），所有参数集中本节管理，禁止散落硬编码",
+
+    "preDevVerification": {
+      "note": "P1 开发前置核验：索引检索(Glob/Grep/Read)命中不作为存在依据，必须经命令级核验；编辑后回读验证真实落盘（防 submodule 未检出/近似目录名导致写入假路径）",
+      "enabled": true,
+      "existenceCommandTemplate": "Test-Path '{path}'",
+      "existenceCommandNote": " existenceCommandTemplate 中 {path} 为待核验目标占位符；Windows PowerShell 环境示例为 Test-Path，跨平台可替换为 test -e 等等价命令",
+      "postEditRereadRequired": true,
+      "nearNameManualArbitration": true,
+      "nearNameArbitrationNote": "同一路径出现多个近似名称候选(如 bankCode 差一个字母的兄弟目录)时，必须人工裁决后选定唯一目标，禁止自动猜测"
+    },
+
+    "dataAvailabilityResearch": {
+      "note": "P2 数据可用性前置调研：实现任何'查库补全/新增取数'前，先验证候选表有真实数据、字段在实体中真实存在，产出来源清单后才写代码——禁止基于惯例猜测表结构或字段名",
+      "enabled": true,
+      "triggers": ["新增取数", "查库补全", "新增DAO查询", "日终任务", "导出"],
+      "requireChecklistFields": ["sourceTable", "fieldName", "dataDistribution"],
+      "emptyTablePolicy": "blockAndEscalate",
+      "emptyTablePolicyNote": "候选来源表无数据时阻止该方案落地并升级给业务方确认替代口径，不得静默选边强行实现（防止'查空→跳过→漏校验'类静默失效）"
+    },
+
+    "batchFillPattern": {
+      "note": "P3 批量补全模式与防漂移纪律：循环体内禁止直接调用含 DB 查询的方法",
+      "enabled": true,
+      "maxInClauseSize": 1000,
+      "fillOnlyMissing": true,
+      "fillOnlyMissingNote": "回填仅覆盖空缺项（不覆盖调用方已提供的值），保证多调用点口径一致",
+      "singleDelegateToBatch": true,
+      "singleDelegateToBatchNote": "单条入口作为批量 size==1 的退化形态委托同一实现，避免批量/单条双份逻辑漂移",
+      "valueTransformNullSafe": true,
+      "valueTransformNullSafeNote": "字符串转数值类型时空白串视同无值返回 null（非抛异常），由统一 try-catch 降级兜底"
+    },
+
+    "changeClosureSteps": {
+      "note": "P4 变更闭环节奏：口径变更（含业务方澄清后的结论）须按顺序完整执行四步，未闭环不交接",
+      "steps": ["docSync", "codeChange", "compile", "unitTest"],
+      "stepsNote": "docSync=同步 PRD 小版本号与正文口径并更新项目记忆; unitTest 未覆盖时按 unitTestFallback 降级",
+      "allowSkip": false,
+      "unitTestFallback": "编译通过+GetDiagnostics 无错，并在交付声明中显式标注单测缺口与补偿计划"
+    },
+
+    "deliveryEvidence": {
+      "note": "P5 交付证据化：交付报告中的存在性/完整性断言必须附带真实性证据原文，不做无凭据声明",
+      "required": ["existenceProof", "compileOutput", "testSummary"]
+    },
+
+    "constantManagement": {
+      "note": "P6 常量集中管理：业务常量（产品码/错误码/状态码）统一入银行常量类，禁止在逻辑与 SQL 字面量中散落硬编码",
+      "classNamePattern": "{BANK_CLASS_PREFIX}CommonConst",
+      "forbidInlineBusinessConstants": true
+    }
   }
 }

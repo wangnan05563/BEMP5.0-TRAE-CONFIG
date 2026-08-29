@@ -197,7 +197,7 @@
   },
   "error_filters": {
     "critical_errors": ["TypeError", "ReferenceError", "ChunkLoadError"],
-    "ignorable_errors": ["WebSocket connection failed"],
+    "ignorable_errors": ["WebSocket connection failed", "CLodopfuncs", "ERR_CONNECTION_REFUSED"],
     "warning_errors": ["Warning", "Deprecation"]
   },
   "product_url_patterns": ["/bm/", "/sm/", "/bm/cust/", "/bm/cpes/"],

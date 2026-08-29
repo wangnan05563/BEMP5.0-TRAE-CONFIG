@@ -1,6 +1,5 @@
 {
-  "bankName": "hnnxbank",
-  "description": "BEMP 前端代码审查配置 — 切换 bankName 即可适配不同银行",
+  "description": "BEMP 前端代码审查配置。当前银行不在此硬编码：解析链 = CLI --bank > 环境变量 BANK_CODE > _shared/env-config.json environmentDefaults.BANK_CODE（单入口，切换银行只改 _shared）。",
   "availableBanks": [
     "hnnxbank", "huisbank", "jinzbank", "huzbank",
     "hxbank", "yibbank", "tianjbank", "shaoxbank",
@@ -12,5 +11,15 @@
     "zhCNTemplate": "frontend/src/views/bizViews/banks/{bankName}/locale/lang/zh-CN.js",
     "enUSTemplate": "frontend/src/views/bizViews/banks/{bankName}/locale/lang/en-US.js",
     "componentDirTemplate": "frontend/src/views/bizViews/banks/{bankName}/components"
+  },
+  "dialogComponentCheck": {
+    "_doc": "W8 实战沉淀规则（J-HD1/J-SC1）。enabled=false 可整体禁用；severity 决定问题归档等级（blocking/serious/warning/info）。",
+    "enabled": true,
+    "severity": "warning",
+    "datagridAutoLoadValues": ["false"],
+    "excludeWhenAttr": ["url"],
+    "huiInternalClassPrefixes": [
+      ".ivu-table-", ".h-table-", ".h-checkbox-", ".h-radio-", ".h-select-dropdown"
+    ]
   }
 }

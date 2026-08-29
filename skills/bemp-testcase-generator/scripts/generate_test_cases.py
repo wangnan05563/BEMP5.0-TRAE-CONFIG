@@ -44,15 +44,24 @@ def get_case_prefix(module, config):
 
 
 def _get_default_bank_code():
-    """从 _shared/env-config.json 读取默认银行编码，失败时回退到 'hnnxbank'"""
+    """银行单一入口：环境变量 BANK_CODE > _shared/env-config.json environmentDefaults。
+    读不到返回 None（不硬编码回退银行名），由调用方显式报错。
+    注意：不读顶层 bank.code——该字段是 ${ENV:BANK_CODE} 嵌套占位符，
+    json.load 后为字面量，会产生 '${ENV:BANK_CODE}' 这样的非法银行名。"""
+    env_val = os.environ.get('BANK_CODE')
+    if env_val:
+        return env_val
     env_config_path = os.path.join(SKILL_DIR, '..', '_shared', 'env-config.json')
     if os.path.exists(env_config_path):
         try:
             with open(env_config_path, 'r', encoding='utf-8') as f:
-                return json.load(f).get('bank', {}).get('code', 'hnnxbank')
+                shared = json.load(f)
+            defaults = shared.get('environmentDefaults') or {}
+            if defaults.get('BANK_CODE'):
+                return defaults['BANK_CODE']
         except (json.JSONDecodeError, IOError):
             pass
-    return 'hnnxbank'
+    return None
 
 
 def generate_cases(config, module, priority, bank_id):
@@ -98,7 +107,17 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
-    bank_id = args.bank or config.get('banks', {}).get('active_bank', _get_default_bank_code())
+    # 银行优先级：CLI --bank > config.active_bank（字面值）> 单一入口（环境变量/_shared）。
+    # config.active_bank 为 ${ENV:BANK_CODE} 占位符时视为未指定，走单一入口，防止配置内写死银行压过 _shared。
+    bank_id = args.bank
+    if not bank_id:
+        raw_active = config.get('banks', {}).get('active_bank')
+        if raw_active and '${ENV:' not in raw_active:
+            bank_id = raw_active
+        else:
+            bank_id = _get_default_bank_code()
+    if not bank_id:
+        raise SystemExit('[ERROR] 无法确定当前银行：请 --bank 指定、设置环境变量 BANK_CODE 或在 _shared/env-config.json 配置默认值')
 
     result = generate_cases(config, args.module, args.priority, bank_id)
     print(json.dumps(result, indent=2, ensure_ascii=False))

@@ -1,0 +1,11 @@
+﻿=== Compile JDBC executor ===
+=== Execute SQL (testOnly=False) ===
+[ROWS] SELECT COLUMN_NAME, NULLABLE, DATA_TYPE FROM USER_TAB_COLUMN
+COLUMN_NAME | NULLABLE | DATA_TYPE
+ID | N | NUMBER
+RECORD_ID | N | VARCHAR2
+VLD_ST | N | VARCHAR2
+DATA_DT | N | VARCHAR2
+IMP_DT | N | VARCHAR2
+  total=5+
+DONE success[1] fail[0]

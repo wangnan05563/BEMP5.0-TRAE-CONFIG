@@ -1,7 +1,7 @@
 {
   "_comment": "BEMP 测试用例索引 - test-cases ↔ scripts 双向映射。用于追踪覆盖率、定位关联脚本。由 bemp-test-common 统一管理，bemp-testcase-generator 和 bemp-webapp-testing 共享。注意：file 和 scripts 中的路径均相对于技能根（skills）目录，如 'bemp-test-common/test-cases/common/login.md' 实际路径为 '<skills 目录>/bemp-test-common/test-cases/common/login.md'。",
   "index_version": "2.0",
-  "generated": "2026-08-19",
+  "generated": "2026-08-27",
   "scripts_index": {
     "bemp-webapp-testing/scripts/run_test.py": {
       "description": "通用测试运行器，配置驱动执行所有 bank_config.pages 中的页面测试",
@@ -685,32 +685,43 @@
       "subsystem": "be",
       "feature": "河南农信反洗钱-功能地图与优先级矩阵",
       "priority": "—",
-      "case_count": 21,
+      "case_count": 30,
       "scripts": [],
-      "description": "功能地图（3功能模块+1页面+2服务+1定时任务HNNXTK020113）与优先级矩阵（P0:11 P1:10），11种测试类型覆盖矩阵、关键前置条件；定时任务默认INCR增量(OBJ_ID upsert)、可切FULL(deleteAll+insertBatch)",
-      "version": "v2-20260826"
+      "description": "口径 PRD v3.4.6+待确认v3.4.7：功能地图（4业务入口+名单页+预检接口func_antiMoneyPreCheck+定时任务HNNXTK020113）与优先级矩阵（P0:14 P1:15 P2:1），五角色取数链（承兑行ACPT_BANK_NO→TRANS_BRCH_BANK_NO ST01新口径/交易对手票号反查批次表/贴现人背书链）、两轮匹配（round1 certType='22'优先+round2名称兜底，不做证件类型约束-S1更正）、灰名单审批⏸二期、留痕载体=LOGGER日志、§七口径演进与用例影响对照（含#8 v3.4.7评审修复）",
+      "version": "v3.4.8-20260827"
     },
     {
-      "id": "TC-AML-P0-001~011",
+      "id": "TC-AML-P0-001~014",
       "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P0用例.md",
       "subsystem": "be",
       "feature": "河南农信反洗钱-P0核心用例",
       "priority": "P0",
-      "case_count": 11,
+      "case_count": 14,
       "scripts": [],
-      "description": "P0用例11条：定时抽取(001-INCR增量/002-FULL全量替换)、转贴现/买断式/质押式/再贴现黑名单拦截(4)、灰名单人工审批(1)、未命中放行(1)、开关开启/关闭(1)、服务异常降级(1)、非有效证件类型(01)不参与命中(1)；证件类型21/2s、OBJ_ID主键对齐代码实现",
-      "version": "v2-20260826"
+      "description": "口径 PRD v3.4.6+v3.4.7评审修复，P0用例14条：定时抽取(001-INCR含基线预置M3/002-FULL)、交易对手黑名单拦截(003-四入口+两轮匹配+8产品码批次表映射全集+hitType降级)、承兑行/贴现行拦截(004-承兑行v3.4.4行号反查新口径)、出票人/贴现人拦截(005-5角色独立校验+贴现人背书链查库补全)、再贴现拦截(006-仅00102006，00102003已移除)、灰名单人工审批(007-⏸二期未实现：一期=提示中断HNNX0BE320010+日志留痕，审批流缺口列遗留风险M2)、未命中放行(008-两轮均未命中)、开关(009-开拦截/关放行日志留痕)、异常降级(010-分层降级：预检侧异常放行commit兜底拦截/round1异常对round2与实现一致/commit侧开关M5)、证件类型不影响命中判定(011-S1整条重写：01记录经round2名称路径参与命中拦截，queryMatchByNames L344-369无certType过滤，PRD v3.2回退口径)、贴现申请入口预检(012-eDiscApplyBatchAdd新增)、承兑行取数链(013-ACPT_BANK_NO→TRANS_BRCH_BANK_NO ST01→SOC_CODE新增)、交易对手票号反查批次表(014-H-1预检生效+同票号多批次边界M4新增)；留痕载体=LOGGER日志(S2，无DB留痕表)；round1命中用例标注数据前置：需22码值名单记录",
+      "version": "v3.4.8-20260827"
     },
     {
-      "id": "TC-AML-P1-011~020",
+      "id": "TC-AML-P1-011~025",
       "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P1用例.md",
       "subsystem": "be",
       "feature": "河南农信反洗钱-P1扩展用例",
       "priority": "P1",
-      "case_count": 10,
+      "case_count": 15,
       "scripts": [],
-      "description": "P1用例10条：名单查询(1)、导出码值转中文(1)、匹配口径-名称全等+有效证件类型过滤(1)、时效规则(1)、抽取异常(1)、文件解析(1)、名单页面(1)、审计留痕(1)、权限控制(1)、回归(1)",
-      "version": "v2-20260826"
+      "description": "口径 PRD v3.4.6+v3.4.7评审修复，P1用例15条：名单查询(011)、导出码值转中文(012)、两轮匹配口径(013-round1 certType='22'优先+round2名称兜底+hitType降级为代码审查BillHitResult+单测，含R-SPACE名单侧首尾空格对照不命中-建议级)、时效两分支(014-按BusiDateService业务日期)、抽取异常(015)、文件解析(016-24字段m2修正)、名单页面(017)、审计留痕载体符合性核查(018-S2重构：载体=LOGGER日志无DB留痕表，RK-011 DB级缺失列需求符合性风险待需求方确认)、权限控制(019)、四入口回归(020)、贴现申请人/贴现行取数(021-ET05三条件，m1标注修正：需专项数据+需跨模块操作含降级路径)、round1命中hitType=SOC_CODE(022-M1降级：代码审查+单测断言)、round2兜底hitType=NAME(023-M1降级)、子票区间唯一性(024-票号+区间Long)、collectSubmitBills共用回归(025-批量跨页合并+三元组去重)",
+      "version": "v3.4.8-20260827"
+    },
+    {
+      "id": "TC-AML-P2-026",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P1用例.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-P2反向用例",
+      "priority": "P2",
+      "case_count": 1,
+      "scripts": [],
+      "description": "口径 PRD v3.4.6+v3.4.7，P2反向用例1条：来文行不校验(026-来文行命中名单不拦截，反向验证5角色集合边界，代码审查+Playwright对照场景；步骤3留痕断言载体=LOGGER日志S2)",
+      "version": "v3.4.8-20260827"
     },
     {
       "id": "TC-AML-DATA-V1",
@@ -720,25 +731,25 @@
       "priority": "—",
       "case_count": 0,
       "scripts": [],
-      "description": "测试数据准备：中互金名单文件(0x03/GBK、R1-R10记录含唯一OBJ_ID)、落库目标表数据、校验开关+增量同步模式参数、交易要素名称映射、ECIF对照数据、多角色账号、SQL就绪检查/插入/清理",
-      "version": "v2-20260826"
+      "description": "口径 PRD v3.4.6+v3.4.7评审修复：中互金名单文件(0x03/GBK、24列m2修正、R1-R10+R22记录含唯一OBJ_ID)、S1口径更正(R10经round2名称路径参与命中判定-证件类型不影响命中)、M3基线预置(§4.1 P0-001预置R1旧值+R99消除基线矛盾、P0-002预置OLD01-03)、R22信用代码名单记录(数据前置22码值待业务方准备)、R-SPACE名单侧首尾空格对照记录(建议级P1-013)、五角色取数链对照数据就绪SQL、校验开关+增量同步模式参数、ECIF对照数据、多角色账号、SQL就绪检查/插入/清理、§七就绪报告重算30条m3",
+      "version": "v3.4.8-20260827"
     }
   ],
   "summary": {
-    "total_cases": 49,
-    "total_estimated_count": 646,
+    "total_cases": 50,
+    "total_estimated_count": 655,
     "by_subsystem": {
       "common": 2,
       "sm": 15,
       "bm": 18,
-      "be": 9,
+      "be": 10,
       "ce": 4,
       "adapter": 2
     },
     "by_priority": {
       "P0": 49,
       "P1": 31,
-      "P2": 7,
+      "P2": 8,
       "P3": 0,
       "unknown": 0
     },

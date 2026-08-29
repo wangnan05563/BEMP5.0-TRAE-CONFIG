@@ -146,7 +146,7 @@ def find_test_files(bank, root):
 
 def main():
     parser = argparse.ArgumentParser(description='BEMP 适配器 MessageConverter 代码探索')
-    parser.add_argument('--bank', required=True, help='银行标识，如 hnnxbank')
+    parser.add_argument('--bank', required=True, help='银行标识，取 _shared/env-config.json 的 BANK_CODE（如 hnnxbank），勿硬编码在脚本中')
     parser.add_argument('--pice', required=True, help='PICE 代码，如 PICE070701')
     parser.add_argument('--root', default=None, help='项目根目录')
     args = parser.parse_args()

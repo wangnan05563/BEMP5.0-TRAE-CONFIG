@@ -264,6 +264,13 @@ def run_pre_code_checks(project_root, bank_id=None):
     if bank_id is None:
         bank_id = os.environ.get('BEMP_ACTIVE_BANK', get_default_bank_code())
 
+    # None 流入下方路径拼接会得到 ".../banks/None" 这样的假路径，产出误导性检查结果，显式失败
+    if not bank_id:
+        raise SystemExit(
+            "[ERROR] 无法确定当前银行：请 --bank 指定、设置环境变量 BEMP_ACTIVE_BANK/BANK_CODE "
+            "或在 _shared/env-config.json environmentDefaults.BANK_CODE 配置默认值"
+        )
+
     frontend_dir = os.path.join(project_root, "frontend", "src", "views", "bizViews", "banks", bank_id)
     index_file = os.path.join(project_root, "frontend", "src", "api", "bank", f"{bank_id}Index.js")
 

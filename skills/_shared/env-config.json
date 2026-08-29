@@ -3,7 +3,17 @@
   "description": "BEMP技能库全局环境配置 - 所有技能模块共享的环境参数集中管理",
   "version": "2.0.0",
   "changelog": "v2.0.0: HC-01敏感信息脱敏、HC-03银行配置动态化、HC-04端口环境变量化、HC-05测试账号统一化",
-  "usage": "各技能模块通过 _shared/Resolve-EnvConfig.ps1 引用此配置，支持 ${ENV:VAR_NAME} 环境变量占位符。environmentDefaults 仅作为路径类 fallback，敏感信息（密码）不设默认值，强制通过环境变量注入。",
+  "usage": "全技能库唯一配置入口：更换电脑/银行/配置信息只改本文件。各技能模块通过 _shared/Resolve-EnvConfig.ps1 引用，支持 ${ENV:VAR_NAME} 占位符，解析链 = 环境变量 > environmentDefaults。environmentDefaults 承载全部默认真值（路径类/银行类/连接类），敏感信息（密码）原则上也在此集中管理。",
+
+  "_singleEntry": {
+    "description": "单入口约定（2026-08-29 定案）",
+    "rules": [
+      "当前银行：只改 environmentDefaults.BANK_CODE 及 BANK_* 系列（或临时设置环境变量 $env:BANK_CODE）",
+      "机器环境：只改 environmentDefaults 中 BEMP_WORKSPACE_ROOT/JAVA_HOME/NODE_PATH/MAVEN_*/REDIS_*/ZOOKEEPER_* 等路径",
+      "数据库连接：只改 environmentDefaults 中 ORACLE_*/MYSQL_* 系列",
+      "各技能配置文件一律用 ${ENV:VAR} 占位符引用本文件，禁止硬编码真值"
+    ]
+  },
 
   "bank": {
     "code": "${ENV:BANK_CODE}",
@@ -98,7 +108,7 @@
     "BEMP_FRONTEND_PORT": "8091",
     "BEMP_BACKEND_PORT": "8010",
     "BEMP_REDIS_PORT": "6379",
-    "BEMP_ZK_PORT": "2181",
+    "BEMP_ZK_PORT": "21811",
     "BEMP_DEBUG_PORT": "5005",
     "JAVA_HOME": "D:\\code\\Java\\jdk1.8.0_341",
     "JAVA_HOME_SONAR": "D:\\code\\Java\\jdk-25.0.1",
@@ -135,6 +145,16 @@
     "BEMP_TEST_USER_BRANCH_ADMIN": "wangnan01",
     "TRAE_PATH": "",
     "GIT_PATH": "",
+    "BEMP_WORKSPACE_ROOT": "D:\\code\\QJ\\BEMP5.0DEV",
+    "JAVA_HOME": "D:\\code\\Java\\jdk1.8.0_341",
+    "NODE_PATH": "D:\\code\\nodejs14\\node.exe",
+    "MAVEN_HOME": "D:\\code\\apache-maven-3.6.3",
+    "MAVEN_LOCAL_REPO": "D:\\code\\mavenRepository",
+    "BEMP_LOG_DIR": "C:\\Users\\hspcadmin\\.workbuddy\\skills\\bemp-automation-startserver\\logs",
+    "REDIS_EXE": "D:\\code\\Redis-x64-5.0.14.1\\redis-server.exe",
+    "REDIS_CLI": "D:\\code\\Redis-x64-5.0.14.1\\redis-cli.exe",
+    "REDIS_DATA_DIR": "D:\\code\\Redis-x64-5.0.14.1\\rdb",
+    "ZOOKEEPER_EXE": "D:\\code\\apache-zookeeper-3.8.3-bin\\bin\\zkServer.cmd",
     "BANK_CODE": "hnnxbank",
     "BANK_PROJECT_DIR": "ext-hnnxbank",
     "BANK_URL_PREFIX": "/hnnxbank/",

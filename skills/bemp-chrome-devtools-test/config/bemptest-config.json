@@ -1,14 +1,14 @@
 {
-  "_envConfigNote": "敏感信息使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析。未设置时回退到 _shared/env-config.json 的 environmentDefaults",
-  "bank_profile": "hnnxbank",
+  "_envConfigNote": "敏感信息使用 ${ENV:VAR_NAME} 占位符，运行时从环境变量解析。未设置时回退到 _shared/env-config.json 的 environmentDefaults。当前银行以 ${ENV:BANK_CODE} 为准（单一入口在 _shared），bank_profile 仅为文档性字段；各 bank 数据段按银行 code 组织，运行时按解析后的银行 code 选择。",
+  "bank_profile": "${ENV:BANK_CODE}",
 
   "environment": {
     "host": "${ENV:BEMP_HOST}",
     "services": {
-      "backend": { "port": 8010, "base_url": "http://${ENV:BEMP_HOST}:8010/bemp-served/", "api_prefix": "${ENV:BANK_URL_PREFIX}" },
-      "frontend": { "port": 8091, "url": "http://${ENV:BEMP_HOST}:8091" },
-      "redis": { "port": 6379 },
-      "zookeeper": { "port": 2181 }
+      "backend": { "port": "${ENV:BEMP_BACKEND_PORT:8010}", "base_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_BACKEND_PORT:8010}/bemp-served/", "api_prefix": "${ENV:BANK_URL_PREFIX}" },
+      "frontend": { "port": "${ENV:BEMP_FRONTEND_PORT:8091}", "url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_FRONTEND_PORT:8091}" },
+      "redis": { "port": "${ENV:BEMP_REDIS_PORT:6379}" },
+      "zookeeper": { "port": "${ENV:BEMP_ZK_PORT:21811}" }
     }
   },
 
@@ -162,7 +162,7 @@
     "fatal": ["TypeError", "ReferenceError", "SyntaxError"],
     "critical": ["ChunkLoadError", "NetworkError", "Failed to fetch"],
     "warning": ["Warning", "DeprecationWarning"],
-    "ignorable_patterns": ["WebSocket connection", "favicon.ico", "chrome-extension"]
+    "ignorable_patterns": ["WebSocket connection", "favicon.ico", "chrome-extension", "CLodop", "CLodopfuncs"]
   },
 
   "login_strategy": {

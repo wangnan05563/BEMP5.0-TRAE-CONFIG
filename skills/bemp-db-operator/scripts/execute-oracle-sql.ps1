@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Oracle SQL*Plus 执行封装脚本
 .DESCRIPTION
@@ -25,7 +25,7 @@
 .PARAMETER ConfigFile
     db-config.json路径，自动读取连接参数（DbHost/Port/ServiceName/Username/Password/Schema）
 .EXAMPLE
-    .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "10.20.18.177" -ServiceName "orcl" -Username "bemp_hnnx" -Password "123456" -Schema "BEMP_HNNX"
+    .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -DbHost "<host>" -ServiceName "<service>" -Username "<user>" -Password "<pwd>" -Schema "<SCHEMA>"   # 连接真值优先走 db-config.json/_shared，勿在命令行写死
 .EXAMPLE
     .\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "..\config\db-config.json"
 #>

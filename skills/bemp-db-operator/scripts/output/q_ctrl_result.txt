@@ -1,0 +1,8 @@
+﻿=== Compile JDBC executor ===
+=== Execute SQL (testOnly=False) ===
+[ROWS] SELECT OBJ_ID, CUST_NM, LIST_CHRC, CTRL_START_TIME, CTRL_END
+OBJ_ID | CUST_NM | LIST_CHRC | CTRL_START_TIME | CTRL_END_TIME
+OBJ20260825000001 | ���Ϻ���ó�����޹�˾ | 1 | 20250101 | null
+OBJ20260825000002 | ���ϻ��������տͻ�R2���޹�˾ | 2 | null | null
+  total=2+
+DONE success[1] fail[0]

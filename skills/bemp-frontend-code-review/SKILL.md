@@ -1,31 +1,45 @@
-﻿---
+---
 name: "bemp-frontend-code-review"
 description: "审查BEMP工程各银行个性化前端代码是否符合项目规范。支持配置切换不同银行，自动化脚本一键扫描 + 人工逐项审查双模式。"
 whenToUse: "需要审查BEMP工程各银行个性化前端代码是否符合项目规范"
 triggers: "代码/规范/code 走查/审查/审核/把关/review"
 ---
 
+## 配置加载铁律（取参前必读）
+
+本技能 config 下 JSON 中的 `${ENV:VAR}` 是占位符，直接读文件得到的是字面量，不是参数值。取参数值必须先解析：
+
+```powershell
+# 解析整个配置 / 取单键（以解析结果为参数值，禁止拿 ${ENV:XXX} 字面量当值用）
+python  "..\_shared\load_config.py"  --file "<本技能配置路径>"  --get <a.b.c>
+node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.b.c>
+```
+
+- 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
+- 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
+- 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
+
 # BEMP前端代码审查技能
 
 ## 功能说明
 
-审查BEMP工程各银行个性化模块的前端代码。先运行自动化脚本，再人工逐项走查。通过 `scripts/review-config.json` 或 `--bank=xxx` 切换银行。
+审查BEMP工程各银行个性化模块的前端代码。先运行自动化脚本，再人工逐项走查。当前银行通过统一解析链确定，不在本技能内硬编码。
 
-> **银行配置统一约定**：银行参数（bankName/bankCode/sourceDir/urlPrefixes/classPrefix/dtoPrefix 等）统一使用 `config/bank-config.json` 作为单一数据源，与 `bemp-backend-code-review`、`bemp-adapter-dev` 保持一致。`scripts/review-config.json` 仅作为前端审查脚本的运行入口配置（路径模板、可用银行列表等前端特有配置），其 `bankName` 字段映射到 `config/bank-config.json` 的 `currentBank`，不重复维护银行参数。
+> **银行配置统一约定**：当前银行解析链 = `--bank=xxx`（CLI 临时） > 环境变量 `BANK_CODE` > `_shared/env-config.json` 的 `environmentDefaults.BANK_CODE`（单一入口，所有技能共用，切换银行只改 _shared）。`scripts/review-config.json` 仅承载前端审查特有配置（路径模板、可用银行白名单、检查规则阈值），不含当前银行。银行级参数（classPrefix/dtoPrefix 等）与 `bemp-backend-code-review` 的 `config/bank-config.json`、`bemp-adapter-dev` 的银行字典保持同源语义。
 
 ## 🚀 快速开始
 
 ```bash
-# 默认银行 (config/bank-config.json 的 currentBank 决定，scripts/review-config.json 同步映射)
+# 默认银行（由 _shared/env-config.json environmentDefaults.BANK_CODE 决定，当前为 hnnxbank）
 node scripts/check-all.js
 
-# 指定银行
+# 指定银行（临时，不改任何配置）
 node scripts/check-all.js --bank=jinzbank
 ```
 
-3 个自动化脚本覆盖：硬编码中文检测 `check-hardcode.js`、路由注册完整性 `check-routes.js`、国际化覆盖率 `check-i18n.js`。
+4 个自动化脚本覆盖：硬编码中文检测 `check-hardcode.js`、路由注册完整性 `check-routes.js`、国际化覆盖率 `check-i18n.js`、弹窗组件规约 `check-dialog-component.js`（W8 沉淀 J-HD1/J-SC1，规则阈值配置于 `scripts/review-config.json` 的 `dialogComponentCheck` 节）。
 
-**银行切换**：修改 `config/bank-config.json` 的 `currentBank`（永久，银行参数单一数据源）或加 `--bank=xxx`（临时，仅切换本次审查目标）。`scripts/review-config.json` 的 `bankName` 字段同步映射 `config/bank-config.json` 的 `currentBank`，不单独维护。可用：`hnnxbank|huisbank|jinzbank|huzbank|hxbank|yibbank|tianjbank|shaoxbank|qinnbank|nmgbank|hlsecurity|fxbank`。
+**银行切换（单一入口）**：永久切换编辑 `_shared/env-config.json` 的 `environmentDefaults.BANK_CODE`（及同文件其它 `BANK_*` 参数）；或会话级 `$env:BANK_CODE = 'xxx'`；临时指定加 `--bank=xxx`（优先级最高）。可用银行白名单见 `scripts/review-config.json` 的 `availableBanks`。
 
 **流程**：`编码完成 → 运行 check-all.js → 修复阻塞问题 → 人工逐项审查`
 

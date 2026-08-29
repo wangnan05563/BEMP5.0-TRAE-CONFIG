@@ -1,0 +1,6 @@
+﻿=== Compile JDBC executor ===
+=== Execute SQL (testOnly=False) ===
+[FAIL] ORA-00942: �����ͼ������
+
+  SQL: SELECT MENU_ID, MENU_NAME, PATH, PARENT_ID FROM TM_MENU WHERE UPPER(PATH) LIKE '%QUOTEMANAGER%' OR UPPER(PATH) LIKE '%RE...
+DONE success[0] fail[1]

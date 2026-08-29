@@ -12,6 +12,7 @@ param(
     [switch]$ExternalTerminal,
     [switch]$WaitForDeps,
     [string]$LaunchMode = "",
+    [string]$ProfileName = "",
     [switch]$Follow,
     [int]$Tail = 0
 )
@@ -22,6 +23,152 @@ $script:LastStartupLogPath = ""
 . (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
 # 实时日志流工具（Colorize-LogLine / Follow-ServiceLog）：让服务日志在终端按时间顺序逐行实时滚动
 . (Join-Path $PSScriptRoot "log-stream.ps1")
+
+# ──────────────────────────── 配置解析（三层占位符 + profile 合并） ────────────────────────────
+# 解析优先级：${local:path}（config/local.json，机器层）→ ${ENV:VAR}（环境变量，fallback 至
+# _shared/env-config.json environmentDefaults）。_shared 解析器只认 ${ENV:}，${local:} 在此补齐，
+# 避免 config.json 出现"占位符无法解析只好内联硬编码值"的第二事实来源问题。
+
+$script:LocalConfig = $null
+
+function Import-LocalConfig {
+    param([string]$ConfigFilePath)
+    $localPath = Join-Path (Split-Path -Parent $ConfigFilePath) "local.json"
+    if (Test-Path $localPath) {
+        $script:LocalConfig = Get-Content $localPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+}
+
+function Resolve-LocalPlaceholder {
+    param([string]$Value)
+    if ([string]::IsNullOrEmpty($Value)) { return $Value }
+    $pattern = '\$\{local:([A-Za-z0-9_.]+)\}'
+    $result = $Value
+    foreach ($m in [regex]::Matches($Value, $pattern)) {
+        $path = $m.Groups[1].Value
+        $cur = $script:LocalConfig
+        foreach ($part in $path -split '\.') {
+            if ($cur -is [System.Management.Automation.PSCustomObject]) {
+                $p = $cur.PSObject.Properties | Where-Object { $_.Name -eq $part } | Select-Object -First 1
+                $cur = if ($p) { $p.Value } else { $null }
+            } else {
+                $cur = $null
+                break
+            }
+        }
+        if ($null -eq $cur) {
+            # 占位符无法解析时硬失败：宁可启动报错也不能让未解析串流入后续 Test-Path 产生误导性诊断
+            Write-Error ("Placeholder not resolvable in local.json: " + $m.Value)
+            return $null
+        }
+        $result = $result.Replace($m.Value, [string]$cur)
+    }
+    return $result
+}
+
+function Resolve-ConfigFull {
+    param([object]$Node)
+    if ($Node -is [string]) {
+        return Resolve-EnvPlaceholder (Resolve-LocalPlaceholder $Node)
+    } elseif ($Node -is [System.Management.Automation.PSCustomObject]) {
+        $o = [ordered]@{}
+        foreach ($p in $Node.PSObject.Properties) {
+            # _doc 是文档性字段，其中的占位符写法只是示例文本，不参与解析
+            if ($p.Name -eq "_doc") { $o[$p.Name] = $p.Value; continue }
+            $o[$p.Name] = Resolve-ConfigFull $p.Value
+        }
+        return [PSCustomObject]$o
+    } elseif ($Node -is [System.Collections.IList]) {
+        $a = @()
+        foreach ($i in $Node) { $a += ,(Resolve-ConfigFull $i) }
+        return $a
+    }
+    return $Node
+}
+
+function Get-UnresolvedPlaceholders {
+    # 递归收集解析后仍残留的 ${...} 占位符（含路径），用于配置装载终检硬失败。
+    # _doc 文档字段跳过——其中占位符写法是示例文本
+    param([object]$Node, [string]$Path, [ref]$Out)
+
+    if ($Node -is [string]) {
+        if ($Node -match '\$\{[A-Za-z]+:') {
+            $Out.Value += ("$Path = $Node")
+        }
+    } elseif ($Node -is [System.Management.Automation.PSCustomObject]) {
+        foreach ($p in $Node.PSObject.Properties) {
+            if ($p.Name -eq "_doc") { continue }
+            Get-UnresolvedPlaceholders -Node $p.Value -Path "$Path.$($p.Name)" -Out $Out
+        }
+    } elseif ($Node -is [System.Collections.IList]) {
+        for ($i = 0; $i -lt $Node.Count; $i++) {
+            Get-UnresolvedPlaceholders -Node $Node[$i] -Path "$Path[$i]" -Out $Out
+        }
+    }
+}
+
+function Merge-ProfileIntoServices {
+    param([object]$Config)
+
+    # 银行业务参数（模块名/端口实现类/JVM/前端命令）属于 profile 层，同名或按别名注入 services；
+    # services 中不再内联这些值，防止换银行时改了 profile 却被 services 残留值覆盖
+    if (-not $ProfileName -and $Config.defaultProfile) { $script:ActiveProfile = $Config.defaultProfile }
+    else { $script:ActiveProfile = $ProfileName }
+    if (-not $script:ActiveProfile -or -not $Config.profiles) { return }
+
+    $prof = $Config.profiles.PSObject.Properties | Where-Object { $_.Name -eq $script:ActiveProfile } | Select-Object -First 1
+    if (-not $prof) {
+        Write-Error ("Profile not found in config.profiles: " + $script:ActiveProfile)
+        exit 1
+    }
+    Write-Host "[OK] Active profile: $($script:ActiveProfile)" -ForegroundColor Green
+
+    # 别名映射：profile 字段名 -> services 字段名（同名覆盖之外的历史命名差异）
+    $aliasMap = @{
+        module           = "modulePath"
+        warDir           = "warFile"
+        nodeMemoryLimitMb = "nodeMemoryLimit"
+    }
+    foreach ($profSvc in $prof.Value.PSObject.Properties) {
+        if ($profSvc.Name -eq "_doc") { continue }
+        $svcProp = $Config.services.PSObject.Properties | Where-Object { $_.Name -eq $profSvc.Name } | Select-Object -First 1
+        if (-not $svcProp) {
+            Write-Warning ("Profile service '$($profSvc.Name)' has no matching entry in services, skipped")
+            continue
+        }
+        foreach ($p in $profSvc.Value.PSObject.Properties) {
+            if ($p.Name -eq "_doc") { continue }
+            $dstName = if ($aliasMap.ContainsKey($p.Name)) { $aliasMap[$p.Name] } else { $p.Name }
+            if ($svcProp.Value.PSObject.Properties.Name -contains $dstName) {
+                $svcProp.Value.($dstName) = $p.Value
+            } else {
+                $svcProp.Value | Add-Member -NotePropertyName $dstName -NotePropertyValue $p.Value
+            }
+        }
+    }
+}
+
+function Get-GlobalPaths {
+    # GlobalPaths 统一由 config.global（占位符已解析）派生，替代已删除的 globalPaths 内联节点；
+    # mavenPath 由 mavenHome 派生（机器层只存安装根目录），nodePath 归一化为 exe 完整路径
+    param([object]$Global)
+
+    $nodePathNorm = $Global.nodePath
+    if ($nodePathNorm -and (Test-Path $nodePathNorm -PathType Container)) {
+        $nodePathNorm = Join-Path $nodePathNorm "node.exe"
+    }
+    $mavenPath = $Global.mavenPath
+    if (-not $mavenPath -and $Global.mavenHome) {
+        $mavenPath = Join-Path $Global.mavenHome "bin\mvn.cmd"
+    }
+    return [PSCustomObject]@{
+        banksProjectPath    = $Global.banksProjectPath
+        frontendProjectPath = $Global.frontendProjectPath
+        javaHome            = $Global.javaHome
+        nodePath            = $nodePathNorm
+        mavenPath           = $mavenPath
+    }
+}
 
 # ──────────────────────────── 折叠式进度条函数 ────────────────────────────
 # 使用ASCII兼容的spinner字符
@@ -583,14 +730,20 @@ function Start-BempService {
         # 通过 OS 级重定向落盘 + Follow-ServiceLog 实时滚动到当前终端
         # 绕开 PowerShell 管道缓冲，保证启动/请求/错误/调试日志按时间顺序逐行实时输出
         $stderrLog = "$logPath.stderr"
-        $procArgs = $null
-        if ($startInfo.CommandArgs -is [array] -and $startInfo.CommandArgs.Count -gt 0) {
-            $procArgs = $startInfo.CommandArgs
+        # PS5.1 的 Start-Process 对 -ArgumentList $null / @() 都会抛参数验证错误，
+        # 因此仅在确有参数时才添加 ArgumentList 键（splatting 条件传参）
+        $startProcArgs = @{
+            FilePath               = $startInfo.Command
+            WorkingDirectory       = $startInfo.WorkingDir
+            RedirectStandardOutput = $logPath
+            RedirectStandardError  = $stderrLog
+            PassThru               = $true
+            NoNewWindow            = $true
         }
-        $proc = Start-Process -FilePath $startInfo.Command -ArgumentList $procArgs `
-            -WorkingDirectory $startInfo.WorkingDir `
-            -RedirectStandardOutput $logPath -RedirectStandardError $stderrLog `
-            -PassThru -NoNewWindow
+        if ($startInfo.CommandArgs -is [array] -and $startInfo.CommandArgs.Count -gt 0) {
+            $startProcArgs.ArgumentList = $startInfo.CommandArgs
+        }
+        $proc = Start-Process @startProcArgs
         Write-Host "Service PID: $($proc.Id)" -ForegroundColor Gray
         Write-Host "Streaming logs in real-time. This terminal is occupied by the service." -ForegroundColor Yellow
         Write-Host ""
@@ -651,12 +804,20 @@ function Build-ZooKeeperCommand {
         Write-Error "ZooKeeper executable not found: $exe"
         return $null
     }
+    # 启动环境变量由 profile.zookeeper.env 合并注入；缺省回退 UTF-8 编码（ZK 日志中文乱码防护）
+    $envVars = if ($SvcConfig.env) {
+        $h = @{}
+        foreach ($p in $SvcConfig.env.PSObject.Properties) { $h[$p.Name] = $p.Value }
+        $h
+    } else {
+        @{ "JAVA_TOOL_OPTIONS" = "-Dfile.encoding=UTF-8" }
+    }
     return @{
         WorkingDir   = Split-Path -Parent $exe
         Command      = Join-Path (Split-Path -Parent $exe) (Split-Path -Leaf $exe)
         CommandArgs  = @()
         CommandLine  = ".\$(Split-Path -Leaf $exe)"
-        EnvVars      = @{ "JAVA_TOOL_OPTIONS" = "-Dfile.encoding=UTF-8" }
+        EnvVars      = $envVars
     }
 }
 
@@ -797,11 +958,16 @@ function Build-FrontendCommand {
         $preStartLines += "Write-Host 'NPM version:  ' -NoNewline -ForegroundColor Cyan; & '$npmCmd' --version"
     }
 
+    # 启动命令由 profile.frontend.startCommand 配置（如 "run dev"），缺省回退 run dev；
+    # 拆分为数组便于含参数的命令（如 "serve --port 8091"）
+    $startCommand = if ($SvcConfig.startCommand) { $SvcConfig.startCommand } else { "run dev" }
+    $startArgs = $startCommand.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries) + @("--scripts-prepend-node-path")
+
     return @{
         WorkingDir     = $projectPath
         Command        = $npmCmd
-        CommandArgs    = @("run", "dev", "--scripts-prepend-node-path")
-        CommandLine    = "$npmCmd run dev --scripts-prepend-node-path"
+        CommandArgs    = $startArgs
+        CommandLine    = "$npmCmd $startArgs"
         EnvVars        = $envVars
         PreStartLines  = $preStartLines
     }
@@ -858,8 +1024,11 @@ if (-not (Test-Path $ConfigPath)) {
     Write-Error "Config not found: $ConfigPath"
     exit 1
 }
+# ── 配置装载：local.json（机器层）→ config.json → 三层占位符解析 → profile 合并（银行业务层注入 services） ──
+Import-LocalConfig -ConfigFilePath $ConfigPath
 $config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-$config = Resolve-AllConfigPlaceholders $config
+$config = Resolve-ConfigFull $config
+Merge-ProfileIntoServices -Config $config
 Write-Success "Config loaded"
 
 # 加载健康检查配置
@@ -919,7 +1088,7 @@ if ($Follow) {
 }
 
 if ($Service -ne "") {
-    $globalPaths = $config.globalPaths
+    $globalPaths = Get-GlobalPaths -Global $config.global
     $serviceKey  = $Service.ToLower()
 
     # 支持逗号分隔的多服务启动

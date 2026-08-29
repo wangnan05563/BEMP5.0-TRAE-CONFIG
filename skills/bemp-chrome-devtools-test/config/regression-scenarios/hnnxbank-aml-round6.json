@@ -1,0 +1,99 @@
+{
+  "_doc": "回归场景配置模板（示例：W8 反洗钱 round6 缺陷修复回归）。回归脚本零硬编码的关键：脚本只实现五段式骨架（登录→导航→注入→断言→清理落盘），所有环境值/账号/菜单链路/组件/注入数据/断言要素均从本文件读取。占位符 ${ENV:VAR:default} 运行时解析，fallback 到 _shared/env-config.json environmentDefaults。新增回归场景 = 复制本文件改业务字段，脚本零改动。",
+
+  "scenario_id": "hnnxbank-aml-round6",
+  "description": "E2E-BUG-001 零息提示 + E2E-BUG-003 预检弹窗明细表修复回归",
+
+  "env": {
+    "frontend_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_FRONTEND_PORT:8091}",
+    "account_role": "default",
+    "viewport": { "width": 1600, "height": 900 },
+    "headless": true
+  },
+
+  "navigation": {
+    "menu_path": ["场内交易子系统", "市场交易", "对话报价", "对话报价申请"],
+    "target_url_fragment": "#/be/market/quote/quoteManager",
+    "leaf_dump_fallback": true,
+    "_doc_leaf_dump": "菜单链路与假设不符时，dump 所有可见叶子级菜单文本辅助定位（W6-04 教训：预判三级实测四级）"
+  },
+
+  "target_component": {
+    "manager": "quoteManager",
+    "dialog": "quoteRebuyChange",
+    "datagrid_ref": "billDatagrid",
+    "open_strategy": "component_state",
+    "open_state": {
+      "_doc": "UI 勾选选中行不可靠时直接驱动 manager 组件状态打开弹窗（J2 判断逻辑）",
+      "busiType": "00101002",
+      "trDir": "TDD01",
+      "batchId": 1,
+      "title": "报价修改",
+      "closeWins": ["quoteSaleChangeWin"],
+      "openWin": "quoteRebuyChangeWin"
+    }
+  },
+
+  "data_strategy": "memory_inject",
+  "_doc_data_strategy": "J1 判断逻辑：提交动作会被前置校验（提示/预检）中断 → memory_inject 即可且无脏数据；需真实状态流转 → 改 db_prepare 并配套 SQL 模板",
+
+  "console_noise_extra": ["REQFAIL.*CLodopfuncs"],
+  "_doc_noise": "场景级噪声追加，与 bemptest-config.json error_filters.ignorable_patterns 合并生效",
+
+  "cases": [
+    {
+      "id": "BUG-001",
+      "title": "零息票据提交弹出提示框，无 $msgTip.warning 报错",
+      "inject_row": {
+        "billNo": "530758400799820250628625038921",
+        "billRangeStart": 1,
+        "billRangeEnd": 1008600,
+        "drwrName": "河南对照客户R7测试有限公司",
+        "firstPayInterest": 0
+      },
+      "trigger": { "method": "component_call", "target": "apply" },
+      "assert": {
+        "dialog_text_contains": ["应付利息为0"],
+        "dialog_button_visible": "我知道了",
+        "console_error_not_contains": ["$msgTip.warning is not a function"]
+      },
+      "screenshot": "bug001_zero_interest_tip"
+    },
+    {
+      "id": "BUG-003",
+      "title": "预检命中黑名单弹窗明细表渲染五要素且红色高亮、阻断提交",
+      "inject_row": {
+        "drwrName": "河南宏信贸易有限公司",
+        "firstPayInterest": 1000
+      },
+      "trigger": {
+        "method": "component_call_with_response",
+        "target": "apply",
+        "response_url_contains": "func_antiMoneyPreCheck",
+        "response_timeout_ms": 20000
+      },
+      "assert": {
+        "dialog_selector": ".h-form-table-layer",
+        "table_selector": ".anti-money-hit-table",
+        "row_text_contains": ["出票人", "河南宏信贸易有限公司", "黑名单"],
+        "highlight": {
+          "selector": ".anti-money-hit-name",
+          "match_text": "河南宏信贸易有限公司",
+          "rgb_contains": "212, 56, 13"
+        }
+      },
+      "screenshot": "bug003_am_dialog_detail"
+    }
+  ],
+
+  "output": {
+    "shot_dir": "aotutests-devtools/shots/${scenario_id}",
+    "log_file": "aotutests-devtools/logs/${scenario_id}_log.txt"
+  },
+
+  "cleanup": {
+    "close_calls": ["onAntiMoneyDialogClose"],
+    "click_buttons": ["关 闭", "关闭", "我知道了", "确定"],
+    "_doc": "阻断类回归不产生真实提交，清理仅需关闭弹窗"
+  }
+}

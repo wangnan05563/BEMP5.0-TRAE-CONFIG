@@ -10,6 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from login_manager import LoginManager, LoginError
+from common import get_default_bank_code
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config', 'test_config.json')
 
@@ -24,7 +25,8 @@ def load_config():
 
 def get_bank_config(config, bank_id=None):
     if bank_id is None:
-        bank_id = config.get('active_bank', 'hnnxbank')
+        # 银行单一入口：配置 active_bank > 环境变量/_shared BANK_CODE，不硬编码具体银行
+        bank_id = config.get('active_bank') or get_default_bank_code()
     return config.get('banks', {}).get(bank_id, {}), bank_id
 
 

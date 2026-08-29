@@ -1,47 +1,40 @@
 {
-  "_doc": "BEMP 服务启动统一配置（单一事实来源）。脚本零硬编码，所有参数在此 + local.json 管理。机器相关路径通过 ${local:dotted.path} 引用 local.json；银行/业务相关（模块名、端口、mainClass、JVM、编译模块）写在 profiles 下，便于切换不同银行。占位符支持 ${local:x.y}、${env:VAR}、${global.x}、${profiles.x.y}。",
-  "defaultProfile": "hnnxxbank",
+  "_doc": "BEMP 服务启动统一配置。占位符两层解析：${ENV:VAR}（环境变量，fallback 至 _shared/env-config.json environmentDefaults——唯一配置入口，换电脑/银行只改 _shared）→ 字面量。银行业务参数（模块名/mainClass/JVM/前端命令）写在 profiles 下，profile key 必须等于 BANK_CODE，启动时按 -ProfileName 或 defaultProfile=${ENV:BANK_CODE} 注入 services 同名字段；services 只保留服务编排属性（类型/端口/依赖/健康检查）。globalPaths 已废除——脚本从 config.global 派生路径（mavenPath 由 mavenHome 派生，nodePath 归一化为 exe）。",
+  "defaultProfile": "${ENV:BANK_CODE}",
   "global": {
-    "workspaceRoot": "${local:global.workspaceRoot}",
-    "banksProjectPath": "${local:global.workspaceRoot}\\banks\\ext-hnnxbank",
-    "frontendProjectPath": "${local:global.workspaceRoot}\\frontend",
-    "javaHome": "${local:global.javaHome}",
-    "nodePath": "${local:global.nodePath}",
-    "mavenHome": "${local:global.mavenHome}",
-    "mavenLocalRepo": "${local:global.mavenLocalRepo}",
-    "logDir": "${local:global.logDir}"
+    "workspaceRoot": "${ENV:BEMP_WORKSPACE_ROOT}",
+    "banksProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}",
+    "frontendProjectPath": "${ENV:BEMP_WORKSPACE_ROOT}\\frontend",
+    "javaHome": "${ENV:JAVA_HOME}",
+    "nodePath": "${ENV:NODE_PATH}",
+    "mavenHome": "${ENV:MAVEN_HOME}",
+    "mavenLocalRepo": "${ENV:MAVEN_LOCAL_REPO}",
+    "logDir": "${ENV:BEMP_LOG_DIR}"
   },
   "profiles": {
-    "hnnxxbank": {
-      "_doc": "河南农信 bank 开发环境。模块名/端口/mainClass 为本行逻辑；机器路径走 local.json。",
+    "hnnxbank": {
+      "_doc": "河南农信 bank 开发环境。profile key 必须等于 BANK_CODE（默认值来自 _shared/env-config.json environmentDefaults）。启动时本节点字段按名注入 services 对应服务（module→modulePath、warDir→warFile、nodeMemoryLimitMb→nodeMemoryLimit 为别名映射，其余同名覆盖）。redis/zk 可执行文件由 services 层 ${ENV:REDIS_EXE}/${ENV:ZOOKEEPER_EXE} 提供（_shared 承载真值），本节点只放银行业务参数。",
       "redis": {
-        "exe": "${local:profiles.hnnxxbank.redis.exe}",
-        "redisCli": "${local:profiles.hnnxxbank.redis.redisCli}",
-        "dataDir": "${local:profiles.hnnxxbank.redis.dataDir}",
         "extraArgs": [],
         "postStart": [
           "CONFIG SET stop-writes-on-bgsave-error no"
         ]
       },
       "zookeeper": {
-        "home": "${local:profiles.hnnxxbank.zookeeper.home}",
-        "clientPort": 21811,
         "readinessWaitSec": 45,
         "env": { "JAVA_TOOL_OPTIONS": "-Dfile.encoding=UTF-8" }
       },
       "served": {
-        "module": "hnnxbank-served-deploy",
-        "warDir": "bemp-served",
+        "modulePath": "${ENV:BANK_MODULE_PREFIX}served-deploy",
+        "warFile": "bemp-served",
         "mainClass": "com.hundsun.bemp.BempServedAppStarter",
-        "jvmOptions": "-server -Xms1024m -Xmx2048m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
-        "compileModules": ["hnnxbank-served-deploy"]
+        "jvmOptions": "-server -Xms1024m -Xmx2048m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m"
       },
       "adapter": {
-        "module": "hnnxbank-adapter-deploy",
-        "warDir": "bemp-adapter",
+        "modulePath": "${ENV:BANK_MODULE_PREFIX}adapter-deploy",
+        "warFile": "bemp-adapter",
         "mainClass": "com.hundsun.bemp.BempAdapterAppStarter",
-        "jvmOptions": "-server -Xms512m -Xmx1024m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m",
-        "compileModules": ["hnnxbank-adapter-deploy"]
+        "jvmOptions": "-server -Xms512m -Xmx1024m -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m"
       },
       "frontend": {
         "startCommand": "run dev",
@@ -51,34 +44,45 @@
   },
   "services": {
     "redis": {
+      "name": "Redis",
       "enabled": true,
       "type": "redis",
       "port": 6379,
+      "executable": "${ENV:REDIS_EXE}",
       "dependencies": [],
       "healthCheck": { "type": "port", "timeoutSec": 30 }
     },
     "zookeeper": {
+      "name": "ZooKeeper",
       "enabled": true,
       "type": "zookeeper",
       "port": 21811,
+      "executable": "${ENV:ZOOKEEPER_EXE}",
       "dependencies": [],
       "healthCheck": { "type": "port", "timeoutSec": 60 }
     },
     "served": {
+      "name": "Served",
       "enabled": true,
       "type": "springboot",
       "port": 8010,
+      "mavenCommand": "install -DskipTests -am",
+      "autoCompile": false,
       "dependencies": ["redis", "zookeeper"],
       "healthCheck": { "type": "http", "path": "/", "expectedStatus": [200, 404], "timeoutSec": 600 }
     },
     "adapter": {
+      "name": "Adapter",
       "enabled": true,
       "type": "springboot",
       "port": 8090,
+      "mavenCommand": "install -DskipTests -am",
+      "autoCompile": false,
       "dependencies": ["redis", "zookeeper"],
       "healthCheck": { "type": "http", "path": "/", "expectedStatus": [200, 404], "timeoutSec": 600 }
     },
     "frontend": {
+      "name": "Frontend",
       "enabled": true,
       "type": "frontend",
       "port": 8091,

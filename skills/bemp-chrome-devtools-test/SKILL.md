@@ -9,6 +9,20 @@ triggers:
   - "验证路由注册"
 ---
 
+## 配置加载铁律（取参前必读）
+
+本技能 config 下 JSON 中的 `${ENV:VAR}` 是占位符，直接读文件得到的是字面量，不是参数值。取参数值必须先解析：
+
+```powershell
+# 解析整个配置 / 取单键（以解析结果为参数值，禁止拿 ${ENV:XXX} 字面量当值用）
+python  "..\_shared\load_config.py"  --file "<本技能配置路径>"  --get <a.b.c>
+node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.b.c>
+```
+
+- 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
+- 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
+- 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
+
 # BEMP Chrome DevTools 功能验证 Skill
 
 ## 按需加载指引
@@ -22,7 +36,7 @@ triggers:
 | HUI 组件操作 | [tool-mapping](references/tool-mapping.md) §片段库 | [advanced-workflows](references/advanced-workflows.md) §2 |
 | 弹窗/菜单交互 | [pitfalls](references/common-pitfalls.md) 陷阱2 | [advanced-workflows](references/advanced-workflows.md) §5 |
 | 状态流转验证 | [execution-checklist](references/execution-checklist.md) 阶段零+阶段六 | [advanced-workflows](references/advanced-workflows.md) §3 |
-| 缺陷回归验证 | [execution-checklist](references/execution-checklist.md) 快速模式 + 阶段九 | [pitfalls](references/common-pitfalls.md) §自动检测 |
+| 缺陷回归验证 | [execution-checklist](references/execution-checklist.md) 快速模式 + 阶段九 + [regression-patterns](references/regression-patterns.md) | [pitfalls](references/common-pitfalls.md) §自动检测 |
 | API直接验证 | [advanced-workflows](references/advanced-workflows.md) §10 + [config](config/bemptest-config.json) api_validation | [pitfalls](references/common-pitfalls.md) 陷阱16 |
 | 批量用例执行 | [advanced-workflows](references/advanced-workflows.md) §10.4 | [config](config/bemptest-config.json) response_codes |
 | 全量回归 | [execution-checklist](references/execution-checklist.md) 全部 | 全部 references |
@@ -64,15 +78,19 @@ bemp-chrome-devtools-test/
 ├── SKILL.md                             本文件（执行框架 + 加载指引）
 ├── config/
 │   ├── bemptest-config.json          环境/账号/超时/选择器/输出路径
-│   └── defect-classification-rules.json  缺陷自动分类规则（8类+修复推荐）
+│   ├── defect-classification-rules.json  缺陷自动分类规则（8类+修复推荐）
+│   └── regression-scenarios/         回归场景配置（五段式骨架的全部参数来源，零硬编码）
+│       └── hnnxbank-aml-round6.json  W8 反洗钱回归场景示例（可复制改业务字段）
 ├── references/
 │   ├── execution-checklist.md           分阶段检查清单（含快速模式）
 │   ├── common-pitfalls.md               已知陷阱 + 自动检测脚本
 │   ├── tool-mapping.md                  CDP工具映射 + 片段库
 │   ├── advanced-workflows.md            实战经验与关键发现
+│   ├── regression-patterns.md           回归模式沉淀：五段式骨架/J1-J5判断逻辑/W6失败点清单
 │   └── output-standards.md              报告格式/PASS-FAIL标准/产出管理
 ├── assets/
 │   ├── verification-report-template.md  报告模板
+│   ├── regression-script-template.py    参数化回归脚本模板（含 ${ENV:} 解析/findComp 共享/日志落盘兜底）
 │   └── test-step-template.md            单步骤模板
 └── scripts/organize-screenshots.ps1     截图归档（旧版，保留兼容）
 

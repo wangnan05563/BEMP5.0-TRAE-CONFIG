@@ -13,8 +13,29 @@ const path = require('path');
 
 const SKILL_ROOT = path.resolve(__dirname, '..');
 const MODULE_NAME = '机构管理和管理员管理功能优化';
-const BANK_CODE = 'hnnxbank';
-const TEMPLATE_PATH = 'd:\\code\\QJ\\BEMP5.0DEV\\docs\\文档模板\\09【模板】单元测试报告.xlsx';
+
+// 银行与机器路径单一入口：环境变量 > _shared/env-config.json environmentDefaults，禁止硬编码
+function resolveSharedDefault(varName) {
+    const envPath = path.resolve(SKILL_ROOT, '..', '_shared', 'env-config.json');
+    try {
+        const shared = JSON.parse(fs.readFileSync(envPath, 'utf8'));
+        return (shared.environmentDefaults && shared.environmentDefaults[varName]) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+const BANK_CODE = process.env.BANK_CODE || resolveSharedDefault('BANK_CODE');
+if (!BANK_CODE) {
+    console.error('[ERROR] 无法确定当前银行：请设置环境变量 BANK_CODE 或在 _shared/env-config.json environmentDefaults 配置');
+    process.exit(1);
+}
+const WS_ROOT = process.env.BEMP_WORKSPACE_ROOT || resolveSharedDefault('BEMP_WORKSPACE_ROOT');
+if (!WS_ROOT) {
+    console.error('[ERROR] 无法确定工作区根目录：请设置环境变量 BEMP_WORKSPACE_ROOT 或在 _shared/env-config.json environmentDefaults 配置');
+    process.exit(1);
+}
+const TEMPLATE_PATH = path.join(WS_ROOT, 'docs', '文档模板', '09【模板】单元测试报告.xlsx');
 const OUTPUT_DIR = path.join(SKILL_ROOT, 'output');
 
 const moduleConfig = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'config', 'modules', '机构管理.json'), 'utf8'));

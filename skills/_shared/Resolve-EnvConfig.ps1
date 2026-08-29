@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     BEMP Skills Global Environment Config Resolver
 .DESCRIPTION
@@ -136,7 +136,16 @@ function Resolve-AllConfigPlaceholders {
     elseif ($Config -is [System.Management.Automation.PSCustomObject]) {
         $result = [ordered]@{}
         foreach ($prop in $Config.PSObject.Properties) {
-            $result[$prop.Name] = Resolve-AllConfigPlaceholders $prop.Value
+            # key 也可能承载占位符（如 banks 的 key 写作 ${ENV:BANK_CODE}），
+            # 只解析 value 会导致按属性名取银行段时取空——W9 加固实证缺陷。
+            # `_` 前缀 key 是文档/元字段，其中的 ${ENV:VAR_NAME} 只是示例文本，
+            # key 和 value 均不参与解析
+            if ($prop.Name.StartsWith('_')) {
+                $result[$prop.Name] = $prop.Value
+                continue
+            }
+            $key = if ($prop.Name -like '*${ENV:*') { Resolve-EnvPlaceholder $prop.Name } else { $prop.Name }
+            $result[$key] = Resolve-AllConfigPlaceholders $prop.Value
         }
         return [PSCustomObject]$result
     }

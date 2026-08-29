@@ -8,7 +8,7 @@
 
 .EXAMPLE
     .\start-bemp.ps1                                  # start all (default profile)
-    .\start-bemp.ps1 -Profile hnnxxbank                # explicit profile
+    .\start-bemp.ps1 -Profile ${BANK_CODE}              # explicit profile (value of BANK_CODE, e.g. from _shared/env-config.json)
     .\start-bemp.ps1 -Service "redis,zookeeper"        # subset
     .\start-bemp.ps1 -Service served,adapter -ForceRestart
     .\start-bemp.ps1 -Compile                         # also rebuild deploy modules
@@ -159,9 +159,10 @@ function Stop-PortOwner($port) {
     $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     $killed = @()
     foreach ($c in $conns) {
-        $pid = $c.OwningProcess
-        $pr = Get-Process -Id $pid -ErrorAction SilentlyContinue
-        if ($pr) { try { $pr.Kill(); $killed += $pid } catch {} }
+        # NOTE: never assign $pid -- it's a read-only auto-variable (current PID).
+        $ownerPid = $c.OwningProcess
+        $pr = Get-Process -Id $ownerPid -ErrorAction SilentlyContinue
+        if ($pr) { try { $pr.Kill(); $killed += $ownerPid } catch {} }
     }
     return $killed
 }
@@ -175,9 +176,12 @@ function Quote-Arg($t) {
 
 function Start-Wrapped($name, $port, $cmdBody, $work, $envHash) {
     if (Test-PortListening $port) { return "[SKIP] $name already listening on $port" }
-    $ts = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $cmdPath = Join-Path $G.logDir "run_$($name)_$ts.cmd"
-    $logFile = Join-Path $G.logDir "$($name)_startup_$ts.log"
+    # Uses the shared script-scope $batchTs (set by the launcher before the loop)
+    # so every per-service log in this run shares ONE timestamp that matches the
+    # _launch_summary_<batchTs>.txt marker -- required for tail_bemp_logs.ps1 to
+    # correlate marker + logs.
+    $cmdPath = Join-Path $G.logDir "run_$($name)_$batchTs.cmd"
+    $logFile = Join-Path $G.logDir "$($name)_startup_$batchTs.log"
     $lines = @('@echo off')
     if ($envHash) {
         foreach ($k in $envHash.Keys) { $lines += "set `"$($k)=$($envHash[$k])`"" }
@@ -186,9 +190,17 @@ function Start-Wrapped($name, $port, $cmdBody, $work, $envHash) {
     try {
         [System.IO.File]::WriteAllText($cmdPath, ($lines -join "`r`n"), [System.Text.UTF8Encoding]::new($false))
         $cmdLine = "cmd.exe /c ""$cmdPath"""
-        $res = Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList @($cmdLine, $work, $null, $null)
+        # Keep the default CREATE_NEW_CONSOLE so WMI reliably launches the process
+        # (CREATE_NO_WINDOW alone was found to prevent the process from starting at
+        # all). Hide the console via ShowWindow=0 (SW_HIDE) so the user does not see
+        # a blank window. The wrapper still redirects service stdout/stderr to the
+        # log file (captured for diagnosis + fatal-keyword scan). View live logs in
+        # your own terminal via .\scripts\tail_bemp_logs.ps1.
+        $startup = ([wmiclass]"Win32_ProcessStartup").CreateInstance()
+        $startup["ShowWindow"] = 0
+        $res = Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList @($cmdLine, $work, $startup, $null)
         if ($res.ReturnValue -eq 0) {
-            return "[OK]   $name PID=$($res.ProcessId) (port $port) log=$logFile [detached via WMI]"
+            return "[OK]   $name PID=$($res.ProcessId) (port $port) log=$logFile [detached, hidden]"
         }
         return "[FAIL] $name WMI Create returned $($res.ReturnValue)"
     } catch {
@@ -217,6 +229,13 @@ function Test-Health($svcName, $svc, $logFile) {
         $expected = if ($hc.expectedStatus) { $hc.expectedStatus } else { @(200) }
         try {
             $r = Invoke-WebRequest -Uri "http://127.0.0.1:$port$path" -TimeoutSec 10 -UseBasicParsing -ErrorAction SilentlyContinue
+            # Invoke-WebRequest with -ErrorAction SilentlyContinue may still leave
+            # $r null on a connection failure; dereference only after a null guard
+            # to avoid a terminating "method on null" error that would abort the
+            # whole launch (and wrongly report the run as FAILED).
+            if ($null -eq $r) {
+                return "WARN:$svcName port $port HTTP probe returned no response (service still warming up?)"
+            }
             $code = [int]$r.StatusCode
             if ($expected -contains $code -or ($code -ge 200 -and $code -lt 400)) {
                 return "OK:$svcName port $port HTTP $code"
@@ -332,6 +351,9 @@ if ($doCompile) {
 }
 
 # ---- launch ----
+# Single batch timestamp shared by all per-service logs AND the _launch_summary
+# marker, so tail_bemp_logs.ps1 can correlate marker + logs.
+$batchTs = Get-Date -Format 'yyyyMMdd_HHmmss'
 $javaExe = Join-Path $G.javaHome 'bin\java.exe'
 $npmExe  = Join-Path $G.nodePath 'npm.cmd'
 
@@ -404,25 +426,49 @@ foreach ($n in $ordered) {
 }
 
 # ---- health check ----
+# The health-check phase MUST NOT abort the launch. Services like Spring Boot
+# (served/adapter) take ~200s to warm up, and a transient HTTP probe timeout or a
+# stray exception must degrade to a WARN line -- not terminate the script and
+# suppress the summary + tail hint (which would falsely mark the whole run FAILED
+# even when every service actually launched). Wrap each probe defensively.
 Write-Host "`n=== Health check ==="
 foreach ($n in $ordered) {
     $svc = $effServices[$n]
     # find the log file produced this run (most recent for this service)
     $logFile = $null
-    $ts = Get-Date -Format 'yyyyMMdd_HHmmss'
     # locate newest startup log for this service
-    $cand = Get-ChildItem (Join-Path $G.logDir "$($n)_startup_*.log") -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($cand) { $logFile = $cand.FullName }
-    $h = Test-Health $n $svc $logFile
-    $fatal = if ($logFile) { Scan-FatalLog $logFile } else { $null }
+    try {
+        $cand = Get-ChildItem (Join-Path $G.logDir "$($n)_startup_*.log") -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($cand) { $logFile = $cand.FullName }
+    } catch { $logFile = $null }
+    $h = $null; $fatal = $null
+    try {
+        $h = Test-Health $n $svc $logFile
+        $fatal = if ($logFile) { Scan-FatalLog $logFile } else { $null }
+    } catch {
+        $h = "WARN:$n health check threw: $($_.Exception.Message.Split([Environment]::NewLine)[0])"
+        $fatal = $null
+    }
+    if (-not $h) { $h = "WARN:$n health check produced no result" }
     if ($fatal) { Write-Host "$h  -> $fatal" } else { Write-Host $h }
     $results += $h
 }
 
 # ---- summary ----
-$ts = Get-Date -Format 'yyyyMMdd_HHmmss'
-$sumFile = Join-Path $G.logDir "_launch_summary_$ts.txt"
+$sumFile = Join-Path $G.logDir "_launch_summary_$batchTs.txt"
 [System.IO.File]::WriteAllLines($sumFile, $results, [System.Text.UTF8Encoding]::new($false))
-Write-Host "`n===== BEMP launch summary (profile $selectedProfile, batch $ts) ====="
+Write-Host "`n===== BEMP launch summary (profile $selectedProfile, batch $batchTs) ====="
 $results | ForEach-Object { Write-Host $_ }
 Write-Host "Summary saved: $sumFile"
+
+# ---- live log tail hint ----
+# The launcher process is detached from any visible terminal (the agent runs in a
+# sandbox), so print the exact command the user can paste into their own IDE
+# terminal to see real-time scrolling logs (merged + colored, UTF-8).
+$tailScript = Join-Path $scriptRoot 'tail_bemp_logs.ps1'
+if (Test-Path $tailScript) {
+    $tailAbs = (Resolve-Path $tailScript).Path
+    Write-Host ""
+    Write-Host "查看实时滚动日志（在自己的 IDE 终端运行）：" -ForegroundColor Cyan
+    Write-Host ("  & '{0}'" -f $tailAbs) -ForegroundColor Cyan
+}
