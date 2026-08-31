@@ -171,35 +171,35 @@ evaluate_script(获取Vue实例和$http) → evaluate_script(调用API并返回�
 evaluate_script(设置dropdown.visible=true) → wait_for_timeout(300ms) → take_snapshot(获取下拉选项) → click(目标下拉项) → wait_for(networkidle)
 ```
 
-适用场景：BEMP 操作按钮使用 `h-dropdown` 组件（如"新增"含多个子类型、"导出"含多种格式）。直接 click Dropdown 按钮不会展开下拉菜单，必须先通过 Vue 实例设置 `visible=true`。详见 [pitfalls](common-pitfalls.md) 陷阱20。
+适用场景：BEMP 操作按钮使用 `h-dropdown` 组件（如"新增"含多个子类型、"导出"含多种格式）。直接 click Dropdown 按钮不会展开下拉菜单，必须先通过 Vue 实例设置 `visible=true`。详见 [pitfalls/dialog.md 陷阱20](pitfalls/dialog.md#陷阱20dropdown-组件操作需两步触发p0)。
 
 ### 模式11：Window-Layer 弹窗恢复
 ```
 click(操作按钮) → take_snapshot(检测window-layer) → evaluate_script(恢复最小化窗口) → wait_for_timeout(500ms) → take_screenshot(确认弹窗可见) → 弹窗内操作
 ```
 
-适用场景：BEMP 部分弹窗使用 `window-layer` 组件而非标准 `h-modal`，可能默认最小化打开。需要检测并恢复窗口状态。详见 [pitfalls](common-pitfalls.md) 陷阱21。
+适用场景：BEMP 部分弹窗使用 `window-layer` 组件而非标准 `h-modal`，可能默认最小化打开。需要检测并恢复窗口状态。详见 [pitfalls/dialog.md 陷阱21](pitfalls/dialog.md#陷阱21window-layer-弹窗被最小化p1)。
 
 ### 模式12：DataGrid 行选中（Vue 实例直设）
 ```
 evaluate_script(定位目标行数据) → evaluate_script(同时设置currentSelectList+selects+selectIds+currentSelect) → $forceUpdate() → wait_for_timeout(500ms) → evaluate_script(验证选中状态) → click(操作按钮)
 ```
 
-适用场景：click checkbox/radio 后 Vue 数据未同步，或仅设置 `currentSelectList` 后操作按钮仍无反应。需同时设置所有选中相关属性。详见 [pitfalls](common-pitfalls.md) 陷阱23。
+适用场景：click checkbox/radio 后 Vue 数据未同步，或仅设置 `currentSelectList` 后操作按钮仍无反应。需同时设置所有选中相关属性。详见 [pitfalls/datagrid.md 陷阱23](pitfalls/datagrid.md#陷阱23datagrid-行选中需同时设置-selects-和-selectidsp0)。
 
 ### 模式13：v-if 条件字段验证
 ```
 evaluate_script(检测字段可见性) → 若不可见：evaluate_script(设置触发条件值) → wait_for_timeout(500ms) → evaluate_script(再次检测可见性) → evaluate_script(设置字段值)
 ```
 
-适用场景：BEMP 表单使用 `v-if` 条件渲染，字段是否显示取决于其他表单值（如交易类型决定"回购总金额"是否显示）。测试时必须先满足 v-if 条件再验证字段。详见 [pitfalls](common-pitfalls.md) 陷阱24。
+适用场景：BEMP 表单使用 `v-if` 条件渲染，字段是否显示取决于其他表单值（如交易类型决定"回购总金额"是否显示）。测试时必须先满足 v-if 条件再验证字段。详见 [pitfalls/datagrid.md 陷阱24](pitfalls/datagrid.md#陷阱24v-if-条件字段验证需区分场景p1)。
 
 ### 模式14：弹窗关闭后路由恢复
 ```
 click(弹窗关闭按钮) → wait_for_timeout(300ms) → evaluate_script(检查当前URL) → 若URL跳转：navigate_page(目标页面) → wait_for(networkidle) → take_snapshot(确认页面)
 ```
 
-适用场景：关闭弹窗后页面 URL 意外跳转（如跳转到 mainIndex），需检测并恢复到目标页面。详见 [pitfalls](common-pitfalls.md) 陷阱22。
+适用场景：关闭弹窗后页面 URL 意外跳转（如跳转到 mainIndex），需检测并恢复到目标页面。详见 [pitfalls/dialog.md 陷阱22](pitfalls/dialog.md#陷阱22弹窗关闭导致页面路由跳转p1)。
 
 ---
 

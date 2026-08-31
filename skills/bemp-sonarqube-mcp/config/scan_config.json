@@ -29,6 +29,76 @@
     "fallback_enabled": true,
     "fallback_message": "SonarQube MCP 未配置，将使用 sonar-scanner 命令行工具"
   },
+  "degradation": {
+    "_note": "四级降级与环境自愈链配置，流程见 references/degradation-chain.md；所有环境值经 ${ENV:VAR} 占位符解析，禁止明文写死 Token/URL/端口/项目key",
+    "token_resolution_order": [
+      "env:SONAR_TOKEN",
+      "env:SONARQUBE_TOKEN",
+      "project_properties:sonar-project.properties#sonar.token",
+      "config_file_reference"
+    ],
+    "project_key_probe": {
+      "enabled": true,
+      "api_endpoint": "${ENV:SONARQUBE_HOST}/api/projects/search",
+      "match_mode": "exact_then_prefix"
+    },
+    "cli_fallback": {
+      "enabled": true,
+      "script": "scripts/run-sonar-scanner.ps1",
+      "prerequisites": [
+        "L1服务UP",
+        "L1 Token有效",
+        "L1项目key实测核实"
+      ],
+      "wait_timeout_seconds": 180
+    },
+    "es_self_heal": {
+      "enabled": true,
+      "es_api_base": "${ENV:SONAR_ES_API_BASE}",
+      "es_auth": "${ENV:SONAR_ES_AUTH}",
+      "disk_watermark_pct": {
+        "flood_stage_default": 95,
+        "flood_stage_heal_high": 97,
+        "flood_stage_heal_extreme": 98,
+        "cleanup_alert": 99,
+        "_note": "flood_stage_default=ES触发索引只读的水位；heal档=自愈时transient调高的临时水位；cleanup_alert=必须人工清理磁盘的告警线；全部可调"
+      },
+      "cluster_settings": {
+        "endpoint_template": "{es_api_base}/_cluster/settings",
+        "method": "PUT",
+        "transient_body_template": {
+          "transient": {
+            "cluster.routing.allocation.disk.watermark.flood_stage": "{watermark.flood_stage_heal_high}",
+            "cluster.routing.allocation.disk.watermark.high": "{watermark.high}",
+            "cluster.routing.allocation.disk.watermark.low": "{watermark.low}"
+          }
+        }
+      },
+      "readonly_block_reset": {
+        "endpoint_template": "{es_api_base}/_all/_settings",
+        "method": "PUT",
+        "body_template": {
+          "index.blocks.read_only_allow_delete": null
+        }
+      },
+      "health_verify": {
+        "endpoint_template": "{es_api_base}/_cluster/health",
+        "method": "GET"
+      },
+      "rescan_after_heal": true,
+      "restore_watermark_after_cleanup": true
+    },
+    "degradation_record": {
+      "output_file": "reports/degradation-record.md",
+      "required_fields": [
+        "reason",
+        "impact_scope",
+        "regression_plan",
+        "timestamp"
+      ],
+      "fabricate_results_forbidden": true
+    }
+  },
   "modules": {
     "hnnxbank-biz-as": {
       "path": "hnnxbank-biz-as/src/main/java/com/hundsun/bemp/hnnxbank",

@@ -1,4 +1,4 @@
-﻿---
+---
 name: "bemp-testcase-generator"
 version: "2.1.0"
 description: "BEMP 票据系统测试用例生成技能。基于五步方法论（功能地图→优先级矩阵→P0用例设计→案例集扩展→测试数据准备），融合11种测试类型与10种组件测试设计，通过 Playwright MCP 自动探索网站、Oracle/MySQL MCP 准备数据，生成高质量测试用例。支持代码审查类用例生成（注解值/错误文案/逻辑验证/配置验证4种模板）与测试方式自动选择判断（代码审查/Playwright/数据库查询/运行时测试）。"
@@ -137,6 +137,8 @@ bemp-test-common（共享资源：用例文档 + 参考指南 + 用例索引）
 
 **测试类型覆盖**：根据 `references/instruction-mapping.md` 确定需要覆盖的测试类型，参考 `references/general-test-cases.md` 中对应模板设计用例。P0 用例至少覆盖功能测试 + 安全测试 + 联动测试。
 
+> 断言锚点背书：预期文案/顺序/字段名断言必须引用代码锚点（文件:行号、DAO 列清单、单测实测拼接形态），自检规则见 `references/assertion-anchoring.md`
+
 ### 第四步：测试案例集扩展
 
 **输入**：P0 用例集 + 用户需求
@@ -158,6 +160,7 @@ bemp-test-common（共享资源：用例文档 + 参考指南 + 用例索引）
 
 > 通过 `bemp-implementation-engineer` 智能体调用 Oracle MCP / MySQL MCP 工具
 > 数据库操作指南见 `bemp-test-common/references/test-data-management.md`
+> 例行自检：数据直插前表结构核对 / 应用读取表声明 / 清理闭环契约三项，按 `config/test-data-check.json` → `checkItems` 清单逐项执行
 
 ## 目录结构
 

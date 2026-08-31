@@ -27,20 +27,44 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 ## 按需加载指引
 
-根据任务类型，选择性读取 references 文件（非全量加载）：
+根据任务类型，选择性读取 references 文件（非全量加载）。pitfalls 已按场景拆分为 5 分片，只读命中的分片：
 
 | 任务场景 | 必读 | 按需 |
 |---------|------|------|
-| 环境/登录问题 | [config](config/bemptest-config.json) + [tool-mapping](references/tool-mapping.md) §片段库 | [pitfalls](references/common-pitfalls.md) 陷阱1 |
-| 页面导航异常 | [advanced-workflows](references/advanced-workflows.md) §1 | [pitfalls](references/common-pitfalls.md) 陷阱8 |
-| HUI 组件操作 | [tool-mapping](references/tool-mapping.md) §片段库 | [advanced-workflows](references/advanced-workflows.md) §2 |
-| 弹窗/菜单交互 | [pitfalls](references/common-pitfalls.md) 陷阱2 | [advanced-workflows](references/advanced-workflows.md) §5 |
+| 环境/登录问题 | [config](config/bemptest-config.json) + [tool-mapping](references/tool-mapping.md) §片段库 | [pitfalls/login](references/pitfalls/login.md) 陷阱1 |
+| 页面导航异常 | [advanced-workflows](references/advanced-workflows.md) §1 | [pitfalls/navigation](references/pitfalls/navigation.md) 陷阱8 |
+| HUI 组件操作 | [tool-mapping](references/tool-mapping.md) §片段库 | [pitfalls/datagrid](references/pitfalls/datagrid.md)、[advanced-workflows](references/advanced-workflows.md) §2 |
+| 弹窗/菜单交互 | [pitfalls/dialog](references/pitfalls/dialog.md) 陷阱2 | [advanced-workflows](references/advanced-workflows.md) §5 |
 | 状态流转验证 | [execution-checklist](references/execution-checklist.md) 阶段零+阶段六 | [advanced-workflows](references/advanced-workflows.md) §3 |
-| 缺陷回归验证 | [execution-checklist](references/execution-checklist.md) 快速模式 + 阶段九 + [regression-patterns](references/regression-patterns.md) | [pitfalls](references/common-pitfalls.md) §自动检测 |
-| API直接验证 | [advanced-workflows](references/advanced-workflows.md) §10 + [config](config/bemptest-config.json) api_validation | [pitfalls](references/common-pitfalls.md) 陷阱16 |
+| 缺陷回归验证 | [execution-checklist](references/execution-checklist.md) 快速模式 + 阶段九 + [regression-patterns](references/regression-patterns.md) | [pitfalls/env](references/pitfalls/env.md) 陷阱26/27 |
+| API直接验证 | [advanced-workflows](references/advanced-workflows.md) §10 + [config](config/bemptest-config.json) api_validation | [pitfalls/env](references/pitfalls/env.md) 陷阱16 |
 | 批量用例执行 | [advanced-workflows](references/advanced-workflows.md) §10.4 | [config](config/bemptest-config.json) response_codes |
-| 全量回归 | [execution-checklist](references/execution-checklist.md) 全部 | 全部 references |
+| 全量回归 | [execution-checklist](references/execution-checklist.md) 全部 | [全部 pitfalls 分片](references/pitfalls/) |
 | 生成报告 | [output-standards](references/output-standards.md) + [report-template](assets/verification-report-template.md) | — |
+
+**分片速查**（按症状定位陷阱）：
+
+| 症状域 | 分片 | 包含陷阱 |
+|--------|------|---------|
+| 登录失败/账号锁定/密码 | [login](references/pitfalls/login.md) | 1, 12, 13, 15, 25 |
+| 导航错误/页面空白/about:blank | [navigation](references/pitfalls/navigation.md) | 3, 4, 5, 8, 19 |
+| 弹窗/Dropdown/关弹窗跳转 | [dialog](references/pitfalls/dialog.md) | 2, 14, 20, 21, 22 |
+| DataGrid选中/表单组件绑定/v-if | [datagrid](references/pitfalls/datagrid.md) | 9, 9.5, 10, 11, 23, 24 |
+| API 404/脏数据/业务日期/索引脚本/snapshot过长 | [env](references/pitfalls/env.md) | 6, 7, 16, 17, 18, 26, 27 |
+
+## 执行铁律（token 效率，与功能铁律同级强制）
+
+1. **snapshot 仅用于 UID 定位**：断言类检测一律 evaluate_script 返回 `JSON.stringify` 精简结果（行数/状态文本/按钮列表），禁止用全量 snapshot 做断言（依据 pitfalls/env 陷阱6）
+2. **轮次合并**：单个 evaluate_script 完成"提取+比较+断言"三合一；多断言场景参照 advanced-workflows §10.4 批量模式，在单脚本内串行执行，减少 CDP 往返
+3. **登录+导航一体化为默认路径**：已登录会话中直接使用 tool-mapping 模式4 一体流程，禁止拆成多轮分步叙述后再执行
+4. **中间步骤极简输出**：执行中每步只输出 `步骤号 + PASS/FAIL + 一行关键证据`；完整叙述只写入落盘报告文件（模板见 assets/verification-report-template.md），不在对话中复述
+5. **状态摘要协议**：多步验证全程仅维护一张紧凑状态表（当前URL/登录态/已验步骤号/缺陷清单），断言后的原始 snapshot/console 输出视为可丢弃，证据靠落盘文件路径回溯
+6. **引用锚点化**：引用配置/代码一律给锚点链接，禁止整段粘贴回对话
+
+## 任务接收预处理
+
+1. **场景配置前置解析**（B1）：任务含回归场景时，第一步先解析 `config/regression-scenarios/*.json` 获得结构化参数（URL/菜单链路/断言五要素），对话中不重复拼写长参数
+2. **场景匹配分流**（B2）：将任务匹配上方"按需加载指引"的 10 种场景；**均不匹配时用一次 AskUserQuestion 澄清**（目标页面/验证类型/缺陷现象），禁止凭猜测加载错误分支文件
 
 ## 核心职责
 
@@ -83,8 +107,13 @@ bemp-chrome-devtools-test/
 │       └── hnnxbank-aml-round6.json  W8 反洗钱回归场景示例（可复制改业务字段）
 ├── references/
 │   ├── execution-checklist.md           分阶段检查清单（含快速模式）
-│   ├── common-pitfalls.md               已知陷阱 + 自动检测脚本
-│   ├── tool-mapping.md                  CDP工具映射 + 片段库
+│   ├── pitfalls/                        已知陷阱分片（按场景拆分，按需加载）
+│   │   ├── login.md                     登录与账号（陷阱1/12/13/15/25）
+│   │   ├── navigation.md                导航与页面管理（陷阱3/4/5/8/19）
+│   │   ├── dialog.md                    弹窗与Dropdown（陷阱2/14/20/21/22）
+│   │   ├── datagrid.md                  DataGrid与HUI组件（陷阱9/9.5/10/11/23/24）
+│   │   └── env.md                       环境数据与输出（陷阱6/7/16/17/18/26/27）
+│   ├── tool-mapping.md                  CDP工具映射 + 片段库（代码 SSoT 唯一来源）
 │   ├── advanced-workflows.md            实战经验与关键发现
 │   ├── regression-patterns.md           回归模式沉淀：五段式骨架/J1-J5判断逻辑/W6失败点清单
 │   └── output-standards.md              报告格式/PASS-FAIL标准/产出管理
@@ -149,7 +178,7 @@ evaluate_script(原生setter设置用户名) → dispatchEvent('input'+'change')
 click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强制登录确认"弹窗 → click("是") → wait_for(networkidle) → take_snapshot确认
 ```
 
-**密码来源**（禁止硬编码）：优先环境变量 → bemptest-config.json accounts → env-config.json 默认值。详见 [pitfalls](references/common-pitfalls.md) 陷阱25。
+**密码来源**（禁止硬编码）：优先环境变量 → bemptest-config.json accounts → env-config.json 默认值。详见 [pitfalls/login](references/pitfalls/login.md) 陷阱25 与陷阱12（加密触发）。
 
 ### 第三步：导航到目标页面
 
@@ -181,11 +210,11 @@ click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强�
 | 弹窗CRUD | click(按钮) → wait_for(弹窗) → evaluate_script(填表) → click(确定) → wait_for(networkidle) | — |
 | 状态变更 | 操作前截图 → click(操作)→click(确认) → wait_for(networkidle) → 操作后截图 → 提取状态文本对比 | — |
 | 控制台检查 | list_console_messages → 过滤 TypeError/ReferenceError/ChunkLoadError | — |
-| Dropdown操作 | evaluate_script(visible=true) → wait(300ms) → take_snapshot → click(下拉项) | [pitfalls](references/common-pitfalls.md) 陷阱20 / [tool-mapping](references/tool-mapping.md) 模式10 |
-| Window-Layer弹窗 | take_snapshot(检测) → evaluate_script(恢复最小化) → wait(500ms) → take_screenshot(确认) | [pitfalls](references/common-pitfalls.md) 陷阱21 / [tool-mapping](references/tool-mapping.md) 模式11 |
-| DataGrid行选中 | evaluate_script(同时设置selects+selectIds+currentSelectList) → $forceUpdate → wait(500ms) | [pitfalls](references/common-pitfalls.md) 陷阱23 / [tool-mapping](references/tool-mapping.md) 模式12 |
-| v-if条件字段 | evaluate_script(检测可见性) → 设置触发条件 → wait(500ms) → 设置字段值 | [pitfalls](references/common-pitfalls.md) 陷阱24 / [tool-mapping](references/tool-mapping.md) 模式13 |
-| 弹窗关闭后恢复 | click(关闭) → evaluate_script(检查URL) → 若跳转则navigate_page恢复 | [pitfalls](references/common-pitfalls.md) 陷阱22 / [tool-mapping](references/tool-mapping.md) 模式14 |
+| Dropdown操作 | evaluate_script(visible=true) → wait(300ms) → take_snapshot → click(下拉项) | [pitfalls/dialog](references/pitfalls/dialog.md) 陷阱20 / [tool-mapping](references/tool-mapping.md) 模式10 |
+| Window-Layer弹窗 | take_snapshot(检测) → evaluate_script(恢复最小化) → wait(500ms) → take_screenshot(确认) | [pitfalls/dialog](references/pitfalls/dialog.md) 陷阱21 / [tool-mapping](references/tool-mapping.md) 模式11 |
+| DataGrid行选中 | evaluate_script(同时设置selects+selectIds+currentSelectList) → $forceUpdate → wait(500ms) | [pitfalls/datagrid](references/pitfalls/datagrid.md) 陷阱23 / [tool-mapping](references/tool-mapping.md) 模式12 |
+| v-if条件字段 | evaluate_script(检测可见性) → 设置触发条件 → wait(500ms) → 设置字段值 | [pitfalls/datagrid](references/pitfalls/datagrid.md) 陷阱24 / [tool-mapping](references/tool-mapping.md) 模式13 |
+| 弹窗关闭后恢复 | click(关闭) → evaluate_script(检查URL) → 若跳转则navigate_page恢复 | [pitfalls/dialog](references/pitfalls/dialog.md) 陷阱22 / [tool-mapping](references/tool-mapping.md) 模式14 |
 
 ### 第四步-B：API 直接验证模式
 
@@ -361,8 +390,8 @@ click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强�
 |------|------|
 | [config/bemptest-config.json](config/bemptest-config.json) | 环境/账号/超时/选择器 |
 | [references/execution-checklist.md](references/execution-checklist.md) | 执行检查清单（含快速模式+数据准备） |
-| [references/common-pitfalls.md](references/common-pitfalls.md) | 已知陷阱 + 自动检测脚本 |
-| [references/tool-mapping.md](references/tool-mapping.md) | CDP工具映射 + evaluate_script 片段库 |
+| [references/pitfalls/](references/pitfalls/) | 已知陷阱分片：[login](references/pitfalls/login.md) / [navigation](references/pitfalls/navigation.md) / [dialog](references/pitfalls/dialog.md) / [datagrid](references/pitfalls/datagrid.md) / [env](references/pitfalls/env.md) |
+| [references/tool-mapping.md](references/tool-mapping.md) | CDP工具映射 + evaluate_script 片段库（代码 SSoT 唯一来源） |
 | [references/advanced-workflows.md](references/advanced-workflows.md) | 实战经验与关键发现 |
 | [references/output-standards.md](references/output-standards.md) | 报告格式/PASS-FAIL标准/截图规范 |
 | [assets/verification-report-template.md](assets/verification-report-template.md) | 报告模板 |

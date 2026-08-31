@@ -47,7 +47,7 @@ evaluate_script(定位菜单并点击) → wait_for(networkidle) → take_snapsh
 
 ### 2.4 h-datagrid 行选择
 
-**关键**：checkbox 点击后 `currentSelectList` 异步同步有延迟，必须 `wait_for_timeout(500ms)` 后再 `evaluate_script` 验证 `grid.__vue__.currentSelectList.length > 0`。见 [pitfalls](common-pitfalls.md) 陷阱10。
+**关键**：checkbox 点击后 `currentSelectList` 异步同步有延迟，必须 `wait_for_timeout(500ms)` 后再 `evaluate_script` 验证 `grid.__vue__.currentSelectList.length > 0`。见 [pitfalls/datagrid.md 陷阱10](pitfalls/datagrid.md#陷阱10checkbox-选择后-currentselectlist-未同步p1)。
 
 ---
 
@@ -117,7 +117,7 @@ evaluate_script(定位菜单并点击) → wait_for(networkidle) → take_snapsh
 关闭: 先内后外，使用 .h-msg-box:visible 定位当前可见弹窗
 ```
 
-> 弹窗操作代码见 [tool-mapping.md §片段库-弹窗操作](tool-mapping.md#弹窗操作)。遮罩残留处理见 [pitfalls](common-pitfalls.md) 陷阱2。
+> 弹窗操作代码见 [tool-mapping.md §片段库-弹窗操作](tool-mapping.md#弹窗操作)。遮罩残留处理见 [pitfalls/dialog.md 陷阱2](pitfalls/dialog.md#陷阱2模态弹窗阻塞页面操作p0)。
 
 ---
 
@@ -135,7 +135,7 @@ evaluate_script(定位菜单并点击) → wait_for(networkidle) → take_snapsh
 
 登录后 → 导航后 → CRUD 后 → 状态流转后 → 测试结束汇总。
 
-> 错误过滤配置见 [config](../config/bemptest-config.json) `error_filters`。自动检测见 [pitfalls §自动检测](common-pitfalls.md#陷阱自动检测脚本)。
+> 错误过滤配置见 [config](../config/bemptest-config.json) `error_filters`。输出过长信息丢失见 [pitfalls/env.md 陷阱6](pitfalls/env.md#陷阱6take_snapshot-输出过长导致信息丢失d3-铁律来源)。
 
 ---
 
@@ -260,19 +260,7 @@ BEMP 系统基于机构号(brchNo)实现数据隔离，不同用户类型的可�
 
 ### 弹窗列头验证脚本
 
-```javascript
-// evaluate_script: 检查批量导入弹窗内的表格列头
-(() => {
-    const dialog = document.querySelector('.h-msg-box:visible') || document.querySelector('.h-modal:visible');
-    if (!dialog) return '未找到可见弹窗';
-    const headers = dialog.querySelectorAll('th');
-    const columns = [];
-    headers.forEach(th => {
-        columns.push(th.textContent?.trim());
-    });
-    return JSON.stringify({ columns, hasSimpleBranch: columns.some(c => c.includes('是否简单机构')) });
-})()
-```
+检查弹窗内表格列头的代码见 [tool-mapping.md §片段库-批量导入弹窗验证](tool-mapping.md#批量导入弹窗验证)。
 
 ### 必输校验验证
 
@@ -466,7 +454,7 @@ BEMP 个性化功能的校验逻辑通常在后端 Controller/Service 层实现�
 ### 关键发现
 
 - API 直接验证效率是 UI 操作的 5-10 倍，且不受 HUI 组件状态、路由注册等干扰
-- 前端代理路径必须包含个性化路径（如 `/hnnxbank`），否则 API 调用返回 404（见 [pitfalls](common-pitfalls.md) 陷阱16）
+- 前端代理路径必须包含个性化路径（如 `/hnnxbank`），否则 API 调用返回 404（见 [pitfalls/env.md 陷阱16](pitfalls/env.md#陷阱16前端代理缺少个性化路径导致-api-404p0)）
 - `fetch` 请求会自动携带当前域的 cookie（包括 Admin-Token），无需手动设置认证头
 - 请求体使用 `URLSearchParams` 而非 JSON，因为 BEMP 后端默认接收 `application/x-www-form-urlencoded`
 - 批量用例在单个 evaluate_script 中串行执行，避免多次 CDP 调用的开销

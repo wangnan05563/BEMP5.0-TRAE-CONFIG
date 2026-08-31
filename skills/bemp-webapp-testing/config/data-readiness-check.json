@@ -61,6 +61,44 @@
       "check_methods": {
         "description": "读取配置文件中指定key的值是否为expected_value"
       }
+    },
+    {
+      "type": "db-connection-schema-check",
+      "name": "数据库连接schema一致性检查",
+      "params": ["target_schema"],
+      "check_methods": {
+        "oracle": {
+          "current_schema_sql": "SELECT SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS CURRENT_SCHEMA FROM DUAL",
+          "compare_rule": "current_schema == {target_schema}",
+          "mcp_server": "mcp_oracle-mcp",
+          "mcp_tool": "execute_query"
+        },
+        "mysql": {
+          "current_schema_sql": "SELECT DATABASE() AS CURRENT_SCHEMA",
+          "compare_rule": "current_schema == {target_schema}",
+          "mcp_server": "mcp_MySQL",
+          "mcp_tool": "execute_sql"
+        },
+        "target_schema_source": "{target_schema} 从应用连接串配置解析获取（如数据源配置中的 jdbc url 解析链），禁止硬编码真实 schema 名",
+        "fail_action": "不一致时改走 bemp-db-operator/scripts/run-oracle-jdbc.ps1 JDBC 通道执行，连接参数同样从配置解析"
+      }
+    },
+    {
+      "type": "biz-date-baseline-check",
+      "name": "业务日期基准检查",
+      "params": ["biz_date_query", "date_sensitive"],
+      "check_methods": {
+        "description": "date_sensitive=true 的用例，测试数据生成前必须先执行 biz_date_query 获取系统当前业务日期作为基准；时效类数据的时间字段以业务日期为基准偏移生成，禁止按自然日期假设",
+        "oracle": {
+          "mcp_server": "mcp_oracle-mcp",
+          "mcp_tool": "execute_query"
+        },
+        "mysql": {
+          "mcp_server": "mcp_MySQL",
+          "mcp_tool": "execute_sql"
+        },
+        "biz_date_query_source": "{biz_date_query} 由各模块配置提供（业务日期获取 SQL，表名/字段名占位符化），数据准备文档需写明获取方法"
+      }
     }
   ],
   "skip_reasons": {
@@ -69,7 +107,9 @@
     "record_not_match": "表{table_name}中{where_clause}的记录数<{expected_count}，需先插入测试数据",
     "file_missing": "文件{file_path}不存在，需先准备文件",
     "api_unavailable": "接口{api_url}不可用（HTTP状态码非{expected_status}），需检查服务状态",
-    "config_mismatch": "配置{config_key}的值不是{expected_value}，需修改配置"
+    "config_mismatch": "配置{config_key}的值不是{expected_value}，需修改配置",
+    "schema_mismatch": "MCP连接schema与应用目标schema{target_schema}不一致，需改走run-oracle-jdbc.ps1 JDBC通道或修正连接配置后重检",
+    "biz_date_baseline_missing": "未获取系统业务日期基准{biz_date_query}，时效类测试数据禁止按自然日期假设生成，需先取得业务日期基准"
   },
   "readiness_report": {
     "output_format": "markdown",

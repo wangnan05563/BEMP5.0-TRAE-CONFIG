@@ -1,5 +1,21 @@
 # BEMP 组件交互参考
 
+## 快速定位索引（先查此表，只读命中章节，避免整读本文档）
+
+| 组件/主题 | 跳转章节 |
+|:---|:---|
+| h-button（@on-click/@click 验证） | 核心组件列表 → h-button |
+| h-msg-box 弹窗开关/确认/最大化 | 核心组件列表 → h-msg-box |
+| h-datagrid 行选/双击/翻页/等待数据 | 核心组件列表 → h-datagrid |
+| h-select 下拉、h-date-picker 日期 | 核心组件列表 → 对应小节 |
+| h-typefield 金额输入 | 核心组件列表 → h-typefield |
+| h-input 输入框 | 核心组件列表 → h-input |
+| 机构选择弹窗 / 客户号选择 | show-branch / select-cust-corp |
+| 页面路由映射、个性化 URL 前缀 | 页面路由映射、个性化 URL 前缀规则 |
+| h-upload 上传与模板下载 | h-upload |
+| h-selectTable-multiple 多选表格 | h-selectTable-multiple |
+| h-tree 树 / h-tabs 标签页 / h-form 表单 | 对应小节 |
+
 ## 概述
 
 BEMP 前端基于 Vue 2 + 恒生 UI 组件库（h- 前缀组件），本文档记录自动化测试中常见组件的交互方式和注意事项。

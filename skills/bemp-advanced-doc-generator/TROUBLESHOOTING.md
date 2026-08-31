@@ -22,6 +22,7 @@
 | 全部5级降级链均失败（v13.0） | 阻断 | 所有图表引擎不可用 | 文档中插入"图表待补充"占位 |
 | 质量审核阻断项不通过（v13.0） | 阻断 | 文档存在硬编码/功能号过期/占位符残留 | 阻断交付，输出修复建议列表 |
 | 版本历史 JSON 文件损坏（v13.0） | 警告 | _report-version-history.json 格式错误 | 重新初始化版本历史，从 v1.0 开始 |
+| design 模板锚点分类错位（章节内容错位/产出废弃） | 阻断 | 模板标题与 chapter_classification / template_h2_alias_map 关键词不匹配 | 按「design 模板锚点分类错位」章节诊断；重试仍失败 → 切换先例脚本模式 |
 
 ## 复盘与优化总结 (v8.1)
 
@@ -64,3 +65,39 @@ Step 3: 验证：段落数/封面/标题层级/页眉页脚/编号剥除/附录�
 4. **降级安全链**：drawio → mcp → graphviz → antv → matplotlib → 占位文字（v13.0 扩展为5级）
 5. **递归内容检测**：附录清理支持表格单元格内文本匹配 + 祖先回溯
 6. **三级配置继承**：技能级 → 项目级 → 银行级，deep-merge 策略（v13.0 新增）
+
+## design 模板锚点分类错位
+
+> 来源：反洗钱四阶段校验需求交付文档实测复盘（2026-08）。切换条件已登记于 `scripts/config/design-pipeline.yaml` → `pipeline_fallback` 段。
+
+### 症状
+
+- design 管线（design-pipeline.yaml 驱动）生成的 docx 中，章节内容出现在错误标题之下（如"接口"内容落在"功能描述"下）
+- 模板实际标题无法被 `chapter_classification` 关键词或 `template_h2_alias_map` 别名命中，锚点分类误判导致内容归属错乱，产出整体废弃、不可通过人工修补挽救
+
+### 根因
+
+- 模板标题措辞与配置关键词/别名不匹配（每个银行模板措辞不同，关键词集不可能穷举）
+- 模板结构不规则：标题层级缺失、锚点顺序与 design_data.chapters 顺序不一致
+
+### 诊断方法
+
+1. **对照检查**：提取模板实际 H1/H2 标题列表，与 design_data.chapters 章节标题逐一比对，找出无锚点命中的标题
+2. **产出验证**：检查输出 docx 中每个 H2 下是否存在内容——空章节 + 后续章节内容异常膨胀 = 错位信号
+3. **配置核查**：确认缺失锚点是否可通过在 design-pipeline.yaml 的 `chapter_classification` / `template_h2_alias_map` 补登记关键词解决（改配置优于改代码）
+
+### 降级路径：先例脚本模式（precedent-script）
+
+锚点配置重试仍失败（切换条件见 design-pipeline.yaml → `pipeline_fallback.switch_conditions`）时，放弃模板锚点填充，切换全代码构建：
+
+1. 复制技能 `scripts/` 下同构先例脚本为新需求脚本：以 `gen_org_mgmt_design.py` 为默认复制起点（可用环境变量 `BEMP_DOC_PRECEDENT_SCRIPT` 覆盖），命名 `gen_<requirement>_design.py`（先例：`gen_aml4_design.py`）
+2. 仅调整数据源（章节标题/内容/表格数据），保持样式工具函数与章节骨架不变
+3. 直接运行新脚本精准生成——全代码构建、无模板遗留空章节，天然不受锚点分类影响
+4. 交付文档"已知问题"章节标注本次管线失败原因与降级方式
+
+### gen_* 系列脚本范本注册约定
+
+- `scripts/gen_*.py` 为按需求命名的生成脚本，**每次成功交付后保留作为范本，不删除**
+- 新脚本头部注释必须注明所复制的先例脚本名（参考 gen_aml4_design.py 头部："生成模式与 gen_org_mgmt_design.py 先例一致"）
+- 范本链（按成功交付时间演进）：`gen_org_mgmt_design.py` → `gen_sync_org_tree_design.py` → `gen_aml4_design.py` → （后续新脚本追加在链尾）
+- 选择复制起点时取范本链中结构与当前需求最接近的脚本，而非固定取链首

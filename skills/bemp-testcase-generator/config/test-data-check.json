@@ -1,6 +1,35 @@
 {
-  "_doc": "测试数据一致性校验配置 - 测试前自动校验数据状态",
+  "_doc": "测试数据一致性校验配置 - 测试前自动校验数据状态。checkItems 为例行自检清单（配置驱动），脚本与数据准备文档按此清单逐项执行",
   "_ref": "数据库连接引用 _shared/env-config.json 的 database 节，通过 ${ENV:} 占位符解析",
+  "checkItems": [
+    {
+      "id": "data-sql-schema-verify",
+      "name": "数据直插SQL落库前表结构核对",
+      "severity": "critical",
+      "trigger": "凡生成 INSERT/UPDATE 直插 SQL 并准备落库前必须执行",
+      "requirement": "先对目标表执行 describe（或等价列结构查询），核对列清单、列数与主键取值方式（序列/手工赋值/默认值），确认目标表是应用读取表而非源侧参照表后，方可生成落库 SQL",
+      "fail_pattern": "用源侧参照表替代应用读取表生成列清单，导致列数不一致、INSERT 列不匹配（列数 vs 列数偏差类翻车）",
+      "verify_method": "SQL 列清单与 describe 输出逐列比对一致；主键取值方式已在数据文档中声明出处"
+    },
+    {
+      "id": "app-read-table-declaration",
+      "name": "应用读取表声明",
+      "severity": "major",
+      "trigger": "每个测试数据准备文档头部必须执行",
+      "requirement": "文档头部声明「应用读取表」，提取来源为 mapper XML 的 Base_Column_List，写明提取方法（文件与行号可追溯），并与源侧参照表显式区分",
+      "fail_pattern": "数据文档只写源侧参照表未声明应用读取表，后续 SQL 以参照表列结构为准生成",
+      "verify_method": "文档头部存在应用读取表声明；Base_Column_List 出处（mapper XML 文件:行号）可追溯"
+    },
+    {
+      "id": "cleanup-closure-contract",
+      "name": "清理闭环契约",
+      "severity": "critical",
+      "trigger": "凡包含写库/改配置步骤的用例必须执行；反向组合类用例强制",
+      "requirement": "用例自带清理步骤：按业务键精确删除的 SQL 模板 + 开关/配置复位动作 + 零残留复核断言（按业务键 COUNT=0）",
+      "fail_pattern": "写库/改配置用例无清理步骤，残留数据污染后续用例与反向场景",
+      "verify_method": "清理 SQL 按业务键可精确定位；开关复位动作明确；存在 CNT=0 零残留复核断言"
+    }
+  ],
   "consistencyChecks": [
     {
       "name": "LEGAL_NO一致性",

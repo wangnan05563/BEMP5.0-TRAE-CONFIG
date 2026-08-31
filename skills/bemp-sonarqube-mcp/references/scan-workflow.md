@@ -1,10 +1,12 @@
-﻿# BEMP SonarQube 扫描工作流程
+# BEMP SonarQube 扫描工作流程
 
 ## 完整操作手册
 
 ### 0. SonarQube 服务器检测与启动（前置条件）
 
 **目标**：确保本地 SonarQube 服务已启动，这是所有后续扫描操作的前置条件
+
+> 降级与自愈：本步骤属于四级降级链的 L1 前置自检，完整链路（L1 自检 → L2 CLI 回退 → L3 ES 环境自愈 → L4 降级记录）见 [degradation-chain.md](degradation-chain.md)
 
 **操作步骤**：
 

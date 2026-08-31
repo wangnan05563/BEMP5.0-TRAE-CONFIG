@@ -294,3 +294,35 @@ business_submodule_detection:
   min_content_length: 20
   # 截断长度：模块描述截取的最大字符数
   description_truncate_length: 80
+
+# ---------------------------------------------------------------------
+# design 管线 fallback 策略（v1.1 新增）
+# 管线模式失败时的降级路径：先例脚本模式（precedent-script）
+# 详细诊断与降级步骤见 TROUBLESHOOTING.md「design 模板锚点分类错位」章节
+# ---------------------------------------------------------------------
+pipeline_fallback:
+  # 降级链：标准管线 → 锚点修复重试 → 先例脚本模式
+  chain:
+    - mode: "pipeline"
+      description: "标准管线模式（本文件 stages 驱动）"
+    - mode: "pipeline-retry"
+      description: "按 TROUBLESHOOTING 诊断方法补登记锚点关键词/别名后重试"
+    - mode: "precedent-script"
+      description: "复制 scripts/ 下同构先例脚本为新需求脚本，调整数据源后全代码精准生成"
+  # pipeline → precedent-script 的切换条件（重试耗尽后任一满足即切换）
+  switch_conditions:
+    - condition: "anchor_misplacement_detected"
+      description: "产出 docx 存在章节内容错位/锚点分类错误，且产出判定为废弃"
+    - condition: "retry_exhausted"
+      description: "锚点配置修复重试次数耗尽仍错位"
+    - condition: "blocking_gate_failed"
+      description: "validation_gates 中 severity=blocking 的门禁项失败"
+  max_retries: 1
+  # 先例脚本模式参数（复制起点可通过环境变量覆盖，避免写死）
+  precedent_script:
+    registry_dir: "scripts"
+    default_template_script: "gen_org_mgmt_design.py"
+    template_script_env: "${ENV:BEMP_DOC_PRECEDENT_SCRIPT}"
+    new_script_naming: "gen_<requirement>_design.py"
+    header_note_required: true
+    keep_as_precedent: true

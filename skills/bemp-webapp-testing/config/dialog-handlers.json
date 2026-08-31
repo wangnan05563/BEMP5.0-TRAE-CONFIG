@@ -113,6 +113,38 @@
     }
   ],
 
+  "action_handlers": {
+    "_comment": "弹窗/操作降级触发处理器模式。当标准按钮点击通道不可用时按处理器定义降级触发。所有参数一律占位符化，运行时从组件实例或配置解析，禁止硬编码真实方法名/选择器。",
+    "vue-instance-trigger": {
+      "name": "Vue 实例方法触发处理器",
+      "description": "按钮因权限 isShow=false 或 v-if=false 不可见时，经 Vue 实例直调弹窗打开方法；提交动作仍回到真实 UI 通道完成，保留留证效力。",
+      "trigger_conditions": [
+        "按钮 isShow=false（权限控制隐藏）导致元素未渲染",
+        "按钮 v-if=false 导致选择器找不到目标",
+        "标准 click 通道按 max_retries 重试后仍失败且快照确认元素不存在"
+      ],
+      "operation": "vue_instance_method_call",
+      "operation_steps": [
+        "step_1: evaluate_script 遍历 $parent/$children 组件链或按 ref 定位目标组件实例（定位策略由 locate_strategy 占位符指定）",
+        "step_2: 校验目标方法存在且 typeof 为 function 后直调，方法名占位符 {component_method} 运行时从组件实例 keys 探测解析",
+        "step_3: 弹窗打开后，提交/保存类动作必须回到真实 UI 通道（点击弹窗内真实提交按钮），禁止伪造提交请求绕过 UI",
+        "step_4: screenshot_before_action 留证，并在报告中记录降级事实（通道=vue-instance-trigger，原因=按钮不可见）"
+      ],
+      "params": {
+        "locate_strategy": "{locate_strategy}",
+        "component_ref": "{component_ref}",
+        "component_method": "{component_method}",
+        "method_args": "{method_args}"
+      },
+      "forbidden": [
+        "伪造提交请求直接调用后端接口冒充 UI 操作",
+        "仅修改 DOM 状态冒充业务动作完成"
+      ],
+      "evidence_requirement": "调用前后各一张截图 + 方法调用返回值记录",
+      "on_failure": "标记用例 BLOCKED，记录组件定位失败详情（遍历过的组件链与探测过的方法名），禁止继续伪造操作"
+    }
+  },
+
   "bank_overrides": {
     "_comment": "银行级弹窗覆盖。当银行个性化的弹窗选择器或按钮文本不同时，在此覆盖。示例结构见下方_example。",
     "_example": {

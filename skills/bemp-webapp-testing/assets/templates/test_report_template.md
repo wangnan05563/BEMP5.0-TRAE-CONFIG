@@ -67,3 +67,16 @@
 
 1. [建议1]
 2. [建议2]
+
+## 对话回传摘要区（仅回传本节，其余内容一律落盘）
+
+> 依据 SKILL.md 规约 T7：报告全文、控制台日志、诊断明细已落盘 `aotutests-playwright/reports/`，对话中禁止粘贴原文，仅回传以下摘要并引用文件路径。
+
+| 用例编号 | 状态 | 失败分类 | 证据/报告路径 |
+|---------|------|---------|--------------|
+| TC-XXX-001 | PASS | - | - |
+| TC-XXX-002 | FAIL | code_defect | reports/{bank_id}/YYYY-MM/xxx.md#tc-xxx-002 |
+
+**BLOCKED / TOOL_SWITCH_REQUIRED 清单**（无则写"无"）：
+
+- TC-XXX-003：BLOCKED，[原因一句话]，建议：[修复建议]

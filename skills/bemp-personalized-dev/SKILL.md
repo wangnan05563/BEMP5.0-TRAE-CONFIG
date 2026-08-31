@@ -20,6 +20,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 - 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
 - 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
+- 会话内缓存：同一会话只需解析一次，解析结果（`{BANK_CODE}`/`{BANK_CLASS_PREFIX}`/`{BANK_NAME}` 等变量值）直接复用，禁止各阶段重复执行解析命令
 - 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
 
 # 个性化开发 Skill
@@ -130,6 +131,7 @@ bemp-personalized-dev/
    - 确认需求是否符合{BANK_NAME}个性化开发范围
    - 识别是否有可复用的已有个性化代码
    - 明确国际化范围 (按钮/标签需要国际化，提示信息等保持硬编码)
+   - **需求五要素检查**：进入开发前核对——①功能类型（前端/后端/数据库/Adapter 组合）②变更性质（新增/修改/复用）③涉及页面或接口名 ④是否需要增量 SQL ⑤是否需要编译部署闭环；要素缺失时通过 AskUserQuestion **一次性**收齐，禁止开发过程中逐点追问（每轮返工需重读指南，token 成本高）
 
 2. **规范检查**
    - 检查 banks/ext-{BANK_CODE} 目录下是否有可复用的带 @CustomizedBean 注解的个性化类
@@ -141,24 +143,29 @@ bemp-personalized-dev/
    - 参考同目录下已有的个性化实现案例
    - 特别注意 UI 组件的风格一致性 (如超链接风格、输入框风格等)
 
-4. **开发指南参考【强制】**
-   - **前端开发**: 必须参考 [前端开发指南](assets/guides/frontend-guide.md)
-   - **后端开发**: 必须参考 [后端开发指南](assets/guides/backend-guide.md)
-   - **数据库开发**: 必须参考 [数据库开发指南](assets/guides/database-guide.md)
-   - **Adapter 接口开发**: 必须参考 [Adapter接口开发指南](assets/guides/adapter-guide.md)
+4. **开发指南参考【强制】（分层加载，控制 token 消耗）**
+   - **加载顺序**：先 Read 对应指南的头部规范章节（命名约定、代码风格、硬性红线），用 Read 的 offset/limit 限取头部约 150 行，**禁止一次性全文加载指南**
+   - **模板正文按需定位**：仅在新建文件时，先 Grep 定位目标章节标题，再用 Read offset 读取该章节，避免顺序读全文
+   - **前端开发**: [前端开发指南](assets/guides/frontend-guide.md)
+   - **后端开发**: [后端开发指南](assets/guides/backend-guide.md)
+   - **数据库开发**: [数据库开发指南](assets/guides/database-guide.md)
+   - **Adapter 接口开发**: [Adapter接口开发指南](assets/guides/adapter-guide.md)
    - **项目规则**: 必须遵守 [项目规则](references/project-rules.md)
    - **Override模式**: 后端开发涉及子类重写父类方法时，必须参考 [Override模式知识库](references/override-patterns.md)
    - **HUI组件文档**: 前端开发中涉及 H-UI 组件使用时，必须调用 `hui_doc` MCP 查询组件详细信息
+   - **上下文不常驻**：指南模板内容使用后无需在后续回复中复述，后续阶段只引用章节锚点（如"按 frontend-guide 页面模板章节"）
+   - **复用跳过**：修改/复用场景（已命中可复用实现时）只需读头部规范章节，跳过模板正文加载
    - 根据开发内容类型，选择对应的开发指南文档，确保编码符合规范要求
 
 5. **HUI 组件文档查询【强制】**
-   - 前端开发过程中，凡涉及 H-UI 组件的使用（包括但不限于 `h-form`、`h-datagrid`、`h-button`、`h-msg-box`、`h-input`、`h-select`、`h-tree` 等），必须先通过 `hui_doc` MCP 查询该组件的完整文档
-   - 查询内容包括：组件属性（props）、方法（methods）、事件（events）、插槽（slots）、使用示例及最佳实践
+   - 前端开发过程中，凡涉及 H-UI 组件的使用（包括但不限于 `h-form`、`h-datagrid`、`h-button`、`h-msg-box`、`h-input`、`h-select`、`h-tree` 等），必须先通过 `hui_doc` MCP 查询该组件文档
+   - 查询范围以本次使用所需为准：属性签名、关键事件与使用约束（方法/插槽/示例按需查询）
    - 使用 `mcp_hui_doc_get-components-list` 获取所有可用组件列表，使用 `mcp_hui_doc_get-base-component` 或 `mcp_hui_doc_get-extend-component` 查询特定组件的详细文档
-   - 查询策略：
-     - 不熟悉的组件：必须完整查阅文档，理解所有属性和事件后再使用
-     - 熟悉的组件：至少确认关键属性的用法和默认值，避免因版本差异导致 API 不一致
+   - 查询策略（降采样，控制 token 消耗）：
+     - 不熟悉的组件：必须查阅文档确认属性签名、关键事件与使用约束后再使用，回复中引用结论即可，禁止全文复述文档内容
+     - 熟悉的组件：只确认关键属性的用法和默认值，避免因版本差异导致 API 不一致
      - 组件间交互场景：需同时查询多个相关组件的文档，确保组合使用的兼容性
+     - **会话内缓存**：同一组件每次会话只查询一次，结论缓存后直接复用，禁止重复查询相同组件
    - 禁止凭记忆或猜测使用组件 API，必须以官方文档为准
 
 6. **环境真实性核验【强制】**
@@ -358,6 +365,7 @@ bemp-personalized-dev/
 4. **生成检查报告**：按 `reportFormat.template` 输出检查结果
    - 汇总：共检查 N 项，通过 M 项，失败 K 项
    - 明细：每项检查的严重度、检查ID、检查名称、差异描述
+   - **结论化输出**：报告只含汇总行+失败项明细，通过项一行带过；禁止复述检查规则定义与检查步骤原文
 5. **按严重度处理**：
    - `critical`（严重）：阻止后续流程，必须修复后继续
    - `major`（主要）：输出警告，允许继续但需在交付文档中列出
@@ -379,9 +387,9 @@ bemp-personalized-dev/
    - `compile`：编译验证通过
    - `unitTest`：单测全绿；模块无单测能力时按 `unitTestFallback` 降级并在交付声明标注缺口
 2. **常量集中管理**：本次新增的产品码/错误码/状态码等业务常量统一入 `{constantManagement.classNamePattern}` 常量类，`forbidInlineBusinessConstants` 禁止在逻辑或 SQL 中散落字面量
-3. **交付证据化（deliveryEvidence.required）**：交付报告的断言必须附证据原文——
-   - `existenceProof`：关键文件的核验命令输出（如 Test-Path 结果）
-   - `compileOutput`：编译结果（BUILD SUCCESS / 错误明细）
+3. **交付证据化（deliveryEvidence.required）**：交付报告的断言必须附证据，证据取关键行而非全文——
+   - `existenceProof`：关键文件核验结果，用"路径→PASS/FAIL"单行表，禁止贴全文目录清单
+   - `compileOutput`：编译结果关键行（BUILD SUCCESS 或错误明细，最多 5 行），禁止贴全文日志
    - `testSummary`：单测统计行（Tests run/Failures/Errors）或 fallback 说明
 4. **常见遗漏**：
    - 口径已定案但只改代码不回写文档 → 文档-实现漂移，下轮评审必返工

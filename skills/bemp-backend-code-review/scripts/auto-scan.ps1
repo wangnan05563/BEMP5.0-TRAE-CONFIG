@@ -1,5 +1,11 @@
-# ========== BEMP 后端代码阻塞级问题自动扫描 v3.1.0 ==========
-# 银行参数从 config/bank-config.json 读取，切换银行时修改 currentBank 即可
+﻿# ========== BEMP 后端代码阻塞级问题自动扫描 v3.4.0 ==========
+# 银行参数从 config/bank-config.json 读取，切换银行时修改 _shared/env-config.json 的 BANK_CODE 即可
+param(
+    # I4 审查缓存：输出文件清单(路径+SHA256)供重复审查时与上次 manifest 比对，未变更且已审文件可跳过
+    [switch]$ExportManifest,
+    # 清单输出路径，缺省为 scripts\..\reports\.scan-manifest-{bankCode}.json
+    [string]$ManifestPath = ""
+)
 
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
 $ConfigSearchPaths = @(
@@ -241,4 +247,42 @@ if ($ISSUE_COUNT -eq 0) {
     Write-Host "未发现阻塞级问题，可以继续人工审查。" -ForegroundColor Green
 } else {
     Write-Host "发现 $ISSUE_COUNT 个阻塞级问题，请修复后再提交。" -ForegroundColor Red
+}
+
+# ---------- L0 预筛与审查缓存（v3.4.0 新增，追加式实现，不影响上述16项检查） ----------
+# I2: 输出机器可读候选文件清单，LLM 审查阶段只读该清单 + git 变更文件，其余文件不进入上下文。
+# 候选口径 = 全部16项检查的触发特征并集；宁多勿漏（纯实体/无特征工具类被排除）。
+$L0Pattern = 'extends\b|@CustomizedBean|@RestController|@RequestMapping|printStackTrace|BigDecimal|Collectors\.toMap|@Resource|commons\.lang\.StringUtils|SimpleDateFormat|DateTimeFormatter|\b(select|insert|update|delete)\b|setBrchNo|setLegalNo|setOrgCode|(Integer|Long)\s+\w+\s*=='
+$L0Files = New-Object System.Collections.Generic.List[string]
+Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
+    # 结构性文件(Controller/DTO/Service实现)无条件入选——检查1-7依赖文件名定位，内容特征可能缺失(如缺@RestController的缺陷文件)
+    $isStructural = $_.Name -match '(Controller|Req|Resp|Dto|ServiceImpl|AtomImpl)\.java$'
+    if (-not $isStructural) {
+        $content = Get-Content $_.FullName -Raw -Encoding UTF8
+        $isStructural = [regex]::IsMatch($content, $L0Pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    }
+    if ($isStructural) { $L0Files.Add((Get-RelPath $_.FullName)) }
+}
+Write-Host "`n=== L0-PREFILTER-BEGIN ===" -ForegroundColor Cyan
+Write-Host "L0-TOTAL: $($L0Files.Count)"
+foreach ($f in $L0Files) { Write-Host "L0-FILE: $f" }
+Write-Host "=== L0-PREFILTER-END ===" -ForegroundColor Cyan
+
+# I4: 文件清单+SHA256 落盘，重复审查时与上次 manifest 比对，未变更且已审文件跳过
+if ($ExportManifest) {
+    if ([string]::IsNullOrEmpty($ManifestPath)) {
+        $ManifestPath = Join-Path $PSScriptRoot "..\reports\.scan-manifest-$($BANK.bankCode).json"
+    }
+    $entries = @()
+    Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
+        $entries += [ordered]@{ path = (Get-RelPath $_.FullName); sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
+    }
+    $manifest = [ordered]@{
+        generatedAt = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        bankCode    = $BANK.bankCode
+        fileCount   = $entries.Count
+        files       = $entries
+    }
+    $manifest | ConvertTo-Json -Depth 3 | Set-Content -Path $ManifestPath -Encoding UTF8
+    Write-Host "审查缓存清单已写入: $ManifestPath" -ForegroundColor Green
 }
