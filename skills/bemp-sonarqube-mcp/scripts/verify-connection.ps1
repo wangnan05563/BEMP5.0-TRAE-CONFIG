@@ -6,7 +6,9 @@ param(
     [string]$ConfigPath = "$PSScriptRoot\..\config\scan_config.json"
 )
 
-. (Join-Path $PSScriptRoot "..\..\_shared\Resolve-EnvConfig.ps1")
+# Token 解析链与占位符解析统一走技能侧共享模块（内部已加载 _shared/Resolve-EnvConfig.ps1）
+# 解析链：环境变量 SONARQUBE_TOKEN/SONAR_TOKEN > _shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN > 键名文本搜索兜底
+. (Join-Path $PSScriptRoot "resolve-sonar-token.ps1")
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -18,15 +20,18 @@ Write-Host ""
 if (Test-Path $ConfigPath) {
     $config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $sqConfig = $config.sonarqube_server
-    $port = $sqConfig.port
-    $host = Resolve-EnvPlaceholder $sqConfig.host
-    $javaHome = Resolve-EnvPlaceholder $sqConfig.java_home
+    # port 值可能是 ${ENV:SONARQUBE_PORT} 占位符或数字，统一经三层解析后转 int
+    $port = 0
+    if (-not [int]::TryParse([string](Resolve-SqPlaceholder $sqConfig.port), [ref]$port)) { $port = 9000 }
+    # 禁止向只读自动变量 $host 赋值（PS 中 $host 是宿主信息对象，上轮降级记录已点名的同类缺陷），改用 $sqHost
+    $sqHost = Resolve-SqPlaceholder $sqConfig.host
+    $javaHome = Resolve-SqPlaceholder $sqConfig.java_home
     $projectKey = if ($config.project -and $config.project.key) { $config.project.key } else {
         $defaults = (Get-GlobalEnvConfig).environmentDefaults
         if ($defaults -and $defaults.BANK_SONAR_PROJECT_KEY) { $defaults.BANK_SONAR_PROJECT_KEY } else { "bemp-ext-hnnxbank" }
     }
     Write-Host "[OK] scan_config.json loaded" -ForegroundColor Green
-    Write-Host "  SonarQube Host : $host" -ForegroundColor Gray
+    Write-Host "  SonarQube Host : $sqHost" -ForegroundColor Gray
     Write-Host "  SonarQube Port : $port" -ForegroundColor Gray
     Write-Host "  JAVA_HOME      : $javaHome" -ForegroundColor Gray
 } else {
@@ -34,11 +39,12 @@ if (Test-Path $ConfigPath) {
     $sharedConfigPath = Join-Path $PSScriptRoot "..\..\_shared\env-config.json"
     if (Test-Path $sharedConfigPath) {
         $sharedConfig = Get-Content $sharedConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        $port = $sharedConfig.services.sonarqube.port
-        $host = $sharedConfig.services.sonarqube.host
+        $port = 0
+        if (-not [int]::TryParse([string](Resolve-SqPlaceholder $sharedConfig.services.sonarqube.port), [ref]$port)) { $port = 9000 }
+        $sqHost = Resolve-SqPlaceholder $sharedConfig.services.sonarqube.host
     } else {
         $port = 9000
-        $host = "http://localhost:9000"
+        $sqHost = "http://localhost:9000"
     }
     $config = $null
     $defaults = (Get-GlobalEnvConfig).environmentDefaults
@@ -74,7 +80,7 @@ if ($portListening) {
     Write-Host "[通过] 端口 $port 正在监听" -ForegroundColor Green
     
     try {
-        $response = Invoke-WebRequest -Uri "$host/api/system/status" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "$sqHost/api/system/status" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
         $body = $response.Content | ConvertFrom-Json
         Write-Host "[通过] 健康检查: status=$($body.status), version=$($body.version)" -ForegroundColor Green
     } catch {
@@ -88,20 +94,29 @@ if ($portListening) {
 
 Write-Host ""
 
-# Step 3: 检查环境变量
-Write-Host "--- 环境变量检查 ---" -ForegroundColor Yellow
+# Step 3: Token 解析链检查 + 有效性实测
+# 解析链：环境变量 SONARQUBE_TOKEN/SONAR_TOKEN > _shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN（唯一配置入口，会话无关兜底）
+# > 仅结构解析失败时按键名文本搜索。实测端点 /api/authentication/validate，401 即视为 Token 无效。
+Write-Host "--- Token 解析链检查 ---" -ForegroundColor Yellow
 
-$envPath = $env:SONARQUBE_URL
-$envToken = if ($env:SONARQUBE_TOKEN) { "***已配置***" } else { "***未配置***" }
+Write-Host "  SONARQUBE_URL   : $env:SONARQUBE_URL"
+$tokenResult = Resolve-AndTestSonarToken -BaseUrl $sqHost
 
-Write-Host "  SONARQUBE_URL   : $envPath"
-Write-Host "  SONARQUBE_TOKEN : $envToken"
-
-if (-not $env:SONARQUBE_TOKEN) {
-    Write-Host "[警告] SONARQUBE_TOKEN 未设置，MCP 工具可能无法使用" -ForegroundColor Red
-    Write-Host "  请设置环境变量：`$env:SONARQUBE_TOKEN = 'your_token'" -ForegroundColor Yellow
+if ($tokenResult.Token) {
+    $masked = $tokenResult.Token.Substring(0, [Math]::Min(8, $tokenResult.Token.Length)) + "***"
+    Write-Host "  Token 来源      : $($tokenResult.Source)" -ForegroundColor Gray
+    Write-Host "  Token 值        : $masked" -ForegroundColor Gray
+    if ($tokenResult.Valid) {
+        Write-Host "[通过] Token 有效性实测: $($tokenResult.Detail)" -ForegroundColor Green
+    } else {
+        Write-Host "[未通过] Token 有效性实测: $($tokenResult.Detail)" -ForegroundColor Red
+        Write-Host "  修复建议：在 SonarQube Web 界面生成新的 Global Analysis Token 后更新 _shared/env-config.json 的 environmentDefaults.SONARQUBE_TOKEN" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "[通过] 环境变量已配置" -ForegroundColor Green
+    Write-Host "[未通过] Token 解析失败: $($tokenResult.Detail)" -ForegroundColor Red
+    Write-Host "  修复建议（按序任选其一）：" -ForegroundColor Yellow
+    Write-Host "  1. 会话临时设置: `$env:SONARQUBE_TOKEN = '<token值>'" -ForegroundColor Yellow
+    Write-Host "  2. 永久兜底（推荐）: 在 _shared/env-config.json 的 environmentDefaults.SONARQUBE_TOKEN 填入真实值" -ForegroundColor Yellow
 }
 
 Write-Host ""

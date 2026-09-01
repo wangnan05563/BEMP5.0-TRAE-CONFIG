@@ -1,4 +1,4 @@
-{
+﻿{
   "_doc": "BEMP 服务启动统一配置。占位符两层解析：${ENV:VAR}（环境变量，fallback 至 _shared/env-config.json environmentDefaults——唯一配置入口，换电脑/银行只改 _shared）→ 字面量。银行业务参数（模块名/mainClass/JVM/前端命令）写在 profiles 下，profile key 必须等于 BANK_CODE，启动时按 -ProfileName 或 defaultProfile=${ENV:BANK_CODE} 注入 services 同名字段；services 只保留服务编排属性（类型/端口/依赖/健康检查）。globalPaths 已废除——脚本从 config.global 派生路径（mavenPath 由 mavenHome 派生，nodePath 归一化为 exe）。",
   "defaultProfile": "${ENV:BANK_CODE}",
   "global": {
@@ -22,7 +22,7 @@
       },
       "zookeeper": {
         "readinessWaitSec": 45,
-        "env": { "JAVA_TOOL_OPTIONS": "-Dfile.encoding=UTF-8" }
+        "env": { "JAVA_TOOL_OPTIONS": "-Dfile.encoding=UTF-8", "JAVA_HOME": "${ENV:JAVA_HOME}" }
       },
       "served": {
         "modulePath": "${ENV:BANK_MODULE_PREFIX}served-deploy",

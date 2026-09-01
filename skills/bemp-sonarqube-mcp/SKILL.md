@@ -1,4 +1,4 @@
-﻿---
+---
 name: "bemp-sonarqube-mcp"
 description: "BEMP项目SonarQube代码质量扫描与问题修复技能。基于SonarQube MCP对BEMP新增代码进行质量门禁检查、问题扫描、代码片段分析、问题分类与修复建议。"
 whenToUse: "编码/开发/缺陷 修复后调用、BEMP工作流中代码 Review 与修复阶段、用户完成新功能开发后要求代码质量检查、代码 Review 环节需要 SonarQube 扫描结果、提交代码前需要质量门禁验证、用户想要在合并 PR 前检查项目是否通过质量门禁、用户想要在一个或多个 SonarQube 项目中查找严重或阻断性问题、用户想要在推送到 CI 前分析代码片段中的问题、用户想要理解为什么特定的 Sonar 规则标记了他们的代码、用户请求提交前或推送前的质量反馈"
@@ -26,6 +26,19 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 - 解析链：环境变量 > `_shared/env-config.json` environmentDefaults（唯一配置入口）> `${ENV:VAR:默认值}` 内联默认值
 - 解析报错 → 跑 `powershell -File "<skills根>\_shared\doctor-config.ps1"`，按 FAIL 清单修复（改 _shared 或设环境变量，禁止把真值回写技能 config）
 - 完整约定见 [_shared/config-loading-guide.md](../_shared/config-loading-guide.md)
+
+### Token 获取铁律（2026-09-01 修订）
+
+Sonar 服务器 Token（`SONARQUBE_TOKEN`）获取链与脚本实现（`scripts/resolve-sonar-token.ps1` → `Resolve-SonarToken`）保持一致：
+
+1. 环境变量 `SONARQUBE_TOKEN`（首选）；`SONAR_TOKEN` 为兼容项
+2. （可选探测）MCP server 进程环境块中的 `SONARQUBE_TOKEN`（W9-02 实战来源）
+3. `_shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN` —— 会话无关的永久兜底（结构化 `ConvertFrom-Json` 解析优先，仅解析失败时退化为按 `SONARQUBE_TOKEN` 键名文本搜索）
+
+强约束：
+- 本技能任何文件**禁止硬编码 Token 真值**，只能经 `${ENV:SONARQUBE_TOKEN}` 占位符引用或运行时从 `_shared` 读取；不得修改 `_shared/env-config.json` 本身
+- PowerShell 动态环境变量名必须用 `[Environment]::GetEnvironmentVariable($name)`（禁 `$env:$Var` 语法）；技能脚本均为 UTF-8 with BOM 编码（PS5.1 中文兼容）
+- Token 有效性实测端点：`GET {host}/api/authentication/validate`，`valid:true` 才算通过（401 ≠ 服务不可用，是按解析链换下一来源的信号）
 
 ## Skill 职责
 
@@ -90,31 +103,35 @@ cd scripts/
 ### 第一步：连接验证与项目确认
 
 ```
-1. 检查 MCP 可用性：
-   - 检查当前项目 MCP 服务器列表是否包含 SonarQube MCP
-   - MCP 可用 → 使用 MCP 工具执行扫描
-   - MCP 不可用 → 执行降级处理（见"降级处理"章节）
+1. MCP 工具粒度优先判定（访问链第一优先级，详见 references/degradation-chain.md L1.5）：
+   - 检查当前项目 MCP 服务器列表是否包含 SonarQube MCP（run_mcp → mcp_sonarqube 服务）
+   - 鉴权验证通过（/api/authentication/validate 返回 valid:true）即视为 MCP 可用 → 优先用 MCP 工具
+   - 查询类 API 403（如 projects/search 权限受限）不代表 MCP 全链不可用：受限查询改走 HTTP API，
+     analyze_code_snippet 等分析类工具继续走 MCP（按工具粒度降级，不整链降级）
+   - 仅当 MCP 不可用/鉴权失败/所需工具全部受限 → 降级 CLI（见"降级处理"章节）
 
 2. MCP 可用时：
-   - 调用 search_my_sonarqube_projects 确认 MCP 连接
+   - 调用 search_my_sonarqube_projects 确认 MCP 连接（若该查询工具 403，改走 HTTP API
+     GET {host}/api/projects/search 实测，不影响 MCP 全链判定）
    - 确认目标项目存在（默认：bemp-ext-hnnxbank）
    - 读取 config/scan_config.json 获取项目配置
 
-3. Token 验证：
-   - 检查 SONARQUBE_TOKEN 环境变量是否设置
-   - Token 存在 → 验证 API 调用返回 200
-   - Token 无效或不存在 → 输出修复建议，终止流程
+3. Token 验证（解析链，与 scripts/resolve-sonar-token.ps1 一致）：
+   - 按序解析：环境变量 SONARQUBE_TOKEN > MCP 进程环境块 > _shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN
+   - 有 Token → GET {host}/api/authentication/validate 实测（期望 {"valid":true}）
+   - 401/valid:false → 继续按解析链取下一来源；全部无效 → 输出修复建议，终止流程
 ```
 
-### 降级处理（MCP 不可用时）
+### 降级处理（MCP 不可用/所需工具全部受限时）
 
-> **重要**：当 SonarQube MCP 工具不可用时，不得跳过智能体，必须执行降级处理。
+> **重要**：降级前提是 L1.5 工具粒度判定确认 MCP 无可用工具（查询类 403 不触发整链降级），不得跳过智能体，必须执行降级处理。
 
 ```
-1. 输出警告："SonarQube MCP 未配置，将使用 sonar-scanner 命令行工具"
+1. 输出警告："SonarQube MCP 不可用/鉴权失败/所需工具全部受限，将使用 sonar-scanner 命令行工具"
 2. 读取 config/scan_config.json 获取 sonar_scanner 配置
 3. 生成 sonar-project.properties 配置文件（如不存在）
 4. 执行 scripts/run-sonar-scanner.ps1 作为降级方案
+   （脚本内置：Token 解析链取值 → validate 前置实测 → 扫描 → Token 明文临时文件自动清理）
 5. 扫描完成后，验证结果上传到 SonarQube Web 界面
 6. 输出引导用户配置 MCP 的建议
 ```
@@ -257,5 +274,6 @@ cd scripts/
 ## 自动化脚本
 
 - `scripts/start-sonarqube.ps1` — SonarQube 服务器检测与启动
-- `scripts/verify-connection.ps1` — MCP 连接验证
+- `scripts/resolve-sonar-token.ps1` — Token 解析链与三层占位符解析共享模块（供 dot-source：`Resolve-SonarToken` / `Resolve-SqPlaceholder` / `Test-SonarToken` / `Resolve-AndTestSonarToken`）
+- `scripts/verify-connection.ps1` — MCP 连接验证（内置 Token 解析链 + validate 实测）
 - `scripts/generate-scan-scope.ps1` — 扫描范围自动生成

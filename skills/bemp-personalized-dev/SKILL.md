@@ -187,6 +187,7 @@ bemp-personalized-dev/
   4. 若 COUNT > 0：功能号已被占用，按配置的 `conflictHandling.strategies` 处理（默认 block）
   5. 若功能号在 `excludeList` 中：提示排除命中，要求更换
   6. 若配置为 `autoReassign` 策略：从 `seqRange` 中自动分配下一个可用功能号
+- **任务注册脚本**：批量定时任务注册 SQL 默认写 TT_TASK（非 TT_TIMER_TASK），ID 须实库核实分配，模板见 [database-guide.md 3.2.5](assets/guides/database-guide.md)
 - **常见遗漏**：
   - 仅凭记忆认为功能号未占用 → 必须查询数据库验证
   - 复制其他银行代码未改功能号 → 必须检查功能号唯一性

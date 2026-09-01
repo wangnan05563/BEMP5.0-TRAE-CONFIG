@@ -4,10 +4,13 @@
 
 ## 降级链总览
 
+**访问链（2026-09-01 修订）**：MCP 工具粒度优先 → CLI（sonar-scanner）→ ES 水位自愈 → 降级记录。访问 Sonar 服务器时第一优先级永远是 MCP 工具（run_mcp → mcp_sonarqube 服务）。
+
 | 级别 | 触发条件 | 动作 | 失败后去向 |
 |------|---------|------|-----------|
-| L1 | 每次扫描前必执行 | 前置自检：服务连通 → Token 有效 → 项目 key 核实 | L2 |
-| L2 | MCP 不可用 | sonar-scanner CLI 降级扫描 | L3 |
+| L1 | 每次扫描前必执行 | 前置自检：服务连通 → Token 有效（解析链见 1.2）→ 项目 key 核实 | L1.5 |
+| L1.5 | L1 通过后必执行 | MCP 工具粒度优先判定：鉴权验证通过即视为 MCP 可用，可用工具直接走 MCP（判定规则见 L1.5 节） | L2 |
+| L2 | MCP 不可用 / 鉴权失败 / 所需工具全部受限 | sonar-scanner CLI 降级扫描 | L3 |
 | L3 | 服务 UP 但扫描失败 / CE 任务 FAILED | ES 磁盘洪水水位自愈 + 重扫 | L4 |
 | L4 | 全部不可行 | 输出降级记录，流程终止（不虚构结果） | 终止 |
 
@@ -25,13 +28,20 @@
 
 ### 1.2 Token 有效性验证（按序解析，禁止明文写死）
 
-按 `degradation.token_resolution_order` 依次解析，取第一个非空值：
+按 `degradation.token_resolution_order` 依次解析，取第一个非空值（与 `scripts/resolve-sonar-token.ps1` 的 `Resolve-SonarToken` 实现一致）：
 
-1. 环境变量 `SONAR_TOKEN`（兼容既有脚本约定，回退 `SONARQUBE_TOKEN`）
-2. 项目根 `sonar-project.properties` 中 `sonar.token` 历史值（该文件为扫描临时产物，含明文 Token 时扫描结束后应清理）
-3. 配置文件引用（如 `scripts` 生成的 `last-generated-token.json`）——仅允许引用文件路径，禁止把 Token 明文写进 `scan_config.json`
+1. 环境变量 `SONARQUBE_TOKEN`（首选）；`SONAR_TOKEN` 为兼容项
+2. **MCP server 进程环境块中的 `SONARQUBE_TOKEN`**——shell 会话/配置文件引用的 Token 失效（401）时的实测优先来源：MCP server 启动时注入进程的有效 Token 认证 200 通过（W9-02 实战）。提取方式：经 MCP 自身通道读取进程环境（禁止要求用户手工粘贴 Token）；提取的 Token 仅入内存使用，禁止写回任何配置文件或临时明文文件落盘残留
+3. `_shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN` —— 全技能库唯一配置入口、会话无关的永久兜底：结构化 JSON 解析（`ConvertFrom-Json`，PS5.1 自带）优先取值，仅结构解析失败时才退化为按 `"SONARQUBE_TOKEN"` 键名文本搜索
+4. 项目根 `sonar-project.properties` 中 `sonar.token` 历史值（该文件为扫描临时产物，含明文 Token 时扫描结束后应清理——`run-sonar-scanner.ps1` 已在 finally 中自动清理）
+5. 配置文件引用（如 `scripts` 生成的 `last-generated-token.json`）——仅允许引用文件路径，禁止把 Token 明文写进 `scan_config.json`
 
-验证方式：`GET {host}/api/system/status` 携带 `Authorization: Bearer {token}`，返回 401/403 = Token 无效 → 输出修复建议并终止，禁止跳过鉴权硬扫。
+> **实现约束（2026-09-01 机构管理增量扫描降级记录教训）**：`SONARQUBE_TOKEN` 仅初始终端会话环境变量可见，新会话取不到导致 validate 401，故解析链必须有会话无关的 `_shared` 兜底：
+> - 动态环境变量名必须用 `[Environment]::GetEnvironmentVariable($name)`（`$env:$name` 语法无效）
+> - 技能侧禁止硬编码 Token 真值，统一经 `${ENV:SONARQUBE_TOKEN}` 占位符引用或运行时从 `_shared` 读取
+> - Token 更新入口：`_shared/env-config.json` 的 `environmentDefaults.SONARQUBE_TOKEN`（不得在本技能内改写该文件）
+
+验证方式：`GET {host}/api/authentication/validate` 携带 `Authorization: Bearer {token}`，返回 `{"valid":true}` = Token 有效；返回 401/403 或 `valid:false` = Token 无效 → **继续按 resolution_order 取下一来源**（配置来源失效≠服务不可用，W9-02 中 sqa_ Token 401 但进程环境 Token 有效）；全部来源无效 → 输出修复建议并终止，禁止跳过鉴权硬扫。
 
 ### 1.3 项目 key 核实（实测而非假设）
 
@@ -43,9 +53,28 @@
 
 ---
 
-## L2 MCP 不可用 → sonar-scanner CLI
+## L1.5 MCP 工具粒度优先判定（访问链第一优先级）
 
-**进入前提**：L1 三项自检全部通过（服务 UP + Token 有效 + 项目 key 已实测核实）。
+**判定规则**（按工具粒度，不做全有/全无判定）：
+
+1. **鉴权验证通过（validate 返回 `valid:true`）即视为 MCP 可用**——优先用 MCP 工具完成扫描、查询与分析，不再探测更多前置条件
+2. **查询类 API 403 不代表 MCP 全链不可用**（2026-09-01 实测：当前 Token 为 admin 分析类 Token，`projects/search` 查询 403 但 `analyze_code_snippet` 等分析类工具正常）——按工具粒度降级：受限的查询类调用改走 HTTP API（携带 Token）或 CLI 查询，其余可用工具（分析类）继续走 MCP
+3. 仅当 MCP 不可用 / 鉴权失败 / 本次所需工具全部受限时，才整链降级 CLI（进入 L2）
+
+**工具粒度降级示例**：
+
+| 场景 | 处置 |
+|------|------|
+| validate 401/403 | 按解析链换下一来源；全部无效 → 输出修复建议并终止 |
+| `projects/search` 403，`analyze_code_snippet` 可用 | 问题检索走 HTTP API，片段分析继续走 MCP（不整链降级） |
+| MCP 服务未注册 / run_mcp 通道异常 | 整链降级 L2 CLI 扫描 |
+| 项目级数据需 sonar-scanner 上传（CLI 才能产生） | 直接走 L2，MCP 负责后续查询与分析（混合模式） |
+
+---
+
+## L2 MCP 不可用/所需工具全部受限 → sonar-scanner CLI
+
+**进入前提**：L1 三项自检全部通过（服务 UP + Token 有效 + 项目 key 已实测核实），且 L1.5 判定 MCP 无可用工具（或 MCP 服务本身不可用）。Token 来源按 1.2 解析链取值，执行前先经 `/api/authentication/validate` 实测（`run-sonar-scanner.ps1` 已内置该前置实测，401 不得硬扫）。
 
 **参数来源**（全部来自既有配置，不在命令行写死）：
 
@@ -55,6 +84,7 @@
 | 服务地址 | `sonarqube_server.host` |
 | 项目 key | `-ProjectKey`（取 L1 实测值）；未传时回退 `sonar_scanner.default_project_key` |
 | 源码范围 | `-Sources`（默认 `sonar_scanner.default_sources`） |
+| 编译产物 | `degradation.cli_fallback.java_binaries`：`sonar.java.binaries={module}/target/classes`（**sonar-java 强制要求，缺省直接 EXECUTION FAILURE**）；含测试代码扫描时须同步 `sonar.java.test.binaries={module}/target/test-classes`。模块清单由本次变更文件路径推导，禁止硬编码 |
 | 等待超时 | `sonar_scanner.wait_timeout_seconds`（CLI 开关与超时亦可查 `degradation.cli_fallback`） |
 
 **调用方式**：
@@ -65,6 +95,8 @@ cd scripts/
 ```
 
 **失败判定**：脚本退出码非 0，或服务端 CE（Compute Engine）任务长时间 PENDING / FAILED → 进入 L3。
+
+**基线对比核销口径（W9-03）**：修复后回扫做问题对比核销时，必须声明本轮与基线的 binaries 口径是否一致——首次补齐 `sonar.java.test.binaries` 后，此前因类型解析不完整漏报的规则问题（如测试方法签名 `throws Exception` 的 S112）会在"新增"栏浮现，属口径差异暴露而非本轮引入；核销报告须单列"口径差异暴露"类目，禁止把口径差异计为新增缺陷，也不得把基线漏报当作"本轮已修复"。
 
 ---
 

@@ -1,4 +1,4 @@
-# BEMP 前端审查规范完整条款（16项）
+# BEMP 前端审查规范完整条款（17项）
 
 > 本文件为 SKILL.md 规范索引的完整展开，供人工审查阶段按需读取。自动扫描阶段无需读取。
 
@@ -78,6 +78,16 @@
 
 ## 16. 路由权限
 - 敏感页面配置权限守卫（meta.permission/auth）；hidden属性正确；路径与后端菜单接口一致
+
+## 17. 重复逻辑收口
+- 【强制】≥2 个页面出现**同构方法**（主体框架逐字一致、仅字段名/数据源/文案差异）时，必须抽取公共 mixin 放 `{bankName}/components/` 下，禁止同构副本在多页面扩散
+- **同构副本判定特征**：Promise 框架、接口 URL、弹窗状态字段、降级/提示话术一致，仅入参组装段（字段映射、票据收集）不同
+- **差异处理三模式**（不得在公共方法内 if(pageName) 分支硬编码）：
+  1. 字段映射配置化：页面 data 提供映射表（如 `submitCheckConfig.antiMoneyFieldMap`：预检入参字段 → 票据 DTO 字段）
+  2. 数据源钩子：页面覆盖钩子方法（如 `getSubmitCheckBills()`，默认实现取 `$refs.xxx.tData`，特殊页面覆盖为自有收集函数）
+  3. 展示钩子：格式化等展示差异由页面覆盖（如 `formatCheckBillNo(bill)`）
+- **收口后必须 Grep 验证**：原方法定义仅存于公共文件；各页面无残留方法定义、无残留 data 字段、无残留 import（组件注册由 mixin 的 components 选项提供）
+- 参考实例：`hnnxbank/components/submitCheckMixin.js`（中互金预检 checkAntiMoneyBeforeSubmit + 零利息拦截 checkZeroInterestBeforeSubmit，原 4 页各约 120 行副本收口；quoteSaleChange/quoteRebuyChange/redSaleApplChange 覆盖 formatCheckBillNo，eDiscApplyBatchAdd 覆盖 getSubmitCheckBills）
 
 ## 常见问题排查
 

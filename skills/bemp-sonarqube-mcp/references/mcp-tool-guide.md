@@ -36,6 +36,21 @@
 
 ---
 
+## 工具粒度可用性判定（MCP 优先，2026-09-01 修订）
+
+**原则**：访问链第一优先级为 MCP 工具；鉴权验证通过（`/api/authentication/validate` 返回 `valid:true`）即视为 MCP 可用。**按工具粒度判定可用性，不做全有/全无判定**。
+
+| 实测场景 | 判定 | 处置 |
+|----------|------|------|
+| 鉴权验证 valid:true | MCP 可用 | 优先用 MCP 工具 |
+| 查询类工具 403（如 `search_my_sonarqube_projects`、`projects/search`） | 仅该工具权限受限（当前 Token 为 admin 分析类 Token 的实测表现） | 该查询改走 HTTP API（携带 Bearer Token）；其余工具（`analyze_code_snippet` 等）继续走 MCP，不整链降级 |
+| 分析类工具（`analyze_code_snippet`）可用 | MCP 分析通道正常 | 片段级增量分析优先走 MCP |
+| 鉴权失败（401 全来源无效）或 MCP 服务未注册 | MCP 全链不可用 | 整链降级 sonar-scanner CLI（见 degradation-chain.md L2） |
+
+> 实测依据（2026-09-01 机构管理优化增量扫描）：`projects/search` 查询 403 与 `analyze_code_snippet` 正常工作并存，证明查询类 403 ≠ MCP 全链不可用。完整判定链见 [degradation-chain.md](degradation-chain.md) L1.5。
+
+---
+
 ## BEMP 项目专用参数映射
 
 ### 项目 Key

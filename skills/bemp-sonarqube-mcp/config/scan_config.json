@@ -26,17 +26,25 @@
   },
   "mcp_check": {
     "mcp_server_name": "mcp_SonarQube",
+    "access_priority": "mcp_tool_first",
+    "access_priority_note": "访问链第一优先级为 MCP 工具（run_mcp → mcp_sonarqube 服务）：鉴权验证通过即视为 MCP 可用，分析类工具（analyze_code_snippet 等）可用即优先走 MCP；查询类 API（如 projects/search）403 仅代表该工具权限受限，不代表 MCP 全链不可用，按工具粒度降级，仅当 MCP 不可用/鉴权失败/所需工具全部受限时才降级 CLI",
+    "auth_probe_endpoint": "/api/authentication/validate",
+    "query_403_tool_degradation": true,
     "fallback_enabled": true,
-    "fallback_message": "SonarQube MCP 未配置，将使用 sonar-scanner 命令行工具"
+    "fallback_message": "SonarQube MCP 不可用/鉴权失败/所需工具全部受限，降级 sonar-scanner 命令行工具"
   },
   "degradation": {
     "_note": "四级降级与环境自愈链配置，流程见 references/degradation-chain.md；所有环境值经 ${ENV:VAR} 占位符解析，禁止明文写死 Token/URL/端口/项目key",
     "token_resolution_order": [
-      "env:SONAR_TOKEN",
       "env:SONARQUBE_TOKEN",
+      "env:SONAR_TOKEN",
+      "mcp_process_env:SONARQUBE_TOKEN",
+      "shared_env_config:environmentDefaults.SONARQUBE_TOKEN",
       "project_properties:sonar-project.properties#sonar.token",
       "config_file_reference"
     ],
+    "_sharedTokenFallbackDoc": "shared_env_config 兜底来源 = ../_shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN（全技能库唯一配置入口，会话无关）。实现见 scripts/resolve-sonar-token.ps1：结构化 JSON 解析（ConvertFrom-Json）优先，仅解析失败时退化为按 SONARQUBE_TOKEN 键名文本搜索；技能侧禁止硬编码 Token 真值，统一经 ${ENV:SONARQUBE_TOKEN} 占位符引用或运行时从 _shared 读取",
+    "_tokenResolutionDoc": "mcp_process_env = MCP server 进程的环境块（W9-02 实战：shell 会话中配置文件引用的 sqa_ Token 已 401 失效，但 MCP server 启动时注入进程环境的有效 Token 实测 200 认证通过）。配置文件/会话环境变量失效时，优先探测 MCP server 进程环境块中的 SONARQUBE_TOKEN；提取的 Token 属敏感信息，仅入内存使用，禁止写回任何配置文件或临时明文文件落盘残留",
     "project_key_probe": {
       "enabled": true,
       "api_endpoint": "${ENV:SONARQUBE_HOST}/api/projects/search",
@@ -50,6 +58,13 @@
         "L1 Token有效",
         "L1项目key实测核实"
       ],
+      "java_binaries": {
+        "enabled": true,
+        "_doc": "sonar-java 插件强制要求 sonar.java.binaries（缺省直接 EXECUTION FAILURE）；增测测试代码时须同步 sonar.java.test.binaries。注意：首次补齐 binaries 后，此前因类型解析不完整漏报的问题会浮现（W9-03），基线对比核销时必须声明 binaries 口径是否一致，禁止把口径差异当成新增缺陷",
+        "main_binaries_template": "{module}/target/classes",
+        "test_binaries_template": "{module}/target/test-classes",
+        "moduleDiscoveryDoc": "参与扫描的模块清单由本次变更文件路径推导（取模块级 target/classes 是否存在判断），禁止硬编码模块清单"
+      },
       "wait_timeout_seconds": 180
     },
     "es_self_heal": {

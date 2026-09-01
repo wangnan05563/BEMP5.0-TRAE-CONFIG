@@ -74,11 +74,13 @@ function Test-PortInUse {
 
 function Test-SonarQubeHealth {
     param(
-        [string]$Host,
+        # 参数名禁用 $Host：$Host 是 PS 只读自动变量，作函数参数会在绑定时报
+        # "无法覆盖变量 Host"（SessionStateUnauthorizedAccessException），导致健康检查永远失败
+        [string]$BaseUrl,
         [int]$TimeoutSeconds = 10
     )
     try {
-        $response = Invoke-WebRequest -Uri "$Host/api/system/status" -UseBasicParsing -TimeoutSec $TimeoutSeconds -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "$BaseUrl/api/system/status" -UseBasicParsing -TimeoutSec $TimeoutSeconds -ErrorAction Stop
         $body = $response.Content | ConvertFrom-Json
         return @{ Healthy = $true; Status = $body.status; Version = $body.version }
     } catch {
@@ -145,14 +147,17 @@ if (-not (Test-Path $ConfigPath)) {
     exit 1
 }
 
-$config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+# PS5.1 默认按 ANSI 读取，UTF-8 配置文件中的中文注释会乱码并导致 JSON 解析失败（2026-09-01 降级记录点名缺陷）
+$config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $sqConfig = $config.sonarqube_server
 $port = $sqConfig.port
-$host = $sqConfig.host
+# host 值含 ${ENV:SONARQUBE_PORT} 占位符，必须三层解析；禁止向只读自动变量 $host 赋值（降级记录点名缺陷），改用 $sqHost
+. (Join-Path $PSScriptRoot "resolve-sonar-token.ps1")
+$sqHost = Resolve-SqPlaceholder $sqConfig.host
 
 if ($StatusOnly) {
     $portCheck = Test-PortInUse -Port $port
-    $healthCheck = Test-SonarQubeHealth -Host $host
+    $healthCheck = Test-SonarQubeHealth -BaseUrl $sqHost
     
     Write-Host "SonarQube Server Status:" -ForegroundColor Yellow
     Write-Host "  Port $port : $(if ($portCheck.InUse) { 'LISTENING' } else { 'NOT LISTENING' })" -ForegroundColor $(if ($portCheck.InUse) { 'Green' } else { 'Red' })
@@ -173,7 +178,7 @@ if ($ForceRestart) {
 # Step 1: Check if SonarQube is already running
 $portCheck = Test-PortInUse -Port $port
 if ($portCheck.InUse) {
-    $healthCheck = Test-SonarQubeHealth -Host $host
+    $healthCheck = Test-SonarQubeHealth -BaseUrl $sqHost
     if ($healthCheck.Healthy) {
         Write-Success "SonarQube is already running on port $port"
         Write-Host "  Status  : $($healthCheck.Status)" -ForegroundColor Gray
@@ -230,13 +235,13 @@ while ($elapsed -lt $timeout) {
     
     $portCheck = Test-PortInUse -Port $port
     if ($portCheck.InUse) {
-        $healthCheck = Test-SonarQubeHealth -Host $host
+        $healthCheck = Test-SonarQubeHealth -BaseUrl $sqHost
         if ($healthCheck.Healthy) {
             Write-Host ""
             Write-Success "SonarQube started successfully!"
             Write-Host "  Status  : $($healthCheck.Status)" -ForegroundColor Gray
             Write-Host "  Version : $($healthCheck.Version)" -ForegroundColor Gray
-            Write-Host "  URL     : $host" -ForegroundColor Gray
+            Write-Host "  URL     : $sqHost" -ForegroundColor Gray
             Write-Host ""
             Write-Host "SonarQube server is ready. You can proceed with scanning." -ForegroundColor Green
             exit 0

@@ -391,6 +391,17 @@
       "description": "质押式正回购回购金额灰显与同步(3)、质押式逆回购灰显与同步(3)、逆回购提交后端校验(2)、卖出端正回购提交校验(2)、边界回归(3)、安全(1)、联动(2)、BEMP验证(3)、接口测试(6)；P0:18 P1:3 P2:2 P3:0"
     },
     {
+      "id": "TC-MARKET-ZINT-001~015",
+      "file": "bemp-test-common/test-cases/be/market/zero-interest-intercept.md",
+      "subsystem": "be",
+      "feature": "单张票据应付利息为0时弹窗提示并禁止提交(HNNS-EB-STD-REQ-002)",
+      "priority": "P0",
+      "case_count": 15,
+      "scripts": [],
+      "description": "P0:转贴现买入/卖出单张零息票拦截(2)、多张零息票一次全列(1)、批次混合整批拦截(1)、弹窗交互与数据保持(1)、开关默认态fail-closed(1)；P1:开关关闭放行0/N/否(1)、暂存不触发(1)、贴现interest链路(1)、再贴现链路(1)、防重复提交锁(1)、回购式转贴现BT02场景(1)；P2:eDisc跨页后端兜底(1)、空字符串不误拦代码审查(1)、先负数后零值代码审查(1)；P0:6 P1:6 P2:3；v1.1评审回退修复：M-1新增TC-015回购式场景(共用L209-213统一校验链)、M-2 TC-001补§7留痕日志断言(锚点L63,标注PRD§7利息值+操作人vs现实现仅票据号的需求-实现偏差)、M-3贴现表名TE_CE_DISC_BILL(DiscBillDao.xml L282/L352)+批次表TE_CE_DISC_BATCH(DiscBatchDao.xml L292/L370)；轻微项L-1空串NULL两口径/L-2直调替代路径/L-3 paramKey精确计数/L-4重计息确认/L-5整票口径/L-6名单库无命中前置",
+      "version": "v1.1-20260901"
+    },
+    {
       "id": "TC-ECIFMRG-001",
       "file": "bemp-test-common/test-cases/adapter/ecif/ecif-customer-merge.md",
       "subsystem": "adapter",
@@ -766,11 +777,44 @@
       "scripts": [],
       "description": "四阶段校验增量P2边界用例4条：时效边界-失效时间空长期有效/生效≤当前≤失效闭区间/未生效/已失效(027)、多角色同时命中-组装顺序首个命中角色前缀返回(028,独立可执行)、贴现申请人tm_cust_corp查库缺失回退报文要素不阻断(029,独立可执行+单测)、承兑行反查失败/非ST01降级名称兜底(030)；v3.4.10 二轮评审修复：S1=P2-028各入口组装顺序更正（③=收票人→持票人→承兑行，与buildEndrsmtRoleItems L226/L231/L239代码事实一致）+轮次语义补充（round1信用代码轮全量先于round2名称轮，命中顺序=组装顺序仅轮内成立）",
       "version": "v3.4.10-20260829"
+    },
+    {
+      "id": "TC-AML-P0-027~034",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P0用例.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-六阶段收官增量P0用例",
+      "priority": "P0",
+      "case_count": 8,
+      "scripts": [],
+      "description": "六阶段收官增量⑤收票待签收/⑥背书待签收（change-id:add-hnnx-aml-sign-stage-check）P0用例8条：⑤出票人命中拦截+面客文案(027)、⑤收票人命中(028)、⑥背书人trans_to反向口径命中(029,Q-13-B)、⑥被背书人trans_from命中(030)、⑥不得转让撤销NES.015同走⑥分支(031)、复用开关hnnx.cust.antiMoneyList.block两态(032)、取数口径PRD§3.2.4逐项一致含承兑行ST01反查+名称兜底(033)、面客文案HNNX0BE320011五角色前缀+96288+不暴露名单来源(034)；被测代码HnnxBankEbank2005AtomImpl（comrclDrftSign覆写L92-107/isAmlCheckScope L154-163/buildCollectionSignRoleItems L177-198/buildEndorsementSignRoleItems L213-244/开关转发L257-259），单测基线HnnxBankEbank2005AtomAmlSignRoleTest 17用例全绿；P0-027~032报文段⏸报文联调（网银端PICE070105签收链路，管理端UI无入口，沿四阶段P0-023~025同款口径），P0-033/034独立可执行",
+      "version": "v3.5.0-20260831"
+    },
+    {
+      "id": "TC-AML-P1-033~038",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P1用例.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-六阶段收官增量P1用例",
+      "priority": "P1",
+      "case_count": 6,
+      "scripts": [],
+      "description": "六阶段收官增量P1用例6条：范围限定其他签收类型零开销不校验(033,isAmlCheckScope三码值排除+otherType_zeroQuery,⏸可选对照)、SU01拒绝签收跳过(034,枚举判定+rejectSign_zeroQuery)、异常降级fail-closed开→拦截留痕/关→放行留痕(035,降级收拢HnnxAntiMoneyValidateUtil)、transId空/非18位透传super原生报错0BE320807042(036,max18NumericPattern守卫保持产品报错行为)、bean顶替单笔直调与多笔线程池Ebank2005CallableImpl两路径命中(037,spec开发前置核实项3)、数据来源=18+有效标志=1过滤在⑤⑥生效(038,R3/R4对照复用§9.2)",
+      "version": "v3.5.0-20260831"
+    },
+    {
+      "id": "TC-AML-P2-031~032",
+      "file": "aotutests-devtools/testcases/反洗钱名单校验/反洗钱名单校验-P1用例.md",
+      "subsystem": "be",
+      "feature": "河南农信反洗钱-六阶段收官增量P2边界用例",
+      "priority": "P2",
+      "case_count": 2,
+      "scripts": [],
+      "description": "六阶段收官增量P2边界用例2条（P2归档于P1用例文档，四阶段P2-027~030先例同款）：多角色命中组装顺序首个命中前缀返回(031,⑤=出票人→收票人→承兑行/⑥=被背书人→背书人→承兑行→出票人,round1全量先于round2)、待签收记录不存在透传super原生报错0BE320807050(032,L101 null守卫零额外开销)；均独立可执行",
+      "version": "v3.5.0-20260831"
     }
   ],
   "summary": {
     "total_cases": 53,
-    "total_estimated_count": 678,
+    "total_estimated_count": 679,
     "by_subsystem": {
       "common": 2,
       "sm": 15,
@@ -781,7 +825,7 @@
     },
     "by_priority": {
       "P0": 61,
-      "P1": 38,
+      "P1": 39,
       "P2": 12,
       "P3": 0,
       "unknown": 0

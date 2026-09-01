@@ -1,0 +1,195 @@
+{
+  "_doc": "反洗钱评审修复回归场景二（转贴现卖出 quoteSaleChange）：F-03 submitCheckMixin 空白串零值行为断言 + 预检主流程冒烟（func_antiMoneyPreCheck 正常调用+未命中放行）+ W-4 fail-closed 静态验证标注。对应评审修复报告 HNNS-EB-STD-REQ-002-评审修复报告-20260831.md §5 回归计划第 1、4 项。导航/开窗沿用 round6 沉淀（W6-04 菜单配置化 + J2 component_state 直驱开窗），菜单链路与 hnnxbank-aml-round6.json 同源验证过。",
+
+  "scenario_id": "hnnxbank-aml-fix-precheck",
+  "description": "F-03 零利息判定链空白串不误判（Number(\" \")===0 陷阱）+ W-4 运行时仅冒烟预检主流程 + 预检未命中放行提交链路验证（不产生真实提交）",
+
+  "preconditions": [
+    "前端/后端服务 Status 全 UP（bemp-automation-startserver PreCheck 通过）",
+    "报价数据就绪：场内交易-对话报价申请列表须存在至少一条 trDir 非 TDD01/CRD01（卖出方向）的报价申请记录，用于 component_state 打开 quoteSaleChangeWin 修改弹窗；无记录时先经 UI 新建或由 bemp-implementation-engineer SQL 准备",
+    "账号：default 柜员 wangnan02（${ENV:BEMP_TEST_USER_DEFAULT}），密码 ${ENV:BEMP_TEST_PASSWORD}",
+    "参数服务正常：/sm/auth/businessParamete/getBusinessParameter 可用（零利息开关读取依赖）；若该服务异常，F-03 行为断言仍可执行（不依赖读参），但预检冒烟 case 中 fail-closed 分支将按默认开启继续预检——恰好同时覆盖 W-4 的降级路径观察点",
+    "W-4 静态验证已覆盖声明：预检开关读取异常 fail-closed（HnnxAntiMoneyPreCheckServiceImpl.java L52-L61 try-catch+默认开启）难以运行时 mock 参数服务异常，本轮以静态代码实读确认为准，运行时仅执行本场景预检主流程正常路径冒烟",
+    "M-2 预检开关前置：hnnx.market.antiMoneyList.block 须为开启（仅 0/N/否 视为关闭，判定与后端 HnnxAntiMoneyValidateUtil.isInterceptFlag L194-L196 一致：空/null/其余值均按开启处理）；W4_SMOKE 开窗后读开关，关闭或读取失败时该 case 判 BLOCKED（开关关闭时预检主流程走不到远程名单查询，冒烟证据不完整，禁止假 PASS），转由可选 case W4_SWITCH_OFF 执行置关回归"
+  ],
+
+  "env": {
+    "frontend_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_FRONTEND_PORT:8091}",
+    "account_role": "default",
+    "viewport": { "width": 1600, "height": 900 },
+    "headless": true
+  },
+
+  "navigation": {
+    "menu_path": ["场内交易子系统", "市场交易", "对话报价", "对话报价申请"],
+    "target_url_fragment": "#/be/market/quote/quoteManager",
+    "leaf_dump_fallback": true
+  },
+
+  "target_component": {
+    "manager": "quoteManager",
+    "dialog": "quoteSaleChange",
+    "datagrid_ref": "billDatagrid",
+    "manager_grid_ref": "quoteAppDatagrid",
+    "_doc_manager_grid_ref": "quoteManager 列表 datagrid ref（quoteManager.vue L81），行参数动态提取的数据源",
+    "open_strategy": "component_state",
+    "open_state": {
+      "_doc": "J2 判断：UI 勾选选中行不可靠 → 直驱 manager 状态开窗（对齐 quoteManager.vue editQuote L1475-L1501 卖出分支：trDir 非 TDD01/CRD01 时 quoteSaleChangeWin=true）。batchId/busiType/trDir 不硬编码——执行时从列表首条 trDir 非 TDD01/CRD01 记录动态提取，未命中记录则本场景标 BLOCKED",
+      "batchId_source": "selected_row",
+      "busiType_source": "selected_row",
+      "trDir_source": "selected_row",
+      "row_filter": { "field": "trDir", "not_in": ["TDD01", "CRD01"] },
+      "title": "报价修改",
+      "closeWins": ["quoteRebuyChangeWin"],
+      "openWin": "quoteSaleChangeWin"
+    }
+  },
+
+  "data_strategy": "memory_inject",
+  "_doc_data_strategy": "J1 判断：零利息/预检均为提交前校验（阻断或放行），真实提交仅在 applyCommit（用户点确认框'确定'）后发生——本场景不点确定，无脏数据；mixin 行为断言为纯内存 mock，无数据影响；可选 case W4_SWITCH_OFF 的参数置 '0' 为唯一例外写库操作（见该 case 的 switch_setup 与 data_safety）",
+
+  "switch_check": {
+    "_doc": "M-2/M-3 预检开关读取与判定配置：脚本在页面上下文 fetch POST 调参数服务（同源带会话 cookie），请求体 {paramKey}，retData 即参数值（对齐 frontend/src/api/bizApi/commonUtil.js L167-L168 getBusinessParameter POST 形态）。closed_values 与后端 HnnxAntiMoneyValidateUtil.isInterceptFlag（L194-L196：仅 '0'/'N' 忽略大小写/'否' 为关闭，空/null/其余值均按开启处理）保持一致",
+    "endpoint": "/sm/auth/businessParamete/getBusinessParameter",
+    "param_key": "hnnx.market.antiMoneyList.block",
+    "closed_values": ["0", "N", "n", "否"]
+  },
+
+  "console_noise_extra": ["REQFAIL.*CLodopfuncs"],
+
+  "cases": [
+    {
+      "id": "F03_MIXIN_BLANK_INTEREST",
+      "title": "submitCheckMixin 零利息判定链：空白串/空串/null/undefined 不误判为 0（不弹窗、放行），真 0 与字符串'0'仍拦截，非零放行",
+      "source_anchors": {
+        "fix_line": "frontend/src/views/bizViews/banks/hnnxbank/components/submitCheckMixin.js L108-L109（String(interest).trim() !== '' && Number(interest) === 0）",
+        "interest_field": "quoteSaleChange.vue L597-L598 submitCheckConfig.interestField='firstPayInterest'"
+      },
+      "trigger": {
+        "method": "mixin_behavior_assert",
+        "component": "quoteSaleChange",
+        "_doc_impl": "在 quoteSaleChange 组件实例上临时覆盖 getSubmitCheckBills/formatCheckBillNo/$msgTip.warn（spy），逐组调用真实 validateZeroInterestBills()，记录返回值与 warn 调用；结束后恢复原方法与 warnCalls 状态——跑在 mixin 真实代码上，非逻辑镜像复写"
+      },
+      "assert": {
+        "behavior_matrix": [
+          { "group": "blank_space", "interest": " ", "expected_return": true, "expected_warn_calls": 0, "meaning": "纯空白串不误判为零值（Number(' ')===0 陷阱，F-03 核心修复点）" },
+          { "group": "empty_string", "interest": "", "expected_return": true, "expected_warn_calls": 0, "meaning": "空串不误判为零值（Number('')===0 陷阱）" },
+          { "group": "null_value", "interest": null, "expected_return": true, "expected_warn_calls": 0, "meaning": "null 不误判，按 PRD 走现有流程不拦截" },
+          { "group": "undefined_value", "interest": "UNSET", "expected_return": true, "expected_warn_calls": 0, "meaning": "字段缺失（undefined）不误判" },
+          { "group": "real_zero", "interest": 0, "expected_return": false, "expected_warn_calls": 1, "meaning": "真 0 仍拦截弹窗（零利息回归保护）" },
+          { "group": "string_zero", "interest": "0", "expected_return": false, "expected_warn_calls": 1, "meaning": "字符串'0'（trim 后非空、Number 后为 0）仍拦截" },
+          { "group": "non_zero", "interest": 1000, "expected_return": true, "expected_warn_calls": 0, "meaning": "非零利息正常放行" }
+        ],
+        "warn_message_contains": "应付利息为0",
+        "_doc_warn_message": "warn info 文案断言取 zh-CN.js L48 zeroInterest.warnTip '票号{0}的应付利息为0' 渲染结果包含'应付利息为0'，确认拦截弹窗文案国际化键生效",
+        "console_error_not_contains": ["TypeError", "ReferenceError"]
+      },
+      "fail_criteria": "任一组 expected_return/expected_warn_calls 不符=FAIL（空白串被误判弹窗=F-03 修复回归失败；真 0 未拦截=修复引入过杀）；恢复原方法后组件行为异常=FAIL",
+      "screenshot": "f03_mixin_blank_interest"
+    },
+    {
+      "id": "W4_SMOKE_PRECHECK_NORMAL",
+      "title": "预检主流程冒烟：quoteSaleChange 提交前 func_antiMoneyPreCheck 以 POST 正常调用（200+retCode 000000+未命中 retData 空数组），未命中后放行进入提交确认链路；W-4 fail-closed 运行时仅覆盖此正常路径（异常路径静态验证已覆盖）",
+      "source_anchors": {
+        "precheck_call": "submitCheckMixin.js L162 post({bills,...}, '/hnnxbank/market/func_antiMoneyPreCheck')",
+        "submit_chain": "quoteSaleChange.vue L1202-L1209 apply() → runSubmitCheck → applyContinue() → applyWin 确认框（L1114/L1121 等）",
+        "w4_static": "banks/ext-hnnxbank .../HnnxAntiMoneyPreCheckServiceImpl.java L52-L61 try-catch fail-closed（静态验证已确认，运行时不重复 mock）"
+      },
+      "data_safety": {
+        "_doc": "applyContinue 仅弹'确认要提交申请吗?'确认框，真正提交在 applyCommit()（用户点确定）后才发生——本 case 不点确定、applyClose() 收尾，零脏数据。不构造命中名单数据（回归报告口径：验证正常路径）；若执行时环境现成命中数据可选做命中弹窗补充验证（断言复用 round6 BUG-003 模式：.anti-money-hit-table + 行文本）"
+      },
+      "trigger": {
+        "method": "component_call_with_response",
+        "target": "apply",
+        "component": "quoteSaleChange",
+        "response_url_contains": "func_antiMoneyPreCheck",
+        "response_timeout_ms": 20000,
+        "inject_row": {
+          "_doc": "开窗后覆盖 billDatagrid 首行票据（memory_inject，不落库）；利息非零保证先通过零利息校验进入预检",
+          "billNo": "530758400799820250628625038921",
+          "firstPayInterest": 1000
+        }
+      },
+      "switch_check": { "required": "open", "_doc": "M-2：开窗后、apply 触发前经页面 fetch 读预检开关写 detail；关闭/读取失败判 BLOCKED（含 _blocked 截图），不执行 apply 冒烟——开关关闭时预检走不到远程名单查询链路，冒烟证据不完整" },
+      "assert": {
+        "request_method": "POST",
+        "response_status": 200,
+        "response_json": {
+          "retCode": "000000",
+          "retData_empty_array": true
+        },
+        "hit_dialog_not_visible": ".anti-money-hit-table",
+        "submit_confirm_dialog_visible": true,
+        "submit_confirm_text_contains": ["确认要提交申请"],
+        "_doc_release_evidence": "'未命中放行'证据 = 预检响应未命中后 applyWin 确认框出现（链路通过预检到达提交确认）；确认框不出现且无其他业务拦截提示 = 放行链路 FAIL",
+        "console_error_not_contains": ["TypeError", "ReferenceError"]
+      },
+      "fail_criteria": "预检请求未发出=接入断链 FAIL；非 POST/非 200=FAIL；retCode 非 000000=预检服务异常 FAIL（若为参数服务不可用引发的降级放行，转 W-4 降级路径观察记录，不判修复回归 FAIL，须在报告中注明）；未命中却弹命中明细表=误拦 FAIL；确认框未出现且无业务拦截原因=放行链路 FAIL",
+      "screenshot": "w4_precheck_normal_smoke"
+    },
+    {
+      "id": "W4_SWITCH_OFF",
+      "optional": true,
+      "title": "M-3 预检开关关闭回归：经 run-oracle-jdbc.ps1 将 hnnx.market.antiMoneyList.block 临时置 '0'（TM_BUSINESS_PARAMETER 按 PARAM_KEY+LEGAL_NO 定位）并复核生效，再触发 apply 预检断言放行（POST+200+retCode 000000+retData 空数组+无命中表+提交确认框出现），finally 恢复原值",
+      "source_anchors": {
+        "switch_read": "HnnxAntiMoneyValidateUtil.java L182-L185 isAntiMoneyListIntercept（BusinessParameterUtil.getParamValue 默认 '1'，法人维度读参）",
+        "switch_judge": "HnnxAntiMoneyValidateUtil.java L194-L196 isInterceptFlag（仅 0/N/否 关闭）",
+        "db_param": "TM_BUSINESS_PARAMETER（PARAM_KEY+LEGAL_NO 联合定位，LEGAL_NO=${ENV:BEMP_TEST_LEGAL_NO}）",
+        "jdbc_channel": ".trae/skills/bemp-db-operator/scripts/run-oracle-jdbc.ps1 -Schema ${ENV:BEMP_SM_SCHEMA:SM} -SqlFile <纯 ASCII 临时 SQL>"
+      },
+      "data_safety": {
+        "_doc": "本场景唯一写库操作（参数值临时改写）：SQL 写入 tempfile 临时文件下发给 run-oracle-jdbc.ps1（内容强制 ASCII 编码，规避 PowerShell/SQL 客户端编码链路问题，含中文即抛错显式暴露）；置 '0' 后预检走放行分支，apply 只到确认框不点确定（applyClose 收尾），无业务脏数据。finally 必恢复原值，恢复失败仅记 RESTORE_FAIL 日志（不回滚 case 判定，恢复缺口转环境问题人工处理并在交付文档已知问题留痕）"
+      },
+      "trigger": {
+        "method": "component_call_with_response",
+        "target": "apply",
+        "component": "quoteSaleChange",
+        "response_url_contains": "func_antiMoneyPreCheck",
+        "response_timeout_ms": 20000,
+        "inject_row": {
+          "billNo": "530758400799820250628625038921",
+          "firstPayInterest": 1000
+        }
+      },
+      "switch_setup": {
+        "set_value": "0",
+        "jdbc": {
+          "script": ".trae/skills/bemp-db-operator/scripts/run-oracle-jdbc.ps1",
+          "schema": "${ENV:BEMP_SM_SCHEMA:SM}",
+          "table": "TM_BUSINESS_PARAMETER",
+          "key_column": "PARAM_KEY",
+          "legal_no_column": "LEGAL_NO",
+          "value_column": "PARAM_VALUE",
+          "legal_no": "${ENV:BEMP_TEST_LEGAL_NO}",
+          "param_key_ref": "switch_check.param_key"
+        },
+        "_doc": "M-3 流程：读原值（空/已关→BLOCKED）→ JDBC 置 '0' → 页面复核值=='0'（否则 BLOCKED 并恢复）→ 复用 W4_SMOKE 全量断言 → finally 恢复原值。legal_no 缺失或 JDBC 通道缺失→BLOCKED（写库前置不满足，不产生半改状态）"
+      },
+      "assert": {
+        "request_method": "POST",
+        "response_status": 200,
+        "response_json": {
+          "retCode": "000000",
+          "retData_empty_array": true
+        },
+        "hit_dialog_not_visible": ".anti-money-hit-table",
+        "submit_confirm_dialog_visible": true,
+        "submit_confirm_text_contains": ["确认要提交申请"],
+        "console_error_not_contains": ["TypeError", "ReferenceError"]
+      },
+      "fail_criteria": "legal_no 缺失/JDBC 脚本不存在/置 '0' 执行失败/置后复核非 '0'=BLOCKED（写库前置不满足，不判回归失败）；开关关闭后预检非 POST/非 200/retData 非空=FAIL（开关关闭未放行）；命中明细表出现=误拦 FAIL；确认框未出现且无业务拦截原因=放行链路 FAIL；恢复原值失败=RESTORE_FAIL 日志留痕（不计 FAIL，人工恢复）",
+      "screenshot": "w4_switch_off"
+    }
+  ],
+
+  "output": {
+    "shot_dir": "aotutests-devtools/shots/${scenario_id}",
+    "log_file": "aotutests-devtools/logs/${scenario_id}_log.txt"
+  },
+
+  "cleanup": {
+    "close_calls": ["applyClose", "onAntiMoneyDialogClose"],
+    "click_buttons": ["取 消", "取消", "关闭"],
+    "_doc": "F-03 为内存 mock 无弹窗；W4 收尾关 applyWin 确认框（applyClose）与可能的预检弹窗（onAntiMoneyDialogClose）。禁止点'确定'（applyCommit）——会产生真实提交"
+  }
+}

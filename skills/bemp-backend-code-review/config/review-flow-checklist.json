@@ -1,7 +1,7 @@
 {
-    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性四类检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL'四类典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
-    "version": "1.0.0",
-    "lastUpdate": "2026-08-27",
+    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性、重复实现收口五类检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL''副本漂移'五类典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
+    "version": "1.1.0",
+    "lastUpdate": "2026-08-31",
 
     "inheritance": {
         "levels": ["skill", "project", "bank"],
@@ -69,6 +69,19 @@
                 "example": {
                     "wrong": "inner join TE_REBUY_BATCH b on rebill_id_check(a.BATCH_ID, b.ID)   ← 臆造函数\n+ 仅写 rebuy 一段 union（缺 sale/redisc 两段同构查询）",
                     "correct": "先 grep 存量：from TE_REDISC_SALE_BATCH a,TE_REDISC_SALE_BILL b where a.ID=b.BATCH_ID → 确认关联列为 ID=BATCH_ID；三段 UNION ALL 各自完整带 in foreach"
+                }
+            },
+            {
+                "id": "RF-005",
+                "name": "重复实现收口",
+                "severity": "严重",
+                "correctHandling": "同一业务口径（参数开关判断、校验规则、取参逻辑、文案码值）在工程内仅允许单一实现出口（static 工具方法或唯一 service 方法）；新场景接入通过调用复用，跨模块(如 be/market 与 ce/disc)引用同模块内 public static 工具类即可，不得复制私有副本。",
+                "wrongHandling": "为图省事在各自类内私有重写一份等价逻辑（同参数码、同默认值、同关闭口径逐字复制）——后续口径变更（如关闭值从'0'扩展为'0/N/否'）只改工具类一处，私有副本静默沿用旧口径，两侧判定结果分叉且无编译错误、难以通过测试暴露。",
+                "checkLogic": "1.提取变更代码中引用的业务常量（参数码/错误码/固定文案）并 Grep 全部使用点 2.对同一常量的多个使用点，比对判定逻辑是同源调用（工具类方法）还是各自重写 3.发现私有方法与工具类方法逻辑等价（参数码相同/默认值相同/分支判定相同）时判定为应收敛，建议删除副本改调用复用 4.收敛改造完成后 Grep 验证：副本方法定义已删除、全工程无残留引用、import 无多余项。",
+                "enabled": true,
+                "example": {
+                    "wrong": "HnnxBankDiscBillServiceImpl 私有 isZeroInterestIntercept(读 hnnx.bill.zeroInterest.block，默认'1'，0/N/否关闭) 与 HnnxMarketValidateUtil.isZeroInterestIntercept 同逻辑并存——贴现侧与市场侧开关口径各自维护",
+                    "correct": "删除私有副本 → import HnnxMarketValidateUtil → 调用点改静态方法引用 → Grep 验证 isZeroInterestIntercept 定义仅存于工具类且无未使用 import"
                 }
             }
         ]

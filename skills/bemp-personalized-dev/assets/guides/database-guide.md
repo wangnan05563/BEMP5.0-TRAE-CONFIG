@@ -2764,6 +2764,28 @@ VALUES ([ID], [路线ID], '[状态编号]', '[状态名称]', '[下一状态]', 
 COMMIT;
 ```
 
+##### 3.2.5 定时任务注册（TT_TASK）
+
+**注册表选择规则【强制】**：批量定时任务默认注册到 **TT_TASK**，而非 TT_TIMER_TASK。
+**ID 分配规则【强制】**：禁止凭记忆取号，必须实库核实——查询 `SELECT MAX(ID) FROM TT_TASK`，并参考同批任务的 ID 连续段续号（范例：HNNXTK020111/112 注册于 3440/3441，同批新任务续用 3442）。
+**遗留清理规则**：若旧版脚本曾注册到 TT_TIMER_TASK，保留对该表的 DELETE 语句以清理现场遗留（幂等）。
+
+```sql
+-- 【先删除】清理旧版脚本遗留的 TT_TIMER_TASK 注册（如无旧版脚本可省略）
+DELETE FROM TT_TIMER_TASK WHERE ID = [旧ID];
+
+-- 【先删除】删除本需求在 TT_TASK 中的注册（防止重复执行冲突）
+DELETE FROM TT_TASK WHERE ID = [新ID];
+
+-- 【后新增】插入批量定时任务（FUNCTION_ID 对齐 @CloudFunction("功能号")）
+INSERT INTO TT_TASK (ID, TASK_NO, TASK_NAME, SEQ_NO, REPEAT_FLAG, DELAY_TM, TIMING_FLAG, CRON_EXPRESSION, PROCESS_STATUS, PROCESS_MSG, TASK_RELATION, PRE_FIRED_DT_TM, FUNCTION_ID, TASK_PARAM, IS_SKIP_HOLIDAY, RESERVE1, RESERVE2, RESERVE3)
+VALUES ([新ID], '[功能号]', '[任务名称]', [新ID], '1', 0, '1', '[cron表达式]', '0', null, null, null, '[功能号]', null, '0', null, null, null);
+
+COMMIT;
+```
+
+**实际脚本范例**：`banks/河南农信/V202301.03.081_202608251800_T202608250003_日初同步中互金关注名单数据定时任务.dml.sql`（HNNXTK020113，TT_TASK ID=3442）
+
 #### 3.3 DDL脚本"先删除后新增"模板
 
 ##### 3.3.1 新建表
@@ -2882,6 +2904,7 @@ COMMIT;
 | 待办任务 | .dml.sql | TM_PEND_ITEM 的 INSERT/DELETE | `待办任务.dml.sql` |
 | 流程编排 | .dml.sql | TB_FLOW_ROUTE / TB_FLOW_STATUS 的 INSERT/DELETE | `流程编排.dml.sql` |
 | 字典数据 | .dml.sql | TM_DICT 的 INSERT/DELETE | `字典配置.dml.sql` |
+| 定时任务注册 | .dml.sql | TT_TASK 的 INSERT/DELETE（批量任务默认 TT_TASK，见 3.2.5） | `定时任务.dml.sql` |
 
 #### 4.2 拆分原则
 

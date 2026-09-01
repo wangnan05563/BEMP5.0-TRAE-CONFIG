@@ -21,6 +21,15 @@
       "verify_method": "文档头部存在应用读取表声明；Base_Column_List 出处（mapper XML 文件:行号）可追溯"
     },
     {
+      "id": "sql-column-existence-check",
+      "name": "SQL关联与过滤列存在性核对",
+      "severity": "critical",
+      "trigger": "凡生成含跨表 JOIN、WHERE 过滤、子查询的 SELECT/数据核对 SQL，落盘前必须逐条执行",
+      "requirement": "SQL 中每个关联列（ON 条件）与过滤列（WHERE 条件）必须逐列对照该表 mapper XML 的 Base_Column_List/resultMap（或 describe 实测），核对列名与主键身份（主键列/外键指向列）后写入；主键关联一律以 mapper 主键查询方法（如 selectById 的 where ID = #{id}）为口径；禁止凭列名语义相似推测（如把外键列 BILL_ID 误当对方表主键、或给主键列起语义前缀）",
+      "fail_pattern": "凭语义猜列名：JOIN/WHERE 使用目标表不存在的列（ORA-00904），或把 A 表外键列当 B 表主键关联——W9-04 实战：TB_BILL_INFO 主键为 ID 且无 BILL_ID 列，就绪检查 SQL 三处写成 B.BILL_ID = S.BILL_ID 必然执行失败，评审阶段才发现",
+      "verify_method": "SQL 每个列引用均可追溯出处（mapper XML 文件:行号 或 DESC 实测记录）；主键关联与 mapper 主键查询方法口径一致；不确定列先 DESC 实测留档再写入 SQL"
+    },
+    {
       "id": "cleanup-closure-contract",
       "name": "清理闭环契约",
       "severity": "critical",

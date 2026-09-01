@@ -34,8 +34,8 @@
         "description": "Served WAR中的biz-as业务模块jar验证",
         "enabled": true,
         "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
-        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-as-*.jar",
-        "_jarPatternDoc": "glob模式匹配WEB-INF/lib下的jar文件，*匹配版本号",
+        "jarPattern": "*${ENV:BANK_MODULE_PREFIX}biz-as-*.jar",
+        "_jarPatternDoc": "glob模式匹配WEB-INF/lib下的jar文件；实际命名含产品 artifactId 前缀（如 bemp-hnnxbank-biz-as-*），故首部放宽为 *；尾部 * 匹配版本号",
         "classes": [
           {
             "fullyQualifiedName": "${ENV:BANK_PACKAGE_PREFIX}.org.service.OrgSyncService",
@@ -53,7 +53,7 @@
         "description": "Served WAR中的biz-bs业务模块jar验证",
         "enabled": false,
         "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
-        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-bs-*.jar",
+        "jarPattern": "*${ENV:BANK_MODULE_PREFIX}biz-bs-*.jar",
         "classes": []
       },
       {
@@ -61,7 +61,7 @@
         "description": "Served WAR中的biz-cs业务模块jar验证",
         "enabled": false,
         "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
-        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-cs-*.jar",
+        "jarPattern": "*${ENV:BANK_MODULE_PREFIX}biz-cs-*.jar",
         "classes": []
       },
       {
@@ -69,7 +69,7 @@
         "description": "Served WAR中的biz-ds业务模块jar验证",
         "enabled": false,
         "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}served-deploy\\target\\bemp-served\\WEB-INF\\lib",
-        "jarPattern": "${ENV:BANK_MODULE_PREFIX}biz-ds-*.jar",
+        "jarPattern": "*${ENV:BANK_MODULE_PREFIX}biz-ds-*.jar",
         "classes": []
       },
       {
@@ -77,7 +77,7 @@
         "description": "Adapter WAR中的adapter-as适配器模块jar验证",
         "enabled": false,
         "warLibDir": "${ENV:BEMP_WORKSPACE_ROOT}\\banks\\${ENV:BANK_PROJECT_DIR}\\${ENV:BANK_MODULE_PREFIX}adapter-deploy\\target\\bemp-adapter\\WEB-INF\\lib",
-        "jarPattern": "${ENV:BANK_MODULE_PREFIX}adapter-as-*.jar",
+        "jarPattern": "*${ENV:BANK_MODULE_PREFIX}adapter-as-*.jar",
         "classes": []
       }
     ]

@@ -59,7 +59,7 @@ node scripts/check-all.js --bank=jinzbank
 3. 仅 🔴/🟠 保留代码片段级详情；🟡/🟢 用单行格式（位置｜一句话｜规范#N）
 4. 报告全文写入 `reports/` 目录落盘，对话中只回复：四级计数摘要 + 🔴阻塞项清单（如有）
 
-**⚠ 规范按需加载**：进入第一/二/三阶段人工审查前，Read [references/review-rules.md](references/review-rules.md) 一次（16项规范完整条款、代码示例、排查表），整个会话仅读取一次，自动扫描阶段无需读取。
+**⚠ 规范按需加载**：进入第一/二/三阶段人工审查前，Read [references/review-rules.md](references/review-rules.md) 一次（17项规范完整条款、代码示例、排查表），整个会话仅读取一次，自动扫描阶段无需读取。
 
 **代码阅读策略（Grep 定位优先，省token）**：人工审查每个 vue 文件时——
 1. 第一遍定向 Grep 违规模式（替代全文阅读）：`extParam|v-html|!important|\.bind\(this\)|key="index"|key: index|:[\u4e00-\u9fa5]'|>\s*[\u4e00-\u9fa5]`
@@ -67,7 +67,7 @@ node scripts/check-all.js --bank=jinzbank
 3. 兜底：定向扫描通过 且 文件 ≤300 行时，才全文走查（覆盖上下文依赖型问题：组件复用/命名/结构）；>300 行按分段走查模板区与 script 区
 4. 自动扫描 JSON（reports/scan-*.json）已标记的问题行，直接读 ±5 行确认即可，不重复扫描
 
-## 16项规范索引（完整条款见 references/review-rules.md）
+## 17项规范索引（完整条款见 references/review-rules.md）
 
 | # | 名称 | 级别 | 一句话要点 |
 |---|------|------|-----------|
@@ -87,6 +87,7 @@ node scripts/check-all.js --bank=jinzbank
 | 14 | 安全性 | 强制 | 禁 v-html 渲染用户输入、禁硬编码凭证 |
 | 15 | 多语言同步 | 强制 | zh-CN.js 与 en-US.js 键值结构完全一致，命名 `{bankName}.{模块}.i.{功能}.{字段}` |
 | 16 | 路由权限 | 推荐 | 敏感页面权限守卫（meta.permission/auth）、hidden 正确、路径与后端菜单一致 |
+| 17 | 重复逻辑收口 | 强制 | ≥2 页面同构方法必须抽公共 mixin 放 `{bankName}/components/`，差异经配置对象+钩子注入；收口后 Grep 验证无残留 |
 
 ## 判断标准与报告
 
@@ -98,11 +99,11 @@ node scripts/check-all.js --bank=jinzbank
 | 🟢 提示 | 优化建议 | 可选 |
 
 - 🔴 典型：文件不在 `{bankName}` 目录｜未注册路由映射｜按钮/标签硬编码｜API路径不一致｜参数格式不匹配｜使用extParam｜语法/编译错误
-- 🟠 典型：未复用组件｜UI不一致｜缺注释｜验证规则不完整｜错误处理不完善｜空指针风险
+- 🟠 典型：未复用组件｜UI不一致｜缺注释｜验证规则不完整｜错误处理不完善｜空指针风险｜同构逻辑多处复制未收口（规范#17）
 - 🟡 典型：缩进不规范｜变量命名不规范｜冗余代码｜注释不清晰
 
 ## 参考文件
-- 16项规范完整条款/代码示例/排查表：`references/review-rules.md`
+- 17项规范完整条款/代码示例/排查表：`references/review-rules.md`
 - 审查报告模板：`report-template.md`
 - 异步代码模板：`scripts/examples/async-patterns.js`
 - 银行配置（统一）：`config/bank-config.json`（与 backend-code-review、adapter-dev 共用的银行参数单一数据源）

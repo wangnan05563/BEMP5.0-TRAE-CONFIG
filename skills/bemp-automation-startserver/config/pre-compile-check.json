@@ -61,6 +61,36 @@
       "_doc": "文件末尾换行检查：检测文件是否被完整写入（截断文件常缺少末尾换行）",
       "enabled": false,
       "severity": "warn"
+    },
+    "deployArtifactFreshness": {
+      "_doc": "增量产物新鲜度检查：git 变更源码文件的最后修改时间 vs 部署产物（deploy 模块 target 下 WAR/WEB-INF/lib 中对应 jar）内该类是否存在及时间戳是否更新。增量开发后服务启动失败的第一根因是『源码已编译但 deploy 模块未重新 install，部署 jar 仍为旧包不含新类/新方法』（W9-01 实战：新 @CustomizedBean 类编译于当日，served-deploy jar 仍为数日前旧包，服务启动加载不到新 bean）",
+      "enabled": true,
+      "severity": "block",
+      "_severityDoc": "block=检出旧包阻断启动并给出刷新命令；warn=仅提示。建议 block——启动加载旧包的失败在健康检查阶段才暴露且难定位",
+      "scopeDetection": {
+        "_doc": "变更源码范围检测：与 fileFilter 同源（git diff/status，含未跟踪新文件）",
+        "gitStatusCommand": "git status --short",
+        "sourceModulesDoc": "从变更文件路径提取模块名（如 banks/{bank}/hnnxbank-biz-as），再映射到 deploy 模块（模块→deploy 映射见 compile-deploy.json，禁止在本文件硬编码模块清单）"
+      },
+      "artifactProbe": {
+        "_doc": "产物探测硬门禁=变更类必须能在 deploy jar 中核验到（类缺失→FAIL）；时间戳对比仅 WARN 不阻断——mtime 受 git checkout/评审工具触碰会产生'类在包内但 mtime 更新'假象（实机回归实证），方法级 staleness 由 compile-verification.json 的 javap 兜底",
+        "jarGlobPatternDoc": "deploy 模块 target/{warName}/WEB-INF/lib/*{modulePrefix}{moduleSuffix}-*.jar 形态 glob（moduleSuffix=变更模块名去掉 modulePrefix；首部 * 吸收产品 artifactId 前缀如 bemp-），warLibDir 引用 compile-deploy.json，不硬编码",
+        "classEntryTemplate": "{moduleTargetClasses}/{fqcn}.class",
+        "foundInJarPassMessage": "FOUND-IN-JAR",
+        "staleFailMessage": "STALE-ARTIFACT: deploy jar 早于源码修改或不含变更类",
+        "missingArtifactMessage": "DEPLOY-TARGET-MISSING: deploy 模块产物尚未构建（WEB-INF/lib 下无本模块 jar）",
+        "timestampToleranceSeconds": 60,
+        "_timestampToleranceDoc": "jar 最后写入时间与最新源码修改时间的容差秒数（文件系统时间戳抖动容忍）；jar 早于源码且超出容差仅 WARN 提示，不阻断",
+        "remedyCommandTemplate": "mvn install -pl {changedModules},{deployModule} -am",
+        "_remedyCommandDoc": "刷新命令模板：{changedModules}=变更模块逗号清单，{deployModule}=对应 deploy 模块；执行目录=banks/{BANK_PROJECT_DIR} 聚合根；执行后再复检 FOUND-IN-JAR 通过方可启动"
+      },
+      "runtimeBeanVerify": {
+        "_doc": "配套运行时验证（服务启动后执行）：新增 @CustomizedBean 个性化类必须核对启动日志出现『Customized bean {personalizedBeanName}, remove the bean {productBeanName}』顶替记录，并核对运行时实例为个性化类；未出现=bean 未顶替（注解缺失/父类名不匹配/包路径错误），仅核对类加载是不充分的",
+        "enabled": true,
+        "logPatternTemplate": "Customized bean {personalizedBeanName}, remove the bean {productBeanName}",
+        "logSourceDoc": "Served 启动日志路径引用 health-check/启动分组配置中的日志目录，不硬编码文件名",
+        "applicableWhen": "本次 git 变更包含新增或修改 @CloudComponent + @CustomizedBean 注解的 Java 类；无此类变更时跳过本子项"
+      }
     }
   },
 

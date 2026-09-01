@@ -121,9 +121,11 @@
     "REDIS_EXE": "D:\\code\\Redis-x64-5.0.14.1\\redis-server.exe",
     "ZOOKEEPER_EXE": "D:\\code\\apache-zookeeper-3.8.3-bin\\bin\\zkServer.cmd",
     "SONARQUBE_HOME": "D:\\code\\sonar\\sonarqube-26.1.0.118079",
+    "SONARQUBE_TOKEN": "sqa_fe4b774b40e19eca12e0f46a2f2f771f2d1a23bd",
     "SONARQUBE_PORT": "9000",
     "SONAR_SCANNER_HOME": "D:\\code\\sonar\\sonar-scanner-8.0.1.36819",
     "SONAR_SCANNER_HOME_FRONTEND": "D:\\code\\sonar\\sonar-scanner-8.0.1.36819",
+
     "NGINX_HOME": "D:\\code\\nginx-1.12.2",
     "BEMP_DEPLOY_DIR": "D:\\code\\QJ\\bempDeploy",
     "ORACLE_HOST": "10.20.42.211",

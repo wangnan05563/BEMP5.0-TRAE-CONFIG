@@ -1,0 +1,125 @@
+{
+  "_doc": "反洗钱评审修复回归场景一（名单管理页）：F-01 vldSt/listChrc 国际化渲染 + P-1 func_importFile POST 契约。对应评审修复报告 HNNS-EB-STD-REQ-002-评审修复报告-20260831.md §5 回归计划第 2、3 项；round7 用例评审 S-1/S-2/M-1/M-4/L-1/L-2/L-4 修复融入（L-3/L-5/L-6 豁免，理由见脚本头注）。脚本只实现五段式骨架（登录导航注入断言清理落盘），所有环境值/账号/菜单链路/断言要素均从本文件读取，占位符 ${ENV:VAR:default} 运行时解析（fallback 到 _shared/env-config.json environmentDefaults），脚本零硬编码。",
+
+  "scenario_id": "hnnxbank-aml-fix-listpage",
+  "description": "F-01b 名单页有效/无效枚举渲染（pc.vldStValid/vldStInvalid 键生效、listChrc 收敛后无断链）+ P-1 文件抽取接口仅 POST 契约（GET 直调探测后端 GET 已移除）",
+
+  "preconditions": [
+    "前端/后端服务 Status 全 UP（bemp-automation-startserver PreCheck 通过）",
+    "菜单数据就绪：TM_AUTHORITY 30308（反洗钱名单管理）须已初始化——2026-09-01 数据就绪检查发现当前 Oracle MCP 连接（BEMP 用户）无法读取 BEMP_HNNX schema，菜单是否入库须执行时以登录后菜单 dump 结果为准；未入库则先执行菜单初始化 SQL 再回归（数据/配置缺陷，分派 bemp-implementation-engineer）",
+    "名单数据就绪：HNNX_M_CUST_SPECIAL_INFO 建议同时存在 vldSt='1' 与 vldSt='0' 记录（F-01 断言依赖两种渲染分支）；为空时可先执行 case P1_IMPORT_FILE_POST 触发抽取造数后再回归 F01 case；为空或码值未同时覆盖 '1'/'0' 时 F01 case 判 BLOCKED（S-2：数据前置不满足不计 PASS，禁止假 PASS）",
+    "账号：default 柜员 wangnan02（${ENV:BEMP_TEST_USER_DEFAULT}），密码 ${ENV:BEMP_TEST_PASSWORD}"
+  ],
+
+  "env": {
+    "frontend_url": "http://${ENV:BEMP_HOST}:${ENV:BEMP_FRONTEND_PORT:8091}",
+    "account_role": "default",
+    "viewport": { "width": 1600, "height": 900 },
+    "headless": true
+  },
+
+  "navigation": {
+    "menu_path": ["场内交易子系统", "市场交易", "对话报价", "对话报价申请", "反洗钱名单管理"],
+    "_doc_menu_path": "反洗钱名单管理菜单（TM_AUTHORITY 30308）实际层级以登录后菜单 dump 为准；30308 父级规划未在当前库验证，leaf_dump_fallback=true 兜底定位。若菜单未入库，改由 Vue 懒加载注册失败的诊断路径排查（禁止绕过菜单直接 URL——路由为登录后 addRoutes 动态注册）",
+    "target_url_fragment": "banks/hnnxbank/pc/antimoney/antiMoneyList",
+    "leaf_dump_fallback": true
+  },
+
+  "target_component": {
+    "manager": "antiMoneyList",
+    "datagrid_ref": "datagrid",
+    "_doc_component": "组件 name=antiMoneyList（antiMoneyList.vue L64），列表 ref=datagrid，查询接口 func_queryPage"
+  },
+
+  "data_strategy": "ui_query_only",
+  "_doc_data_strategy": "本场景无注入：F-01 读取真实名单数据渲染结果，P-1 触发真实抽取接口。J1 判断：不产生业务脏数据（抽取为幂等同步操作，但 FULL 模式会清空重插，见 case P1 的 data_safety 字段）",
+
+  "console_noise_extra": ["REQFAIL.*CLodopfuncs"],
+
+  "cases": [
+    {
+      "id": "F01_VLDST_RENDER",
+      "title": "名单页 vldSt 列渲染为有效/无效中文、listChrc 列渲染黑名单/灰名单、下拉筛选 label 正常、异常码值原样透出，国际化键无断链裸露",
+      "source_anchors": {
+        "vldSt_render": "frontend/src/views/bizViews/banks/hnnxbank/pc/antimoney/antiMoneyList.vue L140-L148",
+        "listChrc_render": "antiMoneyList.vue L86-L94",
+        "listChrc_options": "antiMoneyList.vue L167-L170",
+        "i18n_keys": "frontend/src/views/bizViews/banks/hnnxbank/locale/lang/zh-CN.js L27-L28（pc.vldStValid/vldStInvalid）、L37-L39（antimoney.blackList/greyList/listChrc）"
+      },
+      "trigger": { "method": "page_ready_assert", "datagrid_loaded_wait_ms": 8000 },
+      "data_coverage_required": {
+        "_doc": "S-2：名单数据须同时覆盖 vldSt='1' 与 vldSt='0' 两种渲染分支（对应 preconditions 第 3 条）。执行时行数据为空（empty_data）或 vldSt 码值未同时覆盖 required_values 时，本 case 判 BLOCKED（数据前置不满足，对齐 precheck 场景 open_dialog 的 BLOCKED 语义），汇总判定 BLOCKED 不计入 PASS，禁止假 PASS",
+        "field": "vldSt",
+        "required_values": ["1", "0"]
+      },
+      "assert": {
+        "_doc": "断言三通道之值断言：组件数据（tData 原始码值）与 DOM 渲染文本（全表 body 文本）双向对照——有 vldSt='1' 行则全表必须出现'有效'，有 vldSt='0' 行必须出现'无效'；键路径原文出现即判断链 FAIL",
+        "component_datasource": "$refs.datagrid 行数据（vldSt/listChrc 原始码值）",
+        "dom_text_must_contain_on_data": [
+          { "when_row_field": "vldSt", "equals": "1", "dom_must_contain": "有效" },
+          { "when_row_field": "vldSt", "equals": "0", "dom_must_contain": "无效" },
+          { "when_row_field": "listChrc", "equals": "1", "dom_must_contain": "黑名单" },
+          { "when_row_field": "listChrc", "equals": "2", "dom_must_contain": "灰名单" }
+        ],
+        "dom_text_must_not_contain": ["pc.vldStValid", "pc.vldStInvalid", "antimoney.blackList", "antimoney.greyList", "hnnxbank.m.i"],
+        "dom_text_raw_passthrough": {
+          "_doc": "M-4 其余原样：vldSt 不在 exclude 之列的非空码值行（异常/未收敛码值）不得被枚举映射吞掉，DOM 全表文本须包含该原始码值原文；null/空值行不在此断言范围（数据缺失属数据问题而非渲染问题，不作为渲染断言对象）",
+          "field": "vldSt",
+          "exclude": ["1", "0"]
+        },
+        "dropdown_option_labels": {
+          "component_field": "listChrcOptions",
+          "expected_labels": ["黑名单", "灰名单"],
+          "_doc": "读组件实例 listChrcOptions 的 label 值断言 $t 生效；下拉 DOM 展开验证为可选补充证据（h-select 两步交互，非必须）"
+        },
+        "console_error_not_contains": ["TypeError", "ReferenceError"]
+      },
+      "fail_criteria": "列表出现键路径原文（如 pc.vldStValid）=国际化键断链 FAIL；vldSt='1' 行渲染为'1'而非'有效'=枚举映射 FAIL；异常码值行原始码值未透出（M-4 其余原样被吞）=FAIL；组件 listChrcOptions label 不等于黑名单/灰名单=$t 未生效 FAIL；出现 TypeError/ReferenceError=FAIL",
+      "screenshot": "f01_vldst_render"
+    },
+    {
+      "id": "P1_IMPORT_FILE_POST",
+      "title": "手动抽取触发 func_importFile 请求为 POST 且返回业务响应（HTTP 200 含 retCode），登录态 GET 直调探测确认后端 GET 已移除（405 或非业务响应）",
+      "source_anchors": {
+        "frontend_post": "antiMoneyList.vue L210-L227 importFile() 以 post() 调用 /hnnxbank/antimoney/func_importFile",
+        "backend_contract": "banks/ext-hnnxbank .../antimoney/HnnxAntiMoneyListController.java L100-L104（method=RequestMethod.POST 仅 POST）"
+      },
+      "data_safety": {
+        "_doc": "抽取为写库操作：FULL 模式 deleteAll 清空重插 / INCR 模式按 OBJ_ID upsert。执行前后行数留证优先经后端 func_queryPage 接口 total 对比（脚本读 datagrid 组件 total（接口 total 的组件态落地值），避免脚本直连库）；如需接库核对，用 run-oracle-jdbc.ps1 -Schema BEMP_HNNX 通道（bemp-db-operator/scripts 下），禁止脚本自带连接串直连",
+        "row_count_check": "执行前后各读一次列表 total（func_queryPage 接口 total 组件态），写入日志 [ROWCOUNT] 与 case detail 留证；FULL 模式下名单测试数据将被重置，涉及命中名单数据的其他回归须在本 case 之后重验"
+      },
+      "trigger": {
+        "method": "component_call_with_response",
+        "target": "importFile",
+        "component": "antiMoneyList",
+        "response_url_contains": "func_importFile",
+        "response_timeout_ms": 30000
+      },
+      "assert": {
+        "request_method": "POST",
+        "response_status": 200,
+        "response_body_contains_field": "retCode",
+        "_doc_status": "POST 响应 405 Method Not Allowed 即契约回归 FAIL；业务失败码（retCode!=000000）不判 FAIL——本 case 验证契约而非抽取业务结果，业务失败须查 retMsg 归因（数据源/权限/参数服务）",
+        "get_probe": {
+          "_doc": "S-1：POST 断言完成后，登录态下以 page.request.get 直调 func_importFile（page.request 与浏览器上下文同源共享会话 cookie，等价浏览器直开 GET）。断言后端 GET 已移除：状态码 405，或（非 200 且响应非业务 JSON）；GET 直调返回 200=后端 GET 未移除，FAIL。探测结果全部写入 detail 留证",
+          "enabled": true,
+          "path": "/hnnxbank/antimoney/func_importFile"
+        },
+        "console_error_not_contains": ["TypeError", "ReferenceError"]
+      },
+      "fail_criteria": "请求方法非 POST=FAIL；POST 响应 HTTP 405=FAIL（后端 POST 契约被破坏或前端仍走 GET）；响应无 retCode 字段（非业务 JSON）=FAIL；GET 直调返回 200=后端 GET 未移除，FAIL（S-1 GET_PROBE 断言）；GET 直调异常/无响应=探测未完成记 FAIL 并留证",
+      "screenshot": "p1_import_file_post"
+    }
+  ],
+
+  "output": {
+    "shot_dir": "aotutests-devtools/shots/${scenario_id}",
+    "log_file": "aotutests-devtools/logs/${scenario_id}_log.txt"
+  },
+
+  "cleanup": {
+    "close_calls": [],
+    "click_buttons": [],
+    "_doc": "名单页为查询+抽取场景，无弹窗残留；本场景不产生需要回滚的页面状态。脚本在 finally 中兜底执行本段（M-5），异常中断时也保证清理"
+  }
+}

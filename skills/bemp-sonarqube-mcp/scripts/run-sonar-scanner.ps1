@@ -1,4 +1,4 @@
-﻿# run-sonar-scanner.ps1
+﻿﻿# run-sonar-scanner.ps1
 # SonarQube MCP 不可用时的降级扫描脚本
 # 使用 sonar-scanner 命令行工具执行代码质量扫描
 
@@ -27,36 +27,27 @@ if ($ConfigPath -eq "") {
 
 # 读取配置
 if (Test-Path $ConfigPath) {
-    $Config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+    # PS5.1 默认按系统 ANSI 编码读取，UTF-8 配置文件中的中文注释会乱码并导致 JSON 解析失败
+    $Config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 } else {
     Write-Error "配置文件不存在: $ConfigPath"
     exit 1
 }
 
-# 解析环境变量占位符
-function ResolveEnvPlaceholder($value) {
-    if ($value -match '\$\{ENV:(\w+)\}') {
-        $envVar = $Matches[1]
-        $envValue = [Environment]::GetEnvironmentVariable($envVar)
-        if ($envValue) {
-            return $value -replace '\$\{ENV:' + $envVar + '\}', $envValue
-        } else {
-            Write-Warning "环境变量 $envVar 未设置"
-            return $value
-        }
-    }
-    return $value
-}
+# Token 解析与占位符解析统一走技能侧共享模块（内部已加载 _shared/Resolve-EnvConfig.ps1）
+# 解析链：环境变量 SONARQUBE_TOKEN/SONAR_TOKEN > _shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN > 键名文本搜索兜底
+# 占位符三层解析：环境变量 > environmentDefaults > ${ENV:VAR:默认值} inline default
+. (Join-Path $PSScriptRoot "resolve-sonar-token.ps1")
 
-# 解析配置路径
-$ScannerHome = ResolveEnvPlaceholder $Config.sonar_scanner.scanner_home
+# 解析配置路径（占位符经三层解析，SONARQUBE_PORT/SONAR_SCANNER_HOME 未设环境变量时回落 _shared environmentDefaults）
+$ScannerHome = Resolve-SqPlaceholder $Config.sonar_scanner.scanner_home
 $ScannerBin = Join-Path $ScannerHome $Config.sonar_scanner.scanner_bin
-$SonarHost = ResolveEnvPlaceholder $Config.sonarqube_server.host
+$SonarHost = Resolve-SqPlaceholder $Config.sonarqube_server.host
 $SonarPort = $Config.sonarqube_server.port
 
 # 如果参数未提供，使用配置默认值
 if ($ProjectKey -eq "") {
-    $ProjectKey = ResolveEnvPlaceholder $Config.sonar_scanner.default_project_key
+    $ProjectKey = Resolve-SqPlaceholder $Config.sonar_scanner.default_project_key
     if ($ProjectKey -eq "") {
         $ProjectKey = $Config.project.key
     }
@@ -68,17 +59,27 @@ if ($Sources -eq "") {
     $Sources = $Config.sonar_scanner.default_sources
 }
 
-# Token 配置
-$SonarToken = [Environment]::GetEnvironmentVariable("SONARQUBE_TOKEN")
-if ($SonarToken -eq "") {
-    Write-Error "SONARQUBE_TOKEN 环境变量未设置"
-    Write-Host "请在 SonarQube Web 界面生成 Token 并设置环境变量:"
-    Write-Host "  1. 打开 $SonarHost"
-    Write-Host "  2. 登录后点击右上角头像 -> My Account -> Security"
-    Write-Host "  3. 生成 Global Analysis Token"
-    Write-Host "  4. 设置环境变量: `$env:SONARQUBE_TOKEN = 'squ_xxxxxxxx'"
+# Token 配置：走解析链（环境变量 > _shared/env-config.json#environmentDefaults.SONARQUBE_TOKEN > 键名文本搜索兜底），
+# 不再仅依赖会话环境变量——新会话取不到 SONARQUBE_TOKEN 导致 validate 401 是上轮实测暴露的主要缺陷
+$TokenResolved = Resolve-SonarToken
+if (-not $TokenResolved) {
+    Write-Error "Token 解析链全部来源无值（环境变量 SONARQUBE_TOKEN/SONAR_TOKEN 与 _shared/env-config.json 均未配置）"
+    Write-Host "请在 SonarQube Web 界面生成 Token 并配置（按序任选其一）:"
+    Write-Host "  1. 会话临时设置: `$env:SONARQUBE_TOKEN = '<token值>'"
+    Write-Host "  2. 永久兜底（推荐）: 在 _shared/env-config.json 的 environmentDefaults.SONARQUBE_TOKEN 填入真实值"
     exit 1
 }
+$SonarToken = $TokenResolved.Token
+Write-Host "Token 来源: $($TokenResolved.Source)"
+
+# Token 有效性前置实测（cli_fallback.prerequisites 要求 L1 Token 有效，避免带无效 Token 硬扫）
+$TokenTest = Test-SonarToken -BaseUrl $SonarHost -Token $SonarToken
+if (-not $TokenTest.Valid) {
+    Write-Error "Token 有效性实测未通过: $($TokenTest.Detail)"
+    Write-Host "请更新 Token 后重试（更新位置见上方解析链说明）"
+    exit 1
+}
+Write-Host "Token 有效性实测通过: $($TokenTest.Detail)"
 
 # 验证 SonarQube 服务状态
 Write-Host "验证 SonarQube 服务状态..."
@@ -110,7 +111,9 @@ if (-not (Test-Path $ScannerBin)) {
 }
 
 # 生成 sonar-project.properties 配置
-$ProjectRoot = Join-Path $SkillRoot "..\..\..\$Config.project.base_path"
+# 双引号内引用对象属性必须用 $() 子表达式，否则 $Config 会被整体内插成对象ToString、后续属性沦为字面量，
+# 导致 ProjectRoot 指向不存在的哈希表文本路径（2026-09-01 实测 EXECUTION FAILURE 根因之一）
+$ProjectRoot = Join-Path $SkillRoot "..\..\..\$($Config.project.base_path)"
 $PropertiesFile = Join-Path $ProjectRoot "sonar-project.properties"
 
 Write-Host "生成扫描配置: $PropertiesFile"
@@ -123,7 +126,17 @@ sonar.host.url=$SonarHost
 sonar.token=$SonarToken
 "@
 
-Set-Content -Path $PropertiesFile -Value $PropertiesContent -Encoding UTF8
+
+$SourceModule = ($Sources -split '/')[0]
+$ModuleClasses = Join-Path $ProjectRoot ($SourceModule + '\target\classes')
+if (Test-Path $ModuleClasses) {
+    $PropertiesContent = $PropertiesContent + [Environment]::NewLine + 'sonar.java.binaries=' + ($ModuleClasses.Replace('\', '/'))
+    Write-Host 'sonar.java.binaries:' $ModuleClasses
+} else {
+    Write-Warning ('compiled classes not found: ' + $ModuleClasses)
+}
+[System.IO.File]::WriteAllText($PropertiesFile, $PropertiesContent, (New-Object System.Text.UTF8Encoding($false)))
+
 
 # 执行扫描
 Write-Host "执行 SonarQube 扫描..."
@@ -131,20 +144,29 @@ Write-Host "  项目: $ProjectKey"
 Write-Host "  源码: $Sources"
 Write-Host "  服务: $SonarHost"
 
+# 目录不存在时立即终止：Push-Location 的目录缺失属非终止错误，不拦截会在错误目录下启动 scanner，产生无 projectKey 的无效扫描
+if (-not (Test-Path $ProjectRoot)) {
+    Write-Error "项目根目录不存在: $ProjectRoot"
+    exit 1
+}
 Push-Location $ProjectRoot
 try {
     $Process = Start-Process -FilePath $ScannerBin -Wait -NoNewWindow -PassThru
     if ($Process.ExitCode -ne 0) {
-        Write-Error "扫描执行失败，退出码: $($Process.ExitCode)"
-        Pop-Location
-        exit 1
+        throw "扫描执行失败，退出码: $($Process.ExitCode)"
     }
 } catch {
     Write-Error "扫描执行异常: $_"
-    Pop-Location
     exit 1
+} finally {
+    Pop-Location
+    # 扫描结束后立即清理含 Token 明文的临时 properties（degradation-chain.md L1.2 要求扫描临时产物不滞留明文 Token，
+    # 此前实现只生成不清理，属文档与实现漂移；无论扫描成败都必须清理）
+    if (Test-Path $PropertiesFile) {
+        Remove-Item $PropertiesFile -Force
+        Write-Host "已清理临时配置(含Token明文): $PropertiesFile"
+    }
 }
-Pop-Location
 
 # 验证扫描结果
 Write-Host "验证扫描结果..."
