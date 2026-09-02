@@ -197,8 +197,9 @@ if ($portCheck.InUse) {
 # Step 2: Start SonarQube
 Write-Step "SonarQube is not running. Starting SonarQube server..."
 
-$javaHome = $sqConfig.java_home
-$installPath = $sqConfig.install_path
+# java_home/install_path 与 host 一样含 ${ENV:VAR} 占位符，必须走 Resolve-SqPlaceholder 三层解析（环境变量 > environmentDefaults > inline default），直接取 JSON 字面量会导致 Join-Path 把占位符当驱动器名报错
+$javaHome = Resolve-SqPlaceholder $sqConfig.java_home
+$installPath = Resolve-SqPlaceholder $sqConfig.install_path
 $startScript = Join-Path $installPath $sqConfig.start_script
 
 if (-not (Test-Path $javaHome)) {

@@ -112,6 +112,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 ### 4. Service 规范
 - 【强制】实现类 `@CloudComponent`，接口 `@CloudService`，方法 `@CloudFunction`
+- 【强制】对外接口/DTO 放 `{bankCode}-biz-api` 工程：接口在 `{module}/service/` 包（@CloudService），实现放 biz-as 同构包路径（@CloudComponent）；接口/DTO 留在 as 工程属分层契约违规（阻塞）
 
 ### 5. 参数传递
 
@@ -129,7 +130,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 ### 6. DTO 设计
 - 命名：`{dtoPrefix}` + 功能名 + `Req/Resp/QueryDto`
-- 存放：`{sourceDir}/{bankCode}-biz-api/src/main/java/.../dto/`
+- 存放：`{sourceDir}/{bankCode}-biz-api/src/main/java/.../dto/`，与接口同域就近（`{module}/dto/` 或 `{module}/service/{子域}/dto/`），禁止跨域混放；接口迁移保持包名不变（引用方零改动）
 
 ### 7. 依赖注入
 - 远程服务：`@CloudReference` | 本地Bean：`@Autowired`（禁止`@Resource`）
@@ -378,7 +379,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 严重度分级（详细规则参见前述各章节）：
 
-- 🟠**阻塞**（必须修复）：结构违规（文件位置/包路径/类前缀/`@CustomizedBean`/`@RestController`/URL前缀/DTO前缀）、Maven编译失败、安全漏洞（硬编码密钥/SQL拼接）、公共API返回null、GET引发状态变更、Spec要求抛异常但代码return（SC-002/SC-006）、关键文件不存在静默return（DG-001）、核心服务不可用静默跳过（DG-005）、环境真实性未验证即行动（RF-001）、SQL表名列名join条件无佐证或臆造函数（RF-004）、`@Resource`注入、mybatis非String类型写`!= ''`、循环依赖、BigDecimal/Integer/Long用`==`比较、查询/更新条件缺空判断、领域包引入框架注解
+- 🟠**阻塞**（必须修复）：结构违规（文件位置/包路径/类前缀/`@CustomizedBean`/`@RestController`/URL前缀/DTO前缀）、对外接口/DTO 未放 `{bankCode}-biz-api` 工程或 DTO 跨域混放（分层契约违规，见 §4/§6）、Maven编译失败、安全漏洞（硬编码密钥/SQL拼接）、公共API返回null、GET引发状态变更、Spec要求抛异常但代码return（SC-002/SC-006）、关键文件不存在静默return（DG-001）、核心服务不可用静默跳过（DG-005）、环境真实性未验证即行动（RF-001）、SQL表名列名join条件无佐证或臆造函数（RF-004）、`@Resource`注入、mybatis非String类型写`!= ''`、循环依赖、BigDecimal/Integer/Long用`==`比较、查询/更新条件缺空判断、领域包引入框架注解
 - 🟠**严重**（强烈建议）：服务调用缺必需字段、异常处理不完善（吞异常/丢堆栈）、空指针风险、日志含敏感信息/不规范、N+1查询/循环调远程、循环内逐条查库补全且未批量化（RF-002）、注释实现漂移致凭证失真（RF-003）、事务边界不合理、资源未关闭、`@Async`同类自调用、`Collectors.toMap`缺merge函数、Redis锁缺失/在事务内、Spec日志级别/任务隔离/流程顺序不一致（SC-001/SC-003/SC-005）、降级处理不当（DG-002~DG-004/DG-006）、分页查询缺唯一排序、大事务未拆分
 - 🟡**警告**（建议）：格式化/变量命名/注释规范、DTO未实现Serializable、equals/hashCode未配对、toString含敏感字段、遍历中修改集合、并行Stream滥用、URL使用动词、API无版本路径、`Executor`未配置关闭、日终任务默认10条未改分页、硬编码产品代码/机构号、时间格式hh误用为HH、`@CloudComponent`继承实现类、Dto属性用Date类型、`StringUtils`用commons-lang、Spec错误文案不一致（SC-004）
 - 🟢**提示**（可选）：轻微问题，不影响功能，建议优化。如：注释拼写/措辞、局部变量命名风格细节、过度防御性判空、可读性改进、未使用的private方法、import顺序、魔法值未抽取常量但语义清晰、日志级别info/debug选择失当但不影响排障

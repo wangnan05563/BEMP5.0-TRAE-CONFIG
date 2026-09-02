@@ -604,6 +604,20 @@ logger.error("场景简要描述_" + e.getMessage(), e);
 
 **【强制】** 实现注解 `@CloudComponent` 注解用于服务生产者声明微服务实现。该注解声明位于服务实现类上
 
+#### 9.4.1 api/as 工程分层契约（接口与 DTO 归属）
+
+**【强制】** 契约与实现分离：对外服务接口、接口 DTO、对外常量放 `{BANK_CODE}-biz-api` 工程；业务实现放 `{BANK_CODE}-biz-as` 工程。禁止把接口/DTO 留在 as 工程导致 api 工程契约缺失。
+
+**【强制】** 接口放所属业务域的 `service` 包（`biz/{域}/service/`），类上标 `@CloudService`；实现类放 as 工程同构包路径，标 `@CloudComponent`。
+
+**【强制】** 接口 DTO 与接口同域就近存放：`biz/{域}/dto/`；接口存在子包时放 `{域}/service/{子域}/dto/`。DTO 规范见 6.5（实现 `Serializable`）。禁止跨域混放或集中散放。
+
+**【强制】** 接口/DTO 从 as 迁移到 api 时保持原包名不变（api 与 as 包路径同构）。as 工程已依赖 biz-api，包名不变即可保证引用方零改动。
+
+**【强制】** 契约迁移或新增后，api 与 as 两工程必须都执行编译验证（进入 `banks/ext-{BANK_CODE}` 目录：`mvn -pl {BANK_CODE}-biz-api,{BANK_CODE}-biz-as clean compile -DskipTests -B`），确认引用方零改动编译通过。
+
+> 经验佐证（2026-09 AntiMoney 接口拆分）：5 个接口/DTO 文件保持包名不变从 as 迁入 api 后，as 工程 168 个引用文件零改动编译通过；上次增量编译失败被证实是与并发构建共用 target 导致状态损坏，clean 全量重编译即消除——迁移验证必须以 clean 全量编译结果为准。
+
 ### 9.5 API 调用规范
 
 **【强制】** API 中参数的定义需要统一元数据定义

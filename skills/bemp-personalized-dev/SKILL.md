@@ -188,6 +188,7 @@ bemp-personalized-dev/
   5. 若功能号在 `excludeList` 中：提示排除命中，要求更换
   6. 若配置为 `autoReassign` 策略：从 `seqRange` 中自动分配下一个可用功能号
 - **任务注册脚本**：批量定时任务注册 SQL 默认写 TT_TASK（非 TT_TIMER_TASK），ID 须实库核实分配，模板见 [database-guide.md 3.2.5](assets/guides/database-guide.md)
+- **业务参数/字典配置脚本**：生成前必须先 Grep 本银行历史脚本同 PARAM_KEY（或同业务键）查重——取值一致复用不新增、不一致仅同 ID UPDATE、确无才新增，规则见 [database-guide.md 3.2.6](assets/guides/database-guide.md)
 - **常见遗漏**：
   - 仅凭记忆认为功能号未占用 → 必须查询数据库验证
   - 复制其他银行代码未改功能号 → 必须检查功能号唯一性
@@ -207,6 +208,7 @@ bemp-personalized-dev/
 
 1. **后端开发 (必须在 banks/ext-{BANK_CODE} 目录下)**
    - **指南参考**: 先参考 [后端开发指南](assets/guides/backend-guide.md) 中的代码模板章节
+   - **接口/DTO 工程归属【强制】**: 新增或迁移对外服务接口时，先看 backend-guide [§9.4.1 api/as 工程分层契约](assets/guides/backend-guide.md)——接口放 `{BANK_CODE}-biz-api` 工程 `{域}/service` 包（@CloudService）、DTO 同域 `dto` 包；从 as 迁移保持包名不变（引用方零改动）；完成后 api/as 两工程 clean 编译验证
    - 创建个性化 Controller，应继承 BaseController，不应添加@CustomizedBean 注解
    - 命名规则:{BANK_CLASS_PREFIX}[原类名]，与产品化 Controller 并存
    - 使用 BaseRequest 作为请求参数类

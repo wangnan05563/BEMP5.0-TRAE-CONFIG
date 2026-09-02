@@ -1,7 +1,7 @@
 {
-    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性、重复实现收口五类检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL''副本漂移'五类典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
-    "version": "1.1.0",
-    "lastUpdate": "2026-08-31",
+    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性、重复实现收口、配置类DML同业务键查重六类检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL''副本漂移''同键双记录'六类典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
+    "version": "1.2.0",
+    "lastUpdate": "2026-09-02",
 
     "inheritance": {
         "levels": ["skill", "project", "bank"],
@@ -82,6 +82,19 @@
                 "example": {
                     "wrong": "HnnxBankDiscBillServiceImpl 私有 isZeroInterestIntercept(读 hnnx.bill.zeroInterest.block，默认'1'，0/N/否关闭) 与 HnnxMarketValidateUtil.isZeroInterestIntercept 同逻辑并存——贴现侧与市场侧开关口径各自维护",
                     "correct": "删除私有副本 → import HnnxMarketValidateUtil → 调用点改静态方法引用 → Grep 验证 isZeroInterestIntercept 定义仅存于工具类且无未使用 import"
+                }
+            },
+            {
+                "id": "RF-006",
+                "name": "配置类DML同业务键查重",
+                "severity": "阻塞",
+                "correctHandling": "生成业务参数/字典等配置类 DML 前，先 Grep 本银行增量脚本目录与产品化基线脚本中同 PARAM_KEY（或等价业务键）的既有配置：取值满足需求则复用不新增；不一致仅允许同 ID 的 UPDATE（或 DELETE by ID + INSERT 同 ID）；确无既有配置才新增，且幂等 DELETE 同时覆盖业务键与 ID 两种口径。",
+                "wrongHandling": "不查历史脚本直接套用'先删后插'模板以新 ID 插入同业务键配置——与存量'delete by ID + insert'脚本在全新环境按文件名顺序全量执行时交错，库中并存两条同业务键记录，取参接口按业务键取首条结果不确定；且存量取值已满足需求时属纯冗余交付。",
+                "checkLogic": "1.提取新增 DML 中的业务键(PARAM_KEY/DICT_KEY 等) 2.Grep banks/{BANK_NAME} 历史脚本与产品基线脚本确认是否已有同键配置 3.已有配置时核对其取值与本次需求口径是否一致 4.不一致时校验脚本是否为同 ID UPDATE/同 ID 重插而非异 ID 新增 5.新增时校验 DELETE 是否同时覆盖业务键与 ID 口径、ID 是否实库核实防冲突。",
+                "enabled": true,
+                "example": {
+                    "wrong": "需求需参数开关='1'，未查历史脚本即生成'delete by PARAM_KEY + insert(ID=新号)'脚本——该键在更早脚本已按 ID=旧号 配置且取值同为'1'，全量执行后同键两行并存，取参结果不确定",
+                    "correct": "Grep 确认同键存量配置取值已满足需求 → 不新增脚本，需求文档注明'复用既有参数'；若取值不同则出'UPDATE ... WHERE ID=[存量ID]'脚本"
                 }
             }
         ]

@@ -2786,6 +2786,17 @@ COMMIT;
 
 **实际脚本范例**：`banks/河南农信/V202301.03.081_202608251800_T202608250003_日初同步中互金关注名单数据定时任务.dml.sql`（HNNXTK020113，TT_TASK ID=3442）
 
+##### 3.2.6 配置类DML同业务键查重（防重复插入）
+
+**查重前置规则【强制】**：生成配置类 DML（业务参数/字典/流程/待办等按业务键幂等的表，如 TM_BUSINESS_PARAMETER 按 PARAM_KEY、TM_DICT 按 DICT_GROUP_CODE+DICT_KEY）前，必须先 Grep 本银行增量脚本目录 `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/` 及产品化基线脚本中同业务键的既有配置，禁止仅凭需求描述直接套用"先删除后新增"模板新增。
+
+**三分支处置【强制】**：
+1. **取值一致**：既有配置取值已满足需求口径 → 不新增脚本，复用存量配置，需求文档注明"复用既有参数"
+2. **取值不一致**：新增脚本仅允许同 ID 的 UPDATE（或 DELETE by ID + INSERT 同 ID），禁止异 ID 重复插入
+3. **确无既有配置**：才允许新增；幂等 DELETE 需同时覆盖业务键与 ID 两种口径，ID 须实库核实防冲突
+
+**风险机理**：异 ID"delete by 业务键 + insert 新 ID"脚本与存量"delete by ID + insert"脚本在全新环境按文件名顺序全量执行时会交错执行，库中并存两条同业务键记录；取参接口（按业务键取首条）结果不确定。教训来源：2026-09 同一参数开关被两条不同工作流各生成一条初始化脚本（异 ID），因存量脚本取值已满足需求属纯冗余，且全量执行会产生同键双记录。
+
 #### 3.3 DDL脚本"先删除后新增"模板
 
 ##### 3.3.1 新建表
@@ -2900,7 +2911,7 @@ COMMIT;
 | 表结构变更 | .ddl.sql | CREATE TABLE / ALTER TABLE / DROP TABLE | `额度表结构.ddl.sql` |
 | 索引变更 | .ddl.sql | CREATE INDEX / DROP INDEX | `额度表索引.ddl.sql` |
 | 菜单数据 | .dml.sql | TM_AUTHORITY 的 INSERT/DELETE | `菜单定制.dml.sql` |
-| 业务参数 | .dml.sql | TM_BUSINESS_PARAMETER 的 INSERT/DELETE | `业务参数.dml.sql` |
+| 业务参数 | .dml.sql | TM_BUSINESS_PARAMETER 的 INSERT/DELETE（生成前先按 3.2.6 同 PARAM_KEY 查重） | `业务参数.dml.sql` |
 | 待办任务 | .dml.sql | TM_PEND_ITEM 的 INSERT/DELETE | `待办任务.dml.sql` |
 | 流程编排 | .dml.sql | TB_FLOW_ROUTE / TB_FLOW_STATUS 的 INSERT/DELETE | `流程编排.dml.sql` |
 | 字典数据 | .dml.sql | TM_DICT 的 INSERT/DELETE | `字典配置.dml.sql` |
@@ -2984,6 +2995,7 @@ COMMIT;
 | 9 | WHERE条件 | DELETE/UPDATE 语句必须有 WHERE 条件 | ☐ |
 | 10 | 脚本头部 | 包含需求编号、变更描述、开发人员、开发日期 | ☐ |
 | 11 | 配置中心文件 | 如涉及配置变更，同步生成 JSON 增量文件 | ☐ |
+| 12 | 配置查重 | 业务参数/字典等配置类 DML 生成前已 Grep 同业务键既有配置（三分支处置见 3.2.6） | ☐ |
 
 ---
 
