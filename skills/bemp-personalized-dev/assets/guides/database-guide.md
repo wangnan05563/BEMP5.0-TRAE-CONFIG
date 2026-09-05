@@ -2654,6 +2654,10 @@ V5.0.0.0_202605131400__T202605130001_配置中心配置导入文件.json
 - 保证兼容性——不会因旧数据残留导致冲突
 - 便于持续迭代——每次升级都是幂等操作
 
+**ID 分配规则【全局强制，适用于所有 INSERT 显式指定主键 ID 的增量 SQL】**：主键 ID 统一使用 **当前日期 + 序号** 方式排列（格式 `YYYYMMDD` + 同批 2 位连续序号，如 2026090201、2026090202…），不依赖实库 `MAX(ID)` 续号、禁止凭记忆取号——日期命名空间天然与生产及其他测试环境的存量主键隔离，避免跨环境 ID 冲突。适用范围：菜单（TM_AUTHORITY）、按钮权限（TM_BUTTON_AUTH）、业务参数、字典、待办、流程编排、定时任务（TT_TASK）等一切显式指定主键 ID 的 DML。各表专项模板（3.2.x）中的 ID 口径均以本规则为准。
+
+**删除条件规则【全局强制，适用于所有增量 SQL 的幂等 DELETE】**：『先删后插』的 DELETE **优先以业务唯一键作为 WHERE 条件**（TM_BUSINESS_PARAMETER 按 `PARAM_KEY`、TM_DICT 按 `DICT_GROUP_CODE+DICT_KEY`、TM_BUSI_PARAM_DICT 按 `PARAM_GROUP_CODE`、TM_BUTTON_AUTH 按 `AUTH_ID+BTN_PATH`、TM_AUTHORITY 按 `URL`、TM_PEND_ITEM 按 `PEND_URL`、TB_FLOW_ROUTE 按 `FLOW_NO`、TT_TASK/TT_TIMER_TASK 按 `TASK_NO` 等，各表专项见 3.2.x），**禁止仅按主键 ID 删除**——同一业务记录在不同环境（生产/测试/本地）的主键 ID 并不一致：按 ID 删可能删错记录（该 ID 在目标环境对应另一条业务记录）或删不到（该 ID 不存在，影响 0 行后同 ID 重插触发主键冲突）；仅当目标表**确无业务唯一键**可删时才退用 ID，且此时 DELETE 与 INSERT 必须**同 ID**。业务键取值必须与 INSERT 行一致，不写死环境相关 ID（去硬编码）。各表专项模板（3.2.x）的 DELETE 口径均以本规则为准。
+
 #### 3.2 DML脚本"先删除后新增"模板
 
 ##### 3.2.1 菜单定制（TM_AUTHORITY）
@@ -2669,9 +2673,13 @@ V5.0.0.0_202605131400__T202605130001_配置中心配置导入文件.json
 -- 开发日期：2026-05-13
 -- ==========================================================================
 
--- 【先删除】删除本需求新增的菜单数据（按ID范围或具体ID）
-DELETE FROM TM_AUTHORITY WHERE ID IN (
-    [新增菜单ID列表]
+-- 【先删除】删除本需求新增的菜单数据（按业务键 URL 定位，子级先删父级后删；禁止仅按主键 ID——跨环境同一菜单 ID 不一致会删错/删不到）
+DELETE FROM TM_AUTHORITY WHERE URL IN (
+    [子菜单URL列表]
+);
+
+DELETE FROM TM_AUTHORITY WHERE URL IN (
+    [父菜单URL列表]
 );
 
 -- 【后新增】插入菜单数据
@@ -2722,9 +2730,9 @@ COMMIT;
 -- 开发日期：2026-05-13
 -- ==========================================================================
 
--- 【先删除】删除本需求新增的待办配置
-DELETE FROM TM_PEND_ITEM WHERE ID IN (
-    [待办ID列表]
+-- 【先删除】删除本需求新增的待办配置（按业务键 PEND_URL 定位；禁止仅按主键 ID——跨环境同一待办 ID 不一致会删错/删不到）
+DELETE FROM TM_PEND_ITEM WHERE PEND_URL IN (
+    [待办URL列表]
 );
 
 -- 【后新增】插入待办配置
@@ -2767,15 +2775,15 @@ COMMIT;
 ##### 3.2.5 定时任务注册（TT_TASK）
 
 **注册表选择规则【强制】**：批量定时任务默认注册到 **TT_TASK**，而非 TT_TIMER_TASK。
-**ID 分配规则【强制】**：禁止凭记忆取号，必须实库核实——查询 `SELECT MAX(ID) FROM TT_TASK`，并参考同批任务的 ID 连续段续号（范例：HNNXTK020111/112 注册于 3440/3441，同批新任务续用 3442）。
-**遗留清理规则**：若旧版脚本曾注册到 TT_TIMER_TASK，保留对该表的 DELETE 语句以清理现场遗留（幂等）。
+**ID 分配规则【强制】**：遵循 3.1 全局 ID 分配规则——主键 ID 用当前日期+序号（如 2026090201），不依赖实库 MAX(ID) 续号、禁止凭记忆取号。（口径变更留痕：2026-09-02 前的历史脚本曾按 MAX(ID)+同批连续段续号，如 HNNXTK020113 注册于 ID=3442；此后新脚本统一改用日期+序号。）
+**遗留清理规则**：若旧版脚本曾注册到 TT_TIMER_TASK，保留对该表的 DELETE 语句以清理现场遗留（幂等）；DELETE 按业务键 `TASK_NO` 定位（两表均有该字段），禁止仅按主键 ID——跨环境同一任务 ID 不一致会删错记录或删不到。
 
 ```sql
--- 【先删除】清理旧版脚本遗留的 TT_TIMER_TASK 注册（如无旧版脚本可省略）
-DELETE FROM TT_TIMER_TASK WHERE ID = [旧ID];
+-- 【先删除】清理旧版脚本遗留的 TT_TIMER_TASK 注册（按业务键 TASK_NO 定位，如无旧版脚本可省略）
+DELETE FROM TT_TIMER_TASK WHERE TASK_NO = '[功能号]';
 
--- 【先删除】删除本需求在 TT_TASK 中的注册（防止重复执行冲突）
-DELETE FROM TT_TASK WHERE ID = [新ID];
+-- 【先删除】删除本需求在 TT_TASK 中的注册（按业务键 TASK_NO，防重复执行冲突；禁止仅按主键 ID）
+DELETE FROM TT_TASK WHERE TASK_NO = '[功能号]';
 
 -- 【后新增】插入批量定时任务（FUNCTION_ID 对齐 @CloudFunction("功能号")）
 INSERT INTO TT_TASK (ID, TASK_NO, TASK_NAME, SEQ_NO, REPEAT_FLAG, DELAY_TM, TIMING_FLAG, CRON_EXPRESSION, PROCESS_STATUS, PROCESS_MSG, TASK_RELATION, PRE_FIRED_DT_TM, FUNCTION_ID, TASK_PARAM, IS_SKIP_HOLIDAY, RESERVE1, RESERVE2, RESERVE3)
@@ -2793,9 +2801,46 @@ COMMIT;
 **三分支处置【强制】**：
 1. **取值一致**：既有配置取值已满足需求口径 → 不新增脚本，复用存量配置，需求文档注明"复用既有参数"
 2. **取值不一致**：新增脚本仅允许同 ID 的 UPDATE（或 DELETE by ID + INSERT 同 ID），禁止异 ID 重复插入
-3. **确无既有配置**：才允许新增；幂等 DELETE 需同时覆盖业务键与 ID 两种口径，ID 须实库核实防冲突
+3. **确无既有配置**：才允许新增；幂等 DELETE 优先按业务键删除（见 3.1 删除条件规则），仅当表无业务键时才退用 ID 且 DELETE 与 INSERT 同 ID，ID 分配遵循 3.1 全局 ID 分配规则（当前日期+序号）
 
 **风险机理**：异 ID"delete by 业务键 + insert 新 ID"脚本与存量"delete by ID + insert"脚本在全新环境按文件名顺序全量执行时会交错执行，库中并存两条同业务键记录；取参接口（按业务键取首条）结果不确定。教训来源：2026-09 同一参数开关被两条不同工作流各生成一条初始化脚本（异 ID），因存量脚本取值已满足需求属纯冗余，且全量执行会产生同键双记录。
+
+##### 3.2.7 按钮权限配置（TM_BUTTON_AUTH）
+
+**触发规则【强制】**：需求涉及页面新增按钮（尤其接入 btnAuth 双控模式、前端按 `btnAuth.<权限码>.isShow` 控制显隐）时，必须同步生成按钮显隐权限 SQL，在 TM_BUTTON_AUTH 登记权限码，否则运营无法按角色配置按钮显隐（未登记时按钮显隐行为不可控）。
+
+**键与取值规则**：
+- 记录键 = `AUTH_ID + BTN_PATH`：AUTH_ID 为按钮所在菜单 ID，必须实库核对（`SELECT ID, PATH FROM TM_AUTHORITY WHERE PATH = '/xxx/yyy'`，前端路由 PATH 对应菜单）；BTN_PATH 为 `/权限码`，取前端 btnAuth 键名（即 BTN_PATH 最后一段）
+- 字段惯例（与同菜单既有双控按钮记录对齐）：`BTN_LEVEL=1`、`BTN_SHOW_FLAG='1'`（默认可见，未配置角色前按钮保持现状可见，向后兼容）、`PARENT_AUTH_NO/CREATE_TIME/UPDATE_TIME/RESERVE1-3` 均 null
+- 幂等策略：按 `AUTH_ID + BTN_PATH` 先删后插，可重复执行
+
+**ID 分配规则【强制】**：遵循 3.1 全局 ID 分配规则——主键 ID 用当前日期+序号（格式 `YYYYMMDD` + 同批 2 位连续序号，如 2026090201、2026090202…），不依赖实库 `MAX(ID)` 续号，日期命名空间天然与生产及其他测试环境的存量主键隔离。
+
+```sql
+-- 一、机构管理（AUTH_ID=1020205，branch.vue）——AUTH_ID 已实库核对 TM_AUTHORITY.PATH=/sm/auth/branch/branch
+DELETE FROM TM_BUTTON_AUTH WHERE AUTH_ID = 1020205 AND BTN_PATH IN ('/branchBatchImportBtn', '/branchDownloadTemplateBtn');
+INSERT INTO TM_BUTTON_AUTH (ID, AUTH_ID, BTN_PATH, BTN_LEVEL, PARENT_AUTH_NO, BTN_SHOW_FLAG, CREATE_TIME, UPDATE_TIME, RESERVE1, RESERVE2, RESERVE3) VALUES (2026090201, 1020205, '/branchBatchImportBtn', 1, null, '1', null, null, null, null, null);
+INSERT INTO TM_BUTTON_AUTH (ID, AUTH_ID, BTN_PATH, BTN_LEVEL, PARENT_AUTH_NO, BTN_SHOW_FLAG, CREATE_TIME, UPDATE_TIME, RESERVE1, RESERVE2, RESERVE3) VALUES (2026090202, 1020205, '/branchDownloadTemplateBtn', 1, null, '1', null, null, null, null, null);
+
+COMMIT;
+```
+
+**模板文件**：`assets/templates/sql/button-auth-dml.sql`（`${VARIABLE}` 占位符）
+**实际脚本范例**：`deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/V202301.03.081_202609021100_T202609020002_机构管理及机构管理员管理页面批量按钮显隐权限配置.dml.sql`（2 菜单 7 按钮，ID=2026090201~2026090207）
+
+##### 3.2.8 业务参数字典组补值（TM_BUSI_PARAM_DICT 下拉取值）
+
+**触发规则【强制】**：参数头表 `TM_BUSINESS_PARAMETER` 中 `PARAM_TYPE IN ('1','2')`（下拉/多选）且 `PARAM_GROUP_CODE` 指向**自定义字典组**时，初始/增量脚本必须同步向 `TM_BUSI_PARAM_DICT` 补入该组字典值行；否则"业务参数管理-修改弹窗-参数值下拉"查到空集、选项空白（前端按 `PARAM_GROUP_CODE` 调 `func_getParamDictByGroupCode` 取 `TM_BUSI_PARAM_DICT` 作可选项，served 侧见 `BusinessParameterServiceImpl.getParamDictByGroupCode`）。
+
+**存活性判定【强制，去硬编码】**：`PARAM_GROUP_CODE` 指向产品化基线已含字典行的组（如是否类 `Yon`）、或既有脚本已补值的同名组 → 存活性通过，无需重复补值；`是/否`开关类**优先复用基线是否组（如 `Yon`）**，避免新建自定义组。自定义新组仅限有明确取值域的类型（如同步模式 `FULL/INCR`），且**必须**一并补全字典值。
+
+**幂等与 ID【强制】**：补值采用 `DELETE FROM TM_BUSI_PARAM_DICT WHERE PARAM_GROUP_CODE = '<组码>'` 后 INSERT 该组全部取值，可重复执行；主键 ID 遵循 3.1 全局规则（当前日期+序号，YYYYMMDD+2位连续序号），不依赖实库 MAX(ID)。
+
+**生成前查重【强制】**：按 3.2.6 口径 Grep 本银行脚本目录 `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/`，确认无同组字典补值脚本后再生成。
+
+**自检**：新增强下组参数后，`SELECT PARAM_GROUP_CODE, COUNT(*) FROM TM_BUSI_PARAM_DICT WHERE PARAM_GROUP_CODE='<组码>' GROUP BY PARAM_GROUP_CODE` 应 ≥1 行。评审侧见 bemp-backend-code-review `review-flow-checklist` RF-009。
+
+**实际脚本范例**：`deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/V202301.03.081_202609041000_T202609040001_中互金名单及机构同步业务参数字典值补全.dml.sql`
 
 #### 3.3 DDL脚本"先删除后新增"模板
 
@@ -2996,9 +3041,10 @@ COMMIT;
 | 10 | 脚本头部 | 包含需求编号、变更描述、开发人员、开发日期 | ☐ |
 | 11 | 配置中心文件 | 如涉及配置变更，同步生成 JSON 增量文件 | ☐ |
 | 12 | 配置查重 | 业务参数/字典等配置类 DML 生成前已 Grep 同业务键既有配置（三分支处置见 3.2.6） | ☐ |
+| 13 | 删除按业务键 | 幂等 DELETE 优先按业务唯一键（PARAM_KEY/URL/PEND_URL/TASK_NO 等）作为 WHERE 条件，禁止仅按主键 ID 删除（跨环境 ID 不一致会删错记录/删不到，见 3.1） | ☐ |
 
 ---
 
-**文档版本**: 2.0.0  
-**最后更新**: 2026-05-13  
+**文档版本**: 2.1.0  
+**最后更新**: 2026-09-04  
 **维护人员**: BEMP 开发团队

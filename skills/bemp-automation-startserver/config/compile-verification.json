@@ -14,7 +14,7 @@
 
   "defaults": {
     "_doc": "验证工具与默认参数",
-    "javapPath": "${ENV:JAVA_HOME}\\bin\\javap",
+    "javapPath": "${ENV:JAVA_HOME}\\bin\\javap.exe",
     "javapCommand": "-classpath \"{jarPath}\" {className}",
     "methodCheckPattern": "{methodName}",
     "methodCheckMode": "contains",

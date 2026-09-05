@@ -8,9 +8,13 @@
 -- 开发日期：${DATE}
 -- ==========================================================================
 
--- 【先删除】删除本需求新增的菜单数据
-DELETE FROM TM_AUTHORITY WHERE ID IN (
-    ${MENU_ID_LIST}
+-- 【先删除】删除本需求新增的菜单数据（按业务键 URL 定位，子级先删父级后删；禁止仅按主键 ID——跨环境同一菜单 ID 不一致会删错/删不到）
+DELETE FROM TM_AUTHORITY WHERE URL IN (
+    ${CHILD_MENU_URL_LIST}
+);
+
+DELETE FROM TM_AUTHORITY WHERE URL IN (
+    ${PARENT_MENU_URL_LIST}
 );
 
 -- 【后新增】插入菜单数据

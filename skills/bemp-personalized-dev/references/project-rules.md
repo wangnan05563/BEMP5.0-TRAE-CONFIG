@@ -32,6 +32,6 @@
 - 【强制】配置中心增量文件存放于 `deploy/bemp-home/src/main/resources/configcenter/banks/{BANK_NAME}/` 目录下
 - 【配置】`BANK_NAME` 默认值为"河南农信"，可根据部署环境动态调整
 - 【强制】SQL脚本命名遵循 `V{产品版本号}_{日期时间}_{任务编号}_{中文描述}.{脚本类型}.sql` 格式
-- 【强制】增量SQL脚本必须采用"先删除后新增"策略，确保幂等可重复执行
+- 【强制】增量SQL脚本必须采用"先删除后新增"策略，确保幂等可重复执行；幂等 DELETE 优先按业务唯一键（PARAM_KEY/DICT_GROUP_CODE+DICT_KEY/PARAM_GROUP_CODE/AUTH_ID+BTN_PATH/URL/PEND_URL/FLOW_NO/TASK_NO 等）作为 WHERE 条件，禁止仅按主键 ID 删除——跨环境同一业务记录 ID 不一致会删错记录或删不到（详见 database-guide.md 3.1）
 - 【强制】DDL与DML脚本分文件管理，不同功能模块（菜单/参数/流程）分文件管理
 - 【强制】脚本生成后按检查清单逐项验证（详见 database-guide.md 第六章节）

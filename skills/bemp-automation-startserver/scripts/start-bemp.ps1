@@ -73,9 +73,23 @@ function Resolve-Value($val) {
                 $rest  = $content.Substring($idx + 1)
             }
             $resolved = $null
-            if ($scope -eq 'env') {
-                $resolved = [Environment]::GetEnvironmentVariable($rest)
-            } elseif ($scope -eq 'local') {
+            # config 方言大小写不统一（${ENV:X} 与 ${env:X} 并存），scope 比较必须显式
+            # 小写化，否则大写方言会误入 cfg 内查找分支并残留字面量
+            $scopeLower = if ($null -ne $scope) { $scope.ToLowerInvariant() } else { $null }
+            if ($scopeLower -eq 'env') {
+                # inline default（${ENV:VAR:default}）只按第一个 ':' 拆分：默认值本身
+                # 可能含 ':'（如 Windows 盘符路径），切分会破坏默认值语义
+                $envName = $rest; $envDefault = $null
+                if ($rest.Contains(':')) {
+                    $eidx = $rest.IndexOf(':')
+                    $envName    = $rest.Substring(0, $eidx)
+                    $envDefault = $rest.Substring($eidx + 1)
+                }
+                $resolved = [Environment]::GetEnvironmentVariable($envName)
+                # 仅在变量"未设置"（$null）时回退默认值；显式设为空串仍视为已设置，
+                # 且无默认值时保持下方"未解析留字面量"的原语义不变
+                if ($null -eq $resolved -and $null -ne $envDefault) { $resolved = $envDefault }
+            } elseif ($scopeLower -eq 'local') {
                 $resolved = Get-ByPath $loc $rest
             } else {
                 # no scope or global/profiles/... -> resolve within cfg

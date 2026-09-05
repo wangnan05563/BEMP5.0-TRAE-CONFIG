@@ -70,7 +70,8 @@ bemp-personalized-dev/
 │   │   ├── frontend-guide.md         # 前端开发指南（规范+模板）
 │   │   ├── backend-guide.md          # 后端开发指南（规范+模板）
 │   │   ├── database-guide.md         # 数据库开发指南（规范+模板+增量SQL规范）
-│   │   └── adapter-guide.md          # Adapter接口开发指南（规范+模板）
+│   │   ├── adapter-guide.md          # Adapter接口开发指南（规范+模板）
+│   │   └── offboarding-guide.md      # 功能下线/废弃改造指南（含回归检测，S1-S7流程+D1-D4判断逻辑）
 │   └── templates/                    # 代码模板
 │       ├── java/
 │       │   ├── Controller.java       # Controller 模板
@@ -99,6 +100,7 @@ bemp-personalized-dev/
 | 后端 | [backend-guide.md](assets/guides/backend-guide.md) | 命名约定、代码风格、Controller/Service/DTO模板、异常处理 |
 | 数据库 | [database-guide.md](assets/guides/database-guide.md) | 表设计规范、字段命名、DDL/DML模板、MyBatis Mapper模板 |
 | Adapter | [adapter-guide.md](assets/guides/adapter-guide.md) | Client/Server端规范、报文转换、签名服务模板 |
+| 功能下线/废弃 | [offboarding-guide.md](assets/guides/offboarding-guide.md) | **触发场景：功能下线/废弃/按钮移除/接口下线/"功能还在"归因时加载**。S1-S7 流程、D1-D4 判断逻辑、防回归铁律、删除链清单 |
 | 项目规则 | [project-rules.md](references/project-rules.md) | 版本约束、目录规范、核心约束 |
 | Override模式 | [override-patterns.md](references/override-patterns.md) | 响应DTO字段传递、Bean注入方式、编译部署重启闭环 |
 | HUI组件文档 | `hui_doc` MCP | H-UI 组件属性、方法、事件、使用示例及最佳实践 |
@@ -187,8 +189,12 @@ bemp-personalized-dev/
   4. 若 COUNT > 0：功能号已被占用，按配置的 `conflictHandling.strategies` 处理（默认 block）
   5. 若功能号在 `excludeList` 中：提示排除命中，要求更换
   6. 若配置为 `autoReassign` 策略：从 `seqRange` 中自动分配下一个可用功能号
-- **任务注册脚本**：批量定时任务注册 SQL 默认写 TT_TASK（非 TT_TIMER_TASK），ID 须实库核实分配，模板见 [database-guide.md 3.2.5](assets/guides/database-guide.md)
+- **增量 SQL 主键 ID 分配（全局）**：所有 INSERT 显式指定主键 ID 的 DML 统一用当前日期+序号（YYYYMMDD+2位连续序号，如 2026090201），不依赖实库 MAX(ID) 续号、禁止凭记忆取号，防跨环境主键冲突，规则见 [database-guide.md 3.1](assets/guides/database-guide.md)
+- **幂等删除按业务键（全局）**：『先删后插』DELETE 优先按业务唯一键（PARAM_KEY/URL/PEND_URL/TASK_NO 等）作 WHERE 条件，禁止仅按主键 ID——跨环境同一业务记录 ID 不一致会删错记录/删不到后重插主键冲突；表无业务键才退用同 ID 删插，规则见 [database-guide.md 3.1](assets/guides/database-guide.md)
+- **任务注册脚本**：批量定时任务注册 SQL 默认写 TT_TASK（非 TT_TIMER_TASK），主键 ID 遵循上述全局 ID 分配规则，模板见 [database-guide.md 3.2.5](assets/guides/database-guide.md)
 - **业务参数/字典配置脚本**：生成前必须先 Grep 本银行历史脚本同 PARAM_KEY（或同业务键）查重——取值一致复用不新增、不一致仅同 ID UPDATE、确无才新增，规则见 [database-guide.md 3.2.6](assets/guides/database-guide.md)
+- **按钮权限配置脚本**：需求涉及页面新增按钮时必须同步生成 TM_BUTTON_AUTH 显隐权限 SQL（键=AUTH_ID+BTN_PATH，AUTH_ID 实库核对菜单；主键 ID 用当前日期+序号如 2026090201 防跨环境冲突），规则见 [database-guide.md 3.2.7](assets/guides/database-guide.md)
+- **业务参数字典组补值**：参数头表 `PARAM_TYPE IN ('1','2')` 且用自定义 `PARAM_GROUP_CODE` 时必须同步补 `TM_BUSI_PARAM_DICT` 字典值行，否则下拉空白；复用已有组（如是否类 `Yon`）不新增，规则见 [database-guide.md 3.2.8](assets/guides/database-guide.md)
 - **常见遗漏**：
   - 仅凭记忆认为功能号未占用 → 必须查询数据库验证
   - 复制其他银行代码未改功能号 → 必须检查功能号唯一性
@@ -249,7 +255,7 @@ bemp-personalized-dev/
    - **脚本存放目录**: `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/`，其中 `BANK_NAME` 默认为"河南农信"，可根据部署环境动态调整
    - **配置中心增量文件目录**: `deploy/bemp-home/src/main/resources/configcenter/banks/{BANK_NAME}/`
    - **命名规范**: 严格遵循 `V{产品版本号}_{日期时间}_{任务编号}_{中文描述}.{脚本类型}.sql` 格式，参考 [数据库开发指南 - 命名规范](assets/guides/database-guide.md) 第2章节
-   - **增量策略**: 必须采用"先删除后新增"策略，确保脚本幂等可重复执行
+   - **增量策略**: 必须采用"先删除后新增"策略，确保脚本幂等可重复执行；**幂等 DELETE 优先按业务键删除**（禁止仅按主键 ID，规则见 [database-guide.md 3.1](assets/guides/database-guide.md)）
    - **脚本拆分**: 按变更类型拆分为独立文件（DDL/DML分离，菜单/参数/流程分文件）
    - **脚本检查**: 生成后必须按 [SQL脚本生成检查清单](assets/guides/database-guide.md) 第6章节逐项检查
    - **生成步骤**:

@@ -8,9 +8,9 @@
 -- 开发日期：${DATE}
 -- ==========================================================================
 
--- 【先删除】删除本需求新增的待办配置
-DELETE FROM TM_PEND_ITEM WHERE ID IN (
-    ${PEND_ID_LIST}
+-- 【先删除】删除本需求新增的待办配置（按业务键 PEND_URL 定位；禁止仅按主键 ID——跨环境同一待办 ID 不一致会删错/删不到）
+DELETE FROM TM_PEND_ITEM WHERE PEND_URL IN (
+    ${PEND_URL_LIST}
 );
 
 -- 【后新增】插入待办配置

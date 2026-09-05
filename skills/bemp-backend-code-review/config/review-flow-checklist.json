@@ -1,7 +1,7 @@
 {
-    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性、重复实现收口、配置类DML同业务键查重六类检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL''副本漂移''同键双记录'六类典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
-    "version": "1.2.0",
-    "lastUpdate": "2026-09-02",
+    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性、重复实现收口、配置类DML同业务键查重、业务参数字典组补值、幂等删除按业务键优先等检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL''副本漂移''同键双记录''下拉空白''删错记录'等典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
+    "version": "1.6.0",
+    "lastUpdate": "2026-09-04",
 
     "inheritance": {
         "levels": ["skill", "project", "bank"],
@@ -90,11 +90,63 @@
                 "severity": "阻塞",
                 "correctHandling": "生成业务参数/字典等配置类 DML 前，先 Grep 本银行增量脚本目录与产品化基线脚本中同 PARAM_KEY（或等价业务键）的既有配置：取值满足需求则复用不新增；不一致仅允许同 ID 的 UPDATE（或 DELETE by ID + INSERT 同 ID）；确无既有配置才新增，且幂等 DELETE 同时覆盖业务键与 ID 两种口径。",
                 "wrongHandling": "不查历史脚本直接套用'先删后插'模板以新 ID 插入同业务键配置——与存量'delete by ID + insert'脚本在全新环境按文件名顺序全量执行时交错，库中并存两条同业务键记录，取参接口按业务键取首条结果不确定；且存量取值已满足需求时属纯冗余交付。",
-                "checkLogic": "1.提取新增 DML 中的业务键(PARAM_KEY/DICT_KEY 等) 2.Grep banks/{BANK_NAME} 历史脚本与产品基线脚本确认是否已有同键配置 3.已有配置时核对其取值与本次需求口径是否一致 4.不一致时校验脚本是否为同 ID UPDATE/同 ID 重插而非异 ID 新增 5.新增时校验 DELETE 是否同时覆盖业务键与 ID 口径、ID 是否实库核实防冲突。",
+                "checkLogic": "1.提取新增 DML 中的业务键(PARAM_KEY/DICT_KEY 等) 2.Grep banks/{BANK_NAME} 历史脚本与产品基线脚本确认是否已有同键配置 3.已有配置时核对其取值与本次需求口径是否一致 4.不一致时校验脚本是否为同 ID UPDATE/同 ID 重插而非异 ID 新增 5.新增时校验 DELETE 是否同时覆盖业务键与 ID 口径、主键 ID 是否遵循全局日期+序号规则(YYYYMMDD+2位连续序号如 2026090201，禁用实库 MAX(ID) 续号/凭记忆取号)。",
                 "enabled": true,
                 "example": {
                     "wrong": "需求需参数开关='1'，未查历史脚本即生成'delete by PARAM_KEY + insert(ID=新号)'脚本——该键在更早脚本已按 ID=旧号 配置且取值同为'1'，全量执行后同键两行并存，取参结果不确定",
                     "correct": "Grep 确认同键存量配置取值已满足需求 → 不新增脚本，需求文档注明'复用既有参数'；若取值不同则出'UPDATE ... WHERE ID=[存量ID]'脚本"
+                }
+            },
+            {
+                "id": "RF-007",
+                "name": "按钮显隐权限SQL完整性",
+                "severity": "严重",
+                "correctHandling": "需求涉及页面新增按钮（尤其接入 btnAuth 双控模式、前端按 btnAuth.<权限码>.isShow 控制显隐）时，必须同步生成 TM_BUTTON_AUTH 按钮权限 DML：记录键=AUTH_ID+BTN_PATH，AUTH_ID 实库核对 TM_AUTHORITY.PATH 对应菜单，BTN_PATH 为 /前端btnAuth键名；BTN_LEVEL=1、BTN_SHOW_FLAG='1'（默认可见向后兼容）、其余字段 null；幂等 DELETE 按 AUTH_ID+BTN_PATH 先删后插；主键 ID 用当前日期+序号（YYYYMMDD+2位连续序号，如 2026090201）分配，不依赖实库 MAX(ID) 续号，与生产/其他测试环境存量主键天然隔离。",
+                "wrongHandling": "新增按钮只改前端不配按钮权限 SQL——运营无法按角色配置按钮显隐（/sm/auth/buttonAuth/func_queryButtonByAuthId 查不到该权限码，显隐行为不可控）；或 AUTH_ID 凭前端路由臆测未经实库核对；或主键 ID 沿用实库 MAX(ID) 续号/凭记忆取号——与生产或其他测试环境存量主键冲突导致主键约束报错或覆盖他环境数据。",
+                "checkLogic": "1.前端变更中是否出现新增按钮（v-btn/v-if 按钮、btnAuth.<权限码> 引用）2.是否有对应的 TM_BUTTON_AUTH 增量 DML 脚本 3.AUTH_ID 是否实库核对（TM_AUTHORITY.PATH 与前端页面路由一致）4.BTN_PATH 是否与前端 btnAuth 键名一致 5.字段填法是否与同菜单既有按钮记录惯例一致（BTN_LEVEL=1/BTN_SHOW_FLAG='1'/其余 null）6.主键 ID 是否采用当前日期+序号格式（YYYYMMDD+2位序号）而非 MAX(ID) 续号 7.DELETE 是否覆盖 AUTH_ID+BTN_PATH 幂等口径。",
+                "enabled": true,
+                "example": {
+                    "wrong": "branch.vue 新增批量导入按钮接入 btnAuth.branchBatchImportBtn.isShow 双控，但无 TM_BUTTON_AUTH 脚本；或配套脚本主键 ID 用 SELECT MAX(ID)+1 续号——与生产环境存量 ID 冲突",
+                    "correct": "同步生成 DML：DELETE FROM TM_BUTTON_AUTH WHERE AUTH_ID=1020205 AND BTN_PATH IN ('/branchBatchImportBtn'); INSERT ... VALUES (2026090201, 1020205, '/branchBatchImportBtn', 1, null, '1', null, null, null, null, null); —— AUTH_ID 已实库核对，ID 用当日日期+序号"
+                }
+            },
+            {
+                "id": "RF-008",
+                "name": "下线功能删除面三同步",
+                "severity": "严重",
+                "correctHandling": "删除接口/按钮时执行三同步：①前端调用点同步——删除按钮节点后顺链清理事件方法、死导入、国际化死键（D3 死代码链式清理）；删除接口前全库检索调用点，被定时任务等其他链路共用的依赖必须保留并注明理由；②国际化键同步——按钮/文案删除后检索对应 i18n 键，引用归零的死键一并删除；③修改记录轨迹同步——在类/方法 @modify 修改记录中追加本次下线说明（只追加不改历史行，保持审计轨迹）；若该功能曾因缺陷单被还原，须在关联缺陷单补记方向修正说明，防止被旧缺陷单第三次还原。完成后 Grep 功能关键词复核零残留。",
+                "wrongHandling": "只删按钮不删事件方法/死导入/国际化死键（死代码残留，评审必返工）；或删除共用依赖导致定时任务等其他链路报错；或删除后不在 @modify 追加记录——后续缺陷修复人员凭 git 历史还原代码时无当前需求基线佐证，已下线功能被再次还原（还原前必须核对需求文档当前版本，见防回归铁律）。",
+                "checkLogic": "1.删除按钮时是否顺链检查事件方法→死导入→国际化死键并逐级确认引用归零 2.删除接口前是否全库检索调用点，共用依赖是否保留并注明理由 3.类/方法 @modify 修改记录是否追加本次下线条目且未改动历史行 4.存在关联缺陷单还原历史时是否补记方向修正说明 5.删除完成后是否以 Grep 功能关键词验证零残留（不以执行方自述为验收标准）。",
+                "enabled": true,
+                "example": {
+                    "wrong": "仅删除页面按钮节点，事件方法、import、i18n 死键全部残留；后端接口删除后未在 @modify 追加下线记录——后续缺陷修复人员按 git 历史将代码原样还原，已下线功能重新出现",
+                    "correct": "按钮→事件方法→死导入→i18n 死键逐项删除并 Grep 确认引用归零 → 共用注入字段保留并注明'被定时任务链路引用' → @modify 追加'该功能已按需求文档当前版本下线'条目（不改历史行）→ 关联缺陷单补记'方向修正：功能已下线，后续修复禁止据此还原'"
+                }
+            },
+            {
+                "id": "RF-009",
+                "name": "业务参数字典组补值完整性",
+                "severity": "阻塞",
+                "correctHandling": "参数头表记录 PARAM_TYPE IN ('1','2')（下拉/多选）且 PARAM_GROUP_CODE 指向自定义字典组时，初始/增量 SQL 必须同步补全 TM_BUSI_PARAM_DICT 该组字典值行（先 DELETE by 组码路径后 INSERT 全部取值，可重复执行；'是/否'开关类优先复用基线是否组如 Yon，避免新建自定义组）；主键 ID 用当前日期+序号（YYYYMMDD+2位连续序号）分配，不依赖实库 MAX(ID)。生成/评审前 Grep 本银行脚本目录确认无同组字典补值脚本。",
+                "wrongHandling": "头表 INSERT 指定了自定义 PARAM_GROUP_CODE（如同步模式组 FULL/INCR），却未补 TM_BUSI_PARAM_DICT 对应组字典值行——业务参数管理-修改弹窗-参数值下拉查到空集、可选项空白（前端 func_getParamDictByGroupCode 按 PARAM_GROUP_CODE 取 TM_BUSI_PARAM_DICT）。",
+                "checkLogic": "1.初始/增量 SQL 中 TM_BUSINESS_PARAMETER INSERT 的 PARAM_GROUP_CODE 是否为产品化基线已含字典行的组(如 Yon)或既有脚本已补值组 2.若为自定义新组，脚本/库内该组是否同步有 TM_BUSI_PARAM_DICT 字典值行(DICT_CNT≥1) 3.'是/否'开关类是否优先复用基线是否组而避免新建自定义组 4.补值脚本是否先 DELETE by 组码再 INSERT、是否可重复执行 5.主键 ID 是否日期+序号而非 MAX(ID) 续号 6.是否 Grep 银行脚本目录做过同组查重。",
+                "enabled": true,
+                "example": {
+                    "wrong": "业务参数初始脚本仅 INSERT TM_BUSINESS_PARAMETER（PARAM_GROUP_CODE 设为自定义组 AntiMoneySyncMode），未补任何 TM_BUSI_PARAM_DICT 值——该参数修改弹窗参数值下拉空白",
+                    "correct": "同步补字典：DELETE FROM TM_BUSI_PARAM_DICT WHERE PARAM_GROUP_CODE='<组码>'; 后 INSERT FULL/INCR（或 0/1）全部取值，主键 ID 用当日日期+序号（如 2026090403/04），评审时回读确认该组库内 DICT_CNT≥1"
+                }
+            },
+            {
+                "id": "RF-010",
+                "name": "幂等删除按业务键优先",
+                "severity": "阻塞",
+                "correctHandling": "增量 SQL『先删后插』的幂等 DELETE 优先以业务唯一键作为 WHERE 条件（TM_BUSINESS_PARAMETER 按 PARAM_KEY、TM_DICT 按 DICT_GROUP_CODE+DICT_KEY、TM_BUSI_PARAM_DICT 按 PARAM_GROUP_CODE、TM_BUTTON_AUTH 按 AUTH_ID+BTN_PATH、TM_AUTHORITY 按 URL、TM_PEND_ITEM 按 PEND_URL、TB_FLOW_ROUTE 按 FLOW_NO、TT_TASK/TT_TIMER_TASK 按 TASK_NO 等，各表专项见 bemp-personalized-dev database-guide 3.2.x）；仅当目标表确无业务唯一键可删时才退用主键 ID，且此时 DELETE 与 INSERT 必须同 ID。",
+                "wrongHandling": "DELETE 仅按主键 ID 删除——同一业务记录在不同环境（生产/测试/本地）的主键 ID 并不一致：目标环境该 ID 可能对应另一条业务记录（删错记录），或该 ID 不存在（影响 0 行后同 ID INSERT 触发主键冲突）；或 DELETE by 业务键 + INSERT 异 ID 造成同键双记录并存（取参按业务键取首条结果不确定）。",
+                "checkLogic": "1. 增量 SQL 每条 DELETE 的 WHERE 是否优先使用业务唯一键而非主键 ID 2. 仅按 ID 删除的场景是否属于『表无业务键』或『同 ID 重插』合法退路 3. DELETE 业务键取值是否与 INSERT 行一致 4. 退用 ID 时 DELETE 与 INSERT 是否同 ID 5. 脚本在已部分执行/全新环境重复执行是否幂等不报错。",
+                "enabled": true,
+                "example": {
+                    "wrong": "DELETE FROM TM_BUSINESS_PARAMETER WHERE ID = 2026090401;  ← 该 ID 在其他环境可能对应另一条参数或不存在，按 ID 删除会删错记录/删不到",
+                    "correct": "DELETE FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY = 'hnnx.market.antimoney.sync.mode';  ← 按业务键删，跨环境精确命中本需求记录"
                 }
             }
         ]

@@ -398,8 +398,8 @@
       "priority": "P0",
       "case_count": 15,
       "scripts": [],
-      "description": "P0:转贴现买入/卖出单张零息票拦截(2)、多张零息票一次全列(1)、批次混合整批拦截(1)、弹窗交互与数据保持(1)、开关默认态fail-closed(1)；P1:开关关闭放行0/N/否(1)、暂存不触发(1)、贴现interest链路(1)、再贴现链路(1)、防重复提交锁(1)、回购式转贴现BT02场景(1)；P2:eDisc跨页后端兜底(1)、空字符串不误拦代码审查(1)、先负数后零值代码审查(1)；P0:6 P1:6 P2:3；v1.1评审回退修复：M-1新增TC-015回购式场景(共用L209-213统一校验链)、M-2 TC-001补§7留痕日志断言(锚点L63,标注PRD§7利息值+操作人vs现实现仅票据号的需求-实现偏差)、M-3贴现表名TE_CE_DISC_BILL(DiscBillDao.xml L282/L352)+批次表TE_CE_DISC_BATCH(DiscBatchDao.xml L292/L370)；轻微项L-1空串NULL两口径/L-2直调替代路径/L-3 paramKey精确计数/L-4重计息确认/L-5整票口径/L-6名单库无命中前置",
-      "version": "v1.1-20260901"
+      "description": "P0:转贴现买入/卖出单张零息票拦截(2)、多张零息票一次全列(1)、批次混合整批拦截(1)、弹窗交互与数据保持(1)、开关默认态fail-closed(1)；P1:开关关闭放行0/N/否(1)、暂存不触发(1)、贴现interest链路(1)、再贴现链路(1)、防重复提交锁(1)、回购式转贴现BT02场景(1)；P2:eDisc跨页后端兜底(1)、空字符串不误拦代码审查(1)、先负数后零值代码审查(1)；P0:6 P1:6 P2:3；v1.1评审回退修复：M-1新增TC-015回购式场景(共用L191-196统一校验链)、M-2 TC-001补§7留痕日志断言、M-3贴现表名TE_CE_DISC_BILL+批次表TE_CE_DISC_BATCH；v1.2复用优先增量修订(零新增)；v1.3用例评审修订：M-1留痕日志断言对齐现实现——WARN日志已含利息值(HnnxMarketValidateUtil.java L64-65双参数)、操作人经throwZeroInterestException error日志记录(L149-158,调用方L195传reqUserNo)，v1.1标注的需求-实现偏差已消除；M-2全文件锚点行号对齐当前代码(submitCheckMixin.js L120-142判零弹窗链、HnnxMarketValidateUtil零值方法区间、HnnxRebuyApplyServiceImpl L189-196、zh-CN.js L50)且经test-lead-reviewer逐处核准，断言语义不变",
+      "version": "v1.3-20260902"
     },
     {
       "id": "TC-ECIFMRG-001",
@@ -810,23 +810,45 @@
       "scripts": [],
       "description": "六阶段收官增量P2边界用例2条（P2归档于P1用例文档，四阶段P2-027~030先例同款）：多角色命中组装顺序首个命中前缀返回(031,⑤=出票人→收票人→承兑行/⑥=被背书人→背书人→承兑行→出票人,round1全量先于round2)、待签收记录不存在透传super原生报错0BE320807050(032,L101 null守卫零额外开销)；均独立可执行",
       "version": "v3.5.0-20260831"
+    },
+    {
+      "id": "TC-ORGV2-001~014",
+      "file": "bemp-test-common/test-cases/sm/branch/org-mgmt-v2-increment.md",
+      "subsystem": "sm",
+      "feature": "机构管理优化-v2.3/v2.4增量（非账务机构确认/层级作废/组织机构代码不查重/增量同步）",
+      "priority": "P0",
+      "case_count": 14,
+      "scripts": [],
+      "description": "机构管理优化PRD v2.3/v2.4增量用例14条：批量导入非账务机构确认弹窗两步提交-是(001)/否(002)/全账务不弹窗(003)、单条手工新增nonAccountingBranchNos不落库(004)/skipNonAccounting豁免且其余校验不豁免(005)/校验时序代码审查(006)、层级校验作废回归(007)、组织机构代码不查重(008)、branch_sync_mode默认INCR(009)、PJGCS增量upsert(010)、PJGGX五字段主键(011)、增量失败详细日志(012)、增量不物理删除(013)、WEIHRQ口径(014)；P0:7 P1:6 P2:1；锚点：SyncJobUtils.java L27/HnnxBankBranchController func_addBranch(L153-214时序)/func_batchImportValidate；与TC-BRANCH-010/TC-BRANCH-ORG-001/TC-ORGMGMT-V3系列复用分工无重复；v1.1用例评审修订：M-1遗留假设H1/H2经代码核实成立并关闭(skipNonAccounting/nonAccountingBranchNos已实现于HnnxBankBranchController L156/BranchImportVo L17/BranchImportValidateResp L30；增量分支已合入SyncPjgcsBranchParamJobServiceImpl L136-145与SyncPjgxBranchRelationJobServiceImpl L132-138)，TC-ORGV2-009~013解除阻塞；M-2 TC-ORGV2-010/011/012代码审查步骤由Job层修正为Service层落库实现(PjgcsBranchParamServiceImpl.syncIncrementalData L183起/PjgxBranchRelationServiceImpl L150起/失败日志L210-211与L181-182)；M-3 TC-ORGV2-001弹窗文案补前端锚点zh-CN.js L70与skipNonAccounting双侧参数锚点",
+      "version": "v1.1-20260902"
+    },
+    {
+      "id": "TC-AML-P0-035~039",
+      "file": "bemp-test-common/test-cases/be/antimoney/aml-sync-increment.md",
+      "subsystem": "be",
+      "feature": "反洗钱-v3.6.0~v3.8.1抽数链路增量（手动抽取/INCR口径/抽数分层/前缀配置化）",
+      "priority": "P0",
+      "case_count": 16,
+      "scripts": [],
+      "description": "反洗钱PRD v3.6.0~v3.8.1增量用例16条（P0:5 P1:9 P2:2）：手动抽取按钮P0-035成功链路/036仅POST+P1-039文件缺失三路反馈/040 loading+SYNC_LOCK防重/041权限复用30308/042 ecifFilePath缺失不静默/043操作留痕；INCR口径变更P0-037按OBJ_ID物理删除重插/038同OBJ_ID多条全插幂等+P1-044 OBJ_ID空跳过留痕/045分片900+UK_HNNX_M_CSI_OBJ已删/046删除插入事务原子；抽数分层P0-039统一入口importEcifList（Job层抽数/Service层syncFullData/syncIncrementalData落库）+P1-047 DTO RPC序列化边界；前缀配置化P2-033 ecifFile.ecifFilePrefix默认ECF_M_CUST_SPECIAL_INFO_LIST_显式配置优先/034配套cbsFile.pjgcs/pjgx前缀；锚点：SyncAntiMoneyListJobServiceImpl L81/L95-96/L103-104/L136/L139/L162、HnnxAntiMoneyListServiceImpl L63/L140/L176/L207-208、HnnxAntiMoneyListController L68/L72/L122；与TC-AML-P0-001~034复用分工无重复；v1.1用例评审修订：M-1锚点行号对齐当前实现(importEcifList L136/synchronized L139/fileName L162)；M-2 P1-042预期收紧为确定口径——运行时doImportEcifList L157-161显式抛BempRuntimeException(DG-006不静默)；H1批次统计字段以实际响应为准、H2按钮文案待页面预验证、H3⏸集群多实例W-5不在范围",
+      "version": "v1.1-20260902"
     }
   ],
   "summary": {
-    "total_cases": 53,
-    "total_estimated_count": 679,
+    "total_cases": 55,
+    "total_estimated_count": 709,
     "by_subsystem": {
       "common": 2,
-      "sm": 15,
+      "sm": 16,
       "bm": 18,
-      "be": 13,
+      "be": 14,
       "ce": 4,
       "adapter": 2
     },
     "by_priority": {
-      "P0": 61,
-      "P1": 39,
-      "P2": 12,
+      "P0": 68,
+      "P1": 46,
+      "P2": 15,
       "P3": 0,
       "unknown": 0
     },

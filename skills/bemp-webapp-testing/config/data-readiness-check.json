@@ -99,6 +99,16 @@
         },
         "biz_date_query_source": "{biz_date_query} 由各模块配置提供（业务日期获取 SQL，表名/字段名占位符化），数据准备文档需写明获取方法"
       }
+    },
+    {
+      "type": "account-permission-precheck",
+      "name": "账号-权限预检",
+      "params": ["account_id", "target_pages", "permission_matrix_source"],
+      "check_methods": {
+        "description": "执行页面前核对测试账号与目标页面/接口的角色权限矩阵（菜单绑定/接口鉴权类型），账号-权限映射来自配置而非临场尝试；预核对记录在案后方可执行",
+        "verify_rule": "{account_id} 对 {target_pages} 的菜单绑定与接口鉴权类型逐项核对通过，权限矩阵预核对记录留档（账号+页面+鉴权类型+核对结论可追溯）",
+        "matrix_source": "{permission_matrix_source} 从权限配置解析（菜单/角色配置，占位符化，禁止硬编码账号与页面真值），禁止凭登录后页面表现临场猜测权限"
+      }
     }
   ],
   "skip_reasons": {
@@ -109,7 +119,8 @@
     "api_unavailable": "接口{api_url}不可用（HTTP状态码非{expected_status}），需检查服务状态",
     "config_mismatch": "配置{config_key}的值不是{expected_value}，需修改配置",
     "schema_mismatch": "MCP连接schema与应用目标schema{target_schema}不一致，需改走run-oracle-jdbc.ps1 JDBC通道或修正连接配置后重检",
-    "biz_date_baseline_missing": "未获取系统业务日期基准{biz_date_query}，时效类测试数据禁止按自然日期假设生成，需先取得业务日期基准"
+    "biz_date_baseline_missing": "未获取系统业务日期基准{biz_date_query}，时效类测试数据禁止按自然日期假设生成，需先取得业务日期基准",
+    "account_permission_insufficient": "测试账号{account_id}对目标页面/接口{target_pages}的权限矩阵预核对未通过（菜单未绑定或鉴权类型不符），需先按配置更换匹配账号或申请权限，禁止临场尝试换号"
   },
   "readiness_report": {
     "output_format": "markdown",
