@@ -643,6 +643,8 @@ SELECT COUNT(*) AS CNT_PARAM       FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY = 
 
 ## 用例自校验结果
 
+> **批2 执行记录（2026-09-06，bemp-auto-tester）**：TC-001/005 通过（复用 POC 批次 ZR20260820POC01 零息票，真实 UI 提交触发弹窗「票号XX，子票区间[...]的应付利息为0」——POC 票自带子票区间，格式与 TC-080 一致；inform 态单按钮[产品文案"我知道了"]；commitApply 0 请求前端拦截；数据保持+重试弹窗重现）；TC-006/007 通过（代码审查：默认"1"/仅 0-N-否 关闭/异常 fail-closed 留痕）；TC-014 通过（买入 L190→L191-196、卖出 L466→L467-472 负数先于零值）；TC-013 通过；TC-011 部分验证（无请求体过滤能力，锁行为间接佐证）。TC-069/072 后端兜底代码审查通过（再贴现 commitRediscApply 拦截分支在位）。详见 aotutests-playwright/reports/hnnxbank/2026-09/batch2_execution_report.md。
+
 - 统计一致性：通过（P0=6、P1=6、P2=3，合计 15 条，与用例统计表一一对应；编号 TC-MARKET-ZINT-001~015 连续无跳号，与 test-index.json 已有 TC-MARKET-001/002/003/067、TC-DISCOUNT-001/010 无冲突）
 - 预期结果确定性：通过（文案断言逐字锚定 zh-CN.js L50 / hnnx_mt_zh_CN.properties L8；弹窗按钮态锚定 mixin L136-138；接口路径断言取自 PRD §5.2 与代码；"利率 0 可录入"与"批次提交后状态"两处标测试假设/以实际流转为准；§7 日志断言按 v1.3 修订后现实现口径执行——WARN 含票号+利息值、error 含操作人+票据清单，原"需求-实现偏差"已消除）
 - 编号规范性：通过（TC-MARKET-ZINT-{三位数字}，前缀符合 testcase-prefix-coordination.json 格式 TC-{MODULE}-{REQUIREMENT}-{SEQ}，REQUIREMENT=ZINT 取自需求关键词 Zero INTerest；TC-015 编号承接 014 顺延，无冲突）

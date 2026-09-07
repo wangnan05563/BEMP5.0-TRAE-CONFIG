@@ -139,6 +139,26 @@ npm run dev
 
 ---
 
+## 10.5 启动失败：Result Maps collection already contains value（mapper XML 重复注册）
+
+**现象**：Served 启动即退出，日志报 `Result Maps collection already contains value for ...BaseResultMap`（MyBatis 解析器重复注册同一 mapper）。
+
+**根因**：增量覆盖部署使 `WEB-INF/classes`（新编译产物）与 `WEB-INF/lib` 旧 jar 内存在**双份同名 mapper XML**，异步加载竞态重复注册（W12-07）。classes 优先级高于 jar（W8-09 同源），但双份并存时注册顺序不确定。
+
+**处置方案**：①定位重复资源——比对 classes 与 lib jar 内同路径 XML 清单；②哈希比对：内容一致（仅旧版本冗余）→ 备份后删除 classes 侧冗余文件再重启；内容不一致（真增量覆盖）→ 保留 classes 侧删除 jar 侧或走全量重部署；③**根治**：全量重新部署使 jar 与 classes 同版本，消除增量覆盖的双份资源形态。
+
+**预防措施**：增量覆盖部署后启动失败优先排查双份资源，勿先怀疑代码；执行 `check-artifact-freshness.ps1` 顺带确认产物形态一致性。
+
+## 10.6 服务启动成功但加载旧代码（进程新鲜度失配）
+
+**现象**：启动流程全部健康检查通过，但测试发现已下线接口仍可达（200）、新校验文案不生效。
+
+**根因**：进程启动时间早于本次编译/部署产物时间——启动动作发生在编译之前，或启动的是旧进程未真正重启（W12-01，与 W9-01"jar 旧包"是两道独立检查）。
+
+**处置方案**：按 P17 三重链核对——进程启动时间 ≥ 部署产物 mtime ≥ 最新源码修改时间；任一倒挂→走门禁通道重启目标服务→重启后重检；铁证=已删除接口可达性差异（旧 200/新 404）。配套运行时验证：`check-artifact-freshness.ps1 -CheckType bean-verify`（bean 顶替日志核对）。
+
+**预防措施**：重启完成后在启动报告中报告"新进程启动时间 vs 本次编译时间"供测试侧核验；测试侧执行前过 runtime-code-version-check（bemp-webapp-testing config/data-readiness-check.json）。
+
 ## 10. 内存不足
 
 JVM 内存不足时,修改 `config.json` 中的参数：

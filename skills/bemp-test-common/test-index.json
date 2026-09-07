@@ -1,7 +1,7 @@
 {
   "_comment": "BEMP 测试用例索引 - test-cases ↔ scripts 双向映射。用于追踪覆盖率、定位关联脚本。由 bemp-test-common 统一管理，bemp-testcase-generator 和 bemp-webapp-testing 共享。注意：file 和 scripts 中的路径均相对于技能根（skills）目录，如 'bemp-test-common/test-cases/common/login.md' 实际路径为 '<skills 目录>/bemp-test-common/test-cases/common/login.md'。",
   "index_version": "2.0",
-  "generated": "2026-08-29",
+  "generated": "2026-09-06",
   "scripts_index": {
     "bemp-webapp-testing/scripts/run_test.py": {
       "description": "通用测试运行器，配置驱动执行所有 bank_config.pages 中的页面测试",
@@ -720,8 +720,8 @@
       "priority": "P1",
       "case_count": 15,
       "scripts": [],
-      "description": "口径 PRD v3.4.6+v3.4.7评审修复，P1用例15条：名单查询(011)、导出码值转中文(012)、两轮匹配口径(013-round1 certType='22'优先+round2名称兜底+hitType降级为代码审查BillHitResult+单测，含R-SPACE名单侧首尾空格对照不命中-建议级)、时效两分支(014-按BusiDateService业务日期)、抽取异常(015)、文件解析(016-24字段m2修正)、名单页面(017)、审计留痕载体符合性核查(018-S2重构：载体=LOGGER日志无DB留痕表，RK-011 DB级缺失列需求符合性风险待需求方确认)、权限控制(019)、四入口回归(020)、贴现申请人/贴现行取数(021-ET05三条件，m1标注修正：需专项数据+需跨模块操作含降级路径)、round1命中hitType=SOC_CODE(022-M1降级：代码审查+单测断言)、round2兜底hitType=NAME(023-M1降级)、子票区间唯一性(024-票号+区间Long)、collectSubmitBills共用回归(025-批量跨页合并+三元组去重)",
-      "version": "v3.4.8-20260827"
+      "description": "口径 PRD v3.4.6+v3.4.7评审修复，P1用例15条：名单查询(011)、导出码值转中文(012-v1.2修订对齐v3.9.0导出模板代码内置口径：无需模板预配置/名单类型保留原始编码不转中文/新增有效标志转中文断言/22列固定模板核验，锚点HnnxAntiMoneyListController L52-53/L100-127/L257-258)、两轮匹配口径(013-round1 certType='22'优先+round2名称兜底+hitType降级为代码审查BillHitResult+单测，含R-SPACE名单侧首尾空格对照不命中-建议级)、时效两分支(014-按BusiDateService业务日期)、抽取异常(015)、文件解析(016-24字段m2修正)、名单页面(017)、审计留痕载体符合性核查(018-S2重构：载体=LOGGER日志无DB留痕表，RK-011 DB级缺失列需求符合性风险待需求方确认)、权限控制(019)、四入口回归(020)、贴现申请人/贴现行取数(021-ET05三条件，m1标注修正：需专项数据+需跨模块操作含降级路径)、round1命中hitType=SOC_CODE(022-M1降级：代码审查+单测断言)、round2兜底hitType=NAME(023-M1降级)、子票区间唯一性(024-票号+区间Long)、collectSubmitBills共用回归(025-批量跨页合并+三元组去重)",
+      "version": "v3.9.0-20260906"
     },
     {
       "id": "TC-AML-P2-026",
@@ -812,45 +812,56 @@
       "version": "v3.5.0-20260831"
     },
     {
-      "id": "TC-ORGV2-001~014",
+      "id": "TC-ORGV2-001~019",
       "file": "bemp-test-common/test-cases/sm/branch/org-mgmt-v2-increment.md",
       "subsystem": "sm",
-      "feature": "机构管理优化-v2.3/v2.4增量（非账务机构确认/层级作废/组织机构代码不查重/增量同步）",
+      "feature": "机构管理优化-v2.1/v2.3/v2.4增量（非账务机构确认/层级作废/组织机构代码不查重/增量同步/管理员最大个数）",
+      "priority": "P0",
+      "case_count": 19,
+      "scripts": [],
+      "description": "机构管理优化PRD v2.1/v2.3/v2.4增量用例19条：批量导入非账务机构确认弹窗两步提交-是(001)/否(002)/全账务不弹窗(003)、单条手工新增nonAccountingBranchNos不落库(004)/skipNonAccounting豁免且其余校验不豁免(005)/校验时序代码审查(006)、层级校验作废回归(007)、组织机构代码不查重(008)、branch_sync_mode默认INCR(009)、PJGCS增量upsert(010)、PJGGX五字段主键(011)、增量失败详细日志(012)、增量不物理删除(013)、WEIHRQ口径(014)、v1.2新增：单条手工新增点否终止TC-ORG-18(015)/账务机构无弹窗直接新增TC-ORG-19(016)/管理员批量导入超BR-ADM-20上限30整批拒绝TC-ADM-06(017)/参数修改动态生效TC-ADM-07(018)/branch_admin_max_count默认30+法人级配置优先Q-17(019)；P0:10 P1:7 P2:2；锚点：SyncJobUtils.java L27/HnnxBankBranchController func_addBranch(L153-214时序)/func_batchImportValidate/HnnxbankBranchAdminController func_batchImportBranchAdmin(L348-373 BR-ADM-20校验)；与TC-BRANCH-010/TC-BRANCH-ORG-001/TC-ORGMGMT-V3系列复用分工无重复；PRD场景映射：TC-ORG-17↔004+005、TC-ORG-18↔015、TC-ORG-19↔016、TC-ADM-06↔017、TC-ADM-07↔018、Q-17↔019；v1.1用例评审修订：M-1遗留假设H1/H2经代码核实成立并关闭，M-2 TC-ORGV2-010/011/012代码审查步骤由Job层修正为Service层落库实现，M-3 TC-ORGV2-001弹窗文案补前端锚点zh-CN.js L70与skipNonAccounting双侧参数锚点；v1.2（2026-09-06）v2.4覆盖缺口补齐：M-1新增TC-ORGV2-015/016补齐点否终止与账务无弹窗P0缺口，M-2新增TC-ORGV2-017~019补齐BR-ADM-20（经盘点全部存量未覆盖），H3记录拒绝文案实现与PRD措辞差异（语义一致按实现断言）",
+      "version": "v1.2-20260906"
+    },
+    {
+      "id": "TC-AML-P0-035~040",
+      "file": "bemp-test-common/test-cases/be/antimoney/aml-sync-increment.md",
+      "subsystem": "be",
+      "feature": "反洗钱-v3.6.0~v3.9.0抽数链路增量（手动抽取下线/INCR口径/抽数分层/前缀配置化/导出模板代码内置）",
       "priority": "P0",
       "case_count": 14,
       "scripts": [],
-      "description": "机构管理优化PRD v2.3/v2.4增量用例14条：批量导入非账务机构确认弹窗两步提交-是(001)/否(002)/全账务不弹窗(003)、单条手工新增nonAccountingBranchNos不落库(004)/skipNonAccounting豁免且其余校验不豁免(005)/校验时序代码审查(006)、层级校验作废回归(007)、组织机构代码不查重(008)、branch_sync_mode默认INCR(009)、PJGCS增量upsert(010)、PJGGX五字段主键(011)、增量失败详细日志(012)、增量不物理删除(013)、WEIHRQ口径(014)；P0:7 P1:6 P2:1；锚点：SyncJobUtils.java L27/HnnxBankBranchController func_addBranch(L153-214时序)/func_batchImportValidate；与TC-BRANCH-010/TC-BRANCH-ORG-001/TC-ORGMGMT-V3系列复用分工无重复；v1.1用例评审修订：M-1遗留假设H1/H2经代码核实成立并关闭(skipNonAccounting/nonAccountingBranchNos已实现于HnnxBankBranchController L156/BranchImportVo L17/BranchImportValidateResp L30；增量分支已合入SyncPjgcsBranchParamJobServiceImpl L136-145与SyncPjgxBranchRelationJobServiceImpl L132-138)，TC-ORGV2-009~013解除阻塞；M-2 TC-ORGV2-010/011/012代码审查步骤由Job层修正为Service层落库实现(PjgcsBranchParamServiceImpl.syncIncrementalData L183起/PjgxBranchRelationServiceImpl L150起/失败日志L210-211与L181-182)；M-3 TC-ORGV2-001弹窗文案补前端锚点zh-CN.js L70与skipNonAccounting双侧参数锚点",
-      "version": "v1.1-20260902"
+      "description": "反洗钱PRD v3.6.0~v3.9.0增量有效用例14条+作废4条（P0:4 P1:8 P2:2）：v3.9.0手动抽取下线——P0-035/036/P1-040/041标注作废（func_importFile已删除，BUG-AML-002误还原修正终态）、新增P0-040下线回归（页面无按钮/接口不可达/定时任务承载不受影响）；v3.9.0导出模板代码内置——新增P1-048（Controller内置ExcelBuildReq 22列+无downLoadInfo依赖+码值转中文集合listChrc/dataSrc/vldSt，名单类型保留原始编码）；INCR口径P0-037按OBJ_ID物理删除重插/038同OBJ_ID多条全插幂等+P1-044 OBJ_ID空跳过留痕/045分片900+UK_HNNX_M_CSI_OBJ已删/046删除插入事务原子；抽数分层P0-039统一入口importEcifList+SYNC_LOCK（原P1-040锁断言并入）+P1-047 DTO RPC序列化边界；前缀配置化P2-033 ecifFile.ecifFilePrefix默认ECF_M_CUST_SPECIAL_INFO_LIST_显式配置优先/034配套cbsFile.pjgcs/pjgx前缀；v1.2全部触发方式由手动修订为定时任务HNNXTK020113（P0-037/038/P1-039/042/043）；锚点：SyncAntiMoneyListJobServiceImpl L81/L95-96/L103-104/L136/L139/L162、HnnxAntiMoneyListServiceImpl L63/L140/L176/L207-208、HnnxAntiMoneyListController L49-51/L65/L71/L100-127/L255-258/L240-252；与TC-AML-P0-001~034复用分工无重复；v1.1用例评审修订：M-1锚点行号对齐当前实现、M-2 P1-042预期收紧为确定口径（doImportEcifList L157-161显式抛BempRuntimeException不静默）；v1.2（2026-09-06）v3.9.0增量修订：M-1手动抽取下线（作废4条+新增P0-040），M-2导出模板代码内置（新增P1-048+配套P1-012修订），H4定时任务测试环境触发方式待与运维确认",
+      "version": "v1.2-20260906"
     },
     {
-      "id": "TC-AML-P0-035~039",
-      "file": "bemp-test-common/test-cases/be/antimoney/aml-sync-increment.md",
+      "id": "TC-AML-SEC-001~006",
+      "file": "bemp-test-common/test-cases/be/antimoney/aml-sync-security-regression.md",
       "subsystem": "be",
-      "feature": "反洗钱-v3.6.0~v3.8.1抽数链路增量（手动抽取/INCR口径/抽数分层/前缀配置化）",
+      "feature": "反洗钱同步-扫描缺陷收敛安全回归（resolveDataFile白名单+上传魔数双校验）",
       "priority": "P0",
-      "case_count": 16,
+      "case_count": 6,
       "scripts": [],
-      "description": "反洗钱PRD v3.6.0~v3.8.1增量用例16条（P0:5 P1:9 P2:2）：手动抽取按钮P0-035成功链路/036仅POST+P1-039文件缺失三路反馈/040 loading+SYNC_LOCK防重/041权限复用30308/042 ecifFilePath缺失不静默/043操作留痕；INCR口径变更P0-037按OBJ_ID物理删除重插/038同OBJ_ID多条全插幂等+P1-044 OBJ_ID空跳过留痕/045分片900+UK_HNNX_M_CSI_OBJ已删/046删除插入事务原子；抽数分层P0-039统一入口importEcifList（Job层抽数/Service层syncFullData/syncIncrementalData落库）+P1-047 DTO RPC序列化边界；前缀配置化P2-033 ecifFile.ecifFilePrefix默认ECF_M_CUST_SPECIAL_INFO_LIST_显式配置优先/034配套cbsFile.pjgcs/pjgx前缀；锚点：SyncAntiMoneyListJobServiceImpl L81/L95-96/L103-104/L136/L139/L162、HnnxAntiMoneyListServiceImpl L63/L140/L176/L207-208、HnnxAntiMoneyListController L68/L72/L122；与TC-AML-P0-001~034复用分工无重复；v1.1用例评审修订：M-1锚点行号对齐当前实现(importEcifList L136/synchronized L139/fileName L162)；M-2 P1-042预期收紧为确定口径——运行时doImportEcifList L157-161显式抛BempRuntimeException(DG-006不静默)；H1批次统计字段以实际响应为准、H2按钮文案待页面预验证、H3⏸集群多实例W-5不在范围",
-      "version": "v1.1-20260902"
+      "description": "2026-09-06代码扫描质量收敛回归用例6条（P0:6）：SEC-001~004代码审查resolveDataFile三段白名单正则（L56/L61/L67）+normalize/startsWith纵深防御（L170-177）合法放行/非法文件名/非法日期根目录/..逃逸双重拦截；SEC-005代码审查两控制器validateImportFile Content-Type白名单（vnd.ms-excel/openxml.sheet/octet-stream）+魔数双校验（xls=D0CF11E0A1B11AE1/xlsx=PK0304）文本伪装拒绝+ZIP伪装边界记录；SEC-006运行时管理员批量导入真实xlsx不误伤（锚点HnnxbankBranchAdminController L1040）；版本注记：后端运行时旧代码（11:12启动<13:09编译）时SEC-006结果仅代表基础导入链路，魔数不误伤结论须重启后回归",
+      "version": "v1.0-20260906"
     }
   ],
   "summary": {
-    "total_cases": 55,
-    "total_estimated_count": 709,
+    "total_cases": 73,
+    "total_estimated_count": 1030,
     "by_subsystem": {
       "common": 2,
-      "sm": 16,
+      "sm": 28,
       "bm": 18,
-      "be": 14,
+      "be": 19,
       "ce": 4,
       "adapter": 2
     },
     "by_priority": {
-      "P0": 68,
-      "P1": 46,
-      "P2": 15,
+      "P0": 51,
+      "P1": 14,
+      "P2": 7,
       "P3": 0,
-      "unknown": 0
+      "unknown": 6
     },
     "scripts_coverage": {
       "bemp-webapp-testing/scripts/run_test.py": 11,

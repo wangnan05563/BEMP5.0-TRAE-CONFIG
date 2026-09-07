@@ -1,4 +1,4 @@
-﻿# P0-P2 测试用例 - hnnxbank 票据应付利息为0弹窗拦截
+# P0-P2 测试用例 - hnnxbank 票据应付利息为0弹窗拦截
 
 > 来源：hnnxbank 个性化需求"单张票据应付利息为0时弹窗提示并禁止提交"
 > 银行环境：hnnxbank（河南农信）
@@ -6,6 +6,7 @@
 > 代码实现：HnnxMarketValidateUtil.validateZeroInterestForRebuy / validateZeroInterestForSale
 > 错误码：HNNX0BE320008
 > 提示文案："票号XX的应付利息为0"
+> 修订记录（2026-09-06 用例评审修复，M-3）：TC-MARKET-070 弹窗按钮断言对齐"仅确定按钮"（inform 态，与主文件 zero-interest-intercept.md TC-005 及 PRD 已确认问题#2 一致）；TC-MARKET-069/072 删除过时测试假设"再贴现后端无 hnnxbank 独立 commitApply 覆盖"（已被代码推翻：HnnxBankRediscountSaleApplyServiceImpl L215-237 已实现 isZeroInterestIntercept + validateZeroInterestForRedisc），TC-MARKET-072 预期改为"前端或后端任一层拦截均成立（后端 L221-223 兜底已实现）"，删除"前端未生效则提交成功（后端无拦截）"错误预期分支
 
 ---
 
@@ -206,7 +207,6 @@ WHERE BILL_ID IN ('票据ID1', '票据ID2', ...);
   - 批次下所有票据的 firstPayInterest > 0
   - 利息状态 interestStatus = 1（已计算）
   - 其它校验均通过
-  - 测试假设：再贴现后端无 hnnxbank 独立 commitApply 覆盖，校验依赖前端页面逻辑
 测试步骤:
   - 步骤1: 导航至【场内交易子系统】-【市场交易】-【再贴现】-【再贴现申请】
   - 步骤2: 点击新增，填写再贴现申请信息
@@ -241,7 +241,7 @@ WHERE BILL_ID IN ('票据ID1', '票据ID2', ...);
   - 系统先执行负数校验（通过）
   - 校验到首期应付利息为0的票据，抛出 HNNX0BE320008 异常
   - 前端弹窗显示提示文案"票号XX的应付利息为0"
-  - 弹窗包含"确定"按钮和关闭按钮，两个按钮均可点击
+  - 弹窗仅"确定"按钮（inform 态，PRD 已确认问题#2 口径，与主文件 zero-interest-intercept.md TC-005 一致）
   - 申请提交被禁止，批次状态不变
 实际结果: [待填写]
 测试状态: [待填写]
@@ -282,14 +282,12 @@ WHERE BILL_ID IN ('票据ID1', '票据ID2', ...);
   - 持有可再贴现票据
   - 批次下包含1张票据的 firstPayInterest = 0，其余利息 > 0
   - 利息状态 interestStatus = 1（已计算）
-  - 测试假设：再贴现前端已实现 checkZeroInterestBeforeSubmit 校验，后端无独立 commitApply 覆盖
 测试步骤:
   - 步骤1: 导航至【再贴现申请】，点击新增
   - 步骤2: 填写申请信息，选择含利息为0的票据批次
   - 步骤3: 点击提交申请
 预期结果:
-  - 如果前端校验生效：弹窗提示"票号XX的应付利息为0"，申请被拦截
-  - 如果前端校验未生效：提交成功（后端无拦截），需标记为已知问题
+  - 前端或后端任一层拦截均成立：弹窗提示"票号XX的应付利息为0"，申请被拦截（后端兜底已实现：HnnxBankRediscountSaleApplyServiceImpl L215-237 isZeroInterestIntercept + validateZeroInterestForRedisc，L221-223 抛 HNNX0BE320008）
   - 申请提交被禁止，批次状态不变
 实际结果: [待填写]
 测试状态: [待填写]

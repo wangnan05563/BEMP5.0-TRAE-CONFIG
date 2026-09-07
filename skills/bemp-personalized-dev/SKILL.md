@@ -105,6 +105,7 @@ bemp-personalized-dev/
 | Override模式 | [override-patterns.md](references/override-patterns.md) | 响应DTO字段传递、Bean注入方式、编译部署重启闭环 |
 | HUI组件文档 | `hui_doc` MCP | H-UI 组件属性、方法、事件、使用示例及最佳实践 |
 | FAQ | [faq.md](references/faq.md) | 常见问题解答、最佳实践 |
+| 扫描器Sanitizer形态库 | [sanitizer-patterns.md](references/sanitizer-patterns.md) | **触发场景：修复路径遍历/文件上传/注入类扫描缺陷，或防御代码被扫描器复报时加载**。认可/不认可形态映射表、修复决策树、白名单三维度模板（P22） |
 
 ## 配置文件
 

@@ -109,6 +109,28 @@
         "verify_rule": "{account_id} 对 {target_pages} 的菜单绑定与接口鉴权类型逐项核对通过，权限矩阵预核对记录留档（账号+页面+鉴权类型+核对结论可追溯）",
         "matrix_source": "{permission_matrix_source} 从权限配置解析（菜单/角色配置，占位符化，禁止硬编码账号与页面真值），禁止凭登录后页面表现临场猜测权限"
       }
+    },
+    {
+      "type": "runtime-code-version-check",
+      "name": "运行进程代码版本新鲜度检查（P17）",
+      "params": ["artifact_path_patterns", "process_names", "changed_interfaces_probe"],
+      "check_methods": {
+        "description": "本轮存在后端代码变更（编译/修复/功能下线）时，测试执行前必须确认运行进程加载的是新代码：进程启动时间 ≥ 部署产物 mtime ≥ 最新源码修改时间；任一倒挂=旧代码运行时，先重启再测试，禁止带病执行",
+        "triple_chain_rule": "{process_names} 各进程启动时间从进程信息获取（WMI/ps），{artifact_path_patterns} 产物 mtime 从文件系统获取，二者与最新源码修改时间（git log -1 或文件系统）三重比对",
+        "probe_rule": "{changed_interfaces_probe} 为本轮删除/下线接口清单（来源=变更记录，非硬编码）：对已删除接口发起请求，旧代码返回已匹配路由的业务响应（如权限类错误码），新代码返回 404/路径不存在——可达性差异是版本失配的铁证",
+        "fail_action": "判旧代码运行时 → 走 bemp-automation-startserver 门禁通道重启目标服务 → 重启后重新执行本检查直至通过；'锁版本'专项回归场景可显式跳过并注明"
+      }
+    },
+    {
+      "type": "env-config-data-precheck",
+      "name": "环境配置数据就绪预检（P18）",
+      "params": ["precheck_sqls", "expected_metrics"],
+      "check_methods": {
+        "description": "功能测试执行前预检环境配置数据三类：①菜单权限注册（授权表按菜单编码/URL 回读存在性）②定时任务登记（任务表按任务编码回读存在性）③业务参数配置（参数表按参数键+法人维度回读存在性与期望值）；未就绪项执行前批量补齐（走增量脚本通道）或显式标注 BLOCKED+回归条件",
+        "sql_source": "{precheck_sqls} 由本次测试的配置声明提供（表名/字段名/菜单编码/任务编码/参数键全部经解析链获取，禁止在本文件硬编码银行真实值；可参照 bemp-db-operator config/query-templates.json 的产品化模板按实际表结构适配）",
+        "verify_rule": "逐项比对 {expected_metrics}（存在=1行/期望参数值匹配）；不满足 → 判断属交付 SQL 未执行（补执行+确认脚本入增量目录）还是外部依赖（标 BLOCKED）",
+        "channel_rule": "回读通道必须与写库通道同 schema（先过 db-connection-schema-check），禁止跨 schema 回读误判'未插入'（W12-03）"
+      }
     }
   ],
   "skip_reasons": {
@@ -120,7 +142,9 @@
     "config_mismatch": "配置{config_key}的值不是{expected_value}，需修改配置",
     "schema_mismatch": "MCP连接schema与应用目标schema{target_schema}不一致，需改走run-oracle-jdbc.ps1 JDBC通道或修正连接配置后重检",
     "biz_date_baseline_missing": "未获取系统业务日期基准{biz_date_query}，时效类测试数据禁止按自然日期假设生成，需先取得业务日期基准",
-    "account_permission_insufficient": "测试账号{account_id}对目标页面/接口{target_pages}的权限矩阵预核对未通过（菜单未绑定或鉴权类型不符），需先按配置更换匹配账号或申请权限，禁止临场尝试换号"
+    "account_permission_insufficient": "测试账号{account_id}对目标页面/接口{target_pages}的权限矩阵预核对未通过（菜单未绑定或鉴权类型不符），需先按配置更换匹配账号或申请权限，禁止临场尝试换号",
+    "runtime_code_stale": "运行进程启动时间早于部署产物/源码修改时间，服务加载的是旧代码（已下线接口仍可达/新文案不生效），需先走 bemp-automation-startserver 门禁通道重启服务后重检；锁版本专项回归需显式声明跳过",
+    "env_config_data_missing": "环境配置数据未就绪（{precheck_sqls} 回读不满足{expected_metrics}），需先补齐增量 SQL 或标注 BLOCKED+回归条件"
   },
   "readiness_report": {
     "output_format": "markdown",

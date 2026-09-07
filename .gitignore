@@ -7,4 +7,6 @@ __pycache__/
 Thumbs.db
 specs
 logs
-
+skills/bemp-backend-code-review/reports
+skills/bemp-frontend-code-review/reports
+skills/bemp-sonarqube-mcp/reports

@@ -75,6 +75,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 - **端口跳过 / 强制重启**：端口已 `Listen` 且非 `-ForceRestart` → SKIP；`-ForceRestart` → 杀占用进程后重拉。
 - **依赖就绪等待**：应用层启动前 `Wait-Port` 等 Redis+ZK 端口就绪，避免 dubbo 注册失败。
 - **健康探活**：端口 `Listen` + HTTP 探活（**`/` 返回 404 即视为存活**，BEMP API 无根路由，`expectedStatus=[200,404]`）+ 致命日志关键字扫描（`ClassNotFoundException`/`APPLICATION FAILED TO START`/`javax.servlet.Filter` 等）。
+- **进程新鲜度核验（P17）**：本轮存在代码变更（编译/修复）时，重启完成后必须在启动报告中报告"新进程启动时间 vs 本次编译/产物时间"——进程启动时间早于产物时间=加载旧代码（健康检查全绿也无法发现），由测试侧 runtime-code-version-check 复核；详见 docs/troubleshooting.md §10.6。
 - **WMI 脱离式启动**：`Win32_Process.Create` 使服务进程脱离启动会话存活（规避 PS5.1 `Start-Process` 的 `Path/PATH` 环境块冲突与回合结束被杀）；用 `.cmd` wrapper 内部 `>> log 2>&1` 重定向绕开 cmd 引号坑。
 
 ## 命令模板

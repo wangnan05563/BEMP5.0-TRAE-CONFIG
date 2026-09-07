@@ -1,19 +1,22 @@
 # 机构管理优化 - v2.3/v2.4 增量用例（TC-ORGV2）
 
-> **需求基线**：PRD《机构管理优化-v2.md》（v2.4，含 2026-08-28 行方需求变更：BR-ORG-21 非账务机构确认、BR-ORG-05 层级校验作废、BR-ORG-02 组织机构代码不再查重；v2.2 增量同步 BR-SYNC-12~19）
-> **复用策略**：F-01~F-11 基础场景复用既有用例（TC-BRANCH-010、TC-BRANCH-ORG-001、TC-ORGMGMT-V3-P0/P1/P2、TC-F01~F11 系列、TC-BRANCH-030），本文件仅覆盖 v2.3/v2.4/v2.2 增量缺口，与既有用例无编号/场景重复。
+> **需求基线**：PRD《机构管理优化-v2.md》（v2.4，含 2026-08-28 行方需求变更：BR-ORG-21 非账务机构确认、BR-ORG-05 层级校验作废、BR-ORG-02 组织机构代码不再查重；v2.2 增量同步 BR-SYNC-12~19；v2.1 管理员批量导入最大个数开关 BR-ADM-20）
+> **复用策略**：F-01~F-11 基础场景复用既有用例（TC-BRANCH-010、TC-BRANCH-ORG-001、TC-ORGMGMT-V3-P0/P1/P2、TC-F01~F11 系列、TC-BRANCH-030），本文件仅覆盖 v2.1/v2.2/v2.3/v2.4 增量缺口，与既有用例无编号/场景重复。
 > **关联既有用例修订**：TC-F01-P0-006（层级超4级）、TC-ORGMGMT-V3-P0 中层级类用例 → 按 BR-ORG-05 作废口径回归修订（见 TC-ORGV2-007）。
-> **修订记录**：v1.1（2026-09-02）用例评审修订：M-1 遗留假设 H1/H2 经代码核实均成立并关闭（skipNonAccounting/nonAccountingBranchNos 已实现：HnnxBankBranchController.java L156 @RequestParam + BranchImportVo.java L17 + BranchImportValidateResp.java L30；增量分支已合入：SyncPjgcsBranchParamJobServiceImpl.java L136-145 与 SyncPjgxBranchRelationJobServiceImpl.java L132-138），TC-ORGV2-009~013 解除"⏸ 待实现"阻塞；M-2 TC-ORGV2-010/011/012 代码审查步骤由 Job 层修正为 Service 层落库实现（增量 upsert 与失败日志四要素实际位于 PjgcsBranchParamServiceImpl/PjgxBranchRelationServiceImpl，Job 层仅做模式分发）；M-3 TC-ORGV2-001 弹窗文案补充前端锚点 zh-CN.js L70 与 skipNonAccounting 双侧参数锚点。v1.0（2026-09-02）初版。
+> **修订记录**：v1.2（2026-09-06）v2.4 用例覆盖缺口补齐（对照 PRD §11.1.1 TC-ORG-17~19 与 §11.1.4 TC-ADM-06/07 逐条映射）：M-1 存量 TC-ORGV2-004~006 仅覆盖 PRD TC-ORG-17"点'是'放行"链路，**点"否"终止（TC-ORG-18）与账务机构无弹窗直接新增（TC-ORG-19）两个 P0 场景缺失**——新增 TC-ORGV2-015/016 补齐；M-2 BR-ADM-20（v2.1 管理员批量导入最大个数开关，默认 30）经盘点未被任何存量用例覆盖（TC-F05 系列 2026-07-21 编制早于 v2.1 2026-08-14 参数化改造、TC-ORGV2 v1.0/1.1 未含）——新增 TC-ORGV2-017/018/019（P0 超限整批拒绝 / P1 参数动态生效 / P2 默认值与法人级配置）。v1.1（2026-09-02）用例评审修订：M-1 遗留假设 H1/H2 经代码核实均成立并关闭（skipNonAccounting/nonAccountingBranchNos 已实现：HnnxBankBranchController.java L156 @RequestParam + BranchImportVo.java L17 + BranchImportValidateResp.java L30；增量分支已合入：SyncPjgcsBranchParamJobServiceImpl.java L136-145 与 SyncPjgxBranchRelationJobServiceImpl.java L132-138），TC-ORGV2-009~013 解除"⏸ 待实现"阻塞；M-2 TC-ORGV2-010/011/012 代码审查步骤由 Job 层修正为 Service 层落库实现（增量 upsert 与失败日志四要素实际位于 PjgcsBranchParamServiceImpl/PjgxBranchRelationServiceImpl，Job 层仅做模式分发）；M-3 TC-ORGV2-001 弹窗文案补充前端锚点 zh-CN.js L70 与 skipNonAccounting 双侧参数锚点。v1.0（2026-09-02）初版。
 
 ## 一、增量范围与覆盖度映射
 
 | PRD 增量点 | 规则 | 已有用例覆盖状态 | 本次动作 |
 |-----------|------|----------------|---------|
 | 非账务机构确认-批量导入 | BR-ORG-21（v2.3） | 未覆盖 | 新增 TC-ORGV2-001~003 |
-| 非账务机构确认-单条手工新增扩展 | BR-ORG-21（v2.4） | 未覆盖 | 新增 TC-ORGV2-004~006 |
+| 非账务机构确认-单条手工新增扩展 | BR-ORG-21（v2.4） | 未覆盖 | 新增 TC-ORGV2-004~006（覆盖 PRD TC-ORG-17） |
 | 机构层级校验作废回归 | BR-ORG-05 作废（v2.3） | 已有用例按旧口径覆盖 | 新增回归 TC-ORGV2-007 + 修订旧用例标注 |
 | 组织机构代码不做重复性校验 | BR-ORG-02 v2.3 修订 | 未覆盖 | 新增 TC-ORGV2-008 |
 | 增量同步机制 | BR-SYNC-12~19（v2.2） | TC-BRANCH-030 仅覆盖全量同步 | 新增 TC-ORGV2-009~014 |
+| **单条手工新增点"否"终止** | BR-ORG-21 ②（v2.4，PRD TC-ORG-18） | TC-ORGV2-004 仅覆盖首次不落库，点"否"交互缺失 | **新增 TC-ORGV2-015（v1.2）** |
+| **单条手工新增账务机构无弹窗** | BR-ORG-21（v2.4，PRD TC-ORG-19） | TC-ORGV2-003 仅覆盖批量导入侧，单条新增侧缺失 | **新增 TC-ORGV2-016（v1.2）** |
+| **管理员批量导入最大个数开关** | BR-ADM-20（v2.1，PRD TC-ADM-06/07、Q-17） | 全部存量未覆盖（TC-F05 系列早于 v2.1 参数化） | **新增 TC-ORGV2-017~019（v1.2）** |
 
 ## 二、测试数据准备（三重校准）
 
@@ -44,6 +47,19 @@ SELECT YNGYJG, JILUZT FROM PJGCS WHERE YNGYJG = 'LV5PARENT';
 -- branch_sync_mode 参数就绪检查（未配置=默认 INCR，锚点 SyncJobUtils.java L27 常量/L33 默认值/L45-67 readSyncMode；增量分支已合入：SyncPjgcsBranchParamJobServiceImpl.java L136-145）
 SELECT * FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY = 'branch_sync_mode';
 -- 增量用例结束后复位：UPDATE TM_BUSINESS_PARAMETER SET PARAM_VALUE='INCR' WHERE PARAM_KEY='branch_sync_mode';
+```
+
+### D4 管理员批量导入对照数据（TC-ORGV2-017~019，v1.2 新增；015/016 用 D1 数据）
+
+```sql
+-- branch_admin_max_count 参数就绪检查（未配置=默认 30，锚点：HnnxbankBranchAdminController.java L367-368 getIntegerParamWithDefault(legalNo,"branch_admin_max_count",30)）
+SELECT * FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY = 'branch_admin_max_count';
+-- 校准1-列宽：PARAM_KEY/PARAM_VALUE/LEGAL_NO 列宽以 describe 核对为准；机构号 ≤ PJGCS.YNGYJG 列宽
+-- 校准2-对照数据：预置目标机构 ADMTGT01（本法人下已存在），管理员用户号 ADMU001~ADMU040 需不存在（防用户号重复校验干扰超限断言）
+SELECT COUNT(*) FROM PJGCS WHERE YNGYJG = 'ADMTGT01';
+-- 清理闭环：用例结束后删除预置管理员与参数记录
+-- DELETE FROM TM_USER WHERE USER_NO LIKE 'ADMU0%' AND INFO_SRC='TEST';  -- 表名/列名以 describe 核对为准
+-- DELETE FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY='branch_admin_max_count' AND LEGAL_NO='{REQ_LEGAL_NO}';
 ```
 
 ## 三、用例明细
@@ -134,7 +150,7 @@ SELECT * FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY = 'branch_sync_mode';
 | 用例名称 | 组织机构代码重复的两个机构导入成功（BR-ORG-02 v2.3 修订：组织机构代码不查重） |
 | 优先级 | P1 / Playwright + 数据库查询 |
 | 跨模块标注 | 独立可执行 |
-| 前置条件 | 法人管理员登录；机构号 ORGDUPE1/ORODUPE2 未存在，两者组织机构代码相同（如 91410000DUP1） |
+| 前置条件 | 法人管理员登录；机构号 ORGDUPE1/ORGDUPE2 未存在，两者组织机构代码相同（如 91410000DUP1） |
 | 步骤 | 1. 批量导入含 ORGDUPE1、ORGDUPE2（其余字段合法）的 Excel；2. 提交导入；3. 查询 PJGCS |
 | 预期结果 | 导入成功，无"组织机构代码重复"报错，两机构均落库（锚点：PRD §2.2.1 校验规则第2条 v2.3 变更、§7.1 BR-ORG-02）；机构号/机构名称重复仍拦截（对照断言，防过度放开） |
 
@@ -206,18 +222,82 @@ SELECT * FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY = 'branch_sync_mode';
 | 步骤 | 1. 核对 ODS 供数口径文档；2. 核对 Job 侧对文件数据的处理不依赖 WEIHRQ 字段值做二次过滤（供数侧已过滤） |
 | 预期结果 | ODS 均按 WEIHRQ 增量抽取（BR-SYNC-16，锚点：PRD §7.3）；票据系统侧无重复按日期过滤导致漏单的逻辑缺陷 |
 
+### TC-ORGV2-015 单条手工新增非账务机构点"否"终止（v1.2 新增，PRD TC-ORG-18）
+
+| 项 | 内容 |
+|---|---|
+| 用例名称 | 单条手工新增非账务机构确认弹窗点"否"，关闭新增界面终止新增，数据库不写入任何机构记录 |
+| 优先级/测试方式 | P0 / Playwright + 数据库查询（RULE-09/RULE-06） |
+| 跨模块标注 | 独立可执行（数据需按 D1 预置） |
+| 前置条件 | 1. 以 hnnxbank 法人管理员（userType="4"）登录前端 `http://{BEMP_HOST}:{BEMP_FRONTEND_PORT}/#/login`；2. 按 D1 预置 NACCT001（非账务）；3. 记录 PJGCS 当前记录数基线 |
+| 步骤 | 1. 机构管理-新增，填写机构号 NACCT001 及其余必填项；2. 点击确定提交（POST func_addBranch）；3. 出现非账务机构确认弹窗后点击"否"；4. 查询 PJGCS 确认无新增并复核界面状态 |
+| 预期结果 | 1. 步骤2 首次提交返回成功响应且顶层携带 nonAccountingBranchNos=["NACCT001"]（首次提交服务端即不落库，锚点：HnnxBankBranchController.java L156 skipNonAccounting 参数 + L183-186 checkNonAccountingOnAdd 未携带标识时返回清单，PRD §11.1.1 TC-ORG-18）；2. 弹窗文案与批量导入一致"NACCT001机构号非账务机构，不能作为业务发起及记账机构，是否继续？"（锚点：zh-CN.js L70 nonAccountingBranchConfirm，PRD §7.1 BR-ORG-21）；3. 点击"否"后新增界面关闭、新增流程终止；4. PJGCS 记录数与基线一致（SELECT COUNT 无 NACCT001，两段提交语义：点"否"不重发请求，库中零写入） |
+
+### TC-ORGV2-016 单条手工新增账务机构无弹窗直接新增成功（v1.2 新增，PRD TC-ORG-19）
+
+| 项 | 内容 |
+|---|---|
+| 用例名称 | 单条手工新增账务机构（PJGGX 存在 YWGXZL='ZNGWSJ' 且 JILUZT='0' 记录）时无确认弹窗，按复核模式正常进入新增流程 |
+| 优先级/测试方式 | P0 / Playwright + 数据库查询（RULE-09/RULE-06） |
+| 跨模块标注 | 独立可执行（数据需按 D1 预置对照组） |
+| 前置条件 | 1. 法人管理员登录；2. 按 D1 预置 NACCT002（账务机构对照组：PJGGX 存在 YWGXZL='ZNGWSJ' AND JILUZT='0' 记录）；3. NACCT002 同时在 PJGCS 主系统存在（通过 F-10 校验） |
+| 步骤 | 1. 机构管理-新增，填写机构号 NACCT002 及其余必填项；2. 点击确定提交（POST func_addBranch）；3. 观察是否出现非账务机构确认弹窗；4. 按复核模式完成后续流程后查询 PJGCS |
+| 预期结果 | 1. 响应不携带 nonAccountingBranchNos 字段、全程不弹出非账务机构确认弹窗（账务机构命中豁免条件，锚点：HnnxBankBranchController.java L183-186 checkNonAccountingOnAdd 查得 YWGXZL='ZNGWSJ' AND JILUZT='0' 记录返回 null 放行，PRD §11.1.1 TC-ORG-19）；2. 新增流程直接进入复核模式分支（双岗/单岗以实际配置为准），NACCT002 复核通过后写入 PJGCS；3. 证明非账务弹窗仅对非账务机构触发，无过度拦截 |
+| 数据清理 | DELETE FROM PJGCS WHERE YNGYJG='NACCT002' 及关联 PJGGX/角色关系记录（复核通过情形），或复核驳回后删除申请记录 |
+
+### TC-ORGV2-017 管理员批量导入超 BR-ADM-20 上限整批拒绝（v1.2 新增，PRD TC-ADM-06）
+
+| 项 | 内容 |
+|---|---|
+| 用例名称 | 管理员批量导入 35 条（超 branch_admin_max_count 上限 30）整批拒绝，不新增任何记录 |
+| 优先级/测试方式 | P0 / Playwright + 数据库查询（RULE-09/RULE-06） |
+| 跨模块标注 | 需专项数据（D4：35 条合法管理员 Excel/报文 + 目标机构 ADMTGT01） |
+| 前置条件 | 1. 以 hnnxbank 法人管理员（userType="4"）登录（仅法人管理员可操作，锚点：HnnxbankBranchAdminController.java L360-362）；2. TM_BUSINESS_PARAMETER 无 branch_admin_max_count 记录（默认 30 生效）；3. 按 D4 准备 35 条用户号（ADMU001~ADMU035）不重复、机构号 ADMTGT01 的导入数据；4. 记录管理员表记录数基线 |
+| 步骤 | 1. 机构管理员管理-批量导入，上传 35 条 Excel；2. 提交导入（POST func_batchImportBranchAdmin）；3. 观察返回结果；4. 查询管理员表确认无新增 |
+| 预期结果 | 1. 整批拒绝：返回错误码 EX_0BE229905511，提示文案含"单次批量导入机构管理员个数不能超过30个（本次提交35个），请分批导入"（锚点：HnnxbankBranchAdminController.java L369-373 抛 BempRuntimeException + String.format 文案；实现文案与 PRD TC-ADM-06 示例文案"单次批量新增不可超过 30 条"措辞存在差异，以代码实现为准，语义一致不阻塞）；2. 超限校验位于逐条身份认证之前作为整体前置 gate，35 条全部未落库（SELECT COUNT 与基线一致，锚点：L364-373 校验先于 L392 逐条循环，PRD §2.4.2"超限则整批拒绝，不执行任何新增"）；3. 非法人管理员账号提交被权限拦截"只有法人管理员可以批量新增机构管理员"（对照断言） |
+| 数据清理 | 删除预置测试数据（应无数据可清，核对为空）；参数复位见 D4 |
+
+### TC-ORGV2-018 BR-ADM-20 参数修改后以最新参数值校验（v1.2 新增，PRD TC-ADM-07）
+
+| 项 | 内容 |
+|---|---|
+| 用例名称 | branch_admin_max_count 参数修改（30→50）后校验以最新参数值为准，单次批量上限随之变为 50 |
+| 优先级/测试方式 | P1 / Playwright + 数据库查询（RULE-09/RULE-06） |
+| 跨模块标注 | 需专项数据 + 需跨模块操作（系统参数维护） |
+| 前置条件 | 1. 法人管理员登录；2. 按 D4 将 branch_admin_max_count 配置为 50（法人级 LEGAL_NO={REQ_LEGAL_NO}）；3. 准备 35 条导入数据（超原上限 30、低于新上限 50） |
+| 步骤 | 1. 数据库配置参数值为 50 并查询确认落库；2. 批量导入 35 条管理员数据；3. 观察导入结果；4. 【对照】再将参数改为 10，以 35 条重新提交 |
+| 预期结果 | 1. 参数为 50 时 35 条导入放行进入逐条处理（不再被 30 上限拦截，参数修改后再次提交以最新值校验，如参数服务存在刷新延迟，以实际机制为准并记录，锚点：HnnxbankBranchAdminController.java L367-369 getIntegerParamWithDefault 在请求内调用），单条成功/失败以逐条结果为准（单条失败不影响其他，L341 业务规则3）；2. 参数改为 10 时 35 条整批拒绝，文案上限值显示为"10"（锚点：L371 String.format 动态取 maxImportCount），证明校验以最新参数值为准（PRD §11.1.4 TC-ADM-07） |
+| 数据清理 | 删除本轮导入成功的管理员记录；删除 branch_admin_max_count 参数记录恢复默认态（D4 清理闭环） |
+
+### TC-ORGV2-019 branch_admin_max_count 未配置默认 30 且法人级配置优先（v1.2 新增，Q-17）
+
+| 项 | 内容 |
+|---|---|
+| 用例名称 | branch_admin_max_count 未配置时取默认值 30，按法人（legalNo）单独配置优先于全局默认（代码审查+数据库查询） |
+| 优先级/测试方式 | P2 / 代码审查 + 数据库查询（RULE-04/RULE-06） |
+| 跨模块标注 | 独立可执行 |
+| 前置条件 | 源代码已拉取；TM_BUSINESS_PARAMETER 可查询 |
+| 步骤 | 1. Read HnnxbankBranchAdminController.java L364-373：getIntegerParamWithDefault(userInfo.getLegalNo(), "branch_admin_max_count", 30, "机构管理员单次批量导入最大个数")；2. Read getIntegerParamWithDefault 私有方法实现，核对取参顺序（法人级配置优先→未配置回退默认 30）与"最大个数=单次批量导入行数上限"语义边界（Q-17 ①②③④：paramKey 命名 branch_admin_max_count、语义为单次行数非累计总数、按法人单独配置、超限整批拒绝）；3. 数据库查询当前参数配置态 |
+| 预期结果 | 1. paramKey=`branch_admin_max_count`、默认值=30（Q-17 ①，锚点：L368）；2. "最大个数"语义=单次批量导入行数上限（userDtoList.size() 与上限比较，非累计总数，锚点：L369，Q-17 ②）；3. 参数支持按法人 legalNo 单独配置（getIntegerParamWithDefault 首参传 userInfo.getLegalNo()，法人优先取参语义，Q-17 ③）；4. 未配置/取值非法时回退默认 30 且不阻断主流程（对照 L381-386 密码有效期/错误次数同构回退模式） |
+
 ## 四、统计
 
 | 优先级 | 数量 | 编号 |
 |-------|------|------|
-| P0 | 7 | TC-ORGV2-001~005、009~010 |
-| P1 | 6 | TC-ORGV2-006~008、011~013 |
-| P2 | 1 | TC-ORGV2-014 |
-| 合计 | 14 | — |
+| P0 | 10 | TC-ORGV2-001~005、009~010、015~017 |
+| P1 | 7 | TC-ORGV2-006~008、011~013、018 |
+| P2 | 2 | TC-ORGV2-014、019 |
+| 合计 | 19 | — |
+
+> v1.2 统计口径：新增 5 条（015/016 补 PRD TC-ORG-18/19 P0 缺口，017~019 补 BR-ADM-20 缺口）；PRD 场景映射对照——TC-ORG-17↔TC-ORGV2-004+005、TC-ORG-18↔TC-ORGV2-015、TC-ORG-19↔TC-ORGV2-016、TC-ADM-06↔TC-ORGV2-017、TC-ADM-07↔TC-ORGV2-018、Q-17↔TC-ORGV2-019，全部 PRD v2.1/v2.3/v2.4 增量场景已闭环覆盖。
 
 ## 五、遗留测试假设
 
+> **批2 执行记录（2026-09-06，bemp-auto-tester）**：TC-ORGV2-001~008 通过（001 弹窗文案逐字匹配+两段提交落库 TM_BRANCH；003 全账务无弹窗；004/005 单条新增两段提交+F-10 不豁免；007 level5 落库无层级拦截；008 同码双落库）；009~014 通过（代码审查：YNGYJG 主键 upsert、PJGGX 五字段主键、日志四要素、增量无 deleteAll、WEIHRQ 仅装载），010/013 运行时 BLOCKED（TT_TASK 无手动触发通道）；017~019 通过（35 条整批拒绝文案逐字、参数 50→35 条放行/10→动态上限生效[Redis 缓存刷新备注]、默认 30/法人优先/单次行数语义）。执行备注：①落库断言以 TM_BRANCH 为准（用例"写入 PJGCS"为笔误，PJGCS 为核心侧同步源）；②非账务判定按 PJGGX.YNGYJG（D1 校准 SQL 中 g.FAREDM 为笔误）；③sm.auth.is_allow_repeat_orgcode=1 已补插全局参数。详见 aotutests-playwright/reports/hnnxbank/2026-09/batch2_execution_report.md。
+
 | # | 假设项 | 影响 | 处理 |
 |---|-------|------|------|
-| H1 | ✅ 已核实（2026-09-02 评审）：两步提交参数名 skipNonAccounting 与 PRD §12 Q-22 建议口径一致，代码已实现——单条新增侧 HnnxBankBranchController.java L156 `@RequestParam(value="skipNonAccounting", required=false)`、批量导入侧 BranchImportVo.java L17；响应清单字段 nonAccountingBranchNos 见 BranchImportValidateResp.java L30 | TC-ORGV2-001/004/005 步骤4参数断言 | 假设关闭，按现锚点直接执行，无需执行前再核准 |
+| H1 | ✅ 已核实（2026-09-02 评审）：两步提交参数名 skipNonAccounting 与 PRD §12 Q-22 建议口径一致，代码已实现——单条新增侧 HnnxBankBranchController.java L156 `@RequestParam(value="skipNonAccounting", required=false)`、批量导入侧 BranchImportVo.java L17；响应清单字段 nonAccountingBranchNos 见 BranchImportValidateResp.java L30 | TC-ORGV2-001/004/005/015 步骤4参数断言 | 假设关闭，按现锚点直接执行，无需执行前再核准 |
 | H2 | ✅ 已核实（2026-09-02 评审）：BR-SYNC-12~19 增量机制代码已合入——SyncJobUtils.java L27 常量存在，SyncPjgcsBranchParamJobServiceImpl.java L136-145 与 SyncPjgxBranchRelationJobServiceImpl.java L132-138 FULL/INCR 分发及 syncIncrementalData 增量落库分支均已实现 | TC-ORGV2-009~013 | 假设关闭，解除"⏸ 待实现"阻塞，5 条用例可直接执行 |
+| H3 | BR-ADM-20 拒绝文案以代码实现为准："单次批量导入机构管理员个数不能超过{N}个（本次提交{X}个），请分批导入"（锚点：HnnxbankBranchAdminController.java L370-372），与 PRD TC-ADM-06 示例文案"单次批量新增不可超过 30 条"措辞不同（语义一致：整批拒绝+上限提示） | TC-ORGV2-017 断言1 | 按实现文案断言；文案差异已记录，若需求方坚持 PRD 原文案由 bemp-personalized-developer 评估修改 |
+| H4 | TM_USER 管理员表名/列名以执行时 describe 核对为准（D4 清理 SQL 为模板） | TC-ORGV2-017/018 数据清理 | 落库/清理前 Oracle MCP describe 核对，禁止直接执行模板 SQL |

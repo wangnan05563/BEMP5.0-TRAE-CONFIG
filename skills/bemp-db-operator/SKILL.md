@@ -221,6 +221,15 @@ bemp-db-operator/
 
 编码初始化完成后，检测数据库版本用于特性兼容性判断（versionDetection.enabled=true时）。版本检测流程与特性兼容性速查详见4.5节。
 
+#### 步骤2.7：连接目标校验（多实例/多 schema 环境必做，P18/W12-03）
+
+多实例、多 schema 环境下（如 MCP 连接基线 schema 而应用生效库为银行个性化 schema），连接"成功"≠连接"对目标"。**涉及写库或数据回读的任务，执行前必须校验连接目标与应用生效库一致**：
+
+- Oracle：`SELECT SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM DUAL` 与期望 schema 比对（期望值从应用数据源配置解析，禁止硬编码）
+- MySQL：`SELECT DATABASE()` 与期望库比对
+- 不一致 → 禁止经当前通道写库/回读，切换与应用同 schema 的通道（如 `scripts/run-oracle-jdbc.ps1`）后重检
+- 铁律：**MCP 可见 ≠ 真相**——跨 schema 回读会误判"数据未插入"诱发重复插入（W12-03 实战）；配套预检项见 bemp-webapp-testing config/data-readiness-check.json（db-connection-schema-check）
+
 ***
 
 ### 第二阶段：SQL执行前预检查

@@ -57,6 +57,7 @@ bemp-test-common（共享资源：用例文档 + 参考指南 + 用例索引）
 | Level 4 | 组件测试设计方法 | 按需加载 | references/component-test.md |
 | Level 5 | 输出示例 | 按需加载 | references/output-examples.md |
 | Level 6 | 审查报告模板 | 按需加载 | references/review-report-template.md |
+| Level 7 | 变更影响清扫清单 | 修订/作废/功能下线类变更落盘后强制执行 | references/change-sweep-checklist.md |
 
 ### 加载决策流程
 
