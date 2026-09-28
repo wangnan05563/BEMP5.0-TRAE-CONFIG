@@ -145,7 +145,13 @@ def flush_log(log_file):
 # ────────────────────────── 五段式骨架 ──────────────────────────
 
 def step_login(page, env):
-    """登录段：账号来自场景配置引用的角色（用户名经 ${ENV:} 解析，密码不落配置）。"""
+    """登录段：账号来自场景配置引用的角色（用户名经 ${ENV:} 解析，密码不落配置）。
+
+    实测要点（T00287）：账号可能已在别处登录，后端返回 0BE229904073「用户号[xxx]已登录！」
+    并弹出「强制登录确认」窗（按钮为 取消/确定，非 是/否）——必须点确定后才真正登录。
+    确认窗与登录请求均为异步：先点登录，再循环"处理确认窗 + 等待 URL 离开 /login"，
+    不可在点击确认后立刻判定（会造成假性登录失败）。
+    """
     role = env["account_role"]
     user_env = {"default": "BEMP_TEST_USER_DEFAULT", "admin": "BEMP_TEST_USER_ADMIN",
                 "branch_admin": "BEMP_TEST_USER_BRANCH_ADMIN"}[role]
@@ -153,24 +159,32 @@ def step_login(page, env):
     pwd = os.environ.get("BEMP_TEST_PASSWORD") or "888888"
     page.goto(f"{env['frontend_url']}/#/login", wait_until="networkidle", timeout=60000)
     page.wait_for_timeout(2000)
-    page.fill('input[placeholder*="用户名"]', user)
-    page.fill('input[placeholder*="密码"]', pwd)
-    page.locator("button", has_text="登").first.click()
-    for _ in range(30):
+    page.locator('input[placeholder*="用户名"]').fill(user)
+    # 登录页存在两个"密码"占位输入（tempPassword 为实际提交项），优先按 name 定位
+    temp_pwd = page.locator("input[name='tempPassword']")
+    if temp_pwd.is_visible(timeout=2000):
+        temp_pwd.fill(pwd)
+    else:
+        page.locator('input[placeholder*="密码"]').fill(pwd)
+    page.locator('button:has-text("登录")').last.click()
+
+    for _ in range(40):
+        page.wait_for_timeout(1000)
         if "/login" not in page.url:
             break
         try:
-            dlg = page.locator('text=确定强制退出已登录账号吗？')
-            if dlg.count() > 0 and dlg.first.is_visible():
-                page.evaluate("""() => {
-                    const b = Array.from(document.querySelectorAll('button'))
-                        .find(b => b.offsetParent !== null && (b.textContent||'').trim() === '确定');
-                    if (b) b.click();
-                }""")
-                break
+            clicked = page.evaluate("""() => {
+                const b = Array.from(document.querySelectorAll('button'))
+                    .find(b => b.offsetParent !== null && (b.textContent || '').trim() === '确定');
+                if (b) { b.click(); return true; }
+                return false;
+            }""")
+            if clicked:
+                log("[LOGIN] force-login confirm clicked")
         except Exception:
             pass
-        page.wait_for_timeout(1000)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1500)
     ok = "/login" not in page.url
     RESULT["login"] = "PASS" if ok else "FAIL"
     return ok
@@ -192,6 +206,42 @@ def step_navigate(page, nav):
     page.wait_for_timeout(3000)
     log("[URL]", page.url)
     return nav["target_url_fragment"] in page.url
+
+
+def step_open(page, target):
+    """开窗段：open_strategy=component_state 时按 open_state 直驱 manager 组件状态开弹窗。
+
+    背景（J2 判断逻辑）：列表选中行依赖 UI 勾选不可靠，round6 起改为直接给 manager 组件
+    赋 busiType/trDir/batchId 并将 openWin 开关置 true。字段名全部来自场景配置，脚本零硬编码。
+    """
+    if target.get("open_strategy") != "component_state":
+        return True
+    st = target.get("open_state") or {}
+    if not st:
+        return True
+    open_win = st.get("openWin")
+    fields = {k: v for k, v in st.items() if k not in ("closeWins", "openWin")}
+    res = page.evaluate("""(args) => {
+        function findComp(comp, name, depth) {
+            if (!comp || depth > 18) return null;
+            if (comp.$options && comp.$options.name === name) return comp;
+            for (const k of (comp.$children || [])) {
+                const r = findComp(k, name, depth + 1);
+                if (r) return r;
+            }
+            return null;
+        }
+        const qm = findComp(document.getElementById('app').__vue__, args.manager, 0);
+        if (!qm) return { ok: false, why: 'manager not found' };
+        for (const cw of (args.closeWins || [])) qm[cw] = false;
+        for (const k of Object.keys(args.fields || {})) qm[k] = args.fields[k];
+        if (args.openWin) qm[args.openWin] = true;
+        return { ok: true };
+    }""", {"manager": target["manager"], "closeWins": st.get("closeWins", []),
+             "openWin": open_win, "fields": fields})
+    log("[OPEN]", json.dumps(res, ensure_ascii=False))
+    page.wait_for_timeout(3500)
+    return bool(res.get("ok"))
 
 
 def run_case(page, case, target, env):
@@ -217,6 +267,25 @@ def run_case(page, case, target, env):
             Object.assign(grid.tData[0] || (grid.tData[0] = {}), args.row);
             c.$forceUpdate();
         }""", {"comp": comp_name, "ref": grid_ref, "row": row})
+
+    # 批次/表单层字段注入（batch-level）：要素只存在于页面 formItem 而非明细行时使用，
+    # 与 inject_row 配套（如买入端交易对手名只在 formItem.saleBrchName，明细 DTO 不装载）
+    form = case.get("inject_form") or {}
+    if form:
+        page.evaluate("""(args) => {
+            function findComp(comp, name, depth) {
+                if (!comp || depth > 18) return null;
+                if (comp.$options && comp.$options.name === name) return comp;
+                for (const k of (comp.$children || [])) {
+                    const r = findComp(k, name, depth + 1);
+                    if (r) return r;
+                }
+                return null;
+            }
+            const c = findComp(document.getElementById('app').__vue__, args.comp, 0);
+            if (c && c.formItem) Object.assign(c.formItem, args.form);
+            if (c) c.$forceUpdate();
+        }""", {"comp": comp_name, "form": form})
 
     trigger = case["trigger"]
     if trigger.get("method") == "component_call_with_response":
@@ -296,8 +365,11 @@ def main():
         scenario = resolve_deep(json.load(f))
 
     env = scenario["env"]
-    env["_shot_dir"] = scenario["output"]["shot_dir"]
-    log_file = scenario["output"]["log_file"]
+    # 输出路径支持 ${scenario_id} 自引用（resolve_env 只解析 ${ENV:...}，此处补足，
+    # 否则所有场景会写进字面量 "${scenario_id}" 目录而相互覆盖）
+    sid = scenario["scenario_id"]
+    env["_shot_dir"] = scenario["output"]["shot_dir"].replace("${scenario_id}", sid)
+    log_file = scenario["output"]["log_file"].replace("${scenario_id}", sid)
     RESULT["scenario"] = scenario["scenario_id"]
     noise = list(scenario.get("console_noise_extra", []))
 
@@ -331,6 +403,29 @@ def main():
             return
 
         target = scenario["target_component"]
+        if not step_open(page, target):
+            RESULT["nav"] = "FAIL: cannot open target dialog"
+            print(json.dumps(RESULT, ensure_ascii=False, indent=1))
+            browser.close()
+            return
+        # 兜底压入一行：datagrid 空数据时 tData 可能不存在，且 run_case 假定第 0 行已存在
+        page.evaluate("""(args) => {
+            function findComp(comp, name, depth) {
+                if (!comp || depth > 18) return null;
+                if (comp.$options && comp.$options.name === name) return comp;
+                for (const k of (comp.$children || [])) {
+                    const r = findComp(k, name, depth + 1);
+                    if (r) return r;
+                }
+                return null;
+            }
+            const c = findComp(document.getElementById('app').__vue__, args.comp, 0);
+            const grid = c && c.$refs[args.ref];
+            if (!grid) return;
+            if (!grid.tData) grid.tData = [];
+            if (grid.tData.length === 0) grid.tData.push({});
+        }""", {"comp": target["dialog"], "ref": target["datagrid_ref"]})
+
         for case in scenario["cases"]:
             log("[CASE]", case["id"], case["title"])
             run_case(page, case, target, env)
