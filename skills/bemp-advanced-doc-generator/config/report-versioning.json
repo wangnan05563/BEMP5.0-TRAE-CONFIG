@@ -2,9 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "BEMP 测试报告版本迭代管理配置",
   "description": "测试报告更新时自动管理版本号（v1.0->v2.0->v3.0），每次迭代记录变更项。确保测试报告的可追溯性和版本可审计性。",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "createdAt": "2026-07-22",
-  "updatedAt": "2026-07-22",
+  "updatedAt": "2026-09-21",
   "_comment": "本文件为测试报告版本管理的唯一配置源。适用于 testreport 和 unit-test-report 类型文档。",
 
   "configInheritance": {
@@ -44,7 +44,8 @@
           "缺陷状态发生变更（如从 OPEN 变为 FIXED）",
           "阻塞问题解决并重新测试",
           "测试范围扩大（新增模块或场景）",
-          "二轮调试测试完成后输出新版本"
+          "二轮调试测试完成后输出新版本",
+          "业务裁定确认（口径确认/配置收窄/恢复原状等，见 arbitrationVersionChain）"
         ],
         "action": "major + 1, minor 重置为 0"
       },
@@ -206,6 +207,48 @@
         "author": "auto-generated"
       }
     ]
+  },
+
+  "arbitrationVersionChain": {
+    "_comment": "裁定版本链：交付文档遇业务裁定（口径确认/配置收窄/恢复原状等）时的闭环规则。裁定结论属数据字典性质的事实记录；正文描述不得与库内实际状态漂移（脚本与库一致原则）。",
+    "chainSteps": [
+      {
+        "step": 1,
+        "name": "裁定确认",
+        "action": "业务裁定经澄清确认后形成结论（裁定口径/影响范围/生效版本）",
+        "output": "裁定结论"
+      },
+      {
+        "step": 2,
+        "name": "写入项目记忆",
+        "action": "裁定结论同步写入项目记忆，防止后续会话推翻裁定",
+        "output": "项目记忆条目"
+      },
+      {
+        "step": 3,
+        "name": "修订记录升版",
+        "action": "交付文档修订记录表逐次升版（V1.n 递增），并在该行简述裁定内容",
+        "output": "修订记录新行"
+      },
+      {
+        "step": 4,
+        "name": "正文同步",
+        "action": "裁定内容同步正文对应章节（缺陷定性/上线清单/已知问题）",
+        "output": "正文更新"
+      },
+      {
+        "step": 5,
+        "name": "库内对齐",
+        "action": "脚本/代码与库内实际状态对齐（脚本与库一致原则）；正文与库内状态冲突时以库内实际状态为准回改正文并记录偏差",
+        "output": "对齐确认"
+      }
+    ],
+    "revisionVersionFormat": "V1.{n}",
+    "_comment_revisionVersionFormat": "修订记录升版格式：交付文档修订记录逐次递增（V1.0→V1.1→V1.2…），与报告文件版本号（versionRules 的 v{major}.{minor}）相互独立、各行其表",
+    "consistencyRule": {
+      "scriptLibraryConsistency": "脚本与库一致原则：正文对库内状态的描述必须与实际查询结果一致，交付前以实查复核",
+      "driftHandling": "发现漂移→以库内实际状态为准回改正文，并在修订记录注明偏差与修正"
+    }
   },
 
   "iterationWorkflow": {

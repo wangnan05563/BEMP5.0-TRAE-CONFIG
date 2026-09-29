@@ -87,7 +87,8 @@ bemp-personalized-dev/
 └── references/                       # 参考文档
     ├── project-rules.md              # 项目规则（核心约束）
     ├── override-patterns.md          # 子类Override模式知识库
-    └── faq.md                        # 常见问题与最佳实践
+    ├── faq.md                        # 常见问题与最佳实践
+    └── hook-diagnosis-patterns.md    # 钩子诊断模式库（静默跳过类缺陷排查/SQL判别集/修复三件套）
 ```
 
 ## 开发规范文档
@@ -106,6 +107,8 @@ bemp-personalized-dev/
 | HUI组件文档 | `hui_doc` MCP | H-UI 组件属性、方法、事件、使用示例及最佳实践 |
 | FAQ | [faq.md](references/faq.md) | 常见问题解答、最佳实践 |
 | 扫描器Sanitizer形态库 | [sanitizer-patterns.md](references/sanitizer-patterns.md) | **触发场景：修复路径遍历/文件上传/注入类扫描缺陷，或防御代码被扫描器复报时加载**。认可/不认可形态映射表、修复决策树、白名单三维度模板（P22） |
+| 页面组装模式 | [page-assembly-patterns.md](references/page-assembly-patterns.md) | **触发场景：菜单挂载/路由注册变更、弹窗组件复用为独立菜单页、菜单/路由/白屏类缺陷修复定性、界面文案显示 key 原文（国际化子段缺失）时加载**。F1-F4 三源事实核验决策树（实库菜单表/增量脚本/路由注册表，实库为最高基准）、standalone 页面化双分支定稿方案（⚠ 浮层外壳退化补丁已废弃——受控实测通过但业务验收失败，浮层与页面是两种渲染范式）、差异化国际化子段补充与覆盖度校验、验证等级匹配表 |
+| 钩子诊断模式 | [hook-diagnosis-patterns.md](references/hook-diagnosis-patterns.md) | **触发场景：钩子/切面/拦截器/开关类功能"业务成功但效果未生效"缺陷排查定性、需产出远程环境核实 SQL 判别集、钩子跳过分支补日志或等同判断粒度改造时加载**。D1 定性分流、D2 关卡清单法、D3 同源分叉判别、D4 SQL 判别集模板（含归属确认）、D5 截图取证规则、D6 修复模式三件套（fail-open/fail-close 决策树）、D7 环境隔离、验证等级匹配 |
 
 ## 配置文件
 
@@ -118,6 +121,7 @@ bemp-personalized-dev/
 | [function-id-rules.json](config/function-id-rules.json) | @CloudFunction 功能号冲突检查规则：前缀、序号范围、排除列表 | 是 |
 | [file-integrity-rules.json](config/file-integrity-rules.json) | 文件写入完整性校验规则：大括号匹配、标签匹配、修复策略 | 是 |
 | [spec-consistency-checklist.json](config/spec-consistency-checklist.json) | Spec 一致性检查清单：日志级别、异常处理、任务隔离、错误文案 | 是 |
+| [workspace-baseline-policy.json](config/workspace-baseline-policy.json) | 工作区基线核查与提交甄别策略：回退判定阈值、diff 三分类处置、备份与恢复规则 | 是 |
 
 **配置继承机制**：
 - 技能级配置（`bemp-personalized-dev/config/`）：默认配置，适用于所有银行
@@ -179,6 +183,20 @@ bemp-personalized-dev/
    - 接受子智能体/他人交付结论前，必须复核其"文件存在/缺失"断言的真实性证据
 
 ### 第二阶段：开发实施
+
+**前置检查：工作区基线核查【强制】**
+- **触发条件**：[workspace-baseline-policy.json](config/workspace-baseline-policy.json) 的 `triggers` —— ①Edit/Write 目标文件在 git status 中已是 modified 态；②任何 git commit 前；③子智能体/外部会话交付代码改动后（trust-but-verify，不以汇报文字为验收标准）
+- **配置文件**：[workspace-baseline-policy.json](config/workspace-baseline-policy.json)，回退判定阈值（删除行/预期改动量倍数、纯删除 hunk 占比、近期提交扫描深度）与处置命令模板全部由配置管理，禁止硬编码
+- **检查步骤**：
+  1. 拟改动文件先 `git diff --stat` 核对变更量：被删除行数/纯删除 hunk 占比超过配置阈值（`regressionSignals.diffVolumeAnomaly`），或与本任务预期改动点清单明显不符 → 进入回退甄别
+  2. 回退确认：按 `regressionSignals.historicalFixMissing` 扫描该文件近期提交（深度取 `recentCommitScanDepth`），提取标志性标识符 grep 工作区文件，缺失已提交修复的标志性代码即确认回退
+  3. 回退处置按 `handling.order` 执行：备份工作区态（`backup.destinationRule`）→ 仅对回退文件 `git checkout HEAD --`（禁止对其他会话 WIP 文件执行，禁止目录级批量 checkout）→ 以最小 diff 重放本任务改动 → 重新编译/语法校验
+  4. 提交前逐文件 diff 三分类（`diffClassification`）：taskChange（提交）/ otherWip（留置不提交不回滚）/ regression（按上步处置）；同一文件混含本任务改动与回退特征时按 regression 处置，禁止整文件直接提交
+  5. 归属不明（既非本任务改动也无法确认回退）时按 `handling.escalation` 暂停并交用户裁决，禁止静默选边
+- **常见遗漏**：
+  - diff 变更量远超本任务预期仍直接叠加改动 → 子智能体可能在被回退的旧基线上开发，提交将永久丢失历史修复
+  - 提交时整目录 `git add` / `commit -a` → 裹挟其他会话 WIP
+  - 处置完以"流程执行完毕"为验收 → 必须按 `verification.signatureCodeCheck` grep 标志性代码确认在位、`emptyDiffConfirmation` 确认 diff 纯净
 
 **前置检查：@CloudFunction 功能号冲突检查【强制】**
 - **触发条件**：新增或修改 @CloudFunction 注解的 Job 服务时
@@ -255,17 +273,17 @@ bemp-personalized-dev/
    - **指南参考**: 必须参考 [数据库开发指南 - 增量SQL脚本生成规范](assets/guides/database-guide.md) 第三章节
    - **脚本存放目录**: `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/`，其中 `BANK_NAME` 默认为"河南农信"，可根据部署环境动态调整
    - **配置中心增量文件目录**: `deploy/bemp-home/src/main/resources/configcenter/banks/{BANK_NAME}/`
-   - **命名规范**: 严格遵循 `V{产品版本号}_{日期时间}_{任务编号}_{中文描述}.{脚本类型}.sql` 格式，参考 [数据库开发指南 - 命名规范](assets/guides/database-guide.md) 第2章节
+   - **命名规范**: 严格遵循 `V{产品版本号}_{日期时间}_{执行序号}_{任务编号}_{中文描述}.{脚本类型}.sql` 格式；执行序号 2 位、从 01 起按执行顺序连续编号，**DDL 序号必须全部小于 DML**、同批脚本共用同一日期时间戳（保证按文件名排序即执行顺序），参考 [数据库开发指南 - 命名规范](assets/guides/database-guide.md) 第2章节
    - **增量策略**: 必须采用"先删除后新增"策略，确保脚本幂等可重复执行；**幂等 DELETE 优先按业务键删除**（禁止仅按主键 ID，规则见 [database-guide.md 3.1](assets/guides/database-guide.md)）
-   - **脚本拆分**: 按变更类型拆分为独立文件（DDL/DML分离，菜单/参数/流程分文件）
+   - **脚本拆分**: 按变更类型拆分为独立文件（DDL/DML分离，菜单/参数/流程分文件）；拆分后先排定执行顺序再分配序号，同批脚本复用同一日期时间戳
    - **脚本检查**: 生成后必须按 [SQL脚本生成检查清单](assets/guides/database-guide.md) 第6章节逐项检查
    - **生成步骤**:
      1. 分析需求涉及的数据库变更类型（菜单/参数/表结构/流程/待办等）
      2. 查询现有数据库中相关表结构和数据，确定变更范围
-     3. 按命名规范生成SQL脚本文件，存放于对应银行目录下
+     3. 先按执行顺序（DDL 先于 DML、菜单先于按钮权限/待办）排出本批脚本清单，从 01 起分配执行序号，再按命名规范生成脚本文件存放于对应银行目录下
      4. 每个脚本文件遵循"先删除后新增"模板
      5. 如涉及配置变更，同步生成配置中心JSON增量文件
-     6. 按检查清单逐项验证脚本质量
+     6. 按检查清单逐项验证脚本质量（含"按文件名排序即执行顺序"自检）
 
 5. **Adapter 接口开发 (如需与外部系统交互)**
    - **指南参考**: 先参考 [Adapter接口开发指南](assets/guides/adapter-guide.md) 中的代码模板章节
@@ -405,3 +423,4 @@ bemp-personalized-dev/
    - 口径已定案但只改代码不回写文档 → 文档-实现漂移，下轮评审必返工
    - 交付称"已完成"但未附编译/测试证据 → 视为未闭环
    - 新增业务字面量散落在 if 判断或 mapper 里 → 违反 constantManagement
+5. **提交纯净性甄别【强制】**：按 [workspace-baseline-policy.json](config/workspace-baseline-policy.json) 的 `commitPolicy` 执行——每任务独立 commit、仅 add 甄别为 taskChange 的文件；提交后按 `postCommitVerify` 用 `git show --stat HEAD` 核对文件清单与甄别结果完全一致（提交说明风格从 `git log` 最近提交提取，不硬编码）；工作区保留其他任务未提交改动属常态（`allowUntrackedInWorkspace`），不得为"干净"而回滚他人工作

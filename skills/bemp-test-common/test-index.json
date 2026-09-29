@@ -843,21 +843,32 @@
       "scripts": [],
       "description": "2026-09-06代码扫描质量收敛回归用例6条（P0:6）：SEC-001~004代码审查resolveDataFile三段白名单正则（L56/L61/L67）+normalize/startsWith纵深防御（L170-177）合法放行/非法文件名/非法日期根目录/..逃逸双重拦截；SEC-005代码审查两控制器validateImportFile Content-Type白名单（vnd.ms-excel/openxml.sheet/octet-stream）+魔数双校验（xls=D0CF11E0A1B11AE1/xlsx=PK0304）文本伪装拒绝+ZIP伪装边界记录；SEC-006运行时管理员批量导入真实xlsx不误伤（锚点HnnxbankBranchAdminController L1040）；版本注记：后端运行时旧代码（11:12启动<13:09编译）时SEC-006结果仅代表基础导入链路，魔数不误伤结论须重启后回归",
       "version": "v1.0-20260906"
+    },
+    {
+      "id": "TC-CUSTCORP-016~020+TC-CUSTACCT-016~019+TC-BRANCH-028~030+TC-CREDITBATCH-076+TC-CREDITINFO-066",
+      "file": "bemp-test-common/test-cases/bm/hnnx-req237-increment-20260920.md",
+      "subsystem": "bm",
+      "feature": "河南农信10月底上线需求2/3/7增量（客户共享模式修复回归+简单机构落库验证+额度管理DDL与5类余额口径）",
+      "priority": "P0",
+      "case_count": 14,
+      "scripts": [],
+      "description": "2026-09-20增量用例14条（P0:3 P1:10 P2:1），触发事件=客户共享模式代码修复+参数值调整DML(V202301.03.081_202609201000)；v1.1（2026-09-20用例评审修复）主要问题3条闭环：M-1 TC-BRANCH-028排查SQL改RESERVE2列核对（落库字段实测=BranchDto.reserve2，锚点HnnxBankBranchController L869/L871/L876）、观察项2定案闭环；M-2 TC-CUSTCORP-018断言收敛（客户侧互斥仅校验createBrchNos不含brchNos，L208-210 brchNos独立IN）+新增brchNos组合走查步骤+登记缺陷观察单OBS-01（客户侧单校验vs账号侧双校验CustAcctServiceUtil L220-224不对称，转开发）；M-3 TC-CREDITINFO-066余额数据源核对提升为前置步骤0+补前后端接口锚点（前端acceptBankCreditGrantInfo.vue L488/L494、后端HnnxAcceptBankCreditInfoController L120-127、ServiceImpl L283-313）+登记缺陷观察单OBS-02（需求5类汇总vs实现acptBalance单值，DTO无4类余额字段）；一般修复：全部锚点补全banks/hnnxbank完整路径+产品版/河南农信版标注、TC-CUSTACCT-019锚点修正L655-658（实测共享分支置空段）、TC-BRANCH-029开关关闭态回归点登记交付文档回归清单。需求2(9条)：共享模式单选+全量(016/ACCT-016)、非共享预填多选(017/ACCT-017)、互斥代码审查(018/ACCT-018,P0)、清空条件全量恢复(019/ACCT-019)、共享参数落库幂等(020)；需求3(3条)：RESERVE2落库验证(028)、开关固化(029)、导入报错文案(030)；需求7(2条)：DDL验证(076)、同步余额口径(066,P0)。P0三条锚点全部实测吻合；存量复用需求2/3/7共161条不变",
+      "version": "v1.1-20260920"
     }
   ],
   "summary": {
-    "total_cases": 73,
-    "total_estimated_count": 1030,
+    "total_cases": 74,
+    "total_estimated_count": 1044,
     "by_subsystem": {
       "common": 2,
       "sm": 28,
-      "bm": 18,
+      "bm": 19,
       "be": 19,
       "ce": 4,
       "adapter": 2
     },
     "by_priority": {
-      "P0": 51,
+      "P0": 52,
       "P1": 14,
       "P2": 7,
       "P3": 0,

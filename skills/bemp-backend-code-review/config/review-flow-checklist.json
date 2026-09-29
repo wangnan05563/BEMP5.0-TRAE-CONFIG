@@ -1,7 +1,7 @@
 {
-    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性、重复实现收口、配置类DML同业务键查重、业务参数字典组补值、幂等删除按业务键优先等检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL''副本漂移''同键双记录''下拉空白''删错记录'等典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。",
-    "version": "1.6.0",
-    "lastUpdate": "2026-09-04",
+    "description": "BEMP后端代码审查 - 流程与真实性检查清单。源自反洗钱(中互金)需求开发复盘：固化环境真实性验证、批处理模式、注释实现漂移、SQL引用真实性、重复实现收口、配置类DML同业务键查重、业务参数字典组补值、幂等删除按业务键优先等检查，捕获'索引幻象''N+1补全''凭证失真''臆造SQL''副本漂移''同键双记录''下拉空白''删错记录'等典型缺陷。所有检查项通过本文件管理，数值参数见 parameters 节，无硬编码。2026-09-29 新增 RF-011 静默跳过留痕、RF-012 等同判断语义级校验（源自转贴现买入额度占用切面缺陷复盘）；同日新增 RF-013 工作区基线完整性（回退型diff检测）、RF-014 提交纯净性逐文件甄别（源自承兑行额度管理工作区非预期回退复盘：4文件基线被回退丢失多个已提交修复，子智能体在旧基线上叠加改动后diff呈现大量删除）。",
+    "version": "1.8.0",
+    "lastUpdate": "2026-09-29",
 
     "inheritance": {
         "levels": ["skill", "project", "bank"],
@@ -147,6 +147,58 @@
                 "example": {
                     "wrong": "DELETE FROM TM_BUSINESS_PARAMETER WHERE ID = 2026090401;  ← 该 ID 在其他环境可能对应另一条参数或不存在，按 ID 删除会删错记录/删不到",
                     "correct": "DELETE FROM TM_BUSINESS_PARAMETER WHERE PARAM_KEY = 'hnnx.market.antimoney.sync.mode';  ← 按业务键删，跨环境精确命中本需求记录"
+                }
+            },
+            {
+                "id": "RF-011",
+                "name": "静默跳过留痕",
+                "severity": "主要",
+                "correctHandling": "钩子/切面/过滤器/开关分支中的 continue/return 跳过必须有日志（含判定依据的关键上下文：参与判定的字段值+判定结论），保证'业务成功但效果未生效'类缺陷可直接从日志定位卡点；异常分支需论证 fail-open/fail-close 策略并注明下游兜底依据——下游有兜底保护（如额度不足由 service 层抛业务错）可选 fail-open，无兜底则 fail-close 或中断业务，选择依据写入注释。",
+                "wrongHandling": "跳过分支无任何日志——效果未生效类缺陷无迹可循，只能靠排除法逐层缩小、远程环境多轮往返。真实案例：自承自贴判定跳过无任何日志，内网反馈'转贴现买入额度未占用'后排查无法从日志定位卡点，靠 SQL 判别集逐层排除多轮往返才收敛到切面分支。",
+                "checkLogic": "1.提取变更代码中钩子/切面/过滤器/开关分支的 continue/return 跳过点 2.逐点检查跳过前是否有日志且包含判定依据的关键上下文（参与判定的字段值+结论） 3.'业务上应跳过'（info 留痕）与'异常导致跳过'（error 留痕）是否分级处理 4.异常分支是否注释论证 fail-open/fail-close 并写明下游兜底点 5.判定粒度变更时日志上下文是否同步更新。",
+                "enabled": true,
+                "example": {
+                    "wrong": "if (isSelfAcceptSelfDisc(...)) { return; }  ← 自承自贴判定跳过无任何日志，缺陷'额度未占用'排查只能靠排除法逐层缩小、内网多轮往返",
+                    "correct": "if (isSelfAcceptSelfDisc(...)) { log.info(\"[额度占用]判定自承自贴跳过占用, 承兑行行号:{}, 法人号:{}, 票号:{}\", acptBankNo, legalNo, billNo); return; }  查库异常时 log.error 留痕并按 fail-open 放行（额度不足由 service 抛'可用额度不足'兜底）"
+                }
+            },
+            {
+                "id": "RF-012",
+                "name": "等同判断语义级校验",
+                "severity": "严重",
+                "correctHandling": "代码中业务'等同'比较（行号/机构号/ID equals）必须核对业务口径的真实粒度——跨业务环节复用字段时字段值可能来自其他环节（如转贴现买入的贴现行字段=上手外行），编码级相等≠业务等同；按业务口径确认应采用粒度（法人/机构/行号）并改造判定（如法人级经机构表按机构编号+法人号关联比对），以注释说明为什么选该粒度。",
+                "wrongHandling": "用行号级相等判业务等同——转贴现买入场景贴现行字段值来自上手外行环节，他行承兑+他行贴现且两行号恰相等的票被误判'自承自贴'，静默跳过额度占用，业务上应占用却未占用。真实案例：自承自贴判定'承兑行行号==贴现行行号'行号级比较导致内网反馈'转贴现买入额度未占用'。",
+                "checkLogic": "1.提取变更代码中的 equals/== 业务比较点 2.逐点核对该字段在当前业务场景的数据来源与语义（是否跨业务环节复用、值是否来自前手环节） 3.对照业务口径确认应采用的比较粒度（法人/机构/行号）并要求注释说明为什么 4.跨环节复用字段禁止假设语义不变，粒度不匹配时升级为业务语义级判定（如法人级查机构表）。",
+                "enabled": true,
+                "example": {
+                    "wrong": "if (acptBankNo.equals(discBankNo)) { return; }  ← 行号级相等判自承自贴，转贴买入的贴现行字段=上手外行，他行承兑+他行贴现且两行号相等的票被误判跳过占用",
+                    "correct": "// 为什么用法人级：转贴买入的贴现行字段值来自上手环节，行号相等≠同一法人\nString acptLegal = orgService.queryLegalNoByBankNo(acptBankNo);\nString discLegal = orgService.queryLegalNoByBankNo(discBankNo);\nif (Objects.equals(acptLegal, discLegal)) { skipWithLog(); }  ← 粒度与业务口径对齐"
+                }
+            },
+            {
+                "id": "RF-013",
+                "name": "工作区基线完整性（回退型diff检测）",
+                "severity": "阻塞",
+                "correctHandling": "评审/提交前对拟变更文件执行 git diff 甄别：变更量与本任务预期改动点清单明显不符、或 diff 删除的代码可对应到近期提交引入的历史修复（该回退并非本任务要求）时，判定为工作区基线被非预期回退——处置流程：备份工作区态 → 仅对回退文件 git checkout HEAD 恢复基线 → 以最小 diff 重放本任务改动 → 重新编译/语法校验 → 内容级抽验（标志性代码 grep 在位）。处置细则与阈值见 bemp-personalized-dev config/workspace-baseline-policy.json（本检查项引用其 parameters，不在两处重复维护数值）。",
+                "wrongHandling": "不核验基线直接在既有未提交改动上叠加开发并提交——工作区文件可能被非预期回退（自动化 git 操作/误 checkout），子智能体在旧基线上开发后，提交会把'删除历史修复'一并带入仓库，多个已闭环缺陷（如明细补列、同步兜底、汇总回传）静默复发且无编译错误；或反向一刀切 checkout 整目录，回滚其他会话的合法 WIP。",
+                "checkLogic": "1.拟变更文件 git diff --stat 的删除行数/纯删除 hunk 占比是否与本任务预期改动量匹配（阈值引用 workspace-baseline-policy regressionSignals）2.diff 被删除行是否命中 git log 近期提交（扫描深度见配置）引入的代码 3.判定回退时是否先备份工作区态再仅对回退文件恢复 HEAD 并重放本任务改动 4.恢复后是否重新编译并按修复 commit 的 diff 抽取标志性标识符 grep 确认在位 5.子智能体交付的'已在合版代码中存在/无需改动'类结论是否经 git diff/git show 二次验证（trust-but-verify，不以汇报文字为验收标准）。",
+                "enabled": true,
+                "example": {
+                    "wrong": "任务仅要求在 service 方法加一段校验（预期 +9 行），git diff 却显示 169 行变更且大段删除——不甄别直接提交，T00968 补列/T01293 行号兜底/T01294 汇总回传等已提交修复随提交永久丢失，相关已闭环缺陷静默复发",
+                    "correct": "diff 变更量异常 → git log 近期提交提取标志性标识符（fillCustInfoFromBatch/resolveCustBankNo/buildSyncResult 等）grep 工作区文件确认缺失 → 备份工作区态 → checkout HEAD 仅恢复该文件 → 重放本任务校验改动 → 编译+标志性代码抽验通过后才提交"
+                }
+            },
+            {
+                "id": "RF-014",
+                "name": "提交纯净性逐文件甄别",
+                "severity": "严重",
+                "correctHandling": "git commit 前对每个拟提交文件按 diff 三分类甄别：taskChange（与本任务改动点清单一一对应，提交）/ otherWip（其他会话或其他任务的未提交改动，留置——不提交也不回滚，归属其自身任务闭环）/ regression（回退态，按 RF-013 处置）；仅 add 甄别通过的文件，提交后 git show --stat HEAD 核对文件清单与甄别结果完全一致；同一文件混含本任务改动与回退特征时按 regression 处置（恢复 HEAD 后重放），禁止整文件直接提交。",
+                "wrongHandling": "git add . / commit -a 整目录提交——裹挟其他会话 WIP（他人半成品需求随本任务进入仓库）或带入回退态文件（历史修复丢失）；或为保持工作区'干净'而 checkout 他人未提交改动（回滚他人工作）；或提交后不核对 git show --stat，多提漏提无从发现。",
+                "checkLogic": "1.每个拟提交文件是否逐个完成三分类（对照本任务改动点清单）2.未跟踪新文件是否按内容判断归属后再决定纳入 3.是否使用精确文件路径 add（禁用 git add . / commit -a）4.提交说明风格是否从 git log 最近提交提取而非硬编码 5.提交后是否 git show --stat HEAD 核对文件清单与甄别结果一致 6.工作区保留的 otherWip 是否原样未动。",
+                "enabled": true,
+                "example": {
+                    "wrong": "额度管理任务提交时 git add . 把同工作区另一需求的名单管理半成品、模板 xls、无关 .gitignore 改动一并提交——他人需求以本任务名义入仓，回溯归责困难",
+                    "correct": "逐文件甄别：仅 add 本任务两个文件 → 独立 commit → git show --stat HEAD 显示 2 files changed 与甄别清单一致 → 其他 WIP 原样留置并在交接说明中列明"
                 }
             }
         ]

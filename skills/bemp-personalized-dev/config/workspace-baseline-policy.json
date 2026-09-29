@@ -1,0 +1,130 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "工作区基线核查与提交甄别策略 - 源自 2026-09-29 承兑行额度管理需求复盘：工作区出现非预期回退（4 个文件基线被回退到旧版，丢失多个已提交修复），子智能体在旧基线上叠加新改动后 diff 呈现大量删除；若直接提交将永久丢失历史修复。本策略将'改动前基线核查 → diff 三分类甄别 → 回退处置 → 提交纯净性保障'固化为可配置流程。",
+    "version": "1.0.0",
+    "lastUpdate": "2026-09-29",
+    "_ref": "所有阈值、路径模式、命令模板、输出文案均通过本文件管理，支持 inheritance 三级覆盖（skill → project → bank），禁止在流程描述中硬编码。参数占位符 {taskNo} {filePath} {backupDir} {expectedChangeHint} 由调用方按当次任务上下文填充。",
+
+    "inheritance": {
+        "levels": ["skill", "project", "bank"],
+        "rule": "技能级默认(本文件) → 项目级覆盖 → 银行级覆盖(banks/ext-${ENV:BANK_PROJECT_DIR}/config/workspace-baseline-policy.json)，按 key 深合并",
+        "overrideFields": ["triggers", "regressionSignals", "handling", "commitPolicy", "verification", "enabled"]
+    },
+
+    "triggers": {
+        "description": "触发基线核查的场景",
+        "beforeEditModifiedFile": true,
+        "beforeEditModifiedFileNote": "Edit/Write 目标文件在 git status 中已是 modified 状态时，先甄别既有未提交改动再叠加",
+        "beforeCommit": true,
+        "beforeCommitNote": "任何 git commit 前对拟提交文件逐个执行 diff 三分类甄别",
+        "afterSubAgentDelivery": true,
+        "afterSubAgentDeliveryNote": "子智能体/外部会话交付代码改动后，主会话必须 git diff 复核实际内容（trust-but-verify），不得以汇报文字为验收标准"
+    },
+
+    "regressionSignals": {
+        "description": "回退嫌疑判定信号（命中任一即进入人工甄别，禁止直接采信或直接提交）",
+        "diffVolumeAnomaly": {
+            "enabled": true,
+            "description": "diff 变更量与本任务预期改动量明显不符",
+            "deletedToExpectedRatio": 3,
+            "deletedToExpectedRatioNote": "被删除行数超过本任务预期改动行数的该倍数即视为异常（预期改动量来自任务描述/方案设计的改动点清单）",
+            "pureDeletionHunkRatio": 0.5,
+            "pureDeletionHunkRatioNote": "纯删除 hunk（无对应新增行）占全部 hunk 比例超过该值视为异常"
+        },
+        "historicalFixMissing": {
+            "enabled": true,
+            "description": "工作区文件缺失近期提交引入的标志性代码（该提交未被本任务要求回退）",
+            "recentCommitScanDepth": 10,
+            "recentCommitScanDepthNote": "扫描该文件最近 N 个 commit 的提交说明与 +/- 行，提取标志性标识符（新增方法名/关键字段名/配置键）后 grep 工作区文件，缺失即回退确认",
+            "identifierExtractRule": "优先取 commit 说明中带书名号/引号的业务标识与 diff 新增行中的方法定义名（private|public static? \\w+\\(），每文件抽取数量不超过 sampleLimit"
+        },
+        "sampleLimit": 5,
+        "sampleLimitNote": "单文件抽取的标志性标识符上限，超过只取前 N 个，避免扫描成本失控"
+    },
+
+    "diffClassification": {
+        "description": "提交前逐文件 diff 三分类（每个拟提交文件必须归入且仅归入一类）",
+        "categories": {
+            "taskChange": {
+                "description": "本任务改动：与当次任务改动点清单一一对应",
+                "action": "commit"
+            },
+            "otherWip": {
+                "description": "其他会话/其他任务的未提交改动：与本任务改动点清单无对应关系，且不构成回退特征",
+                "action": "leave",
+                "actionNote": "保持工作区原样，不提交也不回滚——归属其他任务的并发工作由其自身任务闭环"
+            },
+            "regression": {
+                "description": "回退态改动：diff 删除的是已提交的历史修复（命中 historicalFixMissing 信号），叠加的本任务改动除外",
+                "action": "restoreAndReplay",
+                "actionNote": "按 handling.regression 处置：备份 → 恢复 HEAD 基线 → 重放本任务改动 → 重新验证"
+            }
+        },
+        "conflictRule": "同一文件同时含本任务改动与回退特征时按 regression 处置（恢复 HEAD 后重放本任务改动），禁止整文件直接提交",
+        "untrackedFilesRule": "未跟踪新文件按内容判断归属：与当次任务改动点对应则纳入提交，否则按 otherWip 留置"
+    },
+
+    "handling": {
+        "description": "回退处置流程（diffClassification.categories.regression 的 action 执行细则）",
+        "order": ["backup", "restoreBaseline", "replayTaskChanges", "reverify"],
+        "backup": {
+            "enabled": true,
+            "destinationRule": "${TEMP:java.io.tmpdir}/git-baseline-backup/{yyyyMMdd}/{repoName}/",
+            "destinationRuleNote": "按日期+仓库分目录备份被处置文件的工作区态，保留处置前证据，支持误判恢复",
+            "keepOriginalContent": true
+        },
+        "restoreBaseline": {
+            "commandTemplate": "git checkout HEAD -- {filePathList}",
+            "commandTemplateNote": "仅对判定为 regression 的文件执行，禁止对 otherWip 文件执行 checkout（禁止回滚他人工作）",
+            "scopeNote": "恢复范围仅限本次甄别出的回退文件清单，逐文件列出，不做目录级批量 checkout"
+        },
+        "replayTaskChanges": {
+            "requirement": "以最小 diff 将本任务改动重新应用到恢复后的基线上，改动点与任务改动点清单逐一对应",
+            "evidenceNote": "重放完成后 git diff 复核：文件 diff 应仅含本任务改动，无历史修复删除痕迹"
+        },
+        "reverify": {
+            "requirement": "重放后按变更文件类型执行编译/语法校验（Java 模块编译、XML 解析、前端语法自查），全部通过后才可提交"
+        },
+        "escalation": {
+            "description": "升级条件：无法确定工作区改动归属（既不像本任务也不像回退）或同一文件回退与本任务改动交织且无法安全重放时",
+            "action": "暂停该文件处置，保留现状，向用户说明甄别证据与两种可选处置，等待裁决",
+            "maxSilentDecision": false,
+            "maxSilentDecisionNote": "禁止在归属不明时静默选边（提交或恢复都可能丢失他人工作）"
+        }
+    },
+
+    "commitPolicy": {
+        "description": "提交纯净性保障",
+        "independentCommit": true,
+        "independentCommitNote": "每个任务独立 commit，禁止跨任务合并提交",
+        "allowUntrackedInWorkspace": true,
+        "allowUntrackedInWorkspaceNote": "提交后允许工作区保留其他任务的未提交改动（otherWip 留置是常态）",
+        "postCommitVerify": {
+            "enabled": true,
+            "commandTemplate": "git show --stat HEAD",
+            "expectation": "提交文件清单与甄别通过的 taskChange 清单完全一致，无多提漏提"
+        },
+        "messageStyle": "遵循仓库既有提交说明风格（如银行个性化仓库的【银行名】个性化开发【需求】前缀），风格样例从 git log 最近提交提取而非硬编码"
+    },
+
+    "verification": {
+        "description": "恢复/重放后的内容级抽验（不以流程执行完毕为验收标准）",
+        "signatureCodeCheck": {
+            "enabled": true,
+            "description": "对被恢复的历史修复，从对应修复 commit 的 diff 新增行提取标志性标识符 grep 恢复后文件，逐一确认在位",
+            "sampleLimit": 5
+        },
+        "emptyDiffConfirmation": {
+            "enabled": true,
+            "description": "处置完成的文件 git diff 应为空（基线恢复态）或仅含本任务改动（重放态），出现其他内容即处置失败回退到甄别步骤"
+        }
+    },
+
+    "output": {
+        "baselineCheckPass": "基线核查通过：{filePath} 无回退特征，可叠加本任务改动",
+        "regressionDetected": "检出回退特征：{filePath} - 缺失近期提交标志性代码 [{missingIdentifiers}]，按处置流程执行备份→恢复→重放",
+        "classificationResult": "提交甄别结果：taskChange=[{taskFiles}] otherWip=[{wipFiles}] regression=[{regressionFiles}]",
+        "restoreDone": "回退处置完成：{filePath} 已恢复 HEAD 基线并重放本任务改动（工作区旧态备份于 {backupPath}），抽验标识符 [{identifiers}] 全部在位",
+        "commitClean": "提交纯净性核验通过：HEAD {commitId} 文件清单与甄别结果一致"
+    }
+}

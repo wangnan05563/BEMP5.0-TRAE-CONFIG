@@ -211,3 +211,16 @@ RunCommand: 读取 config/compile-verification.json，执行javap验证新方法
 RunCommand: cd "scripts" ; .\start-bemp-env.ps1 -Service served -QuickStart -ForceRestart -ExternalTerminal -WaitForDeps
 → blocking: true
 ```
+
+## 部署完整性检查清单
+
+> **设计动机**：只部署业务模块、漏部署依赖共享包曾导致启动阶段依赖接口缺失异常；存量基线不一致曾导致整体编译失败后盲目重试。本清单为部署环节的强制检查项，与上文编译验证流程（编译产物验证之后）衔接，覆盖部署与运行时确认。
+
+| # | 检查项 | 通过标准 | 失败处置 |
+|---|--------|---------|---------|
+| 1 | 依赖基线拉齐 | 增量编译使用 `-pl <模块> -am` 自动编译依赖模块拉齐基线 | 存量基线不一致致整体编译失败时，先带 `-am` 重试；仍失败按降级路径 javac 定向编译单文件验证（降级须留档） |
+| 2 | 部署清单完整性 | 部署清单 = 本次修改模块 jar + 其依赖模块（api/common/conf 等共享包）一并同步拉齐部署 | 禁止只部署业务模块——war lib 旧共享包缺新接口会导致启动缺接口异常 |
+| 3 | 时间戳三点核验 | 部署时间戳 < 进程启动时间 < 日志 Started 时间 | 任一倒挂即判定旧包在运行，重新执行部署→重启后再验证 |
+| 4 | 字节码新鲜度核验 | javap 反汇编核对本次关键方法签名存在（`config/compile-verification.json` verificationTargets） | 方法缺失→重新编译部署后复验；`failSeverity=block` 时阻断启动 |
+
+> 与 P17（运行进程新鲜度三重验证）的关系：本清单管部署执行侧完整性，P17 管测试执行前置确认，两道检查独立生效。
