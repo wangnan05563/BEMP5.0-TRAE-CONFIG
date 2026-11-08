@@ -56,10 +56,9 @@ bemp-personalized-dev/
 - Vue 2.6 开发规范（文件结构、代码格式、组件设计原则）
 - 组件设计（单一职责、复用原则、Props/事件设计、commonTree 树形弹框布局规范）
 - 状态管理（Vuex Store 模块化、状态命名）
-- H-UI 组件文档查询规范（13 章，强制使用 `hui_doc` MCP 查询）
+- H-UI 组件文档查询规范（9 章，强制使用 `hui_doc` MCP 查询）
 - 国际化使用规范
 - 错误处理（表单校验、API 错误处理、全局错误处理）
-- 性能优化（懒加载、防抖节流、列表优化）
 - 代码模板（7 个标准模板）
 
 ### 2. 后端开发指南
@@ -72,11 +71,9 @@ bemp-personalized-dev/
 - 应用分层规范（Controller → Service → Atom → DAO）
 - Service/DAO 分层职责与规范
 - `@CustomizedBean` 注解使用规则（extends产品实现类的Service/Atom需要，仅implements个性化接口不需要，Controller不需要）
-- 日志规约（级别选择、内容规范）
-- 无效引用控制规范
+- 日志规约（SLF4J 日志框架使用）
 - 事务管理规范
 - 异常处理（异常类型、异常码、处理原则）
-- 性能优化（批量查询、集合优化、连接池）
 - 代码模板（8 个标准模板）
 
 ### 3. 数据库开发指南

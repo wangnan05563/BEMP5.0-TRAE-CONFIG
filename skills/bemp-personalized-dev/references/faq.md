@@ -77,7 +77,7 @@ if (param == null) {
 </style>
 ```
 
-详细规范请参考 [frontend-guide.md - 9.2.10 通用树形弹框组件](../assets/guides/frontend-guide.md#9210-通用树形弹框组件commontree)
+详细规范请参考 [frontend-guide.md - 6.2.10 通用树形弹框组件](../assets/guides/frontend-guide.md#6210-通用树形弹框组件commontree)
 
 ### Q8: 数据库变更如何管理？
 **A**: 所有数据库变更必须通过变更脚本管理，DDL/DML 脚本按版本号命名，存放在指定目录下。禁止直接修改生产数据库。

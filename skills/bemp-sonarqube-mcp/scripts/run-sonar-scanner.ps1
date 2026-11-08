@@ -12,6 +12,10 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$Sources = "",
     
+    # 增量扫描：逗号分隔的相对路径通配，仅供 sonar.inclusions 使用；为空即整目录扫描
+    [Parameter(Mandatory=$false)]
+    [string]$Inclusions = "",
+    
     [Parameter(Mandatory=$false)]
     [string]$ConfigPath = "",
     
@@ -125,6 +129,11 @@ sonar.sources=$Sources
 sonar.host.url=$SonarHost
 sonar.token=$SonarToken
 "@
+
+# 增量扫描必须用 inclusions 限定分析范围：只索引本次改动文件，避免把历史问题重新计入新代码期
+if ($Inclusions -ne "") {
+    $PropertiesContent = $PropertiesContent + [Environment]::NewLine + 'sonar.inclusions=' + $Inclusions
+}
 
 
 $SourceModule = ($Sources -split '/')[0]

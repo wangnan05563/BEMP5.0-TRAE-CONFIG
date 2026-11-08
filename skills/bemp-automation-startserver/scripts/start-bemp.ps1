@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     BEMP service launcher - config driven, zero hardcoded paths/ports.
     Starts Redis / ZooKeeper / Served / Adapter / Frontend (or a subset) using a
@@ -43,6 +43,26 @@ $cfg = Get-Content $cfgPath  -Raw -Encoding UTF8 | ConvertFrom-Json
 $loc = if ($locExists) { Get-Content $locPath -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
 
 # ---- placeholder resolver ----
+# environmentDefaults 缓存：与 start-bemp-env.ps1 共用 _shared/env-config.json 这一份真值。
+# 若只读进程环境变量，批量通道会残留 ${ENV:...} 字面量（很多 BANK_*/REDIS_* 只写在
+# environmentDefaults 里），随后被当作路径传给 Test-Path/WMI，报出与真实原因无关的错误。
+$script:EnvDefaultsCache = $null
+function Get-EnvDefault($name) {
+    if ($null -eq $script:EnvDefaultsCache) {
+        $script:EnvDefaultsCache = @{}
+        $sharedCfg = Join-Path $scriptRoot '..\..\_shared\env-config.json'
+        if (Test-Path $sharedCfg) {
+            $j = Get-Content $sharedCfg -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($j.environmentDefaults) {
+                foreach ($p in $j.environmentDefaults.PSObject.Properties) {
+                    if (-not $p.Name.StartsWith('_')) { $script:EnvDefaultsCache[$p.Name] = [string]$p.Value }
+                }
+            }
+        }
+    }
+    return $script:EnvDefaultsCache[$name]
+}
+
 function Get-ByPath($obj, $path) {
     if ($null -eq $obj -or [string]::IsNullOrEmpty($path)) { return $null }
     $cur = $obj
@@ -61,8 +81,10 @@ function Resolve-Value($val) {
     if ($null -eq $val) { return $null }
     if ($val -is [string]) {
         $s = $val
+        # 收敛判据用"前后值是否相同"：MatchEvaluator 脚本块在子作用域执行，
+        # 在里面给外部 $changed 赋值不会回传，多轮解析会永远只跑一轮。
         for ($i = 0; $i -lt 6; $i++) {
-        $changed = $false
+        $prev = $s
         $s = [regex]::Replace($s, '\$\{([^}]+)\}', {
             param($m)
             $content = $m.Groups[1].Value
@@ -86,9 +108,9 @@ function Resolve-Value($val) {
                     $envDefault = $rest.Substring($eidx + 1)
                 }
                 $resolved = [Environment]::GetEnvironmentVariable($envName)
-                # 仅在变量"未设置"（$null）时回退默认值；显式设为空串仍视为已设置，
-                # 且无默认值时保持下方"未解析留字面量"的原语义不变
-                if ($null -eq $resolved -and $null -ne $envDefault) { $resolved = $envDefault }
+                if ([string]::IsNullOrEmpty($resolved) -and $null -ne $envDefault) { $resolved = $envDefault }
+                # 进程环境缺失时回退 _shared 的 environmentDefaults，与 start-bemp-env.ps1 行为对齐
+                if ([string]::IsNullOrEmpty($resolved)) { $resolved = Get-EnvDefault $envName }
             } elseif ($scopeLower -eq 'local') {
                 $resolved = Get-ByPath $loc $rest
             } else {
@@ -96,10 +118,9 @@ function Resolve-Value($val) {
                 $resolved = Get-ByPath $cfg $content
             }
             if ($null -eq $resolved) { return $m.Value }   # leave unresolved token
-            $changed = $true
             return [string]$resolved
         })
-        if (-not $changed) { break }
+        if ($s -eq $prev) { break }
     }
     return $s
 }
@@ -144,22 +165,45 @@ function Merge-Obj($base, $override) {
     return $override
 }
 
-$selectedProfile = if ($Profile) { $Profile } else { $cfg.defaultProfile }
+# defaultProfile 本身也是占位符（${ENV:BANK_CODE}）：不解析会拿字面量当 profile 名，
+# 导致 profile 段全部取空、后续路径拼成 "ext-${ENV:BANK_PROJECT_DIR}" 这类无效值
+$selectedProfile = if ($Profile) { Resolve-Value $Profile } else { Resolve-Value $cfg.defaultProfile }
+if ([string]::IsNullOrEmpty($selectedProfile) -or $selectedProfile -match '\$\{') {
+    Write-Error "无法解析 profile 名（defaultProfile='$($cfg.defaultProfile)'）。请设置环境变量 BANK_CODE，或在 _shared/env-config.json 的 environmentDefaults 中配置 BANK_CODE。"
+    exit 2
+}
 Write-Host "Selected profile: $selectedProfile"
 
 # resolve globals
 $G = Resolve-Object $cfg.global
+# 解析失败必须硬失败：残留的 ${ENV:...} 会被当作路径传给 Test-Path/WMI，
+# 报出 "DriveNotFoundException" 这类与真实原因无关的误导性错误
+$unresolvedGlobal = @()
+foreach ($key in @('workspaceRoot','banksProjectPath','frontendProjectPath','javaHome','nodePath','mavenHome','logDir')) {
+    if ([string]$G[$key] -match '\$\{') { $unresolvedGlobal += "global.$key=$($G[$key])" }
+}
+if ($unresolvedGlobal.Count -gt 0) {
+    foreach ($u in $unresolvedGlobal) { Write-Error "占位符未解析: $u" }
+    Write-Error "请在 _shared/env-config.json 的 environmentDefaults 中补齐上述变量，或通过环境变量注入后重试。"
+    exit 2
+}
 
 # build effective services: base services <- profile.services override
 $effServices = @{}
 foreach ($svcName in ($cfg.services.PSObject.Properties.Name)) {
     $base = $cfg.services.$svcName
     $profSvc = Get-ByPath $cfg "profiles.$selectedProfile.services.$svcName"
+    # v2 结构把服务参数直接挂在 profile 下（profiles.<bank>.<svc>），旧结构在 .services 下
+    if ($null -eq $profSvc) { $profSvc = Get-ByPath $cfg "profiles.$selectedProfile.$svcName" }
     $merged = Merge-Obj $base $profSvc
     $effServices[$svcName] = Resolve-Object $merged
 }
 # also pull profile-level values (redis/zookeeper/frontend specifics) used at launch
 $prof = Resolve-Object (Get-ByPath $cfg "profiles.$selectedProfile")
+if ($null -eq $prof) {
+    Write-Error "profile '$selectedProfile' 不存在于 config.json（可用: $((@($cfg.profiles.PSObject.Properties.Name)) -join ', ')）"
+    exit 2
+}
 
 # ---- helpers ----
 function Test-PortListening($port) {
@@ -369,7 +413,9 @@ if ($doCompile) {
 # marker, so tail_bemp_logs.ps1 can correlate marker + logs.
 $batchTs = Get-Date -Format 'yyyyMMdd_HHmmss'
 $javaExe = Join-Path $G.javaHome 'bin\java.exe'
-$npmExe  = Join-Path $G.nodePath 'npm.cmd'
+# NODE_PATH 归一化为 node.exe 文件路径，直接 Join-Path 会拼出 "...\node.exe\npm.cmd"
+$nodeBin = if (Test-Path $G.nodePath -PathType Container) { $G.nodePath } else { Split-Path $G.nodePath -Parent }
+$npmExe  = Join-Path $nodeBin 'npm.cmd'
 
 $results = @()
 foreach ($n in $ordered) {
@@ -389,29 +435,39 @@ foreach ($n in $ordered) {
     $res = $null
     switch ($svc.type) {
         'redis' {
+            # v2 结构：可执行文件在 services.executable，profile 只承载业务参数；
+            # dataDir/redisCli 未在 profile 声明时回退 _shared environmentDefaults
             $redis = $prof.redis
+            $redisExe = if ($svc.executable) { $svc.executable } else { $redis.exe }
+            $dataDir  = if ($redis.dataDir) { $redis.dataDir } else { Get-EnvDefault 'REDIS_DATA_DIR' }
+            $redisCli = if ($redis.redisCli) { $redis.redisCli } else { Get-EnvDefault 'REDIS_CLI' }
             $args = @()
-            if ($redis.dataDir) { $args += @('--dir', (Quote-Arg $redis.dataDir)) }
+            if ($dataDir) { $args += @('--dir', (Quote-Arg $dataDir)) }
             if ($redis.extraArgs) { $args += $redis.extraArgs }
-            $body = (Quote-Arg $redis.exe) + ' ' + ($args -join ' ')
-            $res = Start-Wrapped -name $n -port $port -cmdBody $body -work $redis.dataDir -Env @{}
+            $body = (Quote-Arg $redisExe) + ' ' + ($args -join ' ')
+            $work = if ($dataDir) { $dataDir } else { $G.workspaceRoot }
+            $res = Start-Wrapped -name $n -port $port -cmdBody $body -work $work -Env @{}
             # wait ready then run postStart
             if ($res -like '[OK]*' -and (Wait-Port $port 30)) {
                 foreach ($cmd in $redis.postStart) {
-                    try { & $redis.redisCli -p $port $cmd.Split(' ') 2>$null | Out-Null; $results += "[OK]   redis postStart: $cmd" } catch { $results += "[WARN] redis postStart failed: $cmd" }
+                    try { & $redisCli -p $port $cmd.Split(' ') 2>$null | Out-Null; $results += "[OK]   redis postStart: $cmd" } catch { $results += "[WARN] redis postStart failed: $cmd" }
                 }
             }
         }
         'zookeeper' {
+            # ZOOKEEPER_EXE 已是 zkServer.cmd 全路径，工作目录取其所在 bin
             $zk = $prof.zookeeper
-            $body = (Quote-Arg (Join-Path $zk.home 'bin\zkServer.cmd'))
+            $zkExe = if ($svc.executable) { $svc.executable } else { $zk.exe }
             $wait = if ($zk.readinessWaitSec) { $zk.readinessWaitSec } else { 45 }
-            $res = Start-Wrapped -name $n -port $port -cmdBody $body -work (Join-Path $zk.home 'bin') -Env $zk.env
+            $res = Start-Wrapped -name $n -port $port -cmdBody (Quote-Arg $zkExe) -work (Split-Path $zkExe -Parent) -Env $zk.env
             if ($res -like '[OK]*') { Wait-Port $port $wait | Out-Null }
         }
         'springboot' {
+            # profile 字段名为 modulePath/warFile（v2 结构），兼容旧的 module/warDir 写法
             $sb = $prof.$n
-            $work = Join-Path $G.banksProjectPath ($sb.module + '\target\' + $sb.warDir)
+            $module = if ($sb.modulePath) { $sb.modulePath } else { $sb.module }
+            $warDir = if ($sb.warFile) { $sb.warFile } else { $sb.warDir }
+            $work = Join-Path $G.banksProjectPath ($module + '\target\' + $warDir)
             $jvm = @()
             if ($sb.jvmOptions) { $jvm += ($sb.jvmOptions -split '\s+') }
             $jvm += @('-Dfile.encoding=UTF-8','-Dsun.stdout.encoding=UTF-8','-Dsun.stderr.encoding=UTF-8')
@@ -426,7 +482,7 @@ foreach ($n in $ordered) {
             $body = (Quote-Arg $npmExe) + ' ' + (($startParts | ForEach-Object { Quote-Arg $_ }) -join ' ')
             $nodeMem = if ($fe.nodeMemoryLimitMb) { $fe.nodeMemoryLimitMb } else { 8192 }
             $curPath = [Environment]::GetEnvironmentVariable('PATH')
-            if ($curPath -notlike "$($G.nodePath)*") { $curPath = "$($G.nodePath);$curPath" }
+            if ($curPath -notlike "$nodeBin*") { $curPath = "$nodeBin;$curPath" }
             $res = Start-Wrapped -name $n -port $port -cmdBody $body -work $work -Env @{ 'NODE_ENV'='development'; 'NODE_OPTIONS'="--max_old_space_size=$nodeMem"; 'PATH'=$curPath }
         }
         'cmd' {

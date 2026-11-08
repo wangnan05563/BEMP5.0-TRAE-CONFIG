@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Spec 一致性检查清单【唯一权威源】——SC-001~006。供 bemp-personalized-dev（开发侧用 devCheck 正则自动检查）与 bemp-backend-code-review（评审侧用 reviewCheck 逻辑比对）共同加载；禁止在任一技能 config 中重复维护明细，防两处漂移。",
+  "version": "2.0.0",
+  "lastUpdate": "2026-10-13",
+  "authoritativeFor": [
+    "bemp-personalized-dev",
+    "bemp-backend-code-review"
+  ],
+  "severityVocabulary": {
+    "note": "统一严重度词表（两技能共享，避免词表漂移）",
+    "levels": {
+      "阻塞": "必须修复，阻止后续流程",
+      "严重": "必须修复，允许记录后继续但需在交付文档列出",
+      "警告": "建议修复",
+      "提示": "可选优化"
+    }
+  },
+  "idAlias": {
+    "LOG-001": "SC-001",
+    "EXC-001": "SC-002",
+    "TASK-001": "SC-003",
+    "MSG-001": "SC-004",
+    "FLOW-001": "SC-005",
+    "VALID-001": "SC-006",
+    "note": "旧 dev 侧 id 到统一 id 的映射（向后兼容）"
+  },
+  "items": [
+    {
+      "id": "SC-001",
+      "name": "日志级别一致性",
+      "severity": "严重",
+      "devCheck": {
+        "specPatterns": {
+          "error": [
+            "日志.*error",
+            "记录.*error",
+            "输出.*error",
+            "打印.*error"
+          ],
+          "warn": [
+            "日志.*warn",
+            "记录.*warn",
+            "输出.*warn",
+            "打印.*warn"
+          ],
+          "info": [
+            "日志.*info",
+            "记录.*info",
+            "输出.*info",
+            "打印.*info"
+          ],
+          "debug": [
+            "日志.*debug",
+            "记录.*debug",
+            "输出.*debug",
+            "打印.*debug"
+          ]
+        },
+        "codePatterns": {
+          "error": "log\\.error\\(",
+          "warn": "log\\.warn\\(",
+          "info": "log\\.info\\(",
+          "debug": "log\\.debug\\("
+        },
+        "matchRule": "spec 中出现的日志级别关键词必须与代码中实际使用的日志级别方法一致",
+        "mismatchExample": "Spec 要求 error 级别日志，代码中使用 warn 级别"
+      },
+      "reviewCheck": {
+        "checkLogic": "比对 spec 要求的日志级别(error/warn/info)与代码实际使用的日志级别。若 spec 要求 error 而代码使用 warn 或 info，判定为不一致。重点检查异常路径与降级路径的日志级别。",
+        "fixSuggestion": "将代码日志级别改为 spec 要求的级别；spec 要求 error 时用 LOGGER.error 并携带异常对象。",
+        "example": {
+          "spec": "CBS 文件不存在时记录 error 日志",
+          "wrong": "LOGGER.warn(\"CBS文件不存在\");",
+          "correct": "LOGGER.error(\"CBS文件不存在\", e);"
+        }
+      }
+    },
+    {
+      "id": "SC-002",
+      "name": "异常处理一致性",
+      "severity": "阻塞",
+      "devCheck": {
+        "specPatterns": {
+          "throw": [
+            "抛.*异常",
+            "throw.*Exception",
+            "抛出异常",
+            "中断流程"
+          ],
+          "return": [
+            "返回.*错误",
+            "return.*false",
+            "return.*null",
+            "静默返回"
+          ],
+          "returnWithError": [
+            "返回.*错误码",
+            "返回.*错误信息"
+          ]
+        },
+        "codePatterns": {
+          "throw": "throw\\s+new\\s+\\w*Exception",
+          "return": "return\\s+(false|null|0|\"\")",
+          "returnWithError": "return\\s+.*[Ee]rror"
+        },
+        "matchRule": "Spec 要求抛异常时代码不得使用 return，反之亦然",
+        "mismatchExample": "Spec 要求抛出异常，代码中使用 return 静默返回"
+      },
+      "reviewCheck": {
+        "checkLogic": "比对 spec 要求的异常处理方式(throw/return/retry)与代码实际实现；要求抛异常而代码 return（或反之）即不一致。",
+        "fixSuggestion": "改为 spec 要求的方式：要求抛异常则 throw BempRuntimeException；要求降级则 return 并记录 warn 日志。",
+        "example": {
+          "spec": "CBS 文件解析失败时抛出 BempRuntimeException 终止流程",
+          "wrong": "LOGGER.warn(\"解析失败\"); return null;",
+          "correct": "throw new BempRuntimeException(\"CBS文件解析失败\", e);"
+        }
+      }
+    },
+    {
+      "id": "SC-003",
+      "name": "任务隔离一致性",
+      "severity": "严重",
+      "devCheck": {
+        "specPatterns": {
+          "isolation": [
+            "任务隔离",
+            "互不影响",
+            "独立处理",
+            "隔离执行",
+            "互斥"
+          ],
+          "noSkip": [
+            "禁止跳过",
+            "不得跳过",
+            "必须处理"
+          ]
+        },
+        "codeAntiPatterns": {
+          "silentSkip": "continue\\s*;|return\\s*;|//.*跳过|//.*skip",
+          "swallowException": "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}"
+        },
+        "matchRule": "Spec 要求任务隔离时，代码中不得出现静默跳过或吞异常的模式",
+        "mismatchExample": "Spec 要求任务隔离，代码中存在 continue 静默跳过"
+      },
+      "reviewCheck": {
+        "checkLogic": "比对 spec 要求的任务隔离策略与代码实现；要求隔离而一个任务失败导致后续全部跳过/静默跳过即不一致。",
+        "fixSuggestion": "每个任务独立 try-catch，失败任务记录 error 并跳过，不影响后续；完成后汇总失败列表。",
+        "example": {
+          "spec": "同步机构树时各机构任务相互隔离",
+          "wrong": "catch 块中 break 退出循环",
+          "correct": "catch 块中记录 error 后 continue"
+        }
+      }
+    },
+    {
+      "id": "SC-004",
+      "name": "错误文案一致性",
+      "severity": "警告",
+      "devCheck": {
+        "specPatterns": {
+          "errorMessage": [
+            "提示[\"\"「『].*[\"\"」』]",
+            "错误信息[：:].*",
+            "报错[：:].*"
+          ]
+        },
+        "codePatterns": {
+          "throwMessage": "throw\\s+new\\s+\\w*Exception\\s*\\(\\s*\"([^\"]+)\"",
+          "returnMessage": "return\\s+.*\"([^\"]+)\"",
+          "logMessage": "log\\.\\w+\\s*\\(\\s*\"([^\"]+)\""
+        },
+        "matchRule": "Spec 中出现的错误文案关键词必须与代码中的异常/返回消息匹配（允许参数化差异）",
+        "mismatchExample": "Spec 要求文案'功能号已存在'，代码中文案为'功能号冲突'",
+        "tolerance": "keyword"
+      },
+      "reviewCheck": {
+        "checkLogic": "比对 spec 定义的错误文案与代码实际输出的文案（异常消息/日志消息/返回提示），不一致即告警。",
+        "fixSuggestion": "将代码文案改为 spec 定义的文案，措辞与错误码一致，便于运维定位与用户理解。",
+        "example": {
+          "spec": "错误提示：机构编号[{brchNo}]同步失败，原因：{reason}",
+          "wrong": "throw new BempRuntimeException(\"同步失败\");",
+          "correct": "throw new BempRuntimeException(String.format(\"机构编号[%s]同步失败，原因：%s\", brchNo, reason));"
+        }
+      }
+    },
+    {
+      "id": "SC-005",
+      "name": "流程顺序一致性",
+      "severity": "严重",
+      "devCheck": {
+        "specPatterns": {
+          "sequence": [
+            "步骤[1-9一二三四五六七八九]",
+            "先.*后.*",
+            "首先.*然后.*",
+            "Step\\s*[1-9]"
+          ]
+        },
+        "matchRule": "Spec 中描述的步骤顺序必须与代码中方法调用顺序一致",
+        "mismatchExample": "Spec 要求先校验再处理，代码中先处理再校验"
+      },
+      "reviewCheck": {
+        "checkLogic": "比对 spec 定义的执行步骤顺序与代码实际调用顺序，重点检查有依赖关系的步骤；顺序调整涉及事务边界时同步检查事务一致性。",
+        "fixSuggestion": "调整代码执行顺序使其与 spec 一致。",
+        "example": {
+          "spec": "步骤：1.校验参数 2.查询机构 3.同步数据 4.记录日志",
+          "wrong": "先同步数据再查询机构",
+          "correct": "先校验参数，再查询机构，确认有效后同步，最后记录日志"
+        }
+      }
+    },
+    {
+      "id": "SC-006",
+      "name": "参数校验一致性",
+      "severity": "阻塞",
+      "devCheck": {
+        "specPatterns": {
+          "required": [
+            "必填",
+            "不能为空",
+            "必须提供",
+            "required"
+          ],
+          "format": [
+            "格式.*校验",
+            "正则.*匹配",
+            "长度.*限制"
+          ],
+          "range": [
+            "范围.*校验",
+            "最小值",
+            "最大值",
+            "不超过"
+          ]
+        },
+        "matchRule": "Spec 中提及的校验要求必须在代码中找到对应的校验逻辑",
+        "mismatchExample": "Spec 要求校验机构号为空，代码中未实现该校验"
+      },
+      "reviewCheck": {
+        "checkLogic": "比对 spec 要求的参数校验规则（必填/范围/格式/枚举）与代码实现；要求校验而未校验或规则不符即不一致。",
+        "fixSuggestion": "按 spec 补充校验：必填用 BempValidUtil.validBaseRequest 或 Objects.requireNonNull，范围/格式按规则实现。",
+        "example": {
+          "spec": "brchNo 必填且长度≤20",
+          "wrong": "未校验 brchNo 直接使用",
+          "correct": "Objects.requireNonNull(brchNo, \"机构编号不能为空\"); if (brchNo.length() > 20) throw ..."
+        }
+      }
+    }
+  ]
+}

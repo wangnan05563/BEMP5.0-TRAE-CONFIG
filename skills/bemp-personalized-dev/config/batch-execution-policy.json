@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "批量任务执行形态与容错策略清单 - 批量/整批两类执行形态的事务边界、失败策略与观测要求集中管理；所有形态名/判据/阈值/字段均在此声明，禁止在流程文档或代码中硬编码",
+  "version": "1.0.0",
+  "usage": "需求/任务涉及批量处理（定时任务、批量导入、批处理服务、批量补全）时加载本清单：先按 modeSelection 定性形态，再按对应 mode 的 transactionBoundary/failureStrategy/observability 落地；叙述与代码骨架见 references/batch-fault-tolerance-patterns.md",
+
+  "trigger": {
+    "markers": ["批量", "逐条", "循环处理", "定时任务", "日终", "日间配套", "批处理", "批量导入", "批量补全", "批量同步", "对账", "跑批"],
+    "appliesTo": ["定时任务/日终批量处理", "页面批量导入/批量提交", "批处理服务", "批量补全或批量同步"],
+    "note": "命中任一 marker 且涉及多条数据的逐条处理或整批提交时进入形态定性流程；单条数据的常规增删改查不强制"
+  },
+
+  "modeSelection": {
+    "note": "形态由业务语义决定，不由技术偏好决定；判据命中的形态即默认机制，禁止凭习惯选边",
+    "rules": [
+      {
+        "choose": "batch-tolerant",
+        "when": ["批内条目之间互不依赖", "允许部分成功", "失败条目可事后补做或下个批次重跑", "单条脏数据不应阻断整批"],
+        "rationale": "条目独立 + 部分成功可接受 => 单条失败隔离，避免一粒老鼠屎坏一锅汤"
+      },
+      {
+        "choose": "atomic",
+        "when": ["同一业务动作不可分割（要么全成要么全不成）", "要求全有或全无", "失败必须由用户修正输入后整批重试"],
+        "rationale": "业务动作不可分割 => 整批一个事务，任一条失败全部回滚"
+      }
+    ],
+    "onAmbiguous": "escalate",
+    "onAmbiguousNote": "两类判据都不满足或互相冲突时升级用户/业务方裁决，禁止静默选边（选错形态会造成'部分成功却被回滚'或'脏数据被放行'）",
+    "crossCheck": "同一业务若同时存在批量入口与单条入口，两个入口应共用同一业务逻辑（单条入口作为批量的退化形态委托同一实现），禁止各写一份"
+  },
+
+  "modes": {
+    "batch-tolerant": {
+      "description": "批量容错：逐条独立处理，单条失败记录明细并跳过，继续处理后续条目，允许部分成功",
+      "transactionBoundary": "none-or-per-item",
+      "transactionBoundaryNote": "【无外层整批事务】或【每条独立事务】；禁止把整个循环包在一个事务里——否则单条失败会连坐已成功条目，与'允许部分成功'语义矛盾",
+      "failureStrategy": "catch-and-continue",
+      "failureStrategyNote": "循环体内单条 try/catch(Exception)：计数 + 拼失败明细 + error 留痕 + 不 throw，继续下一条；禁止中断整批",
+      "observability": ["resultStates", "reportFields", "failDetailFields", "requireErrorLog", "requireBatchDateInReport"]
+    },
+    "atomic": {
+      "description": "整批原子：全有或全无，任一条失败整批回滚，用户修正后整批重试",
+      "transactionBoundary": "whole-batch",
+      "transactionBoundaryNote": "整批一个事务（编程式事务模板包裹整个循环，或声明式 @Transactional rollbackFor=Exception.class）；禁止在循环内吞异常",
+      "failureStrategy": "throw-and-rollback",
+      "failureStrategyNote": "循环体内单条异常带【定位信息】抛出触发整批回滚，错误信息原样返回前端展示；禁止静默跳过（跳过会让用户误以为部分数据已入库）",
+      "observability": ["requireErrorLog", "requireLocatorInError"]
+    }
+  },
+
+  "observability": {
+    "note": "批量任务的最小可观测要求：结果三态 + 失败明细 + error 留痕；三项缺任一项即视为不可运维",
+    "resultStates": [
+      {"state": "success", "rule": "failCount == 0"},
+      {"state": "partial", "rule": "failCount > 0 && successCount > 0"},
+      {"state": "failed", "rule": "failCount > 0 && successCount == 0"}
+    ],
+    "reportFields": ["batchDate", "total", "successCount", "failCount", "durationMs", "resultState", "failDetails"],
+    "failDetailFields": ["businessKey", "reason"],
+    "failDetailNote": "businessKey 取能唯一定位该条的业务键（名称/代码/账号/单号等），reason 取异常原文；二者缺一则人工无法补做",
+    "requireErrorLog": true,
+    "requireErrorLogNote": "每条失败必须 LOGGER.error 留痕（含 businessKey + reason），日志是失败明细的唯一持久化通道",
+    "requireBatchDateInReport": true,
+    "requireBatchDateInReportNote": "统计报告必须带批次日期：监控按关键字采集时该行可能被单独摘出，缺日期无法定位是哪天的批次",
+    "emptyRunAlsoReport": true,
+    "emptyRunAlsoReportNote": "零条数据也是一次完整执行，同样输出统计报告，避免监控按关键字采集时漏掉空跑记录"
+  },
+
+  "antiPatterns": [
+    "catch 块吞异常、不打日志、不计数（静默跳过，失败无人知晓）",
+    "批量容错形态却把整个循环包在一个事务里（单条失败连坐已成功条目）",
+    "整批原子形态却在循环内 catch 后 continue（脏数据放行，用户误以为已全部入库）",
+    "失败明细无 businessKey 或 reason（人工无法定位与补做）",
+    "统计报告缺批次日期（多批次日志无法区分）",
+    "只报失败条数不报成功条数（无法推导三态结果）",
+    "同一业务批量入口与单条入口各写一份逻辑（口径漂移）"
+  ],
+
+  "riskChecklist": [
+    {
+      "risk": "后置动作失败（写日志/写快照/调下游等在主数据写入之后的动作抛异常）",
+      "consequence": "主数据已落库但该条计入失败数，形成'数据在、日志/快照缺'的部分状态",
+      "mitigation": "后置动作失败必须 error 留痕且明细含 businessKey，供人工补做；关键后置动作应前置或在同事务内"
+    },
+    {
+      "risk": "批量容错形态无事务时，失败条之前的成功条不会回滚",
+      "consequence": "重跑整批会产生重复数据（若新增路径无匹配去重）",
+      "mitigation": "新增路径必须带匹配/去重逻辑（如按业务键 upsert），保证重跑幂等"
+    },
+    {
+      "risk": "取数 SQL 全量加载无分页",
+      "consequence": "万级数据存在内存溢出（OOM）风险",
+      "mitigation": "按数据量级评估是否分片加载；分片时保持批间幂等"
+    },
+    {
+      "risk": "整批原子形态的事务内调用含独立提交语义的方法",
+      "consequence": "事务边界被打破，回滚失效",
+      "mitigation": "事务内禁止调用标注了独立事务传播（REQUIRES_NEW）或自带提交的方法"
+    }
+  ],
+
+  "validation": {
+    "note": "两类形态的验证方式不同：容错形态验证【失败隔离】，原子形态验证【整体回滚】",
+    "batch-tolerant": {
+      "injection": "构造一条必然失败的条目（脏数据/超长字段/空必填）混入正常条目",
+      "assert": ["失败条被跳过且其余条落库成功", "计数与三态结果正确（partial）", "失败明细含 businessKey + reason", "error 日志可见"],
+      "regression": "重跑整批不产生重复数据（幂等性）"
+    },
+    "atomic": {
+      "injection": "构造一条必然失败的条目混入正常条目",
+      "assert": ["整批回滚，库内变更数为 0", "错误信息含定位信息（行号/业务键）", "异常原样返回前端可见"],
+      "regression": "修正脏数据后整批重试成功"
+    }
+  }
+}

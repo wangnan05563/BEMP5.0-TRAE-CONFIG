@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "字段链路同步检查清单 - 给既有表/实体新增字段时按数据流向逐环节同步；所有环节/触发词/判据均在此集中管理，禁止在流程文档中硬编码",
+  "version": "1.0.0",
+  "usage": "需求命中 trigger.markers 且涉及既有表/实体字段新增时加载本清单，按 chain 逐环节核对；mandatory=true 的环节漏补即阻断交付",
+
+  "trigger": {
+    "markers": ["新增字段", "加字段", "字段扩展", "新增列", "扩列", "字段同步", "字段落库", "字段展示", "快照字段"],
+    "appliesTo": ["表结构变更", "实体/DTO 字段新增", "列表/弹窗/导出/日志展示列新增"],
+    "note": "命中任一 marker 且涉及既有表/实体时进入字段链路同步流程；纯新增独立功能（无既有链路复用）不强制"
+  },
+
+  "chain": [
+    {
+      "id": "ddl",
+      "layer": "数据库",
+      "item": "表（含日志表/快照列）列定义 + 列注释",
+      "verify": "目标列真实存在（实库核查或 DDL 脚本核对）；长度/类型对齐同名字段",
+      "missSymptom": "INSERT/SELECT 报未知列（列不存在）",
+      "mandatory": true
+    },
+    {
+      "id": "entity",
+      "layer": "后端-实体",
+      "item": "Entity 字段 + getter/setter",
+      "verify": "字段与列一一对应，字段序与既有惯例对齐",
+      "missSymptom": "映射缺失 / 编译报错",
+      "mandatory": true
+    },
+    {
+      "id": "dto",
+      "layer": "后端-DTO",
+      "item": "DTO/VO 字段 + getter/setter（含 api 工程）",
+      "verify": "api 与 as 两工程均含该字段；as 编译前先 api install（防本地仓库旧 jar）",
+      "missSymptom": "跨工程取不到值 / 引用旧 jar",
+      "mandatory": true
+    },
+    {
+      "id": "mapper",
+      "layer": "后端-持久层",
+      "item": "Dao.xml 的 BaseResultMap / Base_Column_List / insert / insertSelective",
+      "verify": "四处齐补（update 系列按是否存在更新场景决定，只写不改的日志表可略）",
+      "missSymptom": "查询返回空值 / 插入写空",
+      "mandatory": true
+    },
+    {
+      "id": "converter",
+      "layer": "后端-转换",
+      "item": "实体 ↔ DTO/VO 映射工具的两个方向",
+      "verify": "两个方向都搬运该字段（读取方向 + 写入方向），逐一 grep 核对 setter 对称",
+      "missSymptom": "编译通过、SQL 正常、列存在，唯独值为空（高发静默丢值点）",
+      "mandatory": true
+    },
+    {
+      "id": "snapshot",
+      "layer": "后端-业务",
+      "item": "快照/前后值写入逻辑（原值列 + 新值列）",
+      "verify": "修改场景写前后值，新增/导入/删除场景按既定约定（如原值留空）",
+      "missSymptom": "对比列为空",
+      "mandatory": false
+    },
+    {
+      "id": "frontend",
+      "layer": "前端",
+      "item": "列表/弹窗列配置 + 字典组加载",
+      "verify": "列 key 与后端返回属性名一致；涉及翻译时字典组已在组件加载",
+      "missSymptom": "列缺失或翻译空白",
+      "mandatory": true
+    }
+  ],
+
+  "hardRules": {
+    "converterSymmetry": {
+      "enabled": true,
+      "note": "任何 X↔Y 映射工具新增字段必须同时补两个方向；只补一个方向会静默丢值——编译/查询/前端列均正常，唯独值为空"
+    },
+    "existingChainFirst": {
+      "enabled": true,
+      "note": "加字段前先枚举该字段需流经的全部既有链路（查询/展示/日志/导出/校验/导入），产出链路清单后再动手，禁止只改最直观的一处"
+    }
+  },
+
+  "emptyValueDiagnosis": {
+    "note": "反馈『字段为空/未记录』时先按现象分流再定位环节，禁止直接猜某段代码",
+    "branches": [
+      {"symptom": "写入报错（未知列/列不存在）", "cause": "表列缺失（DDL 未执行或漏列）", "fix": "补 DDL 并确认已在库执行"},
+      {"symptom": "整行/整条记录不存在", "cause": "写动作未触发或被吞异常", "fix": "查写入调用链与异常处理分支"},
+      {"symptom": "记录存在但该列空", "cause": "映射/搬运环节方向不对称（高发）", "fix": "补实体↔DTO/VO 映射工具的对应方向"},
+      {"symptom": "前端列缺失，或列在而值与库内不一致", "cause": "前端列配置/字典组缺失或 key 不匹配", "fix": "补列配置与字典组加载"}
+    ]
+  },
+
+  "validation": {
+    "note": "无运行环境时的最低验证=构造入参→调用映射/服务方法→断言目标字段被携带（修复前必失败，可作回归护栏）；有运行环境时按 references/field-sync-patterns.md E6 与 semantic-change-patterns.md C7 定级",
+    "assertionPattern": "construct-input -> invoke-conversion -> assert-field-carried",
+    "minLevelWithoutEnv": "compile + assertion",
+    "minLevelWithEnv": "api-smoke 或 ui-probe"
+  }
+}

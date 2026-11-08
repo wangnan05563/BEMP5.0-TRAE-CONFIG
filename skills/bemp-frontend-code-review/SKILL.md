@@ -71,9 +71,9 @@ node scripts/check-all.js --bank=jinzbank
 
 | # | 名称 | 级别 | 一句话要点 |
 |---|------|------|-----------|
-| 1 | 目录结构 | 强制 | 代码在 `frontend/src/views/bizViews/banks/{bankName}` 下，子目录与产品化一致 |
+| 1 | 目录结构 | 强制 | 代码在 `frontend/src/views/bizViews/banks/{bankName}` 下，子目录与产品化一致，集中放置行目录；产品化页面不得依赖个性化目录组件 |
 | 2 | 个性化文件 | 强制 | 产品化vue对应个性化vue必须存在；`{bankName}Index.js` 维护路径映射 |
-| 3 | 国际化 | 强制 | 按钮/标签/弹窗标题用 $t()；placeholder/业务一次性提示硬编码 |
+| 3 | 国际化 | 强制 | 按钮/标签/弹窗标题用 $t()；placeholder/业务一次性提示硬编码；不改产品 zh-CN.js，用 {bankName} 命名空间隔离 |
 | 4 | API调用 | 强制 | 路径与后端 @RequestMapping 一致、参数格式匹配；禁止 extParam |
 | 5 | 组件使用 | 强制 | 优先复用已有组件（components/、frontend/src/components/、同模块vue） |
 | 6 | 代码质量 | 推荐 | 关键逻辑中文注释、缩进规范、Vue 2.6.12 风格 |
@@ -81,13 +81,13 @@ node scripts/check-all.js --bank=jinzbank
 | 8 | UI组件 | 推荐 | 统一 h_ui 组件库；h-typefield readonly/disabled 必须用 h-form-item 包裹 |
 | 9 | 路由 | 强制 | router/index.js 注册正确，与 `{bankName}Index.js` 映射一致 |
 | 10 | 状态管理 | 推荐 | Vuex 模块划分合理，actions/mutations/getters 使用正确 |
-| 11 | 异步处理 | 强制 | 错误处理分支（retCode!=000000）、this绑定、防竞态、loading/disabled 防重复提交 |
+| 11 | 异步处理 | 通用-高频 | 错误处理分支（retCode!=000000）、this绑定、防竞态、loading/disabled 防重复提交 |
 | 12 | 样式 | 强制 | scoped 防污染、复用公共样式类、禁 !important（覆盖第三方库需注释） |
-| 13 | 性能 | 强制 | 大列表分页、v-for 唯一 :key 禁 index、computed 替代复杂表达式、大组件动态导入 |
-| 14 | 安全性 | 强制 | 禁 v-html 渲染用户输入、禁硬编码凭证 |
+| 13 | 性能 | 通用-高频 | 大列表分页、v-for 唯一 :key 禁 index、computed 替代复杂表达式、大组件动态导入 |
+| 14 | 安全性 | 通用-高频 | 禁 v-html 渲染用户输入、禁硬编码凭证 |
 | 15 | 多语言同步 | 强制 | zh-CN.js 与 en-US.js 键值结构完全一致，命名 `{bankName}.{模块}.i.{功能}.{字段}` |
 | 16 | 路由权限 | 推荐 | 敏感页面权限守卫（meta.permission/auth）、hidden 正确、路径与后端菜单一致 |
-| 17 | 重复逻辑收口 | 强制 | ≥2 页面同构方法必须抽公共 mixin 放 `{bankName}/components/`，差异经配置对象+钩子注入；收口后 Grep 验证无残留 |
+| 17 | 重复逻辑收口 | 通用-高频 | ≥2 页面同构方法必须抽公共 mixin 放 `{bankName}/components/`，差异经配置对象+钩子注入；收口后 Grep 验证无残留 |
 
 ## 判断标准与报告
 
@@ -95,6 +95,7 @@ node scripts/check-all.js --bank=jinzbank
 |------|------|------|
 | 🔴 阻塞 | 违反强制规范，致功能异常 | 必须修复才通过 |
 | 🟠 严重 | 潜在问题或反最佳实践 | 强烈建议修复 |
+| 🔖 通用-高频 | 模型已具备该通用知识、但工程实测高发违反 | 执行力度同其严重度；报告附 `[通用-高频]` 标签 |
 | 🟡 警告 | 风格/轻微规范问题 | 建议修复 |
 | 🟢 提示 | 优化建议 | 可选 |
 

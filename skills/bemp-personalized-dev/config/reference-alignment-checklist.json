@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "参考实现深度对齐检查清单 - 存在同类成熟参考实现时，按分层矩阵逐层对齐，产出差异台账后再编码；所有层/分类/判据/验证等级均在此集中管理，禁止在流程文档中硬编码",
+  "version": "1.0.0",
+  "usage": "需求命中 trigger.markers（或需求出现『参照/对齐/同款/与X一致』措辞）时加载本清单，先产出差异台账（diffLedger）再进入编码；mandatory=true 的层未产出差异项即阻断交付",
+
+  "trigger": {
+    "markers": ["参照", "参考", "对齐", "同款", "保持一致", "参照XX页面", "参考XX模块", "与XX一致", "仿XX", "移植", "适配"],
+    "appliesTo": [
+      "同类型页面/组件移植（产品化→个性化、A项目→B项目）",
+      "同类型业务链路对齐（占用/释放/状态流转/查询历史等已有成熟实现）",
+      "跨银行/跨版本的同类功能适配"
+    ],
+    "note": "命中任一 marker 且存在成熟参考实现时强制进入深度对齐流程；无参考实现的全新功能不适用（走常规开发流程）"
+  },
+
+  "preconditions": {
+    "mustVerifyThreeSources": {
+      "enabled": true,
+      "sources": [
+        { "id": "reference", "desc": "参考实现：前端页面 + 后端接口 + 写入侧（落库/状态变更）三处都要读，缺一不可" },
+        { "id": "target", "desc": "目标实现现状：已有页面/接口/表结构/字段能力边界" },
+        { "id": "data", "desc": "真实数据：目标侧表/字段真实存在性与数据分布（空表即触发升级确认）" }
+      ],
+      "missSymptom": "仅读参考实现的前端页面即开始仿写（表层对齐）"
+    }
+  },
+
+  "layers": [
+    {
+      "id": "L1",
+      "name": "入口与权限层",
+      "purpose": "对齐触发入口与可见性控制，防止『功能做了但入口口径不对』",
+      "evidenceSources": ["参考实现的按钮/入口渲染条件", "权限位/授权配置", "菜单或路由挂载点"],
+      "typicalMissSymptoms": ["按钮常显而参考受权限位控制", "入口在参考侧有二次确认而目标缺失", "入口位置/所属菜单组不一致"],
+      "minVerifyLevel": "dist-feature",
+      "mandatory": true
+    },
+    {
+      "id": "L2",
+      "name": "数据契约层",
+      "purpose": "对齐请求/响应结构与字段契约，防止『界面相同但取的字段不是同一套』",
+      "evidenceSources": ["参考接口的请求 DTO 与响应结构", "目标侧 DTO/实体字段清单", "接口返回体的层级（是否包 ResultData/list）"],
+      "typicalMissSymptoms": ["直接取列表行对象当详情对象（缺详情回查）", "响应层级读取路径不匹配", "字段名/类型不一致导致取空"],
+      "minVerifyLevel": "api-smoke",
+      "mandatory": true
+    },
+    {
+      "id": "L3",
+      "name": "数据源层",
+      "purpose": "确认参考功能所依赖的数据源在目标侧是否存在，不存在则定性为需新建",
+      "evidenceSources": ["参考实现读取的表/视图", "目标侧同语义表的存在性（实库核查）", "字段能力边界（目标表是否有对应列）"],
+      "typicalMissSymptoms": ["参考的数据源在目标侧不存在或为空却直接复用接口", "目标表缺列导致功能不可实现"],
+      "minVerifyLevel": "build",
+      "mandatory": true
+    },
+    {
+      "id": "L4",
+      "name": "写入侧与场景矩阵层",
+      "purpose": "枚举参考实现的全部写入点与业务场景，防止『只改了最直观的入口』导致数据不完整",
+      "evidenceSources": ["参考实现所有产生数据的写入点（落库/状态变更/金额变动）", "场景码字典/枚举的全量取值范围", "目标侧同类写入点清单"],
+      "typicalMissSymptoms": ["只覆盖交易类场景，遗漏维护类场景（新增/复核/撤销等生命周期事件）", "场景码只用了部分取值"],
+      "minVerifyLevel": "api-smoke",
+      "mandatory": true
+    },
+    {
+      "id": "L5",
+      "name": "口径函数层",
+      "purpose": "对齐同一语义在两端使用的格式化/转码/单位函数，任何变更必须有依据",
+      "evidenceSources": ["参考实现的格式化函数（金额/日期/区间/字典翻译）", "目标侧同语义函数"],
+      "typicalMissSymptoms": ["金额千分位/补零口径不一致", "日期/时间格式不一致", "字典翻译分组不一致"],
+      "minVerifyLevel": "api-smoke",
+      "mandatory": false
+    },
+    {
+      "id": "L6",
+      "name": "粒度与语义层",
+      "purpose": "澄清不可从界面观察的设计约定（聚合粒度/触发时机/关联主键语义）",
+      "evidenceSources": ["参考实现写入点的聚合单位（一次操作 vs 每笔明细）", "关联主键的语义（哪个 ID 关联哪个对象）", "触发时机（实时 vs 定时）"],
+      "typicalMissSymptoms": ["一条业务被裂成多条记录（粒度放大）", "关联主键取错对象导致明细查不到", "触发时机与参考不同"],
+      "minVerifyLevel": "data-assert",
+      "mandatory": true
+    },
+    {
+      "id": "L7",
+      "name": "差异台账层",
+      "purpose": "把前六层的差异全部落成可追溯台账，区分『合理适配』与『漏做』",
+      "evidenceSources": ["L1-L6 的逐层比对结果"],
+      "typicalMissSymptoms": ["差异只存在于开发者脑中，评审无法追溯", "删除了参考依赖却未记录依据"],
+      "minVerifyLevel": "diff-ledger-present",
+      "mandatory": true
+    }
+  ],
+
+  "diffClassification": {
+    "note": "每条差异必须归入以下四类之一；无法归类时按 onUnknown 处置，禁止静默选边",
+    "categories": [
+      { "key": "portable", "label": "可移植", "desc": "目标侧可直接复用参考实现", "action": "照搬实现，保持行为一致" },
+      { "key": "adapt", "label": "需适配", "desc": "机制相同但字段/字典/路由/命名存在差异", "action": "做显式映射，并记录映射规则" },
+      { "key": "not-applicable", "label": "不适用", "desc": "参考能力在目标业务语义下无意义", "action": "不实现，但在台账显式记录『参考行为+不适用依据』" },
+      { "key": "must-new", "label": "需新建", "desc": "参考所依赖的数据源/能力在目标侧不存在", "action": "立项新建（表/接口/组件），台账记录新建清单与等价替代方案" }
+    ],
+    "onUnknown": "stop-and-escalate",
+    "onUnknownNote": "归类不明时暂停并升级用户裁决（如『参考侧某渠道是否在需求范围内』这类业务口径问题）"
+  },
+
+  "writeSideEnumeration": {
+    "enabled": true,
+    "note": "L4 的枚举完整性是最高发的漏项来源：必须枚举全部写入点，并以场景码字典全量取值为覆盖基准",
+    "enumSources": [
+      "场景码字典/枚举类的全量取值",
+      "参考实现中所有产生本类数据的写入方法",
+      "目标侧同类写入入口（含定时任务/日终/接口/事件）"
+    ],
+    "coverageGate": {
+      "rule": "场景码字典的每个取值都必须逐值说明『目标侧是否需要写』，不得跳过",
+      "passCondition": "覆盖矩阵无『未说明』取值"
+    },
+    "matrixRequired": true
+  },
+
+  "caliberConsistency": {
+    "enabled": true,
+    "fieldsToCompare": ["金额格式化", "日期/时间格式", "区间/范围展示", "字典翻译分组", "单位换算"],
+    "changeRequiresRationale": true,
+    "note": "同语义字段的口径变更（如自定义补零函数换成通用千分位函数）看似『更规范』实为无依据变更，必须写依据或还原为参考口径"
+  },
+
+  "diffLedger": {
+    "enabled": true,
+    "requiredFields": ["layerId", "referenceBehavior", "targetBehavior", "classification", "rationale", "verifyMethod"],
+    "gate": "pre-coding",
+    "gateNote": "差异台账产出前禁止进入编码阶段；台账作为评审与回归的依据",
+    "storage": "随任务交付物输出（评审记录/回传结论），并在关键差异处写代码注释引用"
+  },
+
+  "verification": {
+    "levels": {
+      "dist-feature": "构建产物特征扫描（入口渲染条件/常量特征串命中）",
+      "build": "编译/构建通过",
+      "api-smoke": "调真实接口断言请求参数与响应数据",
+      "data-assert": "造业务数据后断言落库结果（粒度/关联/快照正确）",
+      "ui-probe": "浏览器自动化实测关键路径与交互一致",
+      "diff-ledger-present": "差异台账已产出且逐项有分类与依据"
+    },
+    "onUnmet": {
+      "forceVerifiedFalse": true,
+      "requireGapNote": true
+    },
+    "note": "按层取最低等级；L4/L6 类必需造数实测，仅编译通过不构成闭环"
+  },
+
+  "exclusions": {
+    "note": "以下场景不适用本流程，走了反而浪费或误导",
+    "cases": [
+      "无任何参考实现的全新功能",
+      "参考实现本身已知存在缺陷（应先定性缺陷，再决定是否对齐，禁止复制缺陷）",
+      "纯样式/文案/序号调整（无数据链路）",
+      "参考与目标业务规则根本不同（应对齐机制而非取值，并记录为 not-applicable/adapt）"
+    ]
+  }
+}

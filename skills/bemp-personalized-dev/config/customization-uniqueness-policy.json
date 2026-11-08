@@ -1,0 +1,143 @@
+{
+  "description": "个性化定制唯一性策略：同一被定制（父）类在一个银行工程内只允许存在一个个性化实现。用于捕获『同一 @CustomizedBean 父类被两个个性化类同时继承』导致的定制加载冲突（框架按注册顺序二选一，落选者全部覆盖方法静默失效，无编译错误、无运行时报错）。所有扫描参数、注解名、正则、命令模板均在 parameters/commands 节管理，无硬编码业务类名。",
+  "version": "1.0.0",
+  "lastUpdate": "2026-10-20",
+
+  "inheritance": {
+    "levels": ["skill", "project", "bank"],
+    "rule": "技能级默认(defaults) → 项目级覆盖(projectOverrides) → 银行级覆盖(bankOverrides.{bankCode})，后者覆盖前者同名检查项(id匹配)",
+    "overrideFields": ["severity", "checkLogic", "correctHandling", "wrongHandling", "enabled", "parameters"],
+    "note": "按 id 匹配仅覆盖指定字段；parameters 整节覆盖(需同时给出本项用到的全部参数)"
+  },
+
+  "parameters": {
+    "note": "唯一性扫描的通用参数。所有值均由本文件管理，禁止在 SKILL.md 或流程叙述中重复硬编码。",
+    "scanRootTemplate": "banks/ext-{BANK_CODE}",
+    "filePattern": "*.java",
+    "customizedAnnotationMarkers": ["@CustomizedBean"],
+    "classDeclPattern": "public\\s+class\\s+([A-Za-z_$][\\w$]*)\\s+extends\\s+([A-Za-z_$][\\w$\\.]*)",
+    "implementsPattern": "\\bimplements\\s+([A-Za-z_$][\\w$\\.,\\s]*)",
+    "groupKey": "extendsFullyQualifiedName",
+    "maxCandidatesPerGroup": 1,
+    "nearNameSimilarityThreshold": 0.85,
+    "mergeRequiresEquivalenceProof": true
+  },
+
+  "commands": {
+    "note": "检测命令模板，{scanRoot}/{filePattern} 等占位符由 parameters 或运行期变量替换；解释器优先级见执行环境配置。",
+    "listCustomizedClasses": {
+      "intent": "列出全部带定制注解的类及其 extends 目标，按父类分组",
+      "template": "逐文件读取 {scanRoot}/**/{filePattern}，匹配 parameters.customizedAnnotationMarkers 与 parameters.classDeclPattern，输出『父类全名|子类名|文件路径』并按父类全名分组"
+    },
+    "verifyGroupUniqueness": {
+      "intent": "校验每个父类分组内的个性化实现数量",
+      "template": "对分组结果按 groupKey 统计：count > parameters.maxCandidatesPerGroup 即判定冲突"
+    },
+    "verifyNoResidualReferences": {
+      "intent": "合并/删除类后确认零残留代码引用",
+      "template": "Grep 被删除类名于 {scanRoot}，命中项需逐条区分『代码引用』与『注释/文档文本』；代码引用必须为 0"
+    }
+  },
+
+  "detection": {
+    "trigger": "任何新增、修改、重命名、合并个性化类；或任何 @CustomizedBean 类的类声明变更",
+    "steps": [
+      "1. 执行 commands.listCustomizedClasses，得到『父类全名 → 子类清单』映射",
+      "2. 按 groupKey 分组统计，确认每个父类分组内实现数 ≤ parameters.maxCandidatesPerGroup",
+      "3. 若存在冲突：禁止直接提交/继续编码，先按 mergeProtocol 合并为唯一实现",
+      "4. 合并完成后执行 postMergeVerify 全部检查项",
+      "5. 输出唯一性校验证据（分组表 + 冲突数=0）写入交付声明"
+    ],
+    "nearNameArbitration": "当出现多个仅大小写/前缀差异的类名（相似度 ≥ parameters.nearNameSimilarityThreshold）且 extends 同一父类时，必须人工裁决保留哪一个，禁止自动择一——两者很可能是并行会话各自新增的同类实现。"
+  },
+
+  "mergeProtocol": {
+    "note": "把冲突的多个实现合并为唯一实现时的强制顺序。示例中的字段名均为占位符，实际以被合并类为准。",
+    "order": [
+      "1. 选定保留类：优先保留『生产在用、被其他代码显式 import、或类名符合项目命名规范』者；无法判断时升级用户裁决（禁止静默选边）",
+      "2. 方法级差异清单：逐方法比对两类的 @Override 方法集合，产出『方法签名 → 仅A有 / 仅B有 / 双方都有』三分类",
+      "3. 迁移仅对方有（或在对方版本更新）的方法，保持原样逐行搬迁，不改写逻辑",
+      "4. 迁移这些方法依赖的字段注入与 import，按引用实际情况增删，禁止连带迁移无用 import",
+      "5. 删除被合并类文件，并清理其实例化/import/配置引用",
+      "6. 按 equivalenceChecks 与 fieldShadowChecks 逐项验证",
+      "7. 编译验证 + 按 postMergeVerify 输出证据"
+    ],
+    "fieldShadowChecks": [
+      "子类新增字段名若与父类 protected/public 字段同名，构成 Java 字段遮蔽：父类方法读父类字段、子类方法读子类字段，两者注入来源可能不同",
+      "迁移方法若依赖被遮蔽字段，必须连同该字段声明与注入注解一并迁移，否则合并后方法会取到父类字段，注入行为与迁移前不一致",
+      "迁移后核对：子类字段与父类字段的注入注解类型（远程引用/本地注入）是否一致；不一致时须在类注释说明两者指向同一服务方可等价",
+      "在类注释中显式记录字段遮蔽事实与等价性论证，避免后续维护者误删子类字段"
+    ],
+    "equivalenceChecks": [
+      "迁移方法的业务判定条件、默认值、错误文案、排序子句、分页参数逐字比对，禁止『顺手优化』",
+      "迁移前后每个方法的过滤条件组合关系（AND/OR、IN/等值、空值判断）保持一致",
+      "被删除类若在原类注释中登记过修改记录，需把记录追加到保留类的修改记录表（只追加不改历史行）",
+      "确认父类中未被两类覆盖的方法数量与合并前一致（合并不应改变未覆盖方法的生效实现）"
+    ],
+    "postMergeVerify": [
+      "编译：目标模块编译通过（仅编译通过不等于功能验证，见 verificationLevels）",
+      "唯一性：重新执行 verifyGroupUniqueness，该父类分组 count=1",
+      "引用：verifyNoResidualReferences 显示被删类的代码引用为 0",
+      "注入：逐字段核对注入注解与遮蔽关系，确认与合并前等价",
+      "行为：梳理合并后每个对外方法的机构/数据口径，与合并前逐一对照无变化",
+      "验证等级：涉及定制加载、AOP 织入、数据权限的改动，编译级证据不得标记为已验证，须在交付声明标注运行时验证缺口"
+    ]
+  },
+
+  "defaults": {
+    "checks": [
+      {
+        "id": "CU-001",
+        "name": "同一被定制父类唯一实现",
+        "severity": "阻塞",
+        "correctHandling": "同一被定制（父）类在一个银行工程内仅允许一个个性化实现类。新增/修改个性化类前，先按 parameters.classDeclPattern 扫描全部带 customizedAnnotationMarkers 的类，按 groupKey 分组确认目标父类分组内实现数 ≤ maxCandidatesPerGroup；若已存在实现，应在既有实现上追加方法而不是新建第二个继承类。",
+        "wrongHandling": "两个类同时 extends 同一产品化实现类且都标注定制注解——框架按 Bean 注册顺序择一，落选类的全部 @Override 方法静默失效；编译通过、启动无报错，仅表现为『个性化逻辑未生效』（如机构过滤失效、校验未执行），极难定位。",
+        "checkLogic": "1.提取本次新增/修改类的 extends 目标全名 2.扫描同工程内 extends 同一父类的全部类（命中 customizedAnnotationMarkers 者视为候选）3.分组计数 > maxCandidatesPerGroup 即冲突 4.冲突时检查是否已按 mergeProtocol 合并为唯一实现 5.合并后重新扫描确认 count=1 且被删类代码引用为 0 6.是否存在仅大小写/前缀差异的近似命名并行实现（按 nearNameArbitration 人工裁决）。",
+        "enabled": true,
+        "example": {
+          "wrong": "{PREFIX}A{ServiceName}Impl 与 {PREFIX}B{ServiceName}Impl 同时 extends {ProductService}Impl 且均标注 {CUSTOMIZED_ANNOTATION} —— 其中一个类的查询口径定制（如按机构收窄、按法人放开）整体不生效，表现为『另一个类改了没用』",
+          "correct": "保留一个类（命名符合项目规范、被其他代码 import 者）→ 按 mergeProtocol 迁移另一类的 @Override 方法与依赖字段 → 删除被合并类 → 重扫确认该父类分组 count=1 → 编译并标注运行时验证缺口"
+        }
+      },
+      {
+        "id": "CU-002",
+        "name": "合并后字段遮蔽与注入等价",
+        "severity": "严重",
+        "correctHandling": "合并个性化实现时，若迁移方法依赖的字段与父类 protected/public 字段同名，必须连同子类字段声明与注入注解一并迁移，并在类注释记录遮蔽关系与等价性依据；注入注解（远程引用 vs 本地注入）不同的，须论证两者指向同一服务。",
+        "wrongHandling": "认为『父类已有同名字段』而省略子类字段迁移——合并后迁移方法实际读取父类字段，注入来源/时机与原类不同（如远程引用变成本地注入），出现空指针或取到未初始化值；或反向保留子类字段却不迁移对应 import，编译失败。",
+        "checkLogic": "1.列出被合并类的全部字段声明 2.与父类字段名比对，识别同名遮蔽项 3.逐项确认字段声明+注入注解+import 是否全部迁移 4.核对子类与父类同名字段的注入注解类型是否一致 5.类注释是否记录遮蔽事实与等价性论证。",
+        "enabled": true,
+        "example": {
+          "wrong": "迁移方法依赖 {SERVICE_FIELD}（子类 @远程引用 声明，与父类 protected 同名字段遮蔽），合并时按『父类已有』省略迁移 → 方法改读父类字段，注入时机不同导致运行期取到 null",
+          "correct": "连同 @远程引用 的 {SERVICE_FIELD} 声明一并迁移，类注释写明『与父类同名字段构成遮蔽，本类方法用本类字段、父类方法用父类字段，二者注入同一服务故行为等价』"
+        }
+      }
+    ]
+  },
+
+  "projectOverrides": {
+    "note": "项目级覆盖配置，按 id 匹配，仅覆盖指定字段。默认为空。"
+  },
+
+  "bankOverrides": {
+    "note": "银行级覆盖配置，按 bankCode 分组。默认为空；某银行工程存在特殊扫描根或多模块布局时在此登记。",
+    "example": {
+      "{bankCode}": {
+        "parameters": {
+          "scanRootTemplate": "banks/ext-{BANK_CODE}",
+          "note": "示例：多模块工程可将 scanRootTemplate 指向包含全部 as 模块的父目录"
+        }
+      }
+    }
+  },
+
+  "verificationLevels": {
+    "note": "合并类改动的证据分级，禁止越级宣称已验证。",
+    "levels": [
+      "编译级：模块编译通过（仅证明语法与依赖正确，不证明定制加载生效）",
+      "静态级：唯一性扫描 count=1、残留引用=0、字段遮蔽逐项核对（证明结构正确，不证明运行期生效）",
+      "运行时级：服务启动后日志确认目标 Bean 为个性化实现、业务口径按预期生效（唯一可标 verified 的等级）"
+    ],
+    "failAction": "无运行环境时按静态级交付，并在交付声明中显式标注『运行时验证缺口：定制加载/口径效果未实测』"
+  }
+}

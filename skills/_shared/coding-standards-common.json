@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "BEMP 通用 Java 编码硬规则【唯一权威源】——模型已具备但工程实测高发违反（【通用-高频】）。供 bemp-personalized-dev/config/config.json 引用；评审侧对应检查见 bemp-backend-code-review §7/§10/§15/§16/§19。",
+  "version": "1.0.0",
+  "lastUpdate": "2026-10-13",
+  "level": "通用-高频",
+  "rules": {
+    "collectorsToMapMerge": "Collectors.toMap 处理重复 key 时必须提供 merge 函数",
+    "bigDecimalPrecision": "BigDecimal.divide 必须设置精度",
+    "threadLocalFinallyRelease": "ThreadLocal 必须在 finally 块中释放",
+    "sqlNullCheck": "SQL 查询需包含空判断",
+    "mybatisJdbcType": "MyBatis 映射需指定 jdbcType"
+  }
+}

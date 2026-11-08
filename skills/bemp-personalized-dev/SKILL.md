@@ -64,7 +64,14 @@ bemp-personalized-dev/
 │   ├── compile-deploy.json           # 编译→部署→重启路径配置
 │   ├── function-id-rules.json        # @CloudFunction功能号冲突检查规则
 │   ├── file-integrity-rules.json     # 文件写入完整性校验规则
-│   └── spec-consistency-checklist.json # spec一致性检查清单
+│   ├── spec-consistency-checklist.json # spec一致性检查清单（技能侧；SC 明细见 _shared）
+│   ├── field-sync-checklist.json     # 字段链路同步检查清单（加字段逐环节同步，配置驱动）
+│   ├── batch-execution-policy.json   # 批量执行形态与容错策略（双形态/事务边界/观测要求，配置驱动）
+│   ├── reference-alignment-checklist.json # 参考实现深度对齐清单（分层矩阵/差异分类/写入侧覆盖，配置驱动）
+│   ├── workspace-baseline-policy.json # 工作区基线核查与提交甄别策略
+│   ├── guard-interception-policy.json # 旁路管控实现策略（拦截点选择/判定口径/失败策略/双重校验/验证等级）
+│   ├── customization-uniqueness-policy.json # 个性化定制唯一性策略（同被定制父类只允许一个实现/合并协议/字段遮蔽）
+│   └── data-permission-policy.json   # 数据权限维度与管控生效策略（维度矩阵/入口枚举/失败策略/开关注册）
 ├── assets/
 │   ├── guides/                       # 开发指南（规范+模板合并）
 │   │   ├── frontend-guide.md         # 前端开发指南（规范+模板）
@@ -88,7 +95,14 @@ bemp-personalized-dev/
     ├── project-rules.md              # 项目规则（核心约束）
     ├── override-patterns.md          # 子类Override模式知识库
     ├── faq.md                        # 常见问题与最佳实践
-    └── hook-diagnosis-patterns.md    # 钩子诊断模式库（静默跳过类缺陷排查/SQL判别集/修复三件套）
+    ├── hook-diagnosis-patterns.md    # 钩子诊断模式库（静默跳过类缺陷排查/SQL判别集/修复三件套）
+    ├── semantic-change-patterns.md   # 语义变更模式库（需求交互缺陷定性/共享行为影响面矩阵/验证等级决策树）
+    ├── field-sync-patterns.md        # 字段链路同步模式库（加字段链路矩阵/搬运丢值定性/双向映射对称铁律）
+    ├── batch-fault-tolerance-patterns.md # 批量执行形态与容错模式库（双形态定性/事务边界/失败策略/观测要求）
+    ├── reference-alignment-patterns.md   # 参考实现深度对齐模式库（**触发场景：需求含"参照/对齐/同款/与XX一致"或目标侧有同类型成熟参考实现时加载**。R1-R7 流程、F1-F6 失败模式、表层vs深层判定、适用/不适用场景）
+    └── guard-interception-patterns.md    # 旁路管控实现模式库（**触发场景：需求语义为"对既有链路施加管控（拦截/禁止/校验/限流/开关）"且不改产品代码，或"管控应生效却未生效"缺陷排查、业务语义存在多套码集（码值同义异构）时加载**。G1-G8 流程、拦截点矩阵、机制否定、码值同义判定、等同粒度、fail-open/fail-close、前后端双重校验、未生效分流、验证等级、适用/不适用场景）
+    ├── customization-uniqueness-patterns.md # 个性化定制唯一性模式库（**触发场景：新增/修改/重命名/合并带定制注解的类；或"个性化逻辑改了却没生效"且代码静态正确时加载**。CU 双覆盖机制、检测决策树、合并协议三要点、F1-F5 失败模式、验证等级、反模式）
+    └── data-permission-dimension-patterns.md # 数据权限维度与管控生效模式库（**触发场景：需求涉及可见性/归属判定/权限校验，或出现"某机构看到不该看的""合法请求被拦""某入口有校验别处没有"时加载**。DP 维度错配、语义同源、管控生效三子形态（入口覆盖/入参形态/参数开关）、条件片段语义方向、验证等级、反模式）
 ```
 
 ## 开发规范文档
@@ -109,6 +123,13 @@ bemp-personalized-dev/
 | 扫描器Sanitizer形态库 | [sanitizer-patterns.md](references/sanitizer-patterns.md) | **触发场景：修复路径遍历/文件上传/注入类扫描缺陷，或防御代码被扫描器复报时加载**。认可/不认可形态映射表、修复决策树、白名单三维度模板（P22） |
 | 页面组装模式 | [page-assembly-patterns.md](references/page-assembly-patterns.md) | **触发场景：菜单挂载/路由注册变更、弹窗组件复用为独立菜单页、菜单/路由/白屏类缺陷修复定性、界面文案显示 key 原文（国际化子段缺失）时加载**。F1-F4 三源事实核验决策树（实库菜单表/增量脚本/路由注册表，实库为最高基准）、standalone 页面化双分支定稿方案（⚠ 浮层外壳退化补丁已废弃——受控实测通过但业务验收失败，浮层与页面是两种渲染范式）、差异化国际化子段补充与覆盖度校验、验证等级匹配表 |
 | 钩子诊断模式 | [hook-diagnosis-patterns.md](references/hook-diagnosis-patterns.md) | **触发场景：钩子/切面/拦截器/开关类功能"业务成功但效果未生效"缺陷排查定性、需产出远程环境核实 SQL 判别集、钩子跳过分支补日志或等同判断粒度改造时加载**。D1 定性分流、D2 关卡清单法、D3 同源分叉判别、D4 SQL 判别集模板（含归属确认）、D5 截图取证规则、D6 修复模式三件套（fail-open/fail-close 决策树）、D7 环境隔离、验证等级匹配 |
+| 语义变更模式 | [semantic-change-patterns.md](references/semantic-change-patterns.md) | **触发场景：新需求上线后旧功能异常（功能代码未被本次改动的需求交互缺陷）、修复需改变共享行为语义（逻辑删除↔物理删除/查询默认过滤/状态枚举含义/提示形态/导入解析口径）、修复后运行环境不可用需定验证等级时加载**。C1 定性分流、C2 共享行为语义变更影响面矩阵【强制】、C3 后端契约前置核实、C4 框架能力优先、C5 非法输入拦截前移、C6 修复即注释扩散同步、C7 验证等级决策树、C8 执行环境适配 |
+| 字段链路同步模式 | [field-sync-patterns.md](references/field-sync-patterns.md) | **触发场景：给既有表/实体新增字段（扩列/字段扩展）且需在列表/弹窗/导出/日志展示或落库、"某字段落库/展示为空/修改之后没有记录/改了查不到"类缺陷、维护实体↔DTO/VO 映射（转换）工具时加载**。E1 现象分流（现象→环节）、E2 字段链路完整性矩阵【强制】（单一数据源为 config/field-sync-checklist.json）、E3 映射工具双向对称铁律【强制】、E4 验证失败反馈优先+截图取证、E5 无运行环境时 JVM 级断言复现、E6 收口口径（诚实标注验证缺口）、E7 执行环境适配、验证等级匹配表 |
+| 批量执行形态与容错模式 | [batch-fault-tolerance-patterns.md](references/batch-fault-tolerance-patterns.md) | **触发场景：编写/改造定时任务或日终批量、页面批量导入/批量提交、批处理服务、批量补全或批量同步（多条数据逐条/整批处理），或需判断"单条失败该跳过还是整批回滚"时加载**。B1 形态定性（业务语义→形态，默认机制）、B2 双形态对照矩阵、B3 批量容错骨架（无整批事务+单条 catch 跳过）、B4 整批原子骨架（整批一个事务+带定位抛出回滚）、B5 观测要求（三态结果+失败明细+error 留痕+批次日期）、B6 边界风险（后置动作失败部分状态/幂等/全量无分页）、B7 验证注入（按形态选断言）。单一数据源为 config/batch-execution-policy.json |
+| 参考实现深度对齐模式 | [reference-alignment-patterns.md](references/reference-alignment-patterns.md) | **触发场景：需求含"参照/参考/对齐/同款/与XX一致/移植/适配"措辞，或目标侧存在同类型成熟参考实现（产品化→个性化、A项目→B项目、老版本→新版本）且功能含写入侧时加载**。R1 触发识别、R2 三源事实核验【强制】、R3 分层拆解（L1-L7）、R4 差异台账【强制闸门：台账未产出禁止编码】、R5 差异四分类处置、R6 落地实现、R7 逐层回归验证；F1-F6 失败模式（表层对齐/隐式语义/写入侧漏项/口径漂移/无罪删除/差异无台账）；表层 vs 深层判定；适用/不适用场景。单一数据源为 config/reference-alignment-checklist.json |
+| 旁路管控实现模式 | [guard-interception-patterns.md](references/guard-interception-patterns.md) | **触发场景：需求语义为"对既有链路施加管控（拦截/禁止/校验/限流/开关）"且不改产品代码，或"管控应生效却未生效"缺陷排查、业务语义存在多套码集时加载**。G1 需求定性、G2 机制核验（先否定再换落点）、G3 拦截点选择、G4 判定口径（码值同义异构+等同粒度，最高发根因）、G5 fail-open/fail-close、G6 双重校验与留痕、G7 未生效分流、G8 验证等级；适用/不适用场景。单一数据源为 config/guard-interception-policy.json |
+| 定制唯一性模式 | [customization-uniqueness-patterns.md](references/customization-uniqueness-patterns.md) | **触发场景：新增/修改/重命名/合并带定制注解的类；或"个性化逻辑改了却没生效"且代码静态正确、无编译错误时加载**。CU-001 同一被定制父类唯一实现（双重覆盖静默失效）、CU-002 合并后字段遮蔽与注入等价；检测决策树、合并协议三要点（方法三分类/字段遮蔽/迁移不是重构）、F1-F5 失败模式、验证等级、反模式。单一数据源为 config/customization-uniqueness-policy.json |
+| 数据权限维度与管控生效模式 | [data-permission-dimension-patterns.md](references/data-permission-dimension-patterns.md) | **触发场景：需求涉及数据可见性/归属判定/权限校验；或出现"某机构看到不该看的""合法请求被拦住""某入口有校验另一入口没有"时加载**。DP-001 维度与字段归属匹配（客户级字段不得做账号级判定）、DP-002 管控入口覆盖与入参形态（取不到就放行=等效无校验）、DP-003 业务参数开关生效观测（开关放开使过滤架空）、DP-004 条件片段语义方向；验证等级、反模式。单一数据源为 config/data-permission-policy.json |
 
 ## 配置文件
 
@@ -120,8 +141,14 @@ bemp-personalized-dev/
 | [compile-deploy.json](config/compile-deploy.json) | 编译→部署→重启路径配置 | 是 |
 | [function-id-rules.json](config/function-id-rules.json) | @CloudFunction 功能号冲突检查规则：前缀、序号范围、排除列表 | 是 |
 | [file-integrity-rules.json](config/file-integrity-rules.json) | 文件写入完整性校验规则：大括号匹配、标签匹配、修复策略 | 是 |
-| [spec-consistency-checklist.json](config/spec-consistency-checklist.json) | Spec 一致性检查清单：日志级别、异常处理、任务隔离、错误文案 | 是 |
+| [spec-consistency-checklist.json](config/spec-consistency-checklist.json) | Spec 一致性检查清单技能侧配置（**SC-001~006 明细以 `_shared/spec-consistency-checklist.json` 唯一权威源为准**） | 是 |
+| [field-sync-checklist.json](config/field-sync-checklist.json) | 字段链路同步检查清单：加字段逐环节同步的 chain（环节/判据/缺失症状）、双向对称硬规则、空值现象分流、验证断言模式 | 是 |
+| [batch-execution-policy.json](config/batch-execution-policy.json) | 批量执行形态与容错策略：形态枚举（批量容错/整批原子）、业务语义→形态判定规则、事务边界、失败策略、观测要求（三态/明细/留痕/批次日期）、反模式、风险清单、验证注入 | 是 |
+| [reference-alignment-checklist.json](config/reference-alignment-checklist.json) | 参考实现深度对齐清单：触发词与适用判定、三源核验、分层矩阵（L1-L7：入口权限/数据契约/数据源/写入侧场景/口径函数/粒度语义/差异台账）、差异四分类（可移植/需适配/不适用/需新建）与未知升级策略、写入侧枚举与覆盖闸门、口径一致性、差异台账字段与前置闸门、按层验证等级、不适用场景 | 是 |
 | [workspace-baseline-policy.json](config/workspace-baseline-policy.json) | 工作区基线核查与提交甄别策略：回退判定阈值、diff 三分类处置、备份与恢复规则 | 是 |
+| [guard-interception-policy.json](config/guard-interception-policy.json) | 旁路管控实现策略：拦截点矩阵、机制核验、码值同义判定规则、等同粒度、fail-open/fail-close 决策树、前后端双重校验分工、留痕要求、未生效分流、环境降级与验证等级 | 是 |
+| [customization-uniqueness-policy.json](config/customization-uniqueness-policy.json) | 个性化定制唯一性策略：扫描参数（扫描根/注解/正则/分组键）、检测命令模板、合并协议（方法三分类/字段遮蔽/行为等价/合并后校验）、CU-001~CU-002 检查项、验证等级 | 是 |
+| [data-permission-policy.json](config/data-permission-policy.json) | 数据权限维度与管控生效策略：维度矩阵（法人/机构/客户/账号及候选载荷字段）、跨维度规则、入口枚举与入参形态核查、失败策略、业务参数开关注册表、条件复用语义规则、DP-001~DP-004 检查项、验证等级 | 是 |
 
 **配置继承机制**：
 - 技能级配置（`bemp-personalized-dev/config/`）：默认配置，适用于所有银行
@@ -149,6 +176,21 @@ bemp-personalized-dev/
    - 查看产品化代码的实现方式
    - 参考同目录下已有的个性化实现案例
    - 特别注意 UI 组件的风格一致性 (如超链接风格、输入框风格等)
+
+3.1 **参考实现深度对齐【条件强制：存在成熟参考实现时】**
+   - **配置文件**：[reference-alignment-checklist.json](config/reference-alignment-checklist.json)，层清单/差异分类/判据/验证等级全部配置驱动，禁止在流程中硬编码
+   - **模式参考**：[参考实现深度对齐模式库](references/reference-alignment-patterns.md)（R1-R7 / F1-F6）
+   - **触发条件**：需求命中 `trigger.markers`（参照/参考/对齐/同款/与XX一致/移植/适配），或目标侧存在同类型成熟参考实现且功能含**写入侧**（落库/状态流转/金额变动）
+   - **执行步骤**：
+     1. **三源事实核验**（`preconditions.mustVerifyThreeSources`）：**参考实现须读三处**——前端页面 **+ 后端接口 + 写入侧（落库/状态变更）**；另核目标侧现状与真实数据。**只读前端页面即开始仿写 = 典型失败起点**
+     2. **分层拆解**：按 `layers`（L1 入口与权限 / L2 数据契约 / L3 数据源 / L4 写入侧与场景矩阵 / L5 口径函数 / L6 粒度与语义 / L7 差异台账）逐层比对，产出「参考行为 → 目标行为 → 差异」
+     3. **差异台账产出【强制闸门】**：按 `diffLedger.requiredFields`（层id/参考行为/目标行为/分类/依据/验证方式）逐项落表；`gate=pre-coding` —— **台账产出前禁止进入编码**，这是防止「表层对齐」的核心卡点
+     4. **差异四分类处置**（`diffClassification`）：`可移植/需适配/不适用/需新建`，各按 `action` 处置；无法归类时按 `onUnknown=stop-and-escalate` **暂停并升级用户裁决**，禁止静默选边
+     5. **写入侧覆盖闸门**（`writeSideEnumeration`）：枚举**全部写入点**，并以**场景码字典/枚举的全量取值**为覆盖基准逐值说明「是否需要写」，存在「未说明」取值即不通过（高发漏项：只覆盖交易类场景，遗漏维护类生命周期事件）
+     6. **口径一致性核对**（`caliberConsistency`）：同语义字段的格式化/转码/单位必须显式比对，任何变更须写依据或还原参考口径
+     7. **逐层回归验证**（`verification.levels` + 各层 `minVerifyLevel`）：L4/L6 必须**造业务数据实测落库结果**（粒度/关联/快照正确），仅编译通过不构成闭环
+   - **禁止行为**：不得凭直觉精简（删除参考侧列/接口/辅助链路的，必须在台账记录依据与替代评估）
+   - **不适用场景**（`exclusions`）：无参考的新功能、参考实现本身有已知缺陷、纯样式/文案调整、参考与目标业务规则根本不同（此时应对齐机制、差异记 `not-applicable`/`adapt`）
 
 4. **开发指南参考【强制】（分层加载，控制 token 消耗）**
    - **加载顺序**：先 Read 对应指南的头部规范章节（命名约定、代码风格、硬性红线），用 Read 的 offset/limit 限取头部约 150 行，**禁止一次性全文加载指南**
@@ -231,6 +273,87 @@ bemp-personalized-dev/
   - 候选来源表为空表仍坚持该方案 → 会引入"查空即跳过"的静默失效
   - 循环内 singletonList 单查补全 → 违反批量化模式（N+1）
 
+**前置检查：字段链路同步检查【条件强制】**
+- **配置文件**：[field-sync-checklist.json](config/field-sync-checklist.json)，链路环节/触发词/判据/缺失症状/验证断言全部由配置管理，禁止在流程中硬编码清单
+- **模式参考**：[字段链路同步模式库](references/field-sync-patterns.md)（E1-E7）
+- **触发条件**：需求命中 `trigger.markers`（如"新增字段/加字段/字段扩展/新增列/扩列/字段同步"）且涉及**既有表/实体**；字段"为空/未记录/改了查不到"类返工默认命中
+- **检查步骤**：
+  1. 先枚举该字段需流经的**全部既有链路**（`hardRules.existingChainFirst`）：查询/展示/日志/导出/校验/导入，产出链路清单后再动手，禁止只改最直观的一处
+  2. 按 `chain` 逐环节同步（数据库列定义 → 实体 → DTO/VO（api+as 双工程）→ Dao.xml 四段（BaseResultMap/Base_Column_List/insert/insertSelective）→ **映射工具两个方向** → 业务快照（原值/新值）→ 前端列+字典组），`mandatory=true` 环节漏补即阻断交付
+  3. **双向对称核对【强制】**（`hardRules.converterSymmetry`）：X↔Y 映射工具加字段必须同时补**读取+写入两个方向**；grep 字段名列出全部搬运方法逐一核对，缺一方向即漏
+  4. 返工场景先按 `emptyValueDiagnosis.branches` 按现象分流再定位环节（行不存在→写动作链路；记录在而列空→搬运方向），禁止直接猜代码
+- **常见遗漏**：
+  - 只补映射工具的读取方向（entity→Dto）漏写入方向（Dto→entity）→ 编译/查询/前端列均正常，唯独值为空（**静默丢值高发点**）
+  - Dao.xml 只补 BaseResultMap 漏 insert/insertSelective → 查询有值、写入仍空
+  - DTO 只改 as 工程漏 api 工程（或反之）→ 跨工程取不到值
+  - DDL 未实际执行或漏列 → 写入报未知列；无库环境须把"实库列存在性"标为验证缺口
+
+**前置检查：批量执行形态与容错【条件强制】**
+- **配置文件**：[batch-execution-policy.json](config/batch-execution-policy.json)，形态名/判据/观测字段/反模式/风险清单/验证注入全部由配置管理，禁止在流程中硬编码
+- **模式参考**：[批量执行形态与容错模式库](references/batch-fault-tolerance-patterns.md)（B1-B7）
+- **触发条件**：需求/任务涉及多条数据的批量处理（命中 `trigger.markers`，如"批量/逐条/定时任务/日终/日间配套/批处理/批量导入/批量补全/跑批"）
+- **检查步骤**：
+  1. **定性形态【强制】**（`modeSelection.rules`）：批内条目互不依赖且允许部分成功 → `batch-tolerant`（单条失败隔离）；同一业务动作不可分割、要求全有或全无 → `atomic`（整批同生共死）；两类判据冲突或都不满足 → 按 `onAmbiguous=escalate` 升级裁决，禁止静默选边
+  2. **按形态落地事务边界与失败策略**（`modes.{形态}`）：容错形态**无外层整批事务**、单条 `catch` 后计数+明细+error 留痕且不中断（单条脏数据不阻断整批）；原子形态**整批一个事务**、单条异常带定位信息（行号/业务键）抛出触发整批回滚，禁止循环内吞异常
+  3. **观测要求**（`observability`）：结果三态（成功/部分成功/失败，由成功数与失败数推导）+ 失败明细含业务键与原因 + 每条失败 error 留痕 + 统计报告带批次日期；零条数据同样输出报告
+  4. **风险自检**（`riskChecklist`）：主数据写入后的动作（日志/快照/下游）失败会产生"数据已落库但计失败"的部分状态，必须留痕可补做；容错形态的新增路径必须**幂等**（重跑整批不得产生重复）
+  5. **业务逻辑共用**（`sharedLogicForSingleEntry`）：同一业务同时有批量入口与单条入口时，单条入口作为批量的退化形态委托同一实现，禁止各写一份
+- **常见遗漏**：
+  - 容错形态却把整个循环包进一个事务 → 单条失败连坐已成功条目，与"允许部分成功"矛盾
+  - 原子形态却在循环内 `catch` 后 `continue` → 脏数据静默放行，用户误以为已全部入库
+  - 只报失败条数不报成功数 → 无法推导三态结果；失败明细缺业务键/原因 → 人工无法定位与补做
+
+**前置检查：旁路管控类实现【条件强制】**
+- **配置文件**：[guard-interception-policy.json](config/guard-interception-policy.json)，触发词/拦截点矩阵/机制核验/码值同义规则/等同粒度/失败策略/双重校验/留痕要求/未生效分流/环境降级/验证等级全部由配置管理，禁止在流程中硬编码
+- **模式参考**：[旁路管控实现模式库](references/guard-interception-patterns.md)（G1-G8）
+- **触发条件**：需求语义为"对既有链路施加管控"且约束不改产品代码（命中 `trigger.markers`：拦截/禁止/不允许/卡控/限流/开关）；"管控应生效却未生效"类返工默认命中
+- **检查步骤**：
+  1. **需求定性**（`trigger`）：判定管控语义与落点层级（接口层/服务层/组件层）；非管控类需求退出本流程（允许直接改产品代码的不适用）
+  2. **机制核验【强制】**（`mechanismPrecheck`）：一旦怀疑"某层 AOP/切面不生效"，先按 m1→m3 做**机制否定**（框架全局切点定义 + 产品自带同类切面先例 + 目标 Bean 调用路径）；m1 与 m2 均成立即机制可用，**禁止未做否定就直接换落点**（否则引入无必要改动并掩盖真根因）
+  3. **落点选择**（`interceptionPoints`）：按候选的 `when/verify/risk/fallback` 选点；需求表述为"接口层校验"时优先控制器落点；无法确认切点可生效时必须显式降级到更外层落点，并在注释与交付声明记录依据与风险
+  4. **判定口径【最高发根因】**（`valueAliasRules`/`granularityRules`）：判定业务语义前**先 grep 四处码值来源**（产品常量类/字典组/SQL 样本/前端字面量）穷举同义码值，优先复用产品同源口径函数；**禁止单值字面量 equals**（其他同义码值会全部落入放行分支而致条件恒不成立）；等同判定按业务口径选粒度（行号级/机构级/法人级），注释写明"为什么选该粒度"
+  5. **失败策略与双重校验**（`failurePolicy`/`dualValidation`/`logging`）：旁路自身依赖异常时按决策树论证 fail-open/fail-close 并 error 留痕、注释写明兜底点；前端"尽力拦截"+后端"权威兜底"，**漏拦边界显式声明**（只做一端不算闭环）；提示文案前后端逐字一致且集中为常量；**放行与拦截均须留痕**（业务唯一键+判定要素值+判定结论）
+  6. **未生效分流**（`ineffectiveDiagnosis`）：上线反馈"未生效"先分流——无留痕=发布新鲜度/落点未调用；有留痕走放行=判定口径不成立；有留痕命中未阻断=异常被上层吞并；需要远程逐条核实时按 [hook-diagnosis-patterns.md](references/hook-diagnosis-patterns.md) D4 产出 SQL 判别集；**远程事实优先于本机推断**
+  7. **验证等级**（`verification`/`environmentPrecheck`）：按变更类型取最低等级；本机工具链缺失（如 `JAVA_HOME`）或前端构建不可用或无目标环境时按 `failAction` 降级，并在交付声明显式标注缺口；**无目标环境实测禁止标 verified**
+- **常见遗漏**：
+  - 只判某一侧码值 → 其他同义码值全部落入放行分支，管控恒不生效（本类**最高发根因**）
+  - 怀疑 AOP 不生效就直接换落点而未做机制否定 → 无必要改动且掩盖真根因，下一轮仍不生效
+  - 只做前端或只做后端一端就宣称闭环 → 前端漏拦边界无人兜底
+  - 放行分支不留痕 → 后续"未生效"反馈无定位入口，被迫全流程排查
+
+**前置检查：个性化定制唯一性【强制】**
+- **配置文件**：[customization-uniqueness-policy.json](config/customization-uniqueness-policy.json)，扫描根/注解标记/类声明正则/分组键/合并协议/验证等级全部由配置管理，禁止在流程中硬编码具体类名或父类名
+- **模式参考**：[定制唯一性模式库](references/customization-uniqueness-patterns.md)（CU-001~CU-002 / F1-F5）
+- **触发条件**：新增、修改、重命名、合并任何带定制注解（默认 `@CustomizedBean`）的类；或缺陷现象为「个性化逻辑改了却没生效」而代码静态检查正确
+- **检查步骤**：
+  1. 确认本次类的 `extends` 父类全名，按 `commands.listCustomizedClasses` 扫描全工程带定制注解的类并按 `groupKey` 分组
+  2. 若目标父类分组内实现数 `> parameters.maxCandidatesPerGroup` → **判定冲突，禁止新建第二个继承类**；应直接在既有实现上追加/修改方法（追加优先于新建再合并）
+  3. 确需合并时按 `mergeProtocol.order` 执行：方法三分类 → 迁移 → 删除被合并类 → 等价性验证
+  4. **字段遮蔽专项**（`mergeProtocol.fieldShadowChecks`）：迁移方法依赖的字段若与父类 `protected/public` 字段同名，必须连同声明与注入注解一并迁移，并在类注释论证注入等价性
+  5. 合并后执行 `postMergeVerify`：重新扫描 count=1、被删类代码引用=0、字段注入逐项核对、编译通过
+- **常见遗漏**：
+  - 两个类都能编译、启动不报错，就认为「框架会用对的那个」→ 实际按注册顺序择一，落选类**全部覆盖方法静默失效**（机构过滤/校验不执行），是「改了没用」类缺陷的高发根因
+  - 认为「父类已有同名字段」而省略字段迁移 → 合并后方法改读父类字段，注入来源/时机不同导致运行期空值或口径漂移
+  - 合并时「顺手优化」判定条件/文案/排序 → 失去与合并前的对照基准，回归无法验证
+  - 删除类后仅编译通过，不 Grep 残留引用
+
+**前置检查：数据权限维度与管控生效【强制】**
+- **配置文件**：[data-permission-policy.json](config/data-permission-policy.json)，维度矩阵/跨维度规则/入口枚举/失败策略/开关注册表/条件复用规则全部由配置管理，禁止在流程中硬编码具体业务字段名或参数键
+- **模式参考**：[数据权限维度与管控生效模式库](references/data-permission-dimension-patterns.md)（DP-001~DP-004）
+- **触发条件**：需求涉及数据可见性、归属判定、权限校验、按机构/法人/客户/账号收窄或放开；或缺陷现象为「某机构看到不该看的」「合法请求被拦住」「某入口有校验另一入口没有」
+- **检查步骤**：
+  1. **维度匹配（DP-001）**：先在 `dimensionMatrix` 定位本次判定的**主体维度**（法人/机构/客户/账号），再选该维度承载实体上的字段；按 `crossDimensionRules` 校验字段归属——**客户级字段不得用于账号级或单据级判定**；同一业务概念在全部入口须映射同一语义字段，无对应字段时登记近似映射与偏差
+  2. **入口覆盖（DP-002）**：按 `guardEnforcement.entryPointEnumeration` 枚举全部写入/查询入口（含内部复用方：定时任务/渠道自动流程），产出入口清单；逐入口核对判定依赖字段的实际入参形态，缺失者按 `inputShapeCheck.decisionRule` 处置（**反查补齐 > fail-close > fail-open+留痕**）
+  3. **失败策略与留痕（DP-002）**：按 `failurePolicy` 论证 fail-open/fail-close 并写明兜底点；「无法判定」必须是显式分支（有日志有结论），禁止与「正常放行」共用路径
+  4. **开关观测（DP-003）**：过滤/管控若依赖产品参数开关，按 `switchRegistry` 与 `parameters.switchLookupOrder` 确认实际取值与语义；放开态必须在交付声明与评审报告中**显式告警**；个性化侧优先构造**不依赖该开关的强制收窄**
+  5. **条件语义方向（DP-004）**：复用既有条件片段前按 `conditionReuse.rules` 核实语义方向（排除型≠保留型）与标志字段真实业务态；新增过滤后须用真实数据验证结果集非空
+  6. **验证等级**：按 `verificationLevels` 取最低等级，权限边界类改动**禁止以编译通过结案**
+- **常见遗漏**：
+  - 只看「代码里有没有过滤条件」，不证明它在全部入口、全部参数取值下真正生效 → 管控名义存在、实际被绕过
+  - 判定依据取不到就 `return` 放行且不记日志 → 等效无校验且无迹可查，事后只能靠排除法排查
+  - 依赖产品化参数开关做收窄 → 开关为放开态时过滤条件被架空，排查方向被误导到代码侧
+  - 照搬既有条件片段而方向相反（排除型用成保留型）或用直觉假设标志字段业务态 → 查询恒为空/过滤恒不生效，编译无错
+
 1. **后端开发 (必须在 banks/ext-{BANK_CODE} 目录下)**
    - **指南参考**: 先参考 [后端开发指南](assets/guides/backend-guide.md) 中的代码模板章节
    - **接口/DTO 工程归属【强制】**: 新增或迁移对外服务接口时，先看 backend-guide [§9.4.1 api/as 工程分层契约](assets/guides/backend-guide.md)——接口放 `{BANK_CODE}-biz-api` 工程 `{域}/service` 包（@CloudService）、DTO 同域 `dto` 包；从 as 迁移保持包名不变（引用方零改动）；完成后 api/as 两工程 clean 编译验证
@@ -271,7 +394,7 @@ bemp-personalized-dev/
 4. **增量SQL脚本生成【强制】**
    - **触发条件**: 当需求涉及新增菜单、数据模型、业务参数、流程编排或其他数据库相关内容时，**必须**自动生成符合规范的增量SQL脚本
    - **指南参考**: 必须参考 [数据库开发指南 - 增量SQL脚本生成规范](assets/guides/database-guide.md) 第三章节
-   - **脚本存放目录**: `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/`，其中 `BANK_NAME` 默认为"河南农信"，可根据部署环境动态调整
+   - **脚本存放目录**: `deploy/bemp-script/src/main/resources/banks/{BANK_NAME}/`，`{BANK_NAME}` 取值来自唯一配置入口（`_shared/env-config.json` 的 environmentDefaults.BANK_NAME，或同名环境变量），禁止在本文档或脚本中硬编码银行名
    - **配置中心增量文件目录**: `deploy/bemp-home/src/main/resources/configcenter/banks/{BANK_NAME}/`
    - **命名规范**: 严格遵循 `V{产品版本号}_{日期时间}_{执行序号}_{任务编号}_{中文描述}.{脚本类型}.sql` 格式；执行序号 2 位、从 01 起按执行顺序连续编号，**DDL 序号必须全部小于 DML**、同批脚本共用同一日期时间戳（保证按文件名排序即执行顺序），参考 [数据库开发指南 - 命名规范](assets/guides/database-guide.md) 第2章节
    - **增量策略**: 必须采用"先删除后新增"策略，确保脚本幂等可重复执行；**幂等 DELETE 优先按业务键删除**（禁止仅按主键 ID，规则见 [database-guide.md 3.1](assets/guides/database-guide.md)）
@@ -374,7 +497,7 @@ bemp-personalized-dev/
 
 开发实施完成后，必须执行 Spec 一致性检查，验证代码实现与需求规格说明（spec）的一致性。
 
-- **配置文件**：[spec-consistency-checklist.json](config/spec-consistency-checklist.json)，所有检查项通过配置管理
+- **配置文件**：[spec-consistency-checklist.json](config/spec-consistency-checklist.json)（技能侧）；检查项明细以 `_shared/spec-consistency-checklist.json` 唯一权威源为准
 - **触发时机**：
   - 开发实施完成后（`onDevComplete`）
   - 代码评审阶段（`onCodeReview`）
@@ -382,7 +505,7 @@ bemp-personalized-dev/
 
 **检查步骤**：
 1. **定位 Spec 文档**：按 `specSource.searchPaths` 和 `filePatterns` 搜索需求规格文档
-2. **加载检查清单**：读取 [spec-consistency-checklist.json](config/spec-consistency-checklist.json) 的 `checklist.items`
+2. **加载检查清单**：读取 `_shared/spec-consistency-checklist.json` 的 `items`（本技能 `config/spec-consistency-checklist.json` 的 `checklist.ref/path` 指向它）
 3. **逐项执行检查**：
    - **LOG-001 日志级别一致性**（major）：Spec 中出现的日志级别关键词必须与代码中实际使用的日志方法一致。例：Spec 要求 error，代码使用 warn → 不一致
    - **EXC-001 异常处理一致性**（critical）：Spec 要求抛异常时代码不得使用 return，反之亦然。例：Spec 要求 throw，代码使用 return → 不一致

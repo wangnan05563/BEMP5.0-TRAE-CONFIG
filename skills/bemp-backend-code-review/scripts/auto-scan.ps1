@@ -1,4 +1,4 @@
-﻿# ========== BEMP 后端代码阻塞级问题自动扫描 v3.4.0 ==========
+﻿# ========== BEMP 后端代码阻塞级问题自动扫描 v3.5.0 ==========
 # 银行参数从 config/bank-config.json 读取，切换银行时修改 _shared/env-config.json 的 BANK_CODE 即可
 param(
     # I4 审查缓存：输出文件清单(路径+SHA256)供重复审查时与上次 manifest 比对，未变更且已审文件可跳过
@@ -46,6 +46,8 @@ $DTO_SRC_DIR = if ([System.IO.Path]::IsPathRooted($BANK.dtoSourceDir)) { $BANK.d
 $DTO_PREFIX = $BANK.dtoPrefix
 $URL_PREFIXES = $BANK.urlPrefixes
 $ISSUE_COUNT = 0
+# 检查项总数：新增检查时只改此值，进度显示统一引用
+$TOTAL_CHECKS = 17
 
 function Get-RelPath($fullPath) {
     if ($fullPath -like "$ProjectRoot*") {
@@ -59,7 +61,7 @@ Write-Host "源码目录: $SOURCE_DIR`n" -ForegroundColor Gray
 
 # 检查1：extends产品实现类的Service/Atom是否缺少 @CustomizedBean
 # 仅implements个性化接口的不需要@CustomizedBean，只需@CloudComponent
-Write-Host "[1/16] 检查 @CustomizedBean 注解(extends产品实现类)..." -ForegroundColor Yellow
+Write-Host "[1/$TOTAL_CHECKS] 检查 @CustomizedBean 注解(extends产品实现类)..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $content = Get-Content $_.FullName -Raw -Encoding UTF8
     if ($_.Name -match "(ServiceImpl|AtomImpl).java$" -and $content -match '\bextends\b' -and $content -notmatch "@CustomizedBean") {
@@ -69,7 +71,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查2：Controller 是否误加 @CustomizedBean
-Write-Host "[2/16] 检查 Controller 的 @CustomizedBean..." -ForegroundColor Yellow
+Write-Host "[2/$TOTAL_CHECKS] 检查 Controller 的 @CustomizedBean..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $content = Get-Content $_.FullName -Raw -Encoding UTF8
     if ($content -match "@CustomizedBean") {
@@ -79,7 +81,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction
 }
 
 # 检查3：请求映射路径是否以配置的URL前缀开头
-Write-Host "[3/16] 检查请求映射路径 ($($URL_PREFIXES -join ', '))..." -ForegroundColor Yellow
+Write-Host "[3/$TOTAL_CHECKS] 检查请求映射路径 ($($URL_PREFIXES -join ', '))..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $content = Get-Content $_.FullName -Raw -Encoding UTF8
     if ($content -match '@RequestMapping') {
@@ -95,7 +97,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction
 }
 
 # 检查4：Controller 是否缺少 @RestController
-Write-Host "[4/16] 检查 @RestController 注解..." -ForegroundColor Yellow
+Write-Host "[4/$TOTAL_CHECKS] 检查 @RestController 注解..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $content = Get-Content $_.FullName -Raw -Encoding UTF8
     if ($content -notmatch "@RestController") {
@@ -105,7 +107,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction
 }
 
 # 检查5：DTO 是否实现了 Serializable
-Write-Host "[5/16] 检查 DTO Serializable..." -ForegroundColor Yellow
+Write-Host "[5/$TOTAL_CHECKS] 检查 DTO Serializable..." -ForegroundColor Yellow
 Get-ChildItem -Path "$DTO_SRC_DIR\*" -Recurse -Include "*Req.java","*Resp.java","*Dto.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $content = Get-Content $_.FullName -Raw -Encoding UTF8
     if ($content -match "public class" -and $content -notmatch "implements Serializable") {
@@ -114,7 +116,7 @@ Get-ChildItem -Path "$DTO_SRC_DIR\*" -Recurse -Include "*Req.java","*Resp.java",
 }
 
 # 检查6：Controller 返回值类型
-Write-Host "[6/16] 检查 Controller 返回值..." -ForegroundColor Yellow
+Write-Host "[6/$TOTAL_CHECKS] 检查 Controller 返回值..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $content = Get-Content $_.FullName -Raw -Encoding UTF8
     if ($content -match '@RequestMapping' -and $content -notmatch 'CommonResp|void') {
@@ -123,7 +125,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*Controller.java" -ErrorAction
 }
 
 # 检查7：DTO 前缀是否符合命名规范
-Write-Host "[7/16] 检查 DTO 命名前缀 ($DTO_PREFIX)..." -ForegroundColor Yellow
+Write-Host "[7/$TOTAL_CHECKS] 检查 DTO 命名前缀 ($DTO_PREFIX)..." -ForegroundColor Yellow
 Get-ChildItem -Path "$DTO_SRC_DIR\*" -Recurse -Include "*Req.java","*Resp.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $baseName = $_.BaseName
     if ($baseName -notmatch "^${DTO_PREFIX}") {
@@ -132,7 +134,7 @@ Get-ChildItem -Path "$DTO_SRC_DIR\*" -Recurse -Include "*Req.java","*Resp.java" 
 }
 
 # 检查8：e.printStackTrace() 替代日志
-Write-Host "[8/16] 检查 e.printStackTrace()..." -ForegroundColor Yellow
+Write-Host "[8/$TOTAL_CHECKS] 检查 e.printStackTrace()..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -145,7 +147,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查9：BigDecimal 用 == 或 equals 比较
-Write-Host "[9/16] 检查 BigDecimal 比较方式..." -ForegroundColor Yellow
+Write-Host "[9/$TOTAL_CHECKS] 检查 BigDecimal 比较方式..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -157,7 +159,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查10：Integer/Long 用 == 比较
-Write-Host "[10/16] 检查 Integer/Long == 比较..." -ForegroundColor Yellow
+Write-Host "[10/$TOTAL_CHECKS] 检查 Integer/Long == 比较..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -169,7 +171,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查11：时间格式误用 hh(12h) 替代 HH(24h)
-Write-Host "[11/16] 检查时间格式 hh/HH..." -ForegroundColor Yellow
+Write-Host "[11/$TOTAL_CHECKS] 检查时间格式 hh/HH..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -181,7 +183,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查12：SQL 字符串拼接
-Write-Host "[12/16] 检查 SQL 字符串拼接..." -ForegroundColor Yellow
+Write-Host "[12/$TOTAL_CHECKS] 检查 SQL 字符串拼接..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -194,7 +196,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查13：硬编码机构号/产品代码
-Write-Host "[13/16] 检查硬编码机构号/产品代码..." -ForegroundColor Yellow
+Write-Host "[13/$TOTAL_CHECKS] 检查硬编码机构号/产品代码..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -206,7 +208,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查14：使用 @Resource 注入（应用 @Autowired）
-Write-Host "[14/16] 检查 @Resource 注入..." -ForegroundColor Yellow
+Write-Host "[14/$TOTAL_CHECKS] 检查 @Resource 注入..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -218,7 +220,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查15：使用 commons-lang 的 StringUtils（应用 commons-lang3）
-Write-Host "[15/16] 检查 StringUtils 版本..." -ForegroundColor Yellow
+Write-Host "[15/$TOTAL_CHECKS] 检查 StringUtils 版本..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -230,7 +232,7 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
 }
 
 # 检查16：Collectors.toMap 缺少 merge 函数
-Write-Host "[16/16] 检查 Collectors.toMap merge..." -ForegroundColor Yellow
+Write-Host "[16/$TOTAL_CHECKS] 检查 Collectors.toMap merge..." -ForegroundColor Yellow
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
     $lines = Get-Content $_.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -238,6 +240,33 @@ Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyC
             $lineNum = $i + 1
             Write-Host "  [WARN] toMap缺merge函数: L${lineNum}: $(Get-RelPath $_.FullName)" -ForegroundColor DarkYellow
         }
+    }
+}
+
+# 检查17：同一被定制（父）类只允许一个个性化实现（RF-016 定制唯一性）
+# 为什么：两个类同时 extends 同一产品化实现类且都标注定制注解时，框架按注册顺序择一，
+# 落选类全部 @Override 方法静默失效（机构过滤/校验不执行），编译与启动均无报错，极难定位。
+Write-Host "[$TOTAL_CHECKS/$TOTAL_CHECKS] 检查 @CustomizedBean 定制唯一性..." -ForegroundColor Yellow
+$CustomizedImpls = @{}
+Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {
+    $head = (Get-Content $_.FullName -Encoding UTF8 -TotalCount 200) -join "`n"
+    if ($head -match '@CustomizedBean') {
+        $m = [regex]::Match($head, 'public\s+class\s+([A-Za-z_$][\w$]*)\s+extends\s+([A-Za-z_$][\w$\.]*)')
+        if ($m.Success) {
+            $superClass = $m.Groups[2].Value
+            $implName = $m.Groups[1].Value
+            if (-not $CustomizedImpls.ContainsKey($superClass)) {
+                $CustomizedImpls[$superClass] = New-Object System.Collections.Generic.List[string]
+            }
+            $CustomizedImpls[$superClass].Add("$implName ($(Get-RelPath $_.FullName))")
+        }
+    }
+}
+foreach ($kv in $CustomizedImpls.GetEnumerator()) {
+    if ($kv.Value.Count -gt 1) {
+        Write-Host "  [BLOCK] 同被定制父类存在多个个性化实现: $($kv.Key)" -ForegroundColor Red
+        foreach ($impl in $kv.Value) { Write-Host "          - $impl" -ForegroundColor Red }
+        $ISSUE_COUNT++
     }
 }
 
@@ -251,7 +280,7 @@ if ($ISSUE_COUNT -eq 0) {
 
 # ---------- L0 预筛与审查缓存（v3.4.0 新增，追加式实现，不影响上述16项检查） ----------
 # I2: 输出机器可读候选文件清单，LLM 审查阶段只读该清单 + git 变更文件，其余文件不进入上下文。
-# 候选口径 = 全部16项检查的触发特征并集；宁多勿漏（纯实体/无特征工具类被排除）。
+# 候选口径 = 全部检查项的触发特征并集；宁多勿漏（纯实体/无特征工具类被排除）。
 $L0Pattern = 'extends\b|@CustomizedBean|@RestController|@RequestMapping|printStackTrace|BigDecimal|Collectors\.toMap|@Resource|commons\.lang\.StringUtils|SimpleDateFormat|DateTimeFormatter|\b(select|insert|update|delete)\b|setBrchNo|setLegalNo|setOrgCode|(Integer|Long)\s+\w+\s*=='
 $L0Files = New-Object System.Collections.Generic.List[string]
 Get-ChildItem -Path $SOURCE_DIR -Recurse -Filter "*.java" -ErrorAction SilentlyContinue | ForEach-Object {

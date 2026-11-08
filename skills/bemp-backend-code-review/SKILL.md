@@ -3,8 +3,8 @@ name: "bemp-backend-code-review"
 description: "审查BEMP银行个性化后端代码是否符合项目规范，含代码结构、注解、参数传递、安全性、性能等检查。支持多银行配置切换。"
 whenToUse: "需要审查BEMP工程各银行个性化后端代码是否符合项目规范"
 triggers: "代码/规范/code 走查/审查/审核/把关/review"
-version: "3.5.0"
-updated: "2026-09-04"
+version: "3.6.0"
+updated: "2026-10-20"
 config: "config/bank-config.json"
 scripts: "scripts/auto-scan.ps1"
 template: "templates/report-template.md"
@@ -62,7 +62,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 | 文件 | 用途 | 检查项数 |
 |------|------|---------|
 | `config/bank-config.json` | 银行参数 + 执行环境参数（`environment.shellInterpreter` 等） | - |
-| `config/spec-consistency-checklist.json` | Spec一致性检查 | 6项 |
+| `config/spec-consistency-checklist.json`（技能侧；SC-001~006 明细见 `../../_shared/spec-consistency-checklist.json`） | Spec一致性检查 | 6项 |
 | `config/degradation-checklist.json` | 降级处理模式检查 | 6项 |
 | `config/review-flow-checklist.json` | 流程与真实性检查（含 parameters 节） | 4项 |
 
@@ -90,6 +90,8 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 ## 审查规则
 
+> **约束等级与判定**：本技能规则强度用 `【强制】/【推荐】` 表达，执行严重度另用 `阻塞/严重/警告/提示` 表达（两轴正交）。其中「模型已具备该通用知识、但工程实测高发违反」的条目（如 N+1、空 catch、`BigDecimal` 用 `==`、`Collectors.toMap` 缺 merge）在 `bemp-personalized-dev` 指南中标注为 `【通用-高频】`——表示仍需强制门禁，但须与项目专有约束（`@CustomizedBean`、`api/as` 契约、增量 SQL 序号等）区分。本技能中满足「通用知识 ∧ 高发失误」的条目统一以 `【通用-高频】` 前缀标注（见 §9–§19），**其执行严重度不变**；报告输出时在该项严重度后附 `[通用-高频]` 标签，以便与项目专有约束违规区分。
+
 ### 1. 目录与包结构
 - 【强制】代码必须在 `{sourceDir}` 下，包路径 `{packagePath}.{module}.{layer}`
 
@@ -101,6 +103,10 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 **判断规则**：`extends XxxImpl` → `@CustomizedBean` + `@CloudComponent`；`implements XxxService`（仅接口）→ 仅 `@CloudComponent`
 
+- 【强制】**同一被定制（父）类在同一工程内只允许一个个性化实现**（RF-016）：新增/修改个性化类前先扫描同类实现并分组计数，已存在实现时在既有类上追加方法，禁止再新建第二个继承类；确需合并时按 bemp-personalized-dev customization-uniqueness-policy 的 mergeProtocol 执行（方法三分类、字段遮蔽一并迁移、行为逐行等价），合并后重扫唯一性并核对残留引用
+- 【强制】合并/迁移方法依赖的字段若与父类 `protected/public` 字段同名（字段遮蔽），必须连同声明与注入注解一并迁移，并在类注释论证注入等价性，防止运行期取到父类字段而注入行为变化
+- 【强制】发布微服务时必须显式写 `implements XxxService`，即使父类已经实现——否则接口暴露不生效；定制容器内同一目标产品服务只保留 1 个实现（纵向 孙→父→祖 允许，横向多次定义禁止）
+
 ### 3. Controller 规范
 
 - 【强制】`@RestController` + 路径以 `{urlPrefixes}` 任一开头
@@ -108,6 +114,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 - 返回值：`CommonResp` 或 `void`（导出），方法加 `@RequestMapping` 指定 method
 - 【阻塞】GET 禁止做状态变更操作（激活/删除等）
 - 【强制】集合接口必须有分页（默认20条），禁止返回全量数据
+- 【强制】Controller 定制 Mapping 规则：定制产品 Controller 时保留类 `@RequestMapping` 不变，**禁止**追加 `/banks/{bankCode}/`（否则同类其他未定制请求路径全变）；新写 Controller **必须**追加 `/banks/{bankCode}/`（否则可能存在两个重名请求）；追加的新方法需附加 `{classPrefix}` 区分标识，防止未来产品功能冲突
 - 通用 REST 设计细则（HTTP动词语义/URL名词化/版本化/响应体一致性/错误格式等，警告级）→ [general-java-pitfalls.md §1](references/general-java-pitfalls.md)
 
 ### 4. Service 规范
@@ -148,13 +155,13 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 ### 9. 日志记录与异常处理
 
 **日志**：ERROR：异常/失败 | WARN：潜在问题 | INFO：关键操作 | DEBUG：调试(生产关闭)
-- 禁止记录密码/密钥；异常必须包含异常对象 `LOGGER.error("msg", e)`
+- 【通用-高频】 禁止记录密码/密钥；异常必须包含异常对象 `LOGGER.error("msg", e)`
 
 **异常处理**：
-- 禁止空 catch 块（吞异常）或过宽 catch `Exception`/`Throwable`
-- 捕获异常后必须保留原始堆栈：`throw new XxxException("msg", e)`
-- 禁止用异常做流程控制；自定义领域异常区分业务错误
-- 检查异常不应泄漏到 API 边界
+- 【通用-高频】 禁止空 catch 块（吞异常）或过宽 catch `Exception`/`Throwable`
+- 【通用-高频】 捕获异常后必须保留原始堆栈：`throw new XxxException("msg", e)`
+- 【通用-高频】 禁止用异常做流程控制；自定义领域异常区分业务错误
+- 【通用-高频】 检查异常不应泄漏到 API 边界
 - AOP切面重写逻辑时必须打印日志说明进入切面
 
 ### 10. 代码质量与Null安全
@@ -162,33 +169,33 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 **代码质量**：中文注释（关键逻辑）、`BempRuntimeException` 异常、空值边界处理
 
 **Null Safety（BEMP要点）**：
-- 禁止链式调用未判空（如 `user.getName().toUpperCase()`）
-- 可能为空的返回值禁止返回 null（改用 `Collections.emptyList()`）
-- List判断顺序：先null再size；循环前检查空数据集防死循环
+- 【通用-高频】 禁止链式调用未判空（如 `user.getName().toUpperCase()`）
+- 【通用-高频】 可能为空的返回值禁止返回 null（改用 `Collections.emptyList()`）
+- 【通用-高频】 List判断顺序：先null再size；循环前检查空数据集防死循环
 - 通用 Null 安全细则（Optional/@Nullable/Integer缓存等）→ [§3](references/general-java-pitfalls.md)
 
 **数值比较（阻塞级）**：
-- BigDecimal比较用compareTo，禁止==或equals（精度：1.0 vs 1.00）
-- Integer/Long/String比较用equals，禁止==（auto-scan 第10项检出）
-- 边界值确认：逻辑判断遗漏等于的情况（如≥遗漏=）
+- 【通用-高频】 BigDecimal比较用compareTo，禁止==或equals（精度：1.0 vs 1.00）
+- 【通用-高频】 Integer/Long/String比较用equals，禁止==（auto-scan 第10项检出）
+- 【通用-高频】 边界值确认：逻辑判断遗漏等于的情况（如≥遗漏=）
 
 ### 11. 安全性
-- [ ] 禁止日志输出密码/密钥/Token
-- [ ] 禁止硬编码密钥/连接字符串
-- [ ] SQL使用参数化查询（`#{}`），禁止字符串拼接
-- [ ] 服务端二次校验输入；文件上传限制类型和大小
-- [ ] 敏感操作校验权限；排查越权风险
+- [ ] 【通用-高频】 禁止日志输出密码/密钥/Token
+- [ ] 【通用-高频】 禁止硬编码密钥/连接字符串
+- [ ] 【通用-高频】 SQL使用参数化查询（`#{}`），禁止字符串拼接
+- [ ] 【通用-高频】 服务端二次校验输入；文件上传限制类型和大小
+- [ ] 【通用-高频】 敏感操作校验权限；排查越权风险
 
 ### 12. 性能与资源管理
 
-- [ ] 无N+1查询；批量操作用批量接口（RF-002 专项见 §24）
-- [ ] 循环内不调用远程服务；大对象及时释放
+- [ ] 【通用-高频】 无N+1查询；批量操作用批量接口（RF-002 专项见 §24）
+- [ ] 【通用-高频】 循环内不调用远程服务；大对象及时释放
 - [ ] 资源关闭与流顺序 → [§4](references/general-java-pitfalls.md)
-- [ ] 禁止循环内字符串拼接（用 StringBuilder）
-- [ ] 分页查询必须加唯一排序字段，否则跳页重复
+- [ ] 【通用-高频】 禁止循环内字符串拼接（用 StringBuilder）
+- [ ] 【通用-高频】 分页查询必须加唯一排序字段，否则跳页重复
 - [ ] 大数据量分页查询每页≤2000条（推荐500）；日终任务默认10条需改为分页
-- [ ] 批量插入替代逐条插入；大数据量禁止全表加载到内存
-- [ ] 大数据量统计用数据库group by，禁止内存循环相加
+- [ ] 【通用-高频】 批量插入替代逐条插入；大数据量禁止全表加载到内存
+- [ ] 【通用-高频】 大数据量统计用数据库group by，禁止内存循环相加
 
 ### 13. 事务、并发与异步（BEMP专属）
 
@@ -204,29 +211,32 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 - [ ] 事务未提交不得开线程查询后置状态（如签收后自动记账）
 - [ ] 不得随意开独立事务（mybatis查询缓存导致查不到新增数据）
 - [ ] 事务A中两次同样SQL查询结果一致（MVCC），注意别依赖中间状态
+- [ ] 【BEMP专属】jta 整体事务配置放 `src/main/resources/jta/` 且文件名 `transaction-config-*.xml`；切面只扫 `*ServiceImpl.*(..)` / `*AtomImpl.*(..)`——类名拼写错误（如 demoUserServcieImpl）不报错但事务静默失效，审查时核对参与整体事务的类命名
+- [ ] Controller 不开数据库事务、不直接调 Atom/DAO；日终批量事务不能包含 for 循环（分组小事务 + 断点续作）
 - [ ] 共享对象防篡改：Converter类属性并发下被篡改，用局部变量/JSONObject传递
-- [ ] `@Async` 方法必须 public + 从不同 Bean 调用（同类自调用不生效）
-- [ ] `@EnableAsync` 已配置 + 自定义线程池（禁止默认SimpleAsyncTaskExecutor）
-- [ ] ThreadLocal必须在当前线程finally中释放
+- [ ] 【通用-高频】 `@Async` 方法必须 public + 从不同 Bean 调用（同类自调用不生效）
+- [ ] 【通用-高频】 `@EnableAsync` 已配置 + 自定义线程池（禁止默认SimpleAsyncTaskExecutor）
+- [ ] 【通用-高频】 ThreadLocal必须在当前线程finally中释放
 - [ ] 通用并发细则（DCL/原子类/锁finally等）→ [§5](references/general-java-pitfalls.md)
 
 ### 14. 国际化与Maven
 - API路径前后端一致；`pom.xml` 版本参考 `bom/import-bom/pom.xml`
 - Java 1.8语法，命名规范
+- 【强制】个性化版本号一律走主 pom `${}` 参数，禁止写死；二方包最终版本号在个性化主 pom 明确；生产版本禁止依赖 snapshot 快照版
 
 ### 15. 集合与流
-- `Collectors.toMap()` 重复key必须提供merge函数 `(v1,v2)->v2`，value不能为null（**严重级**）
+- 【通用-高频】 `Collectors.toMap()` 重复key必须提供merge函数 `(v1,v2)->v2`，value不能为null（**严重级**）
 - 其余集合/流通用细则 → [§6](references/general-java-pitfalls.md)
 
 ### 16. Java惯用法
 
 **BEMP要点**：
 - 静态变量有final修饰修改后需重新打包
-- BigDecimal.divide必须设精度：`divide(divisor, scale, RoundingMode)`
+- 【通用-高频】 BigDecimal.divide必须设精度：`divide(divisor, scale, RoundingMode)`
 - 金额多步乘除：先乘后除，过程不精确最后才精确到小数位
-- 计算日期天数用DateUtils，禁止Integer相减（跨月跨年错误）
+- 【通用-高频】 计算日期天数用DateUtils，禁止Integer相减（跨月跨年错误）
 - 子票区间字段用Long，禁止Integer
-- for循环中queryDto每次需重新new并赋值
+- 【通用-高频】 for循环中queryDto每次需重新new并赋值
 - 通用惯用法细则（equals/hashCode/Builder/replaceAll等）→ [§7](references/general-java-pitfalls.md)
 
 ### 17. 测试建议
@@ -235,27 +245,27 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 ### 18. 架构与分层
 
 - 包组织策略明确：按功能（推荐）或按层，不可混合
-- 禁止跨层调用：Controller不调Service实现、Service不依赖Controller
+- 【通用-高频】 禁止跨层调用：Controller不调Service实现、Service不依赖Controller
 - 领域包不引入框架注解（@Entity/@Repository/@JsonIgnore）
-- 禁止循环依赖：A→B→C→A
+- 【通用-高频】 禁止循环依赖：A→B→C→A
 - `util/`、`common/` 包不得无限增长（应归属对应功能模块）
 - DTO在边界处转换，领域对象不出边界
 - 新增功能应仅影响对应功能包，不应触碰多个包
 
 ### 19. SQL与数据库专项
 - 大表查询必须加索引；关联查询字段加索引
-- 查询条件中使用函数会导致索引失效，改用范围查询
+- 【通用-高频】 查询条件中使用函数会导致索引失效，改用范围查询
 - SQL兼容：Oracle空字符串=null、下划线转义escape '\'、MySQL删除无别名、信创环境通用写法
 - SQL拼接：条件拼接正确性、MyBatis类型转换(BigDecimal.ZERO=0.0)、超长SQL分批查询
 - 查询性能：避免大循环查询(用Map替代循环单查)、多表关联优化、数据库统计替代内存计算
 - 分页规范：必须加唯一排序、默认条数检查、跳页问题处理
-- `!= 'xxx'`查不出null记录；`in()`不超过1000个（RF parameters.maxInClauseSize）；or太多数据库报错
-- 查询/更新条件必须做空判断，防止全表查询/全表更新
-- 日期条件避免`<=当前营业日`（数据量大不走索引），改用范围查询
-- `updateById`全字段更新 vs `updateByIdSelective`空值不拼接，并发场景用Selective
-- mybatis.xml非String类型不得写`!= ''`；`#{bankNo}`需加`jdbcType=VARCHAR`
-- left join右表过滤条件会失效，批次+明细查询需注意
-- varchar截取需转字节处理（中文GBK 2字节/UTF-8 3字节）
+- 【通用-高频】 `!= 'xxx'`查不出null记录；`in()`不超过1000个（RF parameters.maxInClauseSize）；or太多数据库报错
+- 【通用-高频】 查询/更新条件必须做空判断，防止全表查询/全表更新
+- 【通用-高频】 日期条件避免`<=当前营业日`（数据量大不走索引），改用范围查询
+- 【通用-高频】 `updateById`全字段更新 vs `updateByIdSelective`空值不拼接，并发场景用Selective
+- 【通用-高频】 mybatis.xml非String类型不得写`!= ''`；`#{bankNo}`需加`jdbcType=VARCHAR`
+- 【通用-高频】 left join右表过滤条件会失效，批次+明细查询需注意
+- 【通用-高频】 varchar截取需转字节处理（中文GBK 2字节/UTF-8 3字节）
 - 更新时where条件加前置状态控制防并发，并判断更新结果集
 
 ### 20. 票据业务专项
@@ -286,6 +296,10 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 - 拷贝代码需检查example是否有对应set，避免查询条件不生效
 - Dto属性类型不要Date，导出用专门Dto再转换
 - 首页提醒必须用Controller模式，禁止sql模式
+- 【强制】错误码 12 位结构（0/B 规范版本 + BE 固定标识 + 错误类型 1-4 + 错误级别 1-2 + 一级模块 AA-ZZ + 二级模块 AA-ZZ + 错误编码 000-999），个性化在产品规则前追加银行简称；禁止未定义 i18N 错误码直接抛中文异常；禁止滥用[通用异常]；禁止首字母数字 0 写成字母 o；错误码按归属模块分文件禁止跨模块混放；个性化适配用 `{bankCode}_zh_CN.ext.properties`，禁止直接改产品 `zh_CN.properties`
+- 【强制】服务编码 B 前缀三类编号：@CloudFunction 功能号 `PICE→BICE`、调用方 opCode `POPE→BOPE`、日终/定时任务 `TK/TT→BTK/BTT`
+- 【强制】依赖方向：产品基础业务不允许依赖 plugins 与 banks；业务模块间 as 互不依赖、api 互不依赖、api 不依赖 as；微服务接口（@CloudService）只能定义在 biz-api 工程
+- 【强制】产品仓库坏味道：产品仓库出现个性化逻辑（mapping 未按规范挂在银行目录）、产品仓库文件出现个性化资源配置（银行简称硬编码/行专属配置）——个性化逻辑与资源只允许存在于 banks/ext-{bankCode} 与前端行目录
 
 ### 22. Spec一致性检查
 
@@ -300,7 +314,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 | SC-005 | 流程顺序一致性 | 严重 | spec步骤顺序 vs 代码调用顺序 |
 | SC-006 | 参数校验一致性 | 阻塞 | spec校验要求 vs 代码实现 |
 
-> 各项 checkLogic/fixSuggestion/example 见 `config/spec-consistency-checklist.json`（生效配置探测见「配置继承与生效配置」节）。典型场景：spec要求"CBS文件不存在时记录error日志并抛异常终止"，代码"LOGGER.warn + return" → SC-001(严重) + SC-002(阻塞)。
+> 各项 checkLogic/fixSuggestion/example 见 `../../_shared/spec-consistency-checklist.json` 的 `items`（本技能 config 仅提供 `defaults.ref`；生效配置探测见「配置继承与生效配置」节）。典型场景：spec要求"CBS文件不存在时记录error日志并抛异常终止"，代码"LOGGER.warn + return" → SC-001(严重) + SC-002(阻塞)。
 
 ### 23. 降级处理模式检查
 
@@ -325,10 +339,17 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 |----|--------|--------|---------|
 | RF-001 | 环境真实性验证 | 阻塞 | sourceDir/关键文件 RunCommand 级核验（Test-Path）；子智能体存在性结论须主会话复核；近似目录名人工裁决 |
 | RF-002 | 循环内逐条查库补全(N+1) | 严重 | 批量收集缺失项 → 按 maxInClauseSize 分片一次 in 查询 → 内存回填（仅空缺项）；单条场景委托同一实现 |
-| RF-003 | 注释实现漂移 | 严重 | 注释中的字段名/表名/取数路径与代码实现逐一比对；口径变更必须同步注释 |
+| RF-003 | 注释实现漂移 | 严重 | 注释中的字段名/表名/取数路径与代码实现逐一比对；口径变更必须同步注释；修复性/重构性改动须 Grep 调用链上下游扩散注释同步（checkLogic 第5点） |
 | RF-004 | SQL 引用真实性 | 阻塞 | 新增 SQL 的表名/列名/JOIN 条件须存量 mapper 或实体佐证；写后回读自查 UNION/join/in 结构完整性 |
 | RF-009 | 业务参数字典组补值完整性 | 阻塞 | 下拉/多选参数(PARAM_TYPE∈1/2)用自定义 PARAM_GROUP_CODE 时必须同步补 TM_BUSI_PARAM_DICT 字典值(DICT_CNT≥1)；是否类优先复用基线组如 Yon；主键 ID 日期+序号 |
 | RF-010 | 幂等删除按业务键优先 | 阻塞 | 增量 SQL『先删后插』DELETE 优先按业务唯一键删（PARAM_KEY/DICT_GROUP_CODE+DICT_KEY/PARAM_GROUP_CODE/AUTH_ID+BTN_PATH/URL/PEND_URL/FLOW_NO/TASK_NO 等），禁止仅按主键 ID——跨环境同一业务记录 ID 不一致会删错记录/删不到后重插主键冲突；表无业务键才退用同 ID 删插 |
+| RF-015 | 共享行为语义变更影响面矩阵 | 严重 | 删除方式/状态枚举含义/查询默认过滤/解析口径类语义变更前，五类读方（页面查询/业务校验/导入匹配与日终/日志快照/前端展示）逐一定性，全部兼容才可实施；开发侧前置流程见 bemp-personalized-dev semantic-change-patterns C2 |
+| RF-016 | 定制唯一性与合并等价性 | 阻塞 | 同一被定制父类仅允许一个个性化实现：按 customizedClassDeclPattern 扫描 + customizedImplGroupKey 分组，实现数 > maxCustomizedImplPerSuperClass 即冲突；冲突须合并为唯一实现（追加优先于新建再合并），合并须逐行等价并核对字段遮蔽与注入等价；开发侧前置流程见 bemp-personalized-dev customization-uniqueness-patterns CU-001/CU-002 |
+| RF-017 | 数据权限维度归属匹配 | 严重 | 归属/可见性判定须先声明主体维度（法人/机构/客户/账号），字段承载实体维度必须与主体一致（按 dimensionFieldHints 识别）；客户级字段禁止用于账号级/单据级判定；同一业务概念各入口须映射同一语义字段（对 branchSemanticStems 逐一比对）；近似映射须登记偏差；开发侧见 data-permission-dimension-patterns DP-001 |
+| RF-018 | 管控入口覆盖与入参形态 | 严重 | 按 guardEntryPointScanStrategy 枚举全部写/查入口（含定时任务/渠道复用方）产出清单；逐入口核对判定依赖字段的入参形态，缺失者按『反查补齐 > fail-close > fail-open+留痕』处置；放行/拦截/无法判定三分支均须留痕；开发侧见 DP-002 |
+| RF-019 | 业务参数开关与条件语义方向 | 严重 | ①过滤依赖业务参数开关时按 switchLookupOrder 确认实际取值与语义，放开态须告警并要求业务决策，个性化侧优先构造不依赖开关的强制收窄；②复用既有条件片段前核实语义方向（排除型≠保留型）与标志字段真实业务态；新增过滤须用真实数据验证结果集非空；开发侧见 DP-003/DP-004 |
+
+> 完整 RF 清单（含 RF-005~008、RF-011~014 及各项 checkLogic/example）以 `config/review-flow-checklist.json` 为准，本表仅摘要高频项。
 
 ---
 
@@ -371,7 +392,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 按 §22/§23 表格逐项比对；生效配置按「配置继承与生效配置」探测后执行。
 
 ### 阶段4.5：流程与真实性检查
-按 §24 RF 清单（RF-001~RF-010）执行，阈值取自 `review-flow-checklist.json` parameters 节。
+按 §24 RF 清单（RF-001~RF-019）执行，阈值与字段提示取自 `review-flow-checklist.json` parameters 节（`maxInClauseSize`/`customizedAnnotationMarkers`/`dimensionFieldHints`/`branchSemanticStems`/`switchLookupOrder` 等）。其中 RF-016（定制唯一性）、RF-017（维度匹配）、RF-018（入口覆盖）、RF-019（开关与条件方向）为本轮复盘新增的结构性检查，**涉及个性化定制、数据权限、管控/过滤的变更必须逐项执行**。
 
 ### 阶段5：Maven编译 → 阶段6：输出报告（模板见 `templates/report-template.md`）
 
@@ -381,8 +402,8 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 严重度分级（详细规则参见前述各章节）：
 
-- 🟠**阻塞**（必须修复）：结构违规（文件位置/包路径/类前缀/`@CustomizedBean`/`@RestController`/URL前缀/DTO前缀）、对外接口/DTO 未放 `{bankCode}-biz-api` 工程或 DTO 跨域混放（分层契约违规，见 §4/§6）、Maven编译失败、安全漏洞（硬编码密钥/SQL拼接）、公共API返回null、GET引发状态变更、Spec要求抛异常但代码return（SC-002/SC-006）、关键文件不存在静默return（DG-001）、核心服务不可用静默跳过（DG-005）、环境真实性未验证即行动（RF-001）、SQL表名列名join条件无佐证或臆造函数（RF-004）、业务参数字典组未补 TM_BUSI_PARAM_DICT 值致下拉空白（RF-009）、幂等删除按 ID 不按业务键（RF-010）、`@Resource`注入、mybatis非String类型写`!= ''`、循环依赖、BigDecimal/Integer/Long用`==`比较、查询/更新条件缺空判断、领域包引入框架注解
-- 🟠**严重**（强烈建议）：服务调用缺必需字段、异常处理不完善（吞异常/丢堆栈）、空指针风险、日志含敏感信息/不规范、N+1查询/循环调远程、循环内逐条查库补全且未批量化（RF-002）、注释实现漂移致凭证失真（RF-003）、事务边界不合理、资源未关闭、`@Async`同类自调用、`Collectors.toMap`缺merge函数、Redis锁缺失/在事务内、Spec日志级别/任务隔离/流程顺序不一致（SC-001/SC-003/SC-005）、降级处理不当（DG-002~DG-004/DG-006）、分页查询缺唯一排序、大事务未拆分
+- 🟠**阻塞**（必须修复）：结构违规（文件位置/包路径/类前缀/`@CustomizedBean`/`@RestController`/URL前缀/DTO前缀）、**同一被定制父类存在多个个性化实现（RF-016，定制加载冲突致收窄/校验静默失效）**、对外接口/DTO 未放 `{bankCode}-biz-api` 工程或 DTO 跨域混放（分层契约违规，见 §4/§6）、Maven编译失败、安全漏洞（硬编码密钥/SQL拼接）、公共API返回null、GET引发状态变更、Spec要求抛异常但代码return（SC-002/SC-006）、关键文件不存在静默return（DG-001）、核心服务不可用静默跳过（DG-005）、环境真实性未验证即行动（RF-001）、SQL表名列名join条件无佐证或臆造函数（RF-004）、业务参数字典组未补 TM_BUSI_PARAM_DICT 值致下拉空白（RF-009）、幂等删除按 ID 不按业务键（RF-010）、`@Resource`注入、mybatis非String类型写`!= ''`、循环依赖、BigDecimal/Integer/Long用`==`比较、查询/更新条件缺空判断、领域包引入框架注解
+- 【通用-高频】 🟠**严重**（强烈建议）：服务调用缺必需字段、异常处理不完善（吞异常/丢堆栈）、空指针风险、日志含敏感信息/不规范、N+1查询/循环调远程、循环内逐条查库补全且未批量化（RF-002）、注释实现漂移致凭证失真（RF-003）、**数据权限判定维度错配（RF-017：客户级字段用于账号级/单据级判定）**、**管控入口覆盖不全或入参缺失致无痕放行（RF-018）**、**依赖业务参数开关却不确认取值、复用条件片段语义方向相反（RF-019）**、事务边界不合理、资源未关闭、`@Async`同类自调用、`Collectors.toMap`缺merge函数、Redis锁缺失/在事务内、Spec日志级别/任务隔离/流程顺序不一致（SC-001/SC-003/SC-005）、降级处理不当（DG-002~DG-004/DG-006）、分页查询缺唯一排序、大事务未拆分
 - 🟡**警告**（建议）：格式化/变量命名/注释规范、DTO未实现Serializable、equals/hashCode未配对、toString含敏感字段、遍历中修改集合、并行Stream滥用、URL使用动词、API无版本路径、`Executor`未配置关闭、日终任务默认10条未改分页、硬编码产品代码/机构号、时间格式hh误用为HH、`@CloudComponent`继承实现类、Dto属性用Date类型、`StringUtils`用commons-lang、Spec错误文案不一致（SC-004）
 - 🟢**提示**（可选）：轻微问题，不影响功能，建议优化。如：注释拼写/措辞、局部变量命名风格细节、过度防御性判空、可读性改进、未使用的private方法、import顺序、魔法值未抽取常量但语义清晰、日志级别info/debug选择失当但不影响排障
 

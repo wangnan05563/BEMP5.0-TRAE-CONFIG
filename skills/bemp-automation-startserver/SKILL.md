@@ -55,7 +55,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 
 **占位符语法**（两套方言，按脚本通道区分）：
 - `start-bemp-env.ps1`：`${ENV:VAR}` → 环境变量，fallback `_shared/env-config.json` 的 `environmentDefaults`（唯一入口）。解析失败**硬失败**，防止未解析串流入 `Test-Path` 产生误导诊断。递归解析时跳过 `_doc` 文档字段。
-- `start-bemp.ps1`：`${local:x.y}`、`${env:VAR}`、`${global.x}`、`${profiles.x.y}`，6 层上限防环。
+- `start-bemp.ps1`：`${ENV:VAR}`（scope 大小写不敏感，fallback `_shared/env-config.json` 的 `environmentDefaults`）、`${local:x.y}`、`${global.x}`/`${profiles.x.y}`，最多 6 轮递归防环；`defaultProfile` 与 global 路径解析失败**硬失败 exit 2**，避免残留字面量流入 `Test-Path` 产生误导诊断。
 
 **profile 合并机制**（`start-bemp-env.ps1`）：启动时按 `-ProfileName` > `defaultProfile`（=${ENV:BANK_CODE}）激活 profile，`Merge-ProfileIntoServices` 将 `profiles.<active>` 下各服务节点的业务参数（modulePath/mainClass/jvmOptions/startCommand 等）注入 `services` 同名服务（别名映射 module→modulePath、warDir→warFile、nodeMemoryLimitMb→nodeMemoryLimit）。**services 只保留编排属性（type/port/dependencies/healthCheck）与银行无关参数，不得内联业务参数**——profile 是业务参数唯一来源，防止换银行时被残留值覆盖。
 
