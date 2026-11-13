@@ -15,6 +15,16 @@
         "cacheDurationSeconds": 3600,
         "note": "设置defaultDbType为auto时，将按detectionPriority顺序探测可用MCP工具，自动确定数据库类型"
     },
+    "channelProbe": {
+        "description": "MCP基线库陷阱探测（F4）- MCP服务端配置的连接可能是基线库而非应用生效库，写库/回读前必须先探测。泛化适用于任何'MCP连接schema != 应用schema'的场景",
+        "app_schema": "${ENV:ORACLE_SCHEMA}",
+        "probe_table": "${ENV:DB_PROBE_TABLE:PROBE_TABLE_NOT_CONFIGURED}",
+        "probeSqlTemplate": "SELECT 1 FROM {app_schema}.{probe_table}",
+        "degradeSignal": "ORA-00942",
+        "degradeAction": "fallback-jdbc",
+        "disclosureStatement": "当前 MCP 连接为基线库，数据以 JDBC 为准",
+        "note": "probe_table取应用schema下任意必然存在的表（字典/配置类表），真值在_shared/env-config.json的DB_PROBE_TABLE；命中degradeSignal即自动降级JDBC通道（scripts/run-oracle-jdbc.ps1），并在结果中输出disclosureStatement；探测结果随会话缓存，换会话/换环境后重探"
+    },
     "configPurposeNote": "本文件中的连接参数（host/port/username/password等）仅为记录和参考用途，实际数据库连接由MCP服务端配置管理。修改本文件中的连接参数不会影响MCP的实际连接行为。如需修改实际连接，请编辑MCP服务端配置文件。",
     "mcpConfigRef": {
         "description": "MCP服务端配置文件路径，修改实际连接参数需编辑此文件",
@@ -155,10 +165,11 @@
     "cliExecution": {
         "description": "命令行执行工具配置 - 用于DML/DDL执行（MCP不支持DML/DDL时的备选方案）",
         "oracle": {
-            "tool": "sqlplus",
-            "script": "scripts/execute-oracle-sql.ps1",
+            "tool": "jdbc",
+            "script": "scripts/run-oracle-jdbc.ps1",
             "required": true,
-            "note": "Oracle MCP仅支持SELECT，DML/DDL必须通过sqlplus执行"
+            "forbid_sqlplus": true,
+            "note": "Oracle MCP仅支持SELECT，DML/DDL走JDBC通道脚本；本机低版本sqlplus客户端与高版本服务端存在ORA-28040认证协议不兼容，禁止本地sqlplus直连（forbid_sqlplus=true），Oracle一律走MCP/JDBC双通道之一"
         },
         "mysql": {
             "tool": "mysql",
@@ -179,7 +190,8 @@
         "Oracle MCP的execute_query仅支持SELECT语句",
         "建议为MySQL MCP配置专用数据库用户，参照permissionTemplates",
         "【识别真值来源】本文件中 ${ENV:ORACLE_*} 占位符的实际值在 _shared/env-config.json 的 environmentDefaults 中：ORACLE_HOST=10.20.42.211、ORACLE_PORT=1521、ORACLE_SERVICE=orcl、ORACLE_USERNAME=bemp_hnnx、ORACLE_PASSWORD=123456、ORACLE_SCHEMA=BEMP_HNNX。执行脚本(execute-oracle-sql.ps1/run-oracle-jdbc.ps1)通过 Resolve-EnvConfig.ps1 自动解析，勿因看到占位符而误判'无数据库配置'。",
-        "【Oracle DML/DDL 写通道】Oracle MCP 只读、本机旧版 sqlplus 会报 ORA-28040。请优先用 scripts/run-oracle-jdbc.ps1（ojdbc8 JDBC 直连，绕过 ORA-28040）：.\\run-oracle-jdbc.ps1 -SqlFile <脚本> -Schema BEMP_HNNX；仅测连接用 -TestOnly。连接用户 bemp_hnnx 即 BEMP_HNNX schema owner。"
+        "【Oracle DML/DDL 写通道】Oracle MCP 只读、本机旧版 sqlplus 会报 ORA-28040。请优先用 scripts/run-oracle-jdbc.ps1（ojdbc8 JDBC 直连，绕过 ORA-28040）：.\\run-oracle-jdbc.ps1 -SqlFile <脚本> -Schema BEMP_HNNX；仅测连接用 -TestOnly。连接用户 bemp_hnnx 即 BEMP_HNNX schema owner。",
+        "【Oracle 通道禁令（forbid_sqlplus）】Oracle 一律走 MCP/JDBC 双通道之一，禁用本地 sqlplus 直连：低版本客户端 vs 高版本服务端存在 ORA-28040 认证协议不兼容。MCP 会话首次写库/回读前必须过 channelProbe 探测，命中 ORA-00942 即降级 JDBC 通道并在结果中声明。"
     ],
     "agentToolMapping": {
         "description": "智能体-工具可用性映射，用于降级策略判断。主智能体可能缺少Oracle MCP工具，需委托子智能体执行",
@@ -212,7 +224,7 @@
             "levels": [
                 {"level": 0, "action": "主智能体直接调用MCP工具", "condition": "工具在主智能体可用列表中"},
                 {"level": 1, "action": "委托bemp-implementation-engineer子智能体执行", "condition": "主智能体缺少Oracle MCP工具"},
-                {"level": 2, "action": "降级到命令行工具（sqlplus/mysql CLI）", "condition": "子智能体也不可用"},
+                {"level": 2, "action": "降级到命令行工具（Oracle走JDBC脚本/mysql CLI；sqlplus已禁用）", "condition": "子智能体也不可用"},
                 {"level": 3, "action": "报错终止，提示用户安装必要工具", "condition": "命令行工具未安装"}
             ],
             "oracleDelegationTarget": "bemp-implementation-engineer",

@@ -1,8 +1,8 @@
 # BEMP 测试工具切换策略（FP-08）
 
-> **版本**: v1.0.0 | **创建日期**: 2026-07-22
+> **版本**: v1.2.0 | **创建日期**: 2026-07-22 | **更新**: 2026-11-09 增加 L3 桌面兜底（computer-use，平台无关）
 > **目的**: 标准化测试工具切换决策流程，避免因工具选择不当导致的用例 BLOCKED
-> **适用技能**: bemp-webapp-testing（Playwright MCP）、bemp-chrome-devtools-test（Chrome DevTools MCP）、bemp-auto-tester（编排智能体）
+> **适用技能**: bemp-webapp-testing（Playwright MCP + L3 手册）、bemp-chrome-devtools-test（Chrome DevTools MCP）、computer-use（平台 MCP，规范见 `bemp-webapp-testing/references/computer-use-guide.md`）、bemp-auto-tester（编排智能体）
 
 ## 设计动机
 
@@ -16,7 +16,8 @@
 | 工具 | 擅长场景 | 不擅长场景 | 输出产物 |
 |------|---------|-----------|---------|
 | **Playwright MCP** | 标准HTML组件（button/input/select）、页面导航、批量回归、会话复用 | HUI隐藏input、Vue响应式表单、文件上传/下载、复杂弹窗（h-dropdown/window-layer） | aotutests-playwright/ |
-| **Chrome DevTools MCP** | HUI组件evaluate_script、Vue实例操作、复杂弹窗、文件操作、API直接验证、控制台检测 | 批量回归（效率低）、会话复用（需重新登录） | aotutests-devtools/ |
+| **Chrome DevTools MCP** | HUI组件evaluate_script、Vue实例操作、复杂弹窗、文件操作、API直接验证、控制台检测 | 批量回归（效率低）、会话复用（需重新登录）、系统对话框与桌面应用层 | aotutests-devtools/ |
+| **Computer Use（computer-use 插件）** | 系统文件/另存为/打印/浏览器权限对话框、UKey/高拍仪等外设、桌面 Excel/PDF 跨应用核验、Canvas 真实指针轨迹 | DOM 内可定位元素、批量回归、断言校验（禁止用其替代 DOM 断言） | aotutests-playwright/screenshots/（截图取证） |
 | **Oracle MCP** | 数据库只读查询、数据一致性校验、测试数据准备 | DML操作（只读限制）、性能测试 | SQL查询结果 |
 | **MySQL MCP** | 数据库读写、安全执行模式（事务包裹） | 复杂分析查询 | SQL查询结果 |
 
@@ -62,6 +63,26 @@ Playwright MCP 执行用例
 [4] 移交到 bemp-chrome-devtools-test 技能执行
 [5] Chrome DevTools 完成后回填结果到原用例
 ```
+
+### L3 桌面兜底（Chrome DevTools → Computer Use）
+
+当 Chrome DevTools 仍无法处理、问题位于操作系统或桌面应用层时，进入第三级通道：
+
+```
+Chrome DevTools 执行失败
+  ├─ 断言失败 → 缺陷诊断（不切换）
+  ├─ 环境/数据问题 → 修复后重试（不切换）
+  └─ 桌面级能力限制（系统文件/另存为/打印/权限对话框、UKey/高拍仪等外设、跨应用核验、Canvas 指针轨迹） ↓
+
+L3 切换流程：
+[1] 用例状态标 TOOL_SWITCH_REQUIRED，记录 L1/L2 已尝试操作与失败表现
+[2] 懒加载读取 bemp-webapp-testing/references/computer-use-guide.md（先查文首索引，禁止未读规范裸操作）
+[3] 按 bemp-webapp-testing/config/computer-use.json 解析平台接入参数（server_name/invoke/tool_names）
+[4] 动作串行执行，每次动作后 get_app_state 复验后置条件
+[5] 截图归档并回到 Playwright/数据库二次验证业务结果后回填用例
+```
+
+**禁止用 L3 替代 DOM 断言与批量回归**；仅测试环境可执行，删除数据/安装软件/验证码/支付类动作需先向用户确认。
 
 ## 用例移交信息格式
 

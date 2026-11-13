@@ -11,6 +11,7 @@
 | ⚙️ **配置驱动** | 选择器、页面路由、登录凭据、错误过滤全部配置化，零硬编码 |
 | ✅ **Schema 校验** | `test_config.schema.json` 定义配置规范，启动时自动校验 |
 | 📋 **双向索引** | `test-index.json` 建立 test-cases ↔ scripts 映射，覆盖 21 条目 207+ 用例（由 bemp-test-common 管理） |
+| 🖥️ **平台无关 L3** | 桌面级兜底手册内置于 `references/computer-use-guide.md`，平台接入参数在 `config/computer-use.json`，移植平台只改配置 |
 
 ## 目录结构
 
@@ -22,7 +23,8 @@ bemp-webapp-testing/
 ├── .gitignore                    运行时文件排除规则
 ├── config/
 │   ├── test_config.json          核心配置（银行/服务/选择器/会话/错误过滤）
-│   └── test_config.schema.json   JSON Schema 校验定义
+│   ├── test_config.schema.json   JSON Schema 校验定义
+│   └── computer-use.json         L3 桌面兜底平台适配配置
 ├── scripts/
 │   ├── health_check.py           服务健康检查 + --validate-only 配置校验
 │   ├── login_manager.py          会话复用、多角色切换
@@ -33,13 +35,14 @@ bemp-webapp-testing/
 │   ├── bemp_login.py             登录流程示例
 │   ├── bemp_page_test.py         弹窗交互 / DataGrid 查询示例
 │   └── bemp_api_monitor.py       API 请求监控示例
-├── references/                   参考文档（7 份）
+├── references/                   参考文档（8 份）
 │   ├── website-functional-map.md 功能地图：6 子系统 285+ 页面
 │   ├── test-priority-matrix.md   优先级矩阵 P0-P3
 │   ├── testing-standards.md      测试编写规范
 │   ├── bemp-component-guide.md   h-ui 组件交互参考
 │   ├── error-catalog.md          错误分类与排查
 │   ├── playwright-mcp-guide.md   Playwright MCP 工具指南
+│   ├── computer-use-guide.md     L3 桌面兜底执行手册（懒加载）
 │   └── test-data-management.md   Oracle MCP 测试数据管理
 ├── test-data/
 │   └── test-accounts.json        测试账号配置（PLACEHOLDER）

@@ -61,6 +61,14 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 5. **状态摘要协议**：多步验证全程仅维护一张紧凑状态表（当前URL/登录态/已验步骤号/缺陷清单），断言后的原始 snapshot/console 输出视为可丢弃，证据靠落盘文件路径回溯
 6. **引用锚点化**：引用配置/代码一律给锚点链接，禁止整段粘贴回对话
 
+## 验证类任务纪律
+
+本 Skill 执行验证类任务时的行为边界（参数见 [config](config/bemptest-config.json) `verification_discipline`）：
+
+1. **只验证不改码**（`no_code_change`）：只做验证与必要浏览器交互，不修改前端/后端/SQL 代码；发现缺陷只记录并分类，不在本技能内修复
+2. **修改必须可回滚**（`modification_rollback_required`）：验证必需的修改类操作（如测试数据修复 SQL、配置临时变更）执行前必须先产出还原 SQL 或还原步骤，验证完成后执行还原
+3. **阻塞不下线**（`blocked_continue_next`）：单条用例 BLOCKED 时记录原因后继续执行不依赖它的下一条，禁止整体停摆；仅当阻塞影响全部后续步骤（服务不可达/登录失败）才终止并输出报告
+
 ## 任务接收预处理
 
 1. **场景配置前置解析**（B1）：任务含回归场景时，第一步先解析 `config/regression-scenarios/*.json` 获得结构化参数（URL/菜单链路/断言五要素），对话中不重复拼写长参数
@@ -146,13 +154,11 @@ aotutests-devtools/                       项目根目录下的统一输出目�
 
 > **地址必须使用 127.0.0.1，禁止使用 localhost**：Windows 环境下 localhost 可能因 DNS 解析或 IPv6 优先导致连接超时
 
-| 服务 | 端口 | 检查方式 |
+| 服务 | 端口与地址来源 | 检查方式 |
 |------|------|---------|
-| 后端 | 8010 | `navigate_page` → `http://127.0.0.1:8010/bemp-served/` |
-| 前端 | 8091 | `navigate_page` → `http://127.0.0.1:8091/` |
-| Adapter | 8090 | 端口监听（适配器服务，部分银行个性化接口依赖） |
-| Redis | 6379 | 端口监听 |
-| ZK | 2181 | 端口监听 |
+| 后端 | `environment.runtime.backend.port` / `base_url`（配置） | `navigate_page` → 后端 `base_url` |
+| 前端 | `environment.runtime.frontend.port` / `url`（配置） | `navigate_page` → 前端 `url` |
+| Adapter / Redis / ZK | 端口监听（地址键见配置 `environment.runtime.*`） | 端口监听 |
 
 服务未启动 → 调用 `bemp-automation-startserver` Skill。
 
@@ -258,6 +264,32 @@ click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强�
 
 > 响应码映射见 [config](config/bemptest-config.json) `response_codes`。API 路径与代理配置见 `api_validation` 和 `proxy_paths`。
 
+### 数据网格交互模式
+
+> 根因细节见 [pitfalls/datagrid](references/pitfalls/datagrid.md) 陷阱10/23。组件选中状态键名统一从 [config](config/bemptest-config.json) `ui_framework.grid_state_keys` 读取（默认值为常见示例占位，须探测后覆盖），禁止在流程或脚本中散落字面键名。
+
+**行选中三级降级链**（点击后选中状态未生效时按序降级）：
+
+| 级别 | 方式 | 适用前提 | 失败判据 → 降级动作 |
+|------|------|---------|-------------------|
+| 1（首选） | 点击行 checkbox | 行内存在可见 checkbox | 点击+wait(500ms) 后验证选中列表键（`grid_state_keys.selected_data_list`）长度未变化 → 降级 2 |
+| 2 | 双击目标行 | 组件支持双击选中（先在单行试操作确认） | 双击后选中列表仍为空 → 降级 3 |
+| 3 | DevTools evaluate 直改组件状态 | 已通过组件实例探测确认真实状态键名 | 按 `grid_state_keys` 各键（selected_data_list/selected_ids/selected_rows）赋值 → 触发实例强制刷新（Vue 实例 `$forceUpdate` 方法）→ wait(500ms) → 验证仍失败 → 标记 FAIL 并记录缺陷 |
+
+**选中成功判据**（每级降级后必做）：evaluate_script 读取 `grid.__vue__.{grid_state_keys.selected_data_list}` 返回 JSON 精简结果（长度+首行主键），长度 >0 且主键与目标行一致才算选中成功，再执行后续操作按钮。
+
+**弹窗未加载表单处理**（点击"修改"等操作后弹窗打开但表单为空）：
+
+```
+1. take_snapshot 确认弹窗 DOM 是否渲染（存在弹窗容器节点）
+2. evaluate_script 确认表单控件是否挂载（目标 input/组件节点数量）
+3. DOM 已渲染但控件未挂载 → 等待后复检一次 → 仍失败判定为组件加载缺陷（记录 BUG）
+4. UI 路径无法完成表单交互时 → 允许程序化打开弹窗（evaluate_script 调组件打开方法）仅做能力验证，
+   并在报告中该步骤标注"UI 路径受限"；禁止把程序化路径结果伪装为 UI 路径结果
+```
+
+**适用前提汇总**：本降级链只用于"选中状态未同步"类问题；若操作按钮点击本身无反应，先按异常处理决策树排查（弹窗残留/遮罩/最小化），不得直接进入本降级链。
+
 ### 异常处理决策树
 
 当步骤 FAIL 或异常时，按以下决策树处理：
@@ -292,6 +324,22 @@ click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强�
 4. **更新索引**：运行 `.\aotutests-devtools\manage-index.ps1 -Action add -TaskId "..." -Module "..." ...`
 
 报告必须包含：步骤+状态(PASS/FAIL/BLOCKED) + 截图路径 + 控制台错误 + 缺陷汇总。
+
+### 证据落盘降级链
+
+> 背景（F10 教训）：MCP 截图受文件根限制可能静默失败（png 未生成），不得默认截图成功。落盘路径见 [config](config/bemptest-config.json) `evidence`（evidence_dir）。
+
+| 级别 | 证据形态 | 触发条件 | 落盘位置 |
+|------|---------|---------|---------|
+| 1（首选） | png 截图 | take_screenshot 正常返回 | `screenshots.output_dir` |
+| 2（降级） | 文本证据文件 | 截图失败/未生成 | `evidence.evidence_dir`，命名见 `evidence.text_naming_pattern` |
+
+**文本证据内容**（写 evidence txt）：快照关键节点原文 / 网络响应原文 / 控制台消息原文（来源清单见 `evidence.text_evidence_sources`）。
+
+**强制规则**：
+1. 每条落盘证据必须回读确认文件存在且大小 >0；截图失败立即降级为文本证据，不得留空
+2. 报告步骤表中必须标注每步"证据形态"（png / 文本 / 无），由 `evidence.record_evidence_form` 控制
+3. 禁止把"内联会话截图"（对话中可见但未落盘）当作已落盘证据引用
 
 ---
 
@@ -397,3 +445,17 @@ click(登录) → wait_for_timeout(1000ms) → take_snapshot → 若出现"强�
 | [assets/verification-report-template.md](assets/verification-report-template.md) | 报告模板 |
 | [assets/test-step-template.md](assets/test-step-template.md) | 单步骤模板 |
 | [scripts/organize-screenshots.ps1](scripts/organize-screenshots.ps1) | 截图归档 |
+
+## 适用与不适用场景
+
+**适用**（满足任一即进入本 Skill）：
+- 任务要求在真实浏览器中验证页面交互、状态流转或弹窗行为
+- 已有用例在纯接口/无头方式下被 BLOCKED，需浏览器环境复验
+- 缺陷需复现确认，并留存截图或控制台证据
+- 需要页面运行时错误（控制台/网络）作为判定依据
+
+**不适用**（命中任一则改用其他方式）：
+- 目标是纯后端逻辑校验且无 UI 断言要求 → 优先接口级直接验证
+- 目标是批量执行大量用例（批量场景效率优先） → 交给一轮批量回归通道
+- 任务性质是修复代码而非验证 → 转修复通道，本 Skill 只承担修复后的回归验证
+- 无浏览器/DevTools 通道可用且无法搭建 → 降级为接口与数据层验证，并在报告标注证据缺口

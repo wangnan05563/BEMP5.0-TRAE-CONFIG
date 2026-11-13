@@ -1,7 +1,7 @@
 ﻿{
-    "generatedAt":  "2026-08-30 01:33:29",
+    "generatedAt":  "2026-11-11 09:50:14",
     "bankCode":  "hnnxbank",
-    "fileCount":  336,
+    "fileCount":  416,
     "files":  [
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\approve\\BOPC040101MessageConverter.java",
@@ -17,7 +17,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\auth\\POBM010304MessageConverter.java",
-                      "sha256":  "666266B7E2692EA5B6F1BBD52134D82FCB86647F5B9503A919AAC6637849E803"
+                      "sha256":  "62558BB22AD04E0AC738BE78D81715621DBEA856D8C12A592BEBDF17858C22AE"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\auth\\POSM010101MessageConverter.java",
@@ -34,6 +34,22 @@
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\bup\\POPE020102MessageConverter.java",
                       "sha256":  "C66E998932D4DE2FF026C21C31C4BB746BB63464808A6694A2653645AFD1A10F"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\cfs\\BOBE040101MessageConverter.java",
+                      "sha256":  "633DEAA8285513936EFD125A8D065C21A2F9C04C81309942E889DC536F2D3435"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\cfs\\BOCE020101MessageConverter.java",
+                      "sha256":  "DB79AF3987632946922AE212D98D9958E20B41963398F8CF356A0396C8D9E747"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\cfs\\BOCE020102MessageConverter.java",
+                      "sha256":  "B8A2A6D67C0280FF7F1F40BF04B7AD8C9E2FE5A8A8E82F94ACFFCB078265D58F"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\cfs\\BOCE020103MessageConverter.java",
+                      "sha256":  "2D0FDA82B579B764E5F2A1A1BAD5FDBF0CEDB747A901419F3524FCC841A77695"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\core\\BOCE020104MessageConverter.java",
@@ -57,7 +73,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\core\\POPC050101MessageConverter.java",
-                      "sha256":  "C997DA21666B41F0CF4F5B5036857DE82A24EB65E0F3DFD118EA1CB0D23FCBB6"
+                      "sha256":  "89E90518A86B70A4F01474E861B346DCE08544D773F34B10AA11F12B43CD716E"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\client\\core\\POPC050103MessageConverter.java",
@@ -186,6 +202,10 @@
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\server\\approve\\BIPC040103MessageConverter.java",
                       "sha256":  "CE76830DCC20EE706C0E95207B6EB07E735684538D49BD1F27AE874D5EAA55B0"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\server\\cfs\\BIPC030101MessageConverter.java",
+                      "sha256":  "82AE0E9B74DD857CC2561E27B045D83D9A37B39FE0DB3CD4A632A24BD45B8EBE"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\server\\credit\\PICE030503MessageConverter.java",
@@ -397,7 +417,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\util\\HeadUtils.java",
-                      "sha256":  "C0E792F8D05CFE1CE4FEFD72EF1ACF60D2D9CE7D1D7AAE601B156D83733D3AA4"
+                      "sha256":  "BE439AF812E78CBB951EDB49FB06B54A5E632EC087B8B5AEFE96F450C0593FF3"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-adapter-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\adapter\\msg\\util\\StaticDataUtil.java",
@@ -436,6 +456,26 @@
                       "sha256":  "22E45B575716404101B2F8CFA4BC882AF8A86CD6D3742A4441D3B60286AECFB4"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dto\\HnnxAntiMoneyPreCheckHitDto.java",
+                      "sha256":  "F4DE4804C4DBF5E0496E255345BA39E1732B5EA8050A414391FA1FE40E6A9AED"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dto\\HnnxAntiMoneyPreCheckReqDto.java",
+                      "sha256":  "8F1D7C795298651E945458366EC83F455C7ADF0AD6BE0D54B8970740C8032580"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dto\\HnnxMCustSpecialInfoDto.java",
+                      "sha256":  "7160E1611FF24CF8C80128B9D9AD2380ADD31D7507A7B5003914FF8A38FA2AB7"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\service\\HnnxAntiMoneyListService.java",
+                      "sha256":  "688A5168CCA83E8CDFA78A90C7EDF0E87A468E1137F657E43E39ADECBF35777E"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\service\\HnnxAntiMoneyPreCheckService.java",
+                      "sha256":  "5C4D353582EF3C1F9036A00F6A516385C9C6B2311F189365A72430B7C796DB97"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\common\\HnnxMarketExceptionConstant.java",
                       "sha256":  "5545112DB340AFB165B7CAD2430AA14075AC7D4AED4F8229ECA9077D3335C576"
                   },
@@ -448,12 +488,88 @@
                       "sha256":  "FBC5F12F991B713E3432B296EB2FA7E887B40B7D688D9D40764B2E45EEE18EA8"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\service\\HnnxCustAcctQueryService.java",
+                      "sha256":  "1BEB93D49DC0024824D3647D1295878951723D2296DCE82D2816048938130EFD"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\dto\\guide\\HnnxGuideMatrixImportReqDto.java",
+                      "sha256":  "64927C02A0E0AB605FF543BAF1CB5C5C5E2B0741F7E629217A72D5CCA16C2C59"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\dto\\guide\\HnnxGuideMatrixImportResultDto.java",
+                      "sha256":  "57BA535229120F43C0D626B3A83B128D02BE6ED467B5EBB290C1CFA6C8CD44F7"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\dto\\guide\\HnnxGuideMatrixRowDto.java",
+                      "sha256":  "AA5940D9E5F6268B9196144C0BB6082708E84DF1D085525C794F5CECB4506BA6"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\service\\guide\\HnnxGuideMatrixImportService.java",
+                      "sha256":  "BAF6A44DA0CB2884E5824F84687C0DE2527F79EB7C84862A5D9A888C1774742C"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\billlabel\\dto\\HnnxBillLabelOperLogDto.java",
                       "sha256":  "6B146DE3E52042EE7F1FBBE7102207E1309AECBFEC13B7A11B3C6047887EE8F1"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\billlabel\\dto\\HnnxQryBillLabelOperLogDto.java",
                       "sha256":  "BD9200F180630C91E0BE712A1DE1124F32C41A58C6705DAE59BAF83C2783EFC0"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\CreditInquiryReqDto.java",
+                      "sha256":  "486F1FD58C5EA39A5359C7C1169AA2B2C19E0BB065CA7DDD5FEE8D1C9D7BB895"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\CreditInquiryResultDto.java",
+                      "sha256":  "64E886DF541FFB99F87144C3340BA051D3C96F73B878BD2C8B10D20166255C09"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\CustLimitDto.java",
+                      "sha256":  "8E3131DB8B5DFE9C3E6EC55D8612F08ED41D7504C33F841085B0DF87F3DB4B69"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\HnnxDiscGuideRateCheckDto.java",
+                      "sha256":  "1CFF7B5C01C8A999C1442643D084D79644BB1B296CEC4E675997512ACA8A48DC"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\HnnxDiscGuideRateHintDto.java",
+                      "sha256":  "BB03309DB4BE2FA9C641D2B88A54F517871B7E72613EEDBA46209D123F63E7DD"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\HnnxDiscGuideRateQueryDto.java",
+                      "sha256":  "15FB3014F524CFE027E741F9702F83E0EAF01D4241829A1845D2781BA562D985"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020102\\Boce020102ReqDto.java",
+                      "sha256":  "70F64DBA5FD891EB2157F0E7BAA47646B0E0FF668392C90924C2C4FE9ED3C990"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020102\\Boce020102ResultDto.java",
+                      "sha256":  "DA9E0D739BAE0F4B8CA50CFE2B49CD5020F5294391D14B3ED217C32167B0BC57"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020102\\DsctLmtOcpRsltDto.java",
+                      "sha256":  "9E6FE0EE4D61124AEBB8DBBB3B08EA35C604228E3A69A4102C34D3F687286799"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020102\\ElcBlIouInfoDto.java",
+                      "sha256":  "FB36E96FABCB132F9A3183BB2A837ED5277F0A5B201E3DA543CDDE75A642DED2"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020102\\OccupyLimitDto.java",
+                      "sha256":  "21A7C2B6680AF1CB89FB8DB1AF8848818F00975F0BABF3CBA7106585C77A541F"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020103\\Boce020103ReqDto.java",
+                      "sha256":  "3716FB39D838B9AD04F30284CCB1491C81D57F0F1AEE7AB0DDF01305CACC37E7"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020103\\Boce020103ResultDto.java",
+                      "sha256":  "04C075004323E7C6D0CA8DA3E9565B404E2F727D01DAF504813046CB178D799C"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020103\\ReturnLimitDto.java",
+                      "sha256":  "A6EB65FF9CAA8CF3902A626D471694F6DC35789BA4B74B7345E7A13F5AFB67AF"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\dto\\Boce020104\\Boce020104ReqDto.java",
@@ -469,19 +585,35 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\dto\\HnnxDiscCompanyRosterDto.java",
-                      "sha256":  "0CBAAC4519BF076C4F4D0AD5ABA3983DF229A64A622A85C5BB9218DE960219A3"
+                      "sha256":  "96981E250746025C277EAEC4BFEC2A8375F78B6EDF324F01FE9A3272A0472335"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\dto\\HnnxDiscCompanyRosterLogDto.java",
-                      "sha256":  "151A3B6A440B55FCD0C577604DF50D471A3673625C405B566D94FC90D0D62D98"
+                      "sha256":  "E05FE326D6AE0BFF967BD437A736EE51FA9EE39E6D902D3B613FDD31576F5556"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\dto\\QueryDiscCompanyRosterReq.java",
-                      "sha256":  "96DD8C37DB650AEC9D14E0832F6A82D17F3D3468037245182677A26B6091A1A8"
+                      "sha256":  "A855B35C76074AAF161CE3F5627DDDA9CEDAADDE46C6A57970087292723B583A"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\HnnxBankEDiscCreditService.java",
+                      "sha256":  "5E9D594FEBE2B68FB52604B37EA9037188622A6A8E28883A518B2106EF0ABD67"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\HnnxBankExtDiscService.java",
+                      "sha256":  "6B432F94F1905C3C0996B34158885E5198BC3905B5E28C57B6917F658A1E5A4C"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\HnnxDiscGuideRateService.java",
+                      "sha256":  "578A9F3621B36C8D5418F3DBE935F9DB2CD1D9B62CA0116EBE1CC1FF3527055F"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\common\\HnnxCommonConst.java",
-                      "sha256":  "57957088BA2512CA1CBB757C8D29152AA351E5E566E75C738E596C9C1EC5B82A"
+                      "sha256":  "B130A7564D8EF10F24047BDE71CBF2E55CCBF5EAD855FA998C8191B08C1474EB"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\common\\HnnxGuideMatrixConst.java",
+                      "sha256":  "4655D3353F9B7EF1AB563FBE84D4FAF3936452F61EDD7AC66E368BF80207E06D"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pb\\prsttn\\service\\HnnxbankPrsttnScenelService.java",
@@ -504,12 +636,32 @@
                       "sha256":  "2DC11CD3C28CD5EB50342D59D53CF0D5192D2107B54845F6B15958ECF054ED74"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\CreditInfoDetailDto.java",
+                      "sha256":  "71D86301C5FD3478585793140306A62E90D0C71E7937F259E5BD147A23F0141E"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\CreditInfoReqDto.java",
+                      "sha256":  "58EF0EE4B5EEF968CB37A10E5CB58158761FABC636B566702F17EE2A5FD386DC"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\CreditSyncReqDto.java",
+                      "sha256":  "5A69AD4A1D1BD220128F20EBA75AC0DEC746157129653C4A6941DCAE1DD1173A"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\HnnxAcceptBankCreditBatchDto.java",
                       "sha256":  "E52E7CFED37457A76ACB4D91D26CE1D7E4DD2D79B8DA2B7F4273B775BFA5EDE1"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\HnnxAcceptBankCreditFlowDto.java",
+                      "sha256":  "0785B41A92AC5507BD2AD42EE500C34E669253247990CFC3452B48192537F20D"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\HnnxAcceptBankCreditInfoDto.java",
-                      "sha256":  "EEA989320C4AA75A7B9173F1DE4F94093DCAF92482FC29D5C38536E106494942"
+                      "sha256":  "4C2F78B29B09AF3A1E0AEB5FFD28589F749C8E35162E0D10ECFF1BFD54E5274E"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\HnnxAcceptBankCreditLogDto.java",
+                      "sha256":  "57A5F14C022029A6C0B6C26ACA8F4F1E0F4EC69D6E5B96384C06D91F7568705F"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dto\\HnnxAcptDiscLoanInfoDto.java",
@@ -517,7 +669,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\service\\HnnxAcceptBankCreditService.java",
-                      "sha256":  "B30116A0AA1160148EA0403C9AF7693B36BE965FEC2CF684211CB7DEAD5AB15A"
+                      "sha256":  "43B437C445D0ECCA3E6A7448BEE9EEC33D8A3BC61A9FC4F5E2CBDCFBB43DC504"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\service\\HnnxAcptDiscLoanInfoService.java",
@@ -528,8 +680,12 @@
                       "sha256":  "663AEA422F4A3190D3EA511FE15245FFF902CA0A96CCB219CF7DF394C98E8D97"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\service\\HnnxCreditSyncService.java",
+                      "sha256":  "7E0DE4995D448AB58F85764928EC2FA164814EEE6FBDBB0037595DAB649AE7CB"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\flow\\common\\HnnxBankTaskCodeConstant.java",
-                      "sha256":  "E8EF87DDAD79364A9910F5BC0ECE4084F4C4AF02D76AFC1A84A5DF36A45FCCD8"
+                      "sha256":  "33F26FEE1094B745828585134C1BB14D69E216205EC69CA7E6D8D2E05852743E"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\flow\\dto\\BIPC040103ReqDto.java",
@@ -565,7 +721,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\dto\\BatchOperateResultDto.java",
-                      "sha256":  "75CD185C3D5651EEF39820842F4E5C704B562E01FBD498BB7100805756A8E657"
+                      "sha256":  "8254A3C5C73C86D8837B70DAB1207BF54F4B879A2D193F64BFF0F43FB0BF9754"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\dto\\HnnxBatchCopyRoleReq.java",
@@ -581,7 +737,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\role\\dto\\HnnxRoleDto.java",
-                      "sha256":  "79DCC6DEDF8F49D3BFA01C75CEC24F1D1FEE544B929F32BF6CF1863AD69437CE"
+                      "sha256":  "128E92304858BBA3B40010C211BC1E3B1F0CDC955F19D35A1B1B6C70AD238B78"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\DealCreditLmtStatusJobService.java",
@@ -593,7 +749,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\SyncAntiMoneyListJobService.java",
-                      "sha256":  "904460CE00ECE08356D044907A7FCB15BACC9E7F060E353E9304F36B9662FACC"
+                      "sha256":  "D1C4D9418589A9CCE3A07FEEDFA9C7425EAE562982167CEA4B73E54B0EDBFB5E"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\SynCoreBalanceJobService.java",
@@ -601,11 +757,11 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\SyncPjgcsBranchParamJobService.java",
-                      "sha256":  "08D4E225B21C881666EBDE4DEE550793A732895295681F1E55ADECB4275DDD97"
+                      "sha256":  "2947C24500ADFB1525A113DFF091348C7EC9B4DD8858304468A8F0F2FF4FC098"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-api\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\SyncPjgxBranchRelationJobService.java",
-                      "sha256":  "3174031C13F2FBFE8B4BD917583146A9297FC10E89F4A2715BF8DB1151E4AB8E"
+                      "sha256":  "FE6F359F1B2B9649AC4811A5341D6237E65643B9B8F97A2875E3B925358AB2B2"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\acct\\balance\\controller\\HnnxBalanceRegisterController.java",
@@ -621,59 +777,39 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\controller\\HnnxAntiMoneyListController.java",
-                      "sha256":  "5C164A372B67C7FBFA63AF6D12164079174B008FE9C958294751A5804E556868"
+                      "sha256":  "B5393E44748414215CA4CACB9C7D66D9EE8BD14C533F1C4281EC2328734DFF99"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\controller\\HnnxAntiMoneyPreCheckController.java",
-                      "sha256":  "336E0978AE7A1001B7D4DA80F06B1A3EF568A913034DBE313FE9270F39DD837E"
+                      "sha256":  "4881C88E5627C4029D708BD8022C0F1C71F476F619B876F3363921DC5E49806A"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dao\\HnnxMCustSpecialInfoDao.java",
-                      "sha256":  "732CC58F76630899AA6242B5BEA50808E0DF2BB8775C041A202D28890FB1B2CE"
+                      "sha256":  "D81F85D6EAD7A41CC523CB93326B9FC3E53B701BE4E7B827FB4491DE4A7E637B"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dao\\entity\\HnnxMCustSpecialInfo.java",
-                      "sha256":  "D639FD3105F67513ACA3E59CD3DE3B132A87650C56665BB9FFB0D0A830BF9B97"
+                      "sha256":  "321C850079A5AC32AE55FD12217840CF0F51166AA89CCF3A34A4048720C4F81D"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dao\\entity\\HnnxMCustSpecialInfoExample.java",
-                      "sha256":  "F0B574C8FF4B744D73BB5E38D6A7E06F34677CC8E9317F8A59F70F6EFCD4CDDF"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dto\\HnnxAntiMoneyPreCheckHitDto.java",
-                      "sha256":  "2E1E5FB67A772BE32C33B7FEE1109F3EF78885E13F90C770EA6BDB192CDAB25C"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dto\\HnnxAntiMoneyPreCheckReqDto.java",
-                      "sha256":  "2094B9DFA36F4E1D619527907A5FBABB030799FECE0AF8620D74366DAF5D6049"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\dto\\HnnxMCustSpecialInfoDto.java",
-                      "sha256":  "1B838CF21E66E2155AD3958769E81B12B822C68C895865C6A60A4E8884FC5DFF"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\service\\HnnxAntiMoneyListService.java",
-                      "sha256":  "5CA2E1A89750F96073D0D2B8853CE312C6569DF528B20FE2A67259A22BFA0469"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\service\\HnnxAntiMoneyPreCheckService.java",
-                      "sha256":  "63C4BA97A614029796541B7E8E74FBCAEF6A39679158B04763EA84B7DCC14001"
+                      "sha256":  "6CDF83F2B514712AEFDE9DB6CE1FCBAE4B9A5754990B2D3571AEB9EE56837BC1"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\service\\impl\\HnnxAntiMoneyListServiceImpl.java",
-                      "sha256":  "0D5B7758D2700D56A4C24F1A6646914F9178913475908A777A3A7074A9896AD3"
+                      "sha256":  "842309EBFB7A3247987A670D6AC38F1E33D9EF649E346956E9AE8E83A2218AED"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\service\\impl\\HnnxAntiMoneyPreCheckServiceImpl.java",
-                      "sha256":  "9654E07223C02C33C5B195D2A15378B42EBF8BE62C21E20F3C0B46FE2F28CC74"
+                      "sha256":  "0381FCC5DB69A20FD3349E19913D0A79A31B19C3789C65BC1C2226C9D83C910A"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\validate\\HnnxAntiMoneyUtilConfig.java",
-                      "sha256":  "3AC1665ECB00A3B0271B9B5DDEBDB4EC9A3E5DB4B0EE183F0F7E877FB7B1764A"
+                      "sha256":  "25A096C4F4587D8140CD8491219C156958D469E26636AB4CF39E294CBCB9D988"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\validate\\HnnxAntiMoneyValidateUtil.java",
-                      "sha256":  "4DF8BD1D049B9839375D960FDAF0E36C4B8D3BF5BB312910E19F2C76BAC1C3D7"
+                      "sha256":  "608752A06EF473D59B772703B6F1A224CC70ED00D57CB673FD9EEE33C4D2B91E"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\impl\\HnnxBankMatureBillAtomImpl.java",
@@ -685,15 +821,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\impl\\HnnxbankSaleBillAtomImpl.java",
-                      "sha256":  "C9C554AC7EAE6AD17AEB7DA02522068EE45387DF1B0AC2CC4EF6A962B5E34002"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\quote\\HnnxbankRebuyAcctAtomImpl.java",
-                      "sha256":  "57AE31F0700F1044007A57C481C3B24BAB103C252FD789C78801C6C75272400F"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\quote\\HnnxbankSaleAcctAtomImpl.java",
-                      "sha256":  "298F2B3C1ACE61E6E18C2F1649B98C2D5CEE4602E7FE650E74A6AF9A8C9633D9"
+                      "sha256":  "54B04BC3B7C77FAAB0F1DA2619AFC658800CD4A2F640D530AFA9F064E0D616BD"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\quote\\HnnxRebuyAndSaleAndRedisSaleBatchAtom.java",
@@ -704,16 +832,40 @@
                       "sha256":  "F47A805230546007A12A7E85A4AD9344779204E5D4B7001AE8758F597E2445C3"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\quote\\rebuy\\impl\\HnnxBankRebuyAcctAtomImpl.java",
+                      "sha256":  "AB57A50C72A6A5C119548230B6821C37690DCA9A2C827067DB40B6F406CB6CFF"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\quote\\sale\\impl\\HnnxBankSaleAcctAtomImpl.java",
+                      "sha256":  "62C782E5A54D0CED2A0BAE1499F11D6FFF8B95EFA805A25625D076154C891D41"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\atom\\redeem\\rebuy\\impl\\HnnxBankRebuyMatureBatchAtomImpl.java",
+                      "sha256":  "06B0E948B3276ACA8B43F4EEF1DB965A05EEBA086D35957772BAF4850FB65E61"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\controller\\quote\\HnnxQuoteViewController.java",
                       "sha256":  "9050CE659CB82D2777C78CC1F180EAE0232620706100727AEF50467944902787"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\controller\\quote\\rebuy\\HnnxbankRebuyApplyController.java",
+                      "sha256":  "843893DC586EB1A45292E925F2BF35C7C9BFD7ABB5D9E30E5A3DF41CBA4A0B1E"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\controller\\quote\\rebuy\\HnnxbankRebuyTrackQueryController.java",
                       "sha256":  "071586BFC244CDB36D882EADC87876EF9EF54E5D58EF0801EC006C9EB550D0BC"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\controller\\quote\\rebuy\\HnnxRebuyTrackQueryController.java",
+                      "sha256":  "7198A5E6A9DBC8264A4E27A97BE888D74F526F5EC34483B8B4E675B4A50B11EF"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\controller\\quote\\sale\\HnnxbankSaleTrackQueryController.java",
                       "sha256":  "4ECBDD9D1DB709088C3EDB81632A07F5DA37597CB427BFA6E1869E9A46C3041E"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\controller\\quote\\sale\\HnnxSaleTrackQueryController.java",
+                      "sha256":  "B05892CC75AF03BBDCD752C1894C537331802ED7C003618CA336A4A6A9BC1772"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\controller\\rediscount\\HnnxRediscountSaleApplyController.java",
@@ -753,15 +905,15 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\quote\\rebuy\\HnnxbankRebuyReplyServiceImpl.java",
-                      "sha256":  "10D9B2ADB01FE63A0725F5F2C8FC1F698FC0777AF75C86076465AA8B1E8FC10D"
+                      "sha256":  "4C66C77E44B69510CFB21F5662030767F278B4A08A79BD71C1BFA57DFFF0F08C"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\quote\\rebuy\\HnnxRebuyApplyServiceImpl.java",
-                      "sha256":  "80C16A2F241591DF5AF060FC0116871EE3428239AFAD139FE45E869CCD703032"
+                      "sha256":  "4833766C1611107CE59123213594F7D1D71A1CF12B5AE99D5EE33D41D5517401"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\quote\\sale\\HnnxBankSaleApplyServiceImpl.java",
-                      "sha256":  "FDE9008ED503EB3610D32638EA41B0CFA1D4EF632DE154F09744FA8213FF8C67"
+                      "sha256":  "E6B6065DCB94DACEC4F2A546AC3E66E025ECC0BECE9B1AA14E40F1D5C025B0DE"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\quote\\sale\\HnnxbankSaleQueryServiceImpl.java",
@@ -769,11 +921,11 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\quote\\sale\\HnnxbankSaleReplyServiceImpl.java",
-                      "sha256":  "54A5B07B2B70A7533FF0D4F05ADD32721BBC00E55B412DF9B0A8ACE9DF054EC0"
+                      "sha256":  "28BFD8D2632ECB35F3FAD4BF356F2CC40255BB07EAD912404ABE56EA17A87C4F"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\quote\\util\\HnnxMarketValidateUtil.java",
-                      "sha256":  "7417035B096FA11C77E25A6032F7090AAAE43D45D1A1E3F871085ECC1B87C098"
+                      "sha256":  "9E0309AEE5BC059953D7BBF4199E5244EF2DEA6BAC273B6DFDE4B2750411AEF5"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\redeem\\rebuy\\HnnxBankRebuyMatureApplyServiceImpl.java",
@@ -785,51 +937,95 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\be\\market\\service\\impl\\redisc\\HnnxBankRediscountSaleApplyServiceImpl.java",
-                      "sha256":  "DBF775C59E83BABDDBD05D51E273365A1F2B745627C0D0DEEA6BF375D52F5200"
+                      "sha256":  "A50129BBF93AD2E44E3BADFB98B4AABDE7B6B735A9B47ECE78E8B9186EE62D57"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\atom\\acct\\impl\\HnnxbankCustAcctAtomImpl.java",
+                      "sha256":  "08A197AC8507D2A8DB5250D49EC7141145BB3F655F63BB50EA0A42422A773493"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\atom\\corp\\impl\\HnnxbankCustCorpAtomImpl.java",
+                      "sha256":  "E264CAC482646CFA82CE1AFF360CB6E843CE4A3FAD4C977D16CD57271D3341F0"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\controller\\acct\\HnnxCustAcctController.java",
+                      "sha256":  "FA5561837B07F29768D4D4CFD5BBAED2D07C43281FB570F8FAAECFDEBB9E0249"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\controller\\corp\\HnnxCustCorpController.java",
-                      "sha256":  "E596DA070A3CC7851EB6EDF0C035B0B5DD4BD6C5E409CEE8451A5009D7643FD8"
+                      "sha256":  "9C255901FA8C7462EDA91CB259CD96FA61164228DD8B2C30A76B71D7A948BC77"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\dao\\corp\\HnnxbankCustCorpExtDao.java",
+                      "sha256":  "157D2C1D2239B72AAE6AA321EB5C8CED00970CD4FF63B812CE73FA627E26F03B"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\service\\impl\\acct\\HnnxbankCustAcctServiceImpl.java",
-                      "sha256":  "69A06ECD13923225B12C5B1900AD7CC291C93B7584121DCF344949E8F408F7F8"
+                      "sha256":  "B9847B395064E909915E7A5F8D5C1FE353BE5412EE9BFABF7959523F274C214D"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\service\\impl\\acct\\HnnxCustAcctQueryServiceImpl.java",
+                      "sha256":  "30EB3537EB7A3FE6E38D73D8FF16B4F738E9542AF779E4AFD2AAD18A8F7E8D90"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\service\\impl\\corp\\HnnxbankCustCorpServiceImpl.java",
-                      "sha256":  "A07F6FB88C23F1A441A7801DC3E125B991190CEC29727DF283CC42DB0BE728B1"
+                      "sha256":  "75D27B3BC8F30FB5F20136CD9D177C3918953454643BFC27CFDB7B120621E493"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\util\\HnnxSensitiveMaskUtil.java",
+                      "sha256":  "93846EC678C8717134975144D84748DE16DB6220BFF9ECE752CB9E811DE8FB39"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\controller\\guide\\HnnxGuideMatrixImportController.java",
+                      "sha256":  "0D8AD33E8E80ED4849E880D39D9E145B78AD6CCCFFB315586BB11EE3EF848BBB"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\dao\\guide\\HnnxProductGuideHisDao.java",
+                      "sha256":  "20AE516472B828179501B70E38EAFA56214D2AB0F99200336EDE335BCF93E1A3"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\dao\\guide\\entity\\HnnxProductGuideHis.java",
+                      "sha256":  "6295F1390D6929DF822AB5D23D7E00CB7916F5DF83D12C841814984A140D82D9"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\dao\\guide\\entity\\HnnxProductGuideRateRef.java",
+                      "sha256":  "C019A08881C497B0B73B1F5915F8D9F0B44E15CDD4C7663B30C185FD5050BD42"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\service\\impl\\guide\\HnnxGuideMatrixImportServiceImpl.java",
+                      "sha256":  "88C5D6CDE5DA0F35F3800679F67C2AD8FAE837CB5689C82D1BCE234D94AAE467"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\prod\\util\\guide\\HnnxGuideMatrixExcelParser.java",
+                      "sha256":  "6338DE1D071D8435E02D7244E7865C88AC8458F60A3093D6E640EA0D56D73AC9"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\aspect\\HnnxCustSignRegisterAspect.java",
+                      "sha256":  "DC1928333DF77A5D888DA0B6DD3898C08A733EAAEAEC6A4CEED3ADC6453BFD5D"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\controller\\cpes\\HnnxCustInfoOnlineQueryController.java",
-                      "sha256":  "D6EB6465ACF7961D469425C8D7FEB194DF1E61FE6A4D770B28525728FC6F59B3"
+                      "sha256":  "A28E9C085BE69C49564C7D8E12E914288E2D741CA3F0DC4A221962D2379DE7B7"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\controller\\cpes\\HnnxCustSignAuditController.java",
-                      "sha256":  "D5DCE0261D4172B48D05FF6A15C478C5B3581FF013BD3C120055DA17CD3D386F"
+                      "sha256":  "28B44DBA4D4552F5AFCD84BB3D3D59F7CF8A6FC55D5C7B962BD0E66CCADF0193"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\controller\\cpes\\HnnxCustSignController.java",
-                      "sha256":  "2498AA9977AAA86966B902B83F5B68281770FEAEAB01298AA89C960383B7166B"
+                      "sha256":  "4B6DD7428EAC43151081D4AA64E523FD637AF81E8F1A05BDC9222A7A0DC5A7F2"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\service\\impl\\cpes\\HnnxCustCorpQueryServiceImpl.java",
-                      "sha256":  "CF811CE0AEDBA91F2EDAF8E762384821ECB4D0AEE50C32DEFF0DFBCD51DF10EF"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\service\\impl\\cpes\\HnnxCustCorpSignAuditServiceImpl.java",
-                      "sha256":  "B7859B6D9BF846419AD69BC5187849E9B9B170D5057AA236CA2A530CD3616427"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\service\\impl\\cpes\\HnnxCustCorpSignServiceImpl.java",
-                      "sha256":  "10CC6B2C0D9C7ED48C6BCE12E1EA2D944DFF488E6DF8B4DDEBF48973D7EE6562"
+                      "sha256":  "85348A82FDD4EB9A6DE35AE528CB5E13E3FC01F31681DCF3C16A2A1FF236EAE7"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\service\\impl\\cpes\\cpes\\HnnxBankCustCorpSignAuditServiceImpl.java",
-                      "sha256":  "71720DA9B58EDD957E8B669820CB2EB8A6C7446FF0E17328EC0ACA35BB600546"
+                      "sha256":  "35FFE65B94ACC8619A3460120F99AAA819666A41387922B7FAAC17E7179BB6DE"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\service\\impl\\cpes\\cpes\\HnnxBankCustCorpSignServiceImpl.java",
-                      "sha256":  "D5585A4171F8109E024C0922BE114F17CAE0EBE0C420DF6CC41D3B4381832E46"
+                      "sha256":  "5A242E14C5C5209EE80A7FD0D148DCA33719E8CBBF086AFAE622B5D63F17368D"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\sign\\service\\impl\\cpes\\elec\\HnnxBankCustElecSignManageServiceImpl.java",
@@ -853,7 +1049,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\acpt\\atom\\issue\\impl\\HnnxBankAcptTrackOccurQueryAtomImpl.java",
-                      "sha256":  "7A03FB99BDDD3B3D4FC77635CC22847EF1D8B35E13319B4B9DE46A98D18F2D03"
+                      "sha256":  "BA8EA2AF9653F5666F5C5466AA35F14E1E806114BCD7255EAB31D0DAD2226737"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\acpt\\controller\\HnnxAcptDueDeductController.java",
@@ -896,16 +1092,28 @@
                       "sha256":  "D48C4A65BA6D6C41033C5DCB0EB62C9FEE3D110EAFC77AD139C8DB117E538AA6"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\aspect\\HnnxDiscSubmitClearMarkAspect.java",
+                      "sha256":  "56C24388253887DEA345D71EABE627F672FAE3DAFC04F1E37EFB09DD5D3E7677"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\atom\\impl\\HnnxBankDiscAccountAtomImpl.java",
+                      "sha256":  "861B6B87EAF971BE38AA6421C248409237C5F8E294F2EAA5E317DA1366AF34B6"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\atom\\impl\\HnnxBankDiscBillAtomImpl.java",
-                      "sha256":  "25220D4C547B34365ED7613C6E8C855B89D8C391FC13727BEC0B6D579FC9F863"
+                      "sha256":  "64015DDFF26BEFE9EAF4EF93FEF569B862BDCCFCA13855D195F11E900C90DAD8"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\atom\\impl\\HnnxDiscOccurAtomImpl.java",
-                      "sha256":  "3A0987822DDE9548E43950B9768E989049A56587D2A2219A9D1DB78D08590077"
+                      "sha256":  "9711B2B9098233A5CB909F8B6DCDA0848EDC49B66DDBD37082B03C3734DA545A"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\controller\\HnnxBankDiscElecController.java",
-                      "sha256":  "97C0C26732FCB4AE8E61FB36993817171CE6E62232F6D5ED4684B6812AA4241D"
+                      "sha256":  "8FC07ED9FFCFF01DE7F998C1A16A1F368E3DC3388FCAB50C2758660FB410C475"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\controller\\HnnxDiscGuideRateController.java",
+                      "sha256":  "DFFC280B24D319195B0D709C59C14CF1F8661C5D92F70C96110AF531659EB17C"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\discount\\controller\\HnnxbankDiscOccurController.java",
@@ -913,7 +1121,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\atom\\HnnxDiscCompanyRosterAtom.java",
-                      "sha256":  "393C1E7B8E450450DED61DAE5666EB0072817A2FF64AB704A681980DCD68E55D"
+                      "sha256":  "17B371C0B062882A5C0C0D5C921C107D555B3ADE40280E83F98A7547682BC0FF"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\atom\\HnnxDiscCompanyRosterLogAtom.java",
@@ -921,7 +1129,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\atom\\impl\\HnnxDiscCompanyRosterAtomImpl.java",
-                      "sha256":  "CC1D9E28F72798F42A61C83021A225D898C5A7BA86FC2033A974A4665E60CCC8"
+                      "sha256":  "FA73050F7674BB8B90C0646C2BD81352A39A379851A12A029D787F89D0F8002D"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\atom\\impl\\HnnxDiscCompanyRosterLogAtomImpl.java",
@@ -929,7 +1137,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\controller\\HnnxDiscCompanyRosterController.java",
-                      "sha256":  "E66A2150273F1BCFC01B4BF178677D7F3A515F94C4CE622CAE7B39447B2A5759"
+                      "sha256":  "4856133BA1FB1BCA83F277C802522CD6912753BE2A38B4A28D77EC2DD071D989"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\controller\\HnnxDiscCompanyRosterLogController.java",
@@ -949,15 +1157,15 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\dao\\entity\\HnnxDiscCompanyRoster.java",
-                      "sha256":  "6AD1C37CFE706AB9A4DB24B8D6A42BE1669066036B139A410F330C6B985F7C28"
+                      "sha256":  "9CF9D56CDB72D0E9D5E8AF2CD488473CDE4D72003731DED13953813A4128C9FC"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\dao\\entity\\HnnxDiscCompanyRosterExample.java",
-                      "sha256":  "E6B2F4F98C96EE393969845B61F34C1EBD45775EA99B73BB69AC70B42DE0C36F"
+                      "sha256":  "B3BE92FAB22D8BBB40C3BD6EB1F45D64FA2F37F03F5B511ECFE2E2E551704E8D"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\dao\\entity\\HnnxDiscCompanyRosterLog.java",
-                      "sha256":  "2A0646AF5C5FF87B4D1D3FFC84337C5815EF1CF69E2B4DE9D574CDDAD9266836"
+                      "sha256":  "EBAF70626348EFE8BDB2FC0F065A0BC8FC3C2DED7071AC40100070C858EE6AEB"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\dao\\entity\\HnnxDiscCompanyRosterLogExample.java",
@@ -973,7 +1181,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\service\\impl\\HnnxDiscCompanyRosterServiceImpl.java",
-                      "sha256":  "7B9668539F125E228E4D26E4092367345935FCCB4092432E6D1A8731A910F0C1"
+                      "sha256":  "786AA251A41F50684484CA9F638F0F95CE9AD546E230B93349A23B790A67AED7"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\service\\impl\\HnnxDiscCompanyRosterServiceLogImpl.java",
@@ -981,27 +1189,79 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\util\\HnnxDiscCompanyRosterLogUtil.java",
-                      "sha256":  "E8A51F391B64E958242E793537ABBD7A55E75B35F691D1844B12EF823D425177"
+                      "sha256":  "DF8313C44EA3014353885D3CE4AA567AB32DA4098C6B96C37E37E2AD5321DE56"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\roster\\util\\HnnxDiscCompanyRosterUtil.java",
-                      "sha256":  "EDD90A1540F8BC08F703BE979633E84623AA4BD4D71917E99DAC2906FFC2BBC7"
+                      "sha256":  "F4407DEAF383475DE63C42487CDB701F7E39F12CE76D5C09CEAB0CB0038B9332"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxbankDiscBatchServiceImpl.java",
+                      "sha256":  "33FBC958923381233FCBA171A4948BF5D11E180ECDA7270D4AAE1B28D74E5D6A"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxBankDiscBillServiceImpl.java",
-                      "sha256":  "05E1DB60A7057BAE9506FF79A3998D057873425C475714478E32FE31EADFD5CF"
+                      "sha256":  "462A0ECD8FCE3CE794C1D27A5EABB0E32DD1B3B7AA12268DC74391798E9F7D47"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxBankDiscReCheckServiceImpl.java",
+                      "sha256":  "681F079806212569C3F394FB9C63402866119B22A14CDF7CBBE4E0B226C31834"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxBankEDiscCreditServiceImpl.java",
+                      "sha256":  "EBD58D440B2CFF68C9D01E3B051C667A5EDE1F65E88D64924FF11ACDA7CED1E8"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxBankExtDiscServiceImpl.java",
+                      "sha256":  "D7DA6580A9F2EA23DB2028EF964B41BC91AA30F8E10C5D84062B23EC7D41F140"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxDiscGuideRateServiceImpl.java",
+                      "sha256":  "08C69EDA9563D9541C2DCDA68C19562C5C7003960FBC962CB6B3B37AD7F552B4"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxDiscSignServiceImpl.java",
+                      "sha256":  "17A259DA0488F1C3925B6BE83E60DDF4DEFC96E330B2A6D51009639B0D8A07AC"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\utils\\HnnxDiscBillUtil.java",
                       "sha256":  "787384236C271C0CA933FFE0C1D713099F2E14AE1BB2835E73D8FFC1374AE9B5"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\utils\\HnnxDiscLoanFieldValidateUtil.java",
+                      "sha256":  "5C00BC8DA71EC6AF93CD25DE1D2FA5866A6C06FC84EF7B712758B4731DE6F2ED"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\channel\\atom\\ebank\\impl\\HnnxBankEbank2004AtomImpl.java",
-                      "sha256":  "62870BA6885D6D89B50B9AC220786D33B8859D88DF7A83C7C818BF258FEABAEA"
+                      "sha256":  "994395452A2814F6DDED30C1792C73C22089523CC908F87D94C41C05D6F4E762"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\channel\\atom\\ebank\\impl\\HnnxBankEbank2005AtomImpl.java",
+                      "sha256":  "83706A166C1C2FAB679632E3DBF8D746F67865F2FAF7B7F924E3DA8201B426A8"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\channel\\valetmanager\\controller\\HnnxbankProxyTransController.java",
                       "sha256":  "161B34C35CAC62140F11327AA519579AD8868A2CE73B7F11299868EA7A8AD700"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\common\\city\\HnnxCityBranchQueryService.java",
+                      "sha256":  "69ACFE7AB84DA4FF2E6B4AA67B261D0F85D7B066EB0CC61DBB33BC998BDA4098"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\disc\\elec\\dao\\HnnxBankDiscCustLimitInfoDao.java",
+                      "sha256":  "59FD43E82D05AB34194267C30002843434D4F136220AF6F3429F28CE03421F5F"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\disc\\elec\\entity\\HnnxBankDiscCustLimitInfo.java",
+                      "sha256":  "9CA9C8D23295C91DA3F45AD16646169819353D4722D3562D802DD7FF66FC3171"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\disc\\elec\\entity\\HnnxBankDiscCustLimitInfoExample.java",
+                      "sha256":  "7870A6F4CA09828D7AB409B303686005D944B947B93455CA65D9230DDA884BA8"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pb\\prsttn\\atom\\impl\\HnnxBankPrsnttnAccountAtomImpl.java",
+                      "sha256":  "594B1A871A0B48720E280C4C0F95208E5514494C63B856A43C0DC1D24ADBC2B7"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pb\\prsttn\\service\\impl\\HnnxBankPrsnttnBillServiceImpl.java",
@@ -1016,12 +1276,16 @@
                       "sha256":  "EF82369D21D9C6A92CBDE170B057F974B73B4F9504A0639CE279DCABCF5FFF80"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pb\\recourse\\atom\\impl\\HnnxBankRecourseBillAtomImpl.java",
+                      "sha256":  "DEA5D767BA13AC90A4AF81CDE420348BEADA11E13C99F68CA343C64C63B85456"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\acct\\atom\\impl\\HnnxBankBalanceRegisterAtomImpl.java",
-                      "sha256":  "3835F701EBFAA2EAF0DC4892E8CD292CADD6C16D99F3FAC2E6CC0AE7AE9C44E3"
+                      "sha256":  "1848154D9E3FDF79A1E3F411E3F1E2BB347E86753B5CED2B2DB8C2887609C773"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\acct\\atom\\impl\\HnnxBankBlanceRegisterHistoryAtomImpl.java",
-                      "sha256":  "DCB909ED6DF1F918DD1B92F14E9D0B6E8F32B0498ED1A7ABE28D5045CAABB97D"
+                      "sha256":  "A9A2C5FD5B159886C3335D1F350F02376161D512F60D84062D38CFE168D1D2F1"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\acct\\service\\impl\\HnnxBankAcctScenelServiceImpl.java",
@@ -1037,7 +1301,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\aspect\\HnnxAcceptBankCreditAspect.java",
-                      "sha256":  "FB28A312DFE8457AD2B283ADC55D963677C963784AD7B65E76DB4FDFE5B096BF"
+                      "sha256":  "559D57791CC24D5EE0EC0C205D6130683963415ED02719BC2092B7E3CA69C84D"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\aspect\\HnnxAcceptBankCreditControllerAspect.java",
@@ -1045,27 +1309,43 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\controller\\HnnxAcceptBankCreditBatchController.java",
-                      "sha256":  "A24D25D47A98B7A933E2EC24AD498B3A76607AB222A75EDF82D5D0837A83AF07"
+                      "sha256":  "FFE1510609F4915FCF605886D2BF718D7CDFF2CD52D0FE10BAA1060FFDC99279"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\controller\\HnnxAcceptBankCreditInfoController.java",
-                      "sha256":  "17A796F04B2635EC7452E43550E92924D305FD07471AEB5C92C20B46256925C8"
+                      "sha256":  "244193BDCC5D1F3FA8BE5E796A19037DAA60088A36D9FCAC705865057F38FC9A"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\controller\\HnnxAcceptBankCreditReCheckController.java",
-                      "sha256":  "4B3F5A0664B3731CA864FEF62372D9E4453ADCC8C352006B25910E602D9986C1"
+                      "sha256":  "E2B6F0A605A0C5A8ABF15A7426C02DF700460AB9CAE162526733F8BE46C33EE4"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\controller\\HnnxAcptDiscLoanInfoController.java",
                       "sha256":  "ABC2264DA3037C701D42175AB62DC9ACE02F79D36E1B1875E2CD949B67E5CDCF"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\controller\\HnnxPcCreditGrantInfoController.java",
+                      "sha256":  "2D65422A0209DE2A853C50D076FE6B39A2C3088B055039622ED634A61FE831E8"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\HnnxAcceptBankCreditBatchDao.java",
                       "sha256":  "03F7AD1CB8ACB85190B699799AF76B91754B3F7645E708E09B6511CF141F5292"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\HnnxAcceptBankCreditFlowDao.java",
+                      "sha256":  "CFFD57D0B003B20BFF103B2E9DC5E6FEBEECA5EDF471DA3FDE6D4F88305AF113"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\HnnxAcceptBankCreditInfoDao.java",
                       "sha256":  "CEF42E0B7B51B64D62AF9E43325F7AE757BCAB2D3AF379660F4E6C3E0D1C1761"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\HnnxAcceptBankCreditLogDao.java",
+                      "sha256":  "708718A22D74C84FC40BA9C911047990EAF7E397972F1E99A8368B8FE33E2976"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\HnnxAcptBankBillBalanceDao.java",
+                      "sha256":  "E69883C65D5B81807EE9AA438837B63F35DF7F3BA6C7FE0C015C5766901356C4"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\HnnxAcptDiscLoanInfoDao.java",
@@ -1080,12 +1360,28 @@
                       "sha256":  "9DC136FAF08D33CFF7A38ADB8505745B8070238C74A7AA24362A35315A0136A9"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\entity\\HnnxAcceptBankCreditFlow.java",
+                      "sha256":  "5A6B7B5F09576CCF601D432DF7F290B809767F2DBD727345F351D13B45C5FB59"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\entity\\HnnxAcceptBankCreditFlowExample.java",
+                      "sha256":  "EF700FA4773F6774845C72C100AF32168FCD680C9C3E02F84EED7318B28F55B7"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\entity\\HnnxAcceptBankCreditInfo.java",
                       "sha256":  "A009F495A7BB3F68C69140E9C72D2A7D20D22AA45BBF95603340075C90F71B6B"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\entity\\HnnxAcceptBankCreditInfoExample.java",
                       "sha256":  "310D388EF598FBF578955B80B3CD40FFF97EC92DC501A79D91C8E59F84E55024"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\entity\\HnnxAcceptBankCreditLog.java",
+                      "sha256":  "CF977D6A83FF17DCD6BB88062006AAC6CC2F9A16012E3E23325D2C57B1F756E3"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\entity\\HnnxAcceptBankCreditLogExample.java",
+                      "sha256":  "CCBB1B72A5C9090AEC8716B28A48E96F9CE28777C008964F2DC4309A17BF49BC"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\dao\\entity\\HnnxAcptDiscLoanInfo.java",
@@ -1097,7 +1393,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\service\\impl\\HnnxAcceptBankCreditServiceImpl.java",
-                      "sha256":  "D9D99F47FE822731AB71CCFC6725D236264037B91E8783F91E52AA2BE86A240C"
+                      "sha256":  "E7B714AA5E41DA96E2C4E28F06AD1B6E0C32CE256E3F8FC5A6A6614EE22EDDF2"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\service\\impl\\HnnxAcptDiscLoanInfoServiceImpl.java",
@@ -1108,20 +1404,28 @@
                       "sha256":  "C9E10B4095D29A70B161F05CF84D3B55D414F1757FAEA8763A5DEA8BB5FECC7F"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\service\\impl\\HnnxCreditSyncServiceImpl.java",
+                      "sha256":  "C159EA3492CCB444605381836C411F37A2F4FD6F9A6D4861200E6E8A3F7B6F14"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\utils\\HnnxAcceptBankCreditUtil.java",
-                      "sha256":  "9A981318B5E688B6BBF690117924033CFB34139D15DA198E30DD233116C96581"
+                      "sha256":  "D7F3AB6B6E2F3D6081F0C6669B0F86A46E7D80E34EFC25FA6E0DE4DCE34E0EA9"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\dto\\risk\\HnnxRiskBlackRollInfoRespDto.java",
                       "sha256":  "E8A0E949AAD8F95F0C657175839F458FA19216748A11572BCBB6E39459077A31"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\flow\\atom\\audit\\impl\\HnnxAuditRouteConstants.java",
+                      "sha256":  "495881E2D9ED5AE54DF6DD2B205EAEE7B5CFEF76F188E087325190C0D048EC17"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\flow\\atom\\audit\\impl\\HnnxBankAuditFlowAtomImpl.java",
-                      "sha256":  "36C1DA92B935CF5D2023205C7B1FCDCBD053E4BEE17FEBEACE2A65E9C192DADB"
+                      "sha256":  "261FC97A6EAA8CF13C8B224112A4947ACCF7BB7F3F7E72EEDA3CC94FD7802BB4"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\flow\\atom\\audit\\impl\\HnnxBankAuditRouteAtomImpl.java",
-                      "sha256":  "95334E18619D90E31E2E07479608233EF2B25AAE8FA8ABBC8AE07F102A1DA103"
+                      "sha256":  "7A74B092722D832D6F55EB8D96EB258C600B9DE7D90AF0472E3689521BDB2A2B"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\flow\\atom\\audit\\impl\\HnnxBankAuditStationRoleAtomImpl.java",
@@ -1148,6 +1452,22 @@
                       "sha256":  "D0B117694BD5DA0091A6535EE597AEAF864657E948B3A4B887A2D1A0FB9DCB80"
                   },
                   {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pe\\busiqry\\dto\\HnnxAcptOccurBillDto.java",
+                      "sha256":  "FC744D0E6B187668E96B2D95A3396BC24165EBD861A54E2061893CFE90C6DA7E"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pe\\busiqry\\dto\\HnnxBalanceRegisterDto.java",
+                      "sha256":  "B0F69AB12F1716EEB918A7C956C7F81FDBA5BD775B50107E3A45B8B5EEE9F079"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pe\\busiqry\\dto\\HnnxBalanceRegisterHistoryDto.java",
+                      "sha256":  "BF3D8021EAA1936D72358BF2C7400374D92F88ED275BD7B5F5DCB6C59A65435C"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pe\\busiqry\\dto\\HnnxDiscOccurBillDto.java",
+                      "sha256":  "F80EABDDC1FBEF4F2BE404D84293876D8D0CDA8FF42E6048517CC29F016BA3C1"
+                  },
+                  {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\plugins\\billlabel\\service\\impl\\HnnxbankAcptBillLabelManagerServiceImpl.java",
                       "sha256":  "CB40CB1523FB48E678D9ED3413C8D485219AAEE4936434FFA83810BBD9D3CB51"
                   },
@@ -1161,15 +1481,15 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\HnnxbankBranchAdminController.java",
-                      "sha256":  "D73837868E8661E25CE3E087E1F6371B6C49FF3A9B88AAEA47D4D4CB38F2C348"
+                      "sha256":  "71D7E1F315EAA0D1E2A18DAC6D7D76C0E8D2DDB2D4143C55B46D47131724EF21"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\HnnxBankBranchController.java",
-                      "sha256":  "A3A87C6BD4B2270E8DC78C0F23EDD2E6E2117DF40B8E5DE0FF6D64FB44B0102B"
+                      "sha256":  "6DD43159B276061209301146E3719B65F41BA541C1668314742118F9895B9324"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\HnnxBankBranchQueryController.java",
-                      "sha256":  "1706389FBB533DF9E1B328610BC82C608C49B975D1D865C0E8980D7EDB11AFFA"
+                      "sha256":  "9A1ABA211C7A7903F1D2DE0D9120F7C16501279F194D3F95A98A9B8534A7AF10"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\HnnxBankLegalPersonVirtualController.java",
@@ -1181,7 +1501,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\vo\\BranchImportValidateResp.java",
-                      "sha256":  "9D70391D9FA810278EB77B7A053D02070AD5B54F2B3427AFAC63AD577F202038"
+                      "sha256":  "0920B90190907C3E0F9F9170B00412444C1F82EBDA0CA0951BD968CBA3BA7526"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\controller\\branch\\vo\\BranchImportVo.java",
@@ -1201,7 +1521,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\dao\\branch\\PjgcsBranchParamDao.java",
-                      "sha256":  "566F0E72D21C68B0897D6F78584F4844964C2B79F481A4EF3F09F3E325AACB83"
+                      "sha256":  "346001AECEDD30D782D29BEF4F6897DA0C0FE6E1D659B3B98366CF597E43AFDB"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\dao\\branch\\PjgxBranchRelationDao.java",
@@ -1221,7 +1541,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\branch\\PjgcsBranchParamService.java",
-                      "sha256":  "093291FFA9CE0383ED9C0CC6A299D10135D501B48309F0633CD716FA8D8BF1D5"
+                      "sha256":  "BDA9381A1F7DF5C7287DF29A3D903CD33AE3A25F67FED2001F1FB2E9DE9EC445"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\branch\\PjgxBranchRelationService.java",
@@ -1237,11 +1557,11 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\impl\\branch\\PjgcsBranchParamServiceImpl.java",
-                      "sha256":  "A411225AA002E83166E682436A741A0B1DDD816F58ABDB3D3D8847C5E793F38A"
+                      "sha256":  "298B29A31EA7699CB8517B096D4A81F91E65C4D0C9347003AFB54F4B7B562364"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\impl\\branch\\PjgxBranchRelationServiceImpl.java",
-                      "sha256":  "68B2B56B75B9A28605CDBE8E64D6D700A7CC50BACE8A42D09B046E5C57BA519A"
+                      "sha256":  "9598AD7F9D3B0C4893DB1081AD2E3FCA91FFE67354976CC6D5902F9D35BEBB0E"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\impl\\role\\HnnxBankRoleServiceImpl.java",
@@ -1249,7 +1569,7 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\impl\\role\\HnnxRoleServiceImpl.java",
-                      "sha256":  "5F84E7618D25C995531E61EFFABC2FD5EDA270F1D19E0A94A8BBEB976019D8D5"
+                      "sha256":  "FCDE858D8B2B307469F561CDEFFD1F98B7D038AE728F5CB1D175BCBB6AFD97BF"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\impl\\user\\HnnxbankBranchUserServiceImpl.java",
@@ -1277,11 +1597,11 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\impl\\SyncAntiMoneyListJobServiceImpl.java",
-                      "sha256":  "B79DF49A17B243D5173D48C529790191BA0EBEAF5C99A4B99B72030FBDA3D1AC"
+                      "sha256":  "EBF764C4B03163563179D93D9226D0E3F30668A3731CF2FCCDADA092B9F31154"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\impl\\SyncJobUtils.java",
-                      "sha256":  "2B9E846D0593CDB2495EB918E1C809B6452685CF23E75366EE4B03D979B07FA3"
+                      "sha256":  "1E19ECAC0E0F22AFED901612ECC33948D4179F4AD75B76893494BF861A458B7F"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\impl\\SynCoreBalanceJobServiceImpl.java",
@@ -1289,43 +1609,43 @@
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\impl\\SyncPjgcsBranchParamJobServiceImpl.java",
-                      "sha256":  "F560B874597AE91A88B1329E07DE652C3D8F2AF8D6F1C62C9E9E24C1BA0C8615"
+                      "sha256":  "8438B423D3F681B0589606A901FCE849DFD450BE684CA7A886B0DE3B22D97942"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\main\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\tk\\job\\service\\impl\\SyncPjgxBranchRelationJobServiceImpl.java",
-                      "sha256":  "5E23153D189996AD8A1E8B5E4793F2FD3C50DC2BF5692E202FA3E903AA3F0662"
+                      "sha256":  "AC16061A017E9FCFBC192ACD10DD596B00C77E21F3A3B91B009FF0EEEFF1BEAB"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\HnnxAntiMoneyValidateTest.java",
-                      "sha256":  "986246C387670B29373746F2F3A1D8CACD10CA145815DB3CB3446B6918CCE6E1"
+                      "sha256":  "2636C1409CABF660973142BB96C26DF2B16C5E599A831B90C4610BF78DA4CB2F"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\antimoney\\validate\\HnnxAntiMoneyCustValidateTest.java",
-                      "sha256":  "5DE28F725F4B1D425515EAA70A4BFA1B9F9922B0101357AA1EBC89D7CFDB9EA1"
+                      "sha256":  "26C3F7D6EFC8E2E5EE54CF4528FC1BB5D12D0F79BA80A5856DB1D0AF4681B696"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\service\\impl\\acct\\HnnxbankCustAcctServiceImplTest.java",
+                      "sha256":  "E2A99A4378E984FE13B2A2A090BA90E6E5053941037FE81786DAA6CF50F72156"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\bm\\cust\\service\\impl\\corp\\HnnxbankCustCorpServiceImplTest.java",
-                      "sha256":  "B272132110418B04FA55FC2530F1CCF38C64F05E0ED9A6057A800560CB1ACB95"
+                      "sha256":  "608A0F5106A891192110C54CC5D90B0D0703C3C22F213C62957813A90754AF17"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\ce\\disc\\service\\impl\\HnnxBankDiscBillAmlRoleTest.java",
-                      "sha256":  "F3A9AB59C6C3A53F428C5AC8D956F3AFCDBB41A6B29D1FFAA74881EABF7799E3"
+                      "sha256":  "D450A698B594E04E65A98450EA7CB63B676341C0E73494EE04B53C8D4919B396"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\channel\\atom\\ebank\\impl\\HnnxBankEbank2004AtomAmlRoleTest.java",
-                      "sha256":  "308BD5BB6353FD3881BB40AB7EE5E91DEE27CB972B5C24D2F186D69E0AC7DEDF"
+                      "sha256":  "A065B63CE0E0B3CB128276578F20791EABA2697EAA14ABFE5524A93BDB7D6DB9"
+                  },
+                  {
+                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\channel\\atom\\ebank\\impl\\HnnxBankEbank2005AtomAmlSignRoleTest.java",
+                      "sha256":  "347192560E068A6F2B04483BF968F1D8877CCAEA74E44E46232DC4C33AFDF967"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\pc\\credit\\utils\\HnnxAcceptBankCreditUtilTest.java",
-                      "sha256":  "61B5EDE5A256EBCAF6F10E08F975B0D22F2A60B9E0CA0CEA6486F6CFEADAA613"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\impl\\branch\\PjgcsBranchParamServiceImplTest.java",
-                      "sha256":  "2898AB493FEB5ADBC6E0E67E796CB2536CA3873EFD109FBB153578E607050317"
-                  },
-                  {
-                      "path":  "banks\\ext-hnnxbank\\hnnxbank-biz-as\\src\\test\\java\\com\\hundsun\\bemp\\hnnxbank\\biz\\sm\\service\\impl\\branch\\PjgxBranchRelationServiceImplTest.java",
-                      "sha256":  "5A50612ED6FCE6E003491FF1F0B5EA5E88F5B1AF766442D35328D98CA3761BE1"
+                      "sha256":  "084A8365DEA7E8205310A1257C512E9990EA3E8071D2A8909C5F51244EB751EF"
                   },
                   {
                       "path":  "banks\\ext-hnnxbank\\hnnxbank-cpesmq-deploy\\src\\main\\java\\com\\hundsun\\bemp\\BempApplicationStarter.java",

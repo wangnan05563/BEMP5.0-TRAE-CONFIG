@@ -49,7 +49,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 | SQL 脚本执行     | 支持 DDL/DML/DQL 各类 SQL 的标准化执行              |
 | MySQL 安全执行模式 | 事务包裹执行，验证后提交，失败自动回滚                       |
 | 编码预处理        | 自动初始化会话编码，解决中文乱码问题                        |
-| DML/DDL命令行执行 | Oracle通过sqlplus、MySQL通过CLI执行变更操作          |
+| DML/DDL通道执行 | Oracle走JDBC通道（sqlplus禁用）、MySQL走MCP/CLI执行变更操作      |
 | 执行结果复核       | 自动验证执行结果，比对预期与实际差异                        |
 | 异常回退机制       | 执行失败时自动触发回退，保障数据安全                        |
 | 连接健康检查       | 长时间操作时连接保活与自动重连                           |
@@ -84,7 +84,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 | S7   | 需要在MySQL数据库上执行操作        | MySQL环境的数据查询与变更                   |
 | S8   | 需要安全执行MySQL变更（事务保护）     | 关键数据变更需事务保护                       |
 | S9   | 需要批量执行多个SQL脚本           | 个性化开发中多脚本增量执行                     |
-| S10  | 需要通过命令行执行Oracle DML/DDL | Oracle MCP不支持DML/DDL，需通过sqlplus执行 |
+| S10  | 需要通过命令行执行Oracle DML/DDL | Oracle MCP不支持DML/DDL，走JDBC通道执行（sqlplus禁用） |
 | S11  | 需要导出数据库数据为文件          | 按时间范围/条件查询数据并导出为MD/CSV/JSON文件       |
 
 ***
@@ -123,7 +123,7 @@ bemp-db-operator/
 | 列出表          | `mcp_oracle-mcp_list_tables`    | `mcp_MySQL_execute_sql("SHOW TABLES")`      | MySQL无专用工具，通过SQL实现            |
 | 查看表结构        | `mcp_oracle-mcp_describe_table` | `mcp_MySQL_execute_sql("DESCRIBE {table}")` | MySQL无专用工具，通过SQL实现            |
 | 执行查询         | `mcp_oracle-mcp_execute_query`  | `mcp_MySQL_execute_sql`                     | MySQL MCP支持所有SQL类型+事务控制       |
-| 执行DML/DDL    | 不支持（需SQL\*Plus）                 | `mcp_MySQL_execute_sql`                     | MySQL MCP可直接执行，支持安全执行模式（事务包裹） |
+| 执行DML/DDL    | 不支持（走JDBC通道，sqlplus禁用）   | `mcp_MySQL_execute_sql`                     | MySQL MCP可直接执行，支持安全执行模式（事务包裹） |
 
 ### 4.2.1 MCP工具可用性与智能体委托策略
 
@@ -137,7 +137,7 @@ bemp-db-operator/
 
 > 详见 config/db-config.json → agentToolMapping.degradationStrategy
 
-**委托判断决策树**：需要Oracle操作 → 主智能体有mcp_oracle-mcp_*工具？→ 是则直接调用；否则委托bemp-implementation-engineer子智能体 → 成功则返回；失败则降级到sqlplus命令行 → 成功则返回；失败则报错终止。MySQL操作由主智能体直接调用mcp_MySQL_execute_sql。
+**委托判断决策树**：需要Oracle操作 → 主智能体有mcp_oracle-mcp_*工具？→ 是则直接调用；否则委托bemp-implementation-engineer子智能体 → 成功则返回；失败则降级到JDBC通道命令行脚本 → 成功则返回；失败则报错终止。MySQL操作由主智能体直接调用mcp_MySQL_execute_sql。
 
 > **重要**：当主智能体调用MCP工具返回"Tool's name is not available in given tool list"时，**不要反复尝试不同命名变体**，应立即进入降级策略Level 1（委托子智能体）。
 
@@ -230,6 +230,31 @@ bemp-db-operator/
 - 不一致 → 禁止经当前通道写库/回读，切换与应用同 schema 的通道（如 `scripts/run-oracle-jdbc.ps1`）后重检
 - 铁律：**MCP 可见 ≠ 真相**——跨 schema 回读会误判"数据未插入"诱发重复插入（W12-03 实战）；配套预检项见 bemp-webapp-testing config/data-readiness-check.json（db-connection-schema-check）
 
+#### 步骤2.8：通道选择决策树（MCP 基线库陷阱）
+
+多实例/多 schema 环境下，MCP 服务端配置的连接可能指向**基线库**而非应用生效库，此时"MCP 查询成功"会造成数据误判。本步骤将步骤2.7 的校验固化为可执行决策树，泛化适用于任何"MCP 连接 schema ≠ 应用 schema"的场景：
+
+```
+① 先探测：MCP 会话执行探测SQL（模板见 config/db-config.json → channelProbe.probeSqlTemplate，
+   即 SELECT 1 FROM {app_schema}.{probe_table}，app_schema/probe_table 真值走配置解析）
+        │
+        ├─ 查询成功 → MCP 会话可达应用 schema → 读操作可用 MCP 通道
+        │
+        └─ 命中 ORA-00942（表/视图不存在，见 channelProbe.degradeSignal）→ MCP 会话连接的是基线库
+                │
+                ├─ 自动降级 JDBC 通道（channelProbe.degradeAction=fallback-jdbc，
+                │   走 scripts/run-oracle-jdbc.ps1，-Schema 参数取 channelProbe.app_schema 配置值）
+                │
+                └─ 后续所有结果/报告中声明："当前 MCP 连接为基线库，数据以 JDBC 为准"
+                   （channelProbe.disclosureStatement）
+```
+
+**规则**：
+- 每个会话首次写库/数据回读前探测一次，结果随会话缓存；换会话/换环境后重新探测
+- 命中 ORA-00942 后**禁止**用 MCP 通道做该 schema 的数据回读与复核，一律走 JDBC 通道
+- 泛化判定：探测失败且错误指向"对象不存在/无权限"的组合，均按"MCP schema ≠ 应用 schema"处理
+- 铁律沿用步骤2.7：**MCP 可见 ≠ 真相**
+
 ***
 
 ### 第二阶段：SQL执行前预检查
@@ -269,6 +294,12 @@ bemp-db-operator/
 - DML变更：SELECT目标数据，记录变更前状态
 - DDL变更：记录表结构信息（describe/DESCRIBE结果）
 - 快照结果作为复核基准
+
+**快照降级链**（备份能力不足时按序降级，配置见 config/execution-policy.json → snapshot）：
+
+1. 优先：CREATE TABLE AS 备份表（模板见 snapshot.ctas.template，备份表命名规则见 snapshot.ctas.backupTableNaming）
+2. 降级：无 CREATE TABLE（DDL）权限时，导出 CSV 全量快照至 snapshot.csvFallback.snapshot_dir（格式 snapshot.csvFallback.snapshot_format）
+3. 两种方式都必须附带按主键的回滚 SQL 对（注释模板 snapshot.rollbackTemplate），快照落盘后验证可读，回滚 SQL 与快照同目录存放
 
 ***
 
@@ -330,30 +361,32 @@ bemp-db-operator/
 | `all_or_nothing` | 任一脚本失败则ROLLBACK所有DML | 关键数据变更，要求原子性 |
 | `best_effort`    | 仅回退失败脚本的DML，成功脚本保留   | 非关键变更，允许部分成功 |
 
-#### 步骤5C：Oracle DML/DDL 命令行执行（S10场景）
+#### 步骤5C：Oracle DML/DDL JDBC 通道执行（S10场景）
 
-Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令行执行（CLI执行配置详见 config/execution-policy.json → cliExecution）。
+Oracle MCP 仅支持 SELECT 查询，DML/DDL 通过 JDBC 通道执行（CLI执行配置详见 config/execution-policy.json → cliExecution）。
 
-**执行方式**：使用封装脚本 `scripts/execute-oracle-sql.ps1`（脚本功能详情见该脚本，包含自动NLS_LANG设置、编码初始化、错误检测、日志保存）。
+**已知限制（禁用 sqlplus）**：本机低版本 sqlplus 客户端与高版本服务端存在 ORA-28040 认证协议不兼容，禁止本地 sqlplus 直连（禁止项配置 `forbid_sqlplus=true`，见 config/db-config.json → cliExecution.oracle）；**Oracle 一律走 MCP/JDBC 双通道之一**，MCP 会话须先过步骤2.8 通道探测。
+
+**执行方式**：使用封装脚本 `scripts/run-oracle-jdbc.ps1`（ojdbc8 JDBC 直连，绕过 ORA-28040；连接参数与 schema 从 config/db-config.json 解析）。
 
 ```powershell
-# 示例（参数实际从db-config.json读取），MySQL CLI 备选执行用 execute-mysql-sql.ps1
-.\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" -ConfigFile "config\db-config.json"
+# 示例（参数实际从db-config.json解析），MySQL CLI 备选执行用 execute-mysql-sql.ps1
+.\run-oracle-jdbc.ps1 -SqlFile "D:\scripts\menu.dml.sql" -Schema <app_schema配置值>
 ```
 
 **Oracle DML/DDL 执行流程**：
 
-1. 预检查（通过Oracle MCP）：describe_table确认目标表存在 + execute_query执行前数据快照
-2. 执行SQL脚本（通过execute-oracle-sql.ps1）：设置NLS_LANG → 调用sqlplus执行 → 检测ORA-/SP2-/TNS-错误
-3. 执行后验证（通过Oracle MCP）：execute_query验证数据变更，比对执行前快照
-4. 异常回退：生成回退SQL脚本 → 通过execute-oracle-sql.ps1执行
+1. 预检查（通过Oracle MCP）：describe_table确认目标表存在 + execute_query执行前数据快照（MCP不可达应用schema时按步骤2.8改用JDBC通道预检查）
+2. 执行SQL脚本（通过run-oracle-jdbc.ps1）：解析连接参数 → JDBC直连执行 → 检测ORA-/SP2-/TNS-错误
+3. 执行后验证：execute_query验证数据变更（基线库MCP会话则按步骤2.8走JDBC通道回读），比对执行前快照
+4. 异常回退：生成回退SQL脚本 → 通过run-oracle-jdbc.ps1执行
 
 **DML/DDL执行方式选择**：
 
 | 数据库    | 操作类型    | 首选方式            | 备选方式      | 说明            |
 | ------ | ------- | --------------- | --------- | ------------- |
-| Oracle | SELECT  | Oracle MCP      | SQL\*Plus | MCP只读查询更安全    |
-| Oracle | DML/DDL | SQL\*Plus       | 无         | MCP不支持，必须用命令行 |
+| Oracle | SELECT  | Oracle MCP      | JDBC 通道 | MCP只读查询更安全    |
+| Oracle | DML/DDL | JDBC 通道       | 无         | sqlplus禁用，MCP不支持DML/DDL |
 | MySQL  | SELECT  | MySQL MCP       | MySQL CLI | MCP更便捷        |
 | MySQL  | DML     | MySQL MCP(安全模式) | MySQL CLI | 安全模式事务保护      |
 | MySQL  | DDL     | MySQL MCP       | MySQL CLI | MCP直接执行       |
@@ -392,6 +425,15 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 .\export-db-data.ps1 -TableName "TB_BILL_INFO" -ConfigFile "config\db-config.json" `
     -TimeField "CREATE_TIME" -Days 7 -Format "md" -OutputDir "D:\exports"
 ```
+
+#### 步骤5E：参数切换/恢复脚本对（开关类参数变更）
+
+对开关/标志类参数（业务开关、字典标志位等）的变更，禁止只生成单向脚本（约定详见 config/execution-policy.json → paramSwitch）：
+
+1. **成对生成**：switch 与 restore 脚本一一对应生成（文件名后缀见 paramSwitch.switchFileSuffix / restoreFileSuffix）；restore 基于执行前快照还原原值，注释按快照 rollbackTemplate 附"按 PK 还原"说明
+2. **执行后回读确认**：switch 执行后立即回读目标字段与预期值比对（回读通道按步骤2.8 决策树选择）
+3. **缓存类参数延迟复验**：字典/配置类带缓存的参数，switch 后需等待 `paramSwitch.cache_ttl_minutes` 配置的分钟数再复验生效情况——立即复验会读到旧缓存误判失败
+4. **回退对称**：回退时执行对应 restore 脚本，同样回读确认
 
 ***
 
@@ -432,7 +474,7 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 | 影响行数超限             | 停止执行并发出警告，确认后继续或回退                                 |
 | 连接断开               | 自动重连，重连后重试或回退                                 |
 | 编码异常-中文乱码/Oracle NLS | 执行编码初始化/SET NAMES utf8mb4/chcp 65001；Oracle设置NLS_LANG环境变量 |
-| Oracle DML/DDL执行失败 | 检查sqlplus路径 → 检查ORA-错误码 → 执行回退           |
+| Oracle DML/DDL执行失败 | 检查JDBC通道日志 → 检查ORA-错误码 → 执行回退           |
 
 **MySQL 特有异常处理**：MySQL错误码映射详见 config/execution-policy.json → mysqlErrorCodes
 
@@ -445,7 +487,7 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 | MySQL ROLLBACK   | 安全执行模式   | 高   | 数据库原生操作，不会失败   |
 | MySQL 批量ROLLBACK | 批量安全执行模式 | 高   | 回滚整个批次的DML事务   |
 | MySQL 回退SQL      | 普通模式     | 中   | 可能因数据依赖导致回退失败  |
-| Oracle 回退SQL     | Oracle   | 中   | 需通过SQL\*Plus执行 |
+| Oracle 回退SQL     | Oracle   | 中   | 需通过JDBC通道执行 |
 
 **MySQL 普通模式回退流程**：确定回退级别 → 基于执行前快照生成回退SQL → 调用mcp_MySQL_execute_sql逐语句执行 → 验证回退结果 → 生成回退报告。
 
@@ -501,7 +543,7 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 
 | 模式        | 核心流程                                                              |
 | --------- | ----------------------------------------------------------------- |
-| Oracle    | 读配置→MCP连接→编码初始化→版本检测→预检查→快照→\[SELECT用MCP/DML用sqlplus]→验证→报告            |
+| Oracle    | 读配置→MCP连接→编码初始化→版本检测→通道探测(步骤2.8)→预检查→快照→\[SELECT用MCP/DML用JDBC通道]→验证→报告            |
 | MySQL(安全) | 读配置→MCP连接→编码初始化→版本检测→预检查→快照→START TRANSACTION→执行→验证→COMMIT/ROLLBACK→报告 |
 | MySQL(普通) | 同安全模式，但无事务包裹，直接执行→验证→报告                                  |
 | 批量        | 读配置→连接→DDL组→DML组(事务)→CONFIG组→批量报告                                 |
@@ -513,4 +555,22 @@ Oracle MCP 仅支持 SELECT 查询，DML/DDL 操作必须通过 SQL\*Plus 命令
 
 - 查询模板详见 config/query-templates.json
 - Oracle/MySQL SQL 差异速查详见 references/sql-standards.md 第3章
+
+***
+
+## 8. 适用与不适用场景
+
+✅ 适用：
+- 需要在多实例/多 schema 环境中区分"MCP 连接库"与"应用生效库"，并对写库/数据回读通道做一致性决策的场景
+- MCP 工具只读受限、需经 JDBC 通道执行变更，且本地旧版命令行客户端与服务端存在认证协议不兼容的环境
+- 变更前需要可回退快照（备份表或全量文件快照），并要求附带按主键的回滚脚本对
+- 开关/标志类参数变更要求切换与恢复成对生成、执行后可回读确认、缓存类参数可延迟复验
+- 同一套操作范式需跨两种数据库引擎复用，并统一预检查/复核/回退/日志标准
+
+❌ 不适用：
+- 依赖本地低版本命令行客户端直连高版本服务端（认证协议不兼容，已列为禁止项 forbid_sqlplus）
+- 无主键且无法构造等价还原条件的批量数据变更（回滚 SQL 对无法保证按 PK 还原的确定性）
+- 要求跨库强一致分布式事务、或由数据库侧承担业务级补偿逻辑的场景
+- 未经快照与回退设计的不可逆 DDL 变更（应走独立变更评审流程）
+- MCP/JDBC 双通道均不可用且无法委托子智能体的环境（应报错终止而非绕过通道约束）
 

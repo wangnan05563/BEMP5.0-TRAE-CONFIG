@@ -159,6 +159,16 @@ npm run dev
 
 **预防措施**：重启完成后在启动报告中报告"新进程启动时间 vs 本次编译时间"供测试侧核验；测试侧执行前过 runtime-code-version-check（bemp-webapp-testing config/data-readiness-check.json）。
 
+## 10.7 SpringBoot 启动即退出：dubbo InaccessibleObjectException（组件级 JDK 版本错配）
+
+**现象**：服务启动即退出，日志报 `java.lang.reflect.InaccessibleObjectException`（dubbo/反射初始化阶段），堆栈指向模块系统访问拒绝；换代码、换配置均无法消除。
+
+**根因**：组件级 JDK 版本错配——实际使用的 JAVA_HOME 版本超出该组件兼容范围（实证：低版本 JDK 兼容组件用系统默认高版本 JDK 启动触发模块访问限制），与代码、业务配置无关。
+
+**解法**：在 `config/config.json` 的 `global.java_home_override` 中为该组件添加专用 JAVA_HOME（值为 `${ENV:VAR}` 占位符，真值写入 `_shared/env-config.json`，禁止把具体路径写进本技能 config），重启前过 PreCheck 的"组件级 JAVA_HOME 与配置一致"校验项；未列入 override 的组件沿用 `global.javaHome`。
+
+**预防措施**：PreCheck 组件级 JAVA_HOME 校验常开；换机器/升级系统 JDK 后必须重跑 PreCheck 而非直接启动。
+
 ## 10. 内存不足
 
 JVM 内存不足时,修改 `config.json` 中的参数：

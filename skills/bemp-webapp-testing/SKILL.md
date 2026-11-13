@@ -1,8 +1,8 @@
 ---
 name: bemp-webapp-testing
-version: "2.1.0"
-description: "基于 Playwright 实现 BEMP 票据系统的 Web 端自动化测试，覆盖：服务健康检查、登录态管理、页面功能验证、个性化路径校验、控制台错误检测、组件交互测试。通过配置驱动支持多银行环境无缝切换。接收 bemp-testcase-generator 编写的测试用例并执行验证，是 BEMP 测试流程中'用例执行'环节的唯一执行技能。共享资源（用例文档、参考指南、用例索引）由 bemp-test-common 统一管理。通过 Python 脚本（scripts/run_test.py、scripts/test_accept_bank_credit.py）驱动 Playwright 执行测试，支持 --bank 参数切换银行环境。"
-whenToUse: "开发完成后需要验证功能、修复 bug 后需要回归测试、bemp-testcase-generator 编写完测试用例后需要执行验证、首轮测试时调用、执行页面冒烟测试、执行承兑行额度 E2E 测试"
+version: "2.4.0"
+description: "基于 Playwright 实现 BEMP 票据系统的 Web 端自动化测试，覆盖：服务健康检查、登录态管理、页面功能验证、个性化路径校验、控制台错误检测、组件交互测试。通过配置驱动支持多银行环境无缝切换。接收 bemp-testcase-generator 编写的测试用例并执行验证，是 BEMP 测试流程中'用例执行'环节的唯一执行技能。共享资源（用例文档、参考指南、用例索引）由 bemp-test-common 统一管理。通过 Python 脚本（scripts/run_test.py、scripts/test_accept_bank_credit.py）驱动 Playwright 执行测试，支持 --bank 参数切换银行环境。Playwright 与 Chrome DevTools 均无法覆盖的系统对话框、外设、跨应用核验等桌面级场景，按技能内置的 references/computer-use-guide.md 执行 L3 桌面兜底（平台无关，接入参数由 config/computer-use.json 配置）。"
+whenToUse: "开发完成后需要验证功能、修复 bug 后需要回归测试、bemp-testcase-generator 编写完测试用例后需要执行验证、首轮测试时调用、执行页面冒烟测试、执行承兑行额度 E2E 测试、Playwright/Chrome DevTools 均无法处理的桌面级测试场景"
 triggers:
   - "测试/功能/自动化/复现/页面 验证"
   - "页面/自动化/功能/需求/前端/UI/组件 测试"
@@ -40,6 +40,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 | T6 批处理执行 | 多用例必须 `--test all` 或 YAML 集合批跑，禁止逐条 invoke |
 | T7 摘要回传 | 对话中只回传报告「对话回传摘要区」表格与 BLOCKED 清单；报告全文/控制台日志/诊断明细落盘 `aotutests-playwright/` 后以路径引用，禁止粘贴原文 |
 | T8 移交瘦身 | 工具切换移交信息仅含 YAML 路径+用例ID+失败步骤号+推荐模式，禁止复制用例全文或页面快照 |
+| T9 L3 懒加载 | 未判定命中 L3 触发条件前不读 `references/computer-use-guide.md`；命中后按文首索引只读命中章节；接入参数用 `load_config.py --get` 单键解析 `config/computer-use.json` |
 
 ## 多银行环境支持
 
@@ -74,6 +75,9 @@ bemp-webapp-testing/
 | `error_filters` | 错误分类：critical(TypeError/ReferenceError) / ignorable |
 | `code_checks` | 前端/后端代码预检项 |
 | `product_url_patterns` | 产品化页面 URL 模式，用于判断页面是否需要个性化覆盖 |
+| `precheck_gate` | 前置就绪核查门禁（登录/后端连通/DB探测/菜单可达四项，任一 FAIL 停止执行） |
+| `data_baseline` | 数据基线与清理（baseline_tables 基线比对、JDBC 直插主键约束） |
+| `param_switch` | 参数开关类用例约定（switch/restore 成对、参数缓存等待 cache_ttl_minutes） |
 
 > 详细选择器用法见 `config/test_config.json` selectors 节点，组件交互模式见 `references/bemp-component-guide.md`
 
@@ -122,6 +126,29 @@ bank-specific (bemp-testcase-generator/config/test-cases/{bank_id}/*.yaml)
 4. 执行测试验证
 
 > Schema完整定义见 `bemp-testcase-generator/config/test-case-schema.yaml`，示例见 `bemp-testcase-generator/config/test-cases/ecif-cust-merge.yaml`
+
+## 前置就绪核查门禁（precheck_gate，F8 沉淀）
+
+> 来源：本轮"审批&指导利率改造"实测 26 条 BLOCKED 复盘。本门禁是执行用例前的**强制第 0 步**，先于预检三连（0a/0b/0c）执行；核查项清单、探测表、换账号序列全部走配置（`config/test_config.json → precheck_gate`），禁止硬编码。
+
+**执行序列**：precheck_gate 门禁 → 预检三连（0a/0b/0c）→ 用例执行。
+
+| 核查项（items.*） | 核查内容 | FAIL 处理 |
+|:---|:---|:---|
+| ①login 登录成功 | 按 account_key 从 `banks.{bank_id}.login` / `test-data/test-accounts.json` 取号登录，验证菜单树可见 | 停止执行，输出账号/密码/权限修复建议 |
+| ②backend_connectivity 后端连通 | `services.backend_api.health_url` 可达（404 即存活口径） | 停止执行，走启动门禁通道恢复后重检 |
+| ③db_channel DB 通道可查 | 对 `precheck_gate.probe_tables` 逐表执行探测 COUNT | 停止执行，按 db-connection-schema-check 修通道 |
+| ④menu_reachability 菜单可达性逐项 | 本轮用例涉及页面逐项导航验证 page_ready_indicator | 不可达 → 按 `menu_check.fallback_account_keys` 换账号重试一轮；仍不可达 → 记 BLOCKED 并上报权限特征（`menu_check.blocked_report_fields`：账号键/目标页面/菜单路径/可见菜单范围），**禁止静默跳过** |
+
+- 任一项 FAIL → **停止执行并输出修复建议**，不得带病进入用例执行
+- 取参遵守 T1：`load_config.py --get precheck_gate.<key>`
+
+## 执行纪律（F8 沉淀）
+
+1. **BLOCKED 不停摆**：单条用例 BLOCKED → 登记进 BLOCKED 清单（用例ID+阻塞原因+证据）后继续执行下一条；仅 precheck_gate 门禁 FAIL 才整体停止
+2. **证据强制**：每条结果（PASS/FAIL/BLOCKED）必须附证据——截图（落 screenshots/）、报文原文（落 logs/）、DB 结果原文（落 logs/ 或 evidence/）至少其一
+3. **禁止推测通过**：无证据的用例一律不得标 PASS，只能标 BLOCKED（缺证据）并补采后重判
+4. BLOCKED 清单与报告回传遵守 T7 摘要规约
 
 ## 测试前预检三连（Step 0，自动化连贯执行）
 
@@ -208,6 +235,7 @@ aotutests-playwright/
 
 | 步骤 | 操作 | 命令/要点 |
 |:---|:---|:---|
+| 0-pre 前置就绪核查门禁 | precheck_gate 四项核查（登录/后端连通/DB探测/菜单可达），任一 FAIL 停止执行 | `load_config.py --get precheck_gate.<key>` |
 | 0a 服务健康检查 | 预检三连第一环（端口监听，未就绪脚本自动等待） | `python scripts/health_check.py` |
 | 0b 数据一致性校验 | LEGAL_NO 一致性，不一致自动修复 | Oracle MCP 执行 checkSql |
 | 0c 数据就绪度预检 | 数据未就绪用例标注SKIP，不阻塞 | `config/data-readiness-check.json` |
@@ -282,6 +310,28 @@ Step 4: 配置检查 → API参数格式是否正确？legalNo是否与测试数
 
 > 用例配置中的 `failure_category_hint` 字段提供默认分类提示，诊断结果可覆盖
 > 遵守 T7：诊断过程与日志全文落盘 logs/，对话中只输出上述 [DIAGNOSIS] 摘要
+
+## 数据基线与清理（F8 沉淀）
+
+**流程**：执行前记录基线 COUNT（表清单走 `data_baseline.baseline_tables`，默认空=由本次测试模块配置或用例文件前置声明填充）→ 执行用例 → 执行清理 → 基线比对还原（`compare_on_finish=true`）。比对不一致 → 报告列差异表并标注未还原项，禁止静默放过。
+
+**JDBC 直插约束**（`data_baseline.jdbc_direct_insert`）：
+- 仅限 UI 不可达状态构造场景
+- 必须记录插入行主键值，清理时按主键精确清理并回读 COUNT=0
+- 落库前自检沿用 `bemp-testcase-generator/config/test-data-check.json` checkItems 清单
+
+## 参数开关类用例（F8 沉淀）
+
+- **switch/restore SQL 成对**：参数修改（switch）与还原（restore）必须成对出现在用例步骤中；restore 强制执行并回读参数值确认还原（`param_switch.restore_mandatory=true`），禁止"测完不还原"
+- **参数缓存等待**：参数修改后的生效/还原验证，等待时长取 `param_switch.cache_ttl_minutes`（实测参数缓存失效时长大于 20 分钟，默认取大于该观测值的 25，可按银行覆盖）；等待不足即断言会得到旧值假阴性
+
+## 多账号矩阵（F8 沉淀）
+
+双用户/支行柜员类用例（数据隔离、权限对比、跨机构操作）的账号引用规则：
+
+- 用例中账号一律以**配置键**引用（如 `u1`/`u2`/`branch_tellers` 等语义键），映射到 `banks.{bank_id}.login.{key}` 或 `test-data/test-accounts.json` 的 `{bank}.accounts[].role`；**禁止写死用户名**
+- 新增角色键时：`config/test_config.json → banks.{id}.login` 加角色条目 + `test-data/test-accounts.json` 补账号（密码走 `${ENV:BEMP_TEST_PASSWORD}` 解析链）
+- precheck_gate ④菜单可达核查的换账号重试，同样按键名序列 `precheck_gate.menu_check.fallback_account_keys` 取号
 
 ## Vue懒加载路由处理（菜单导航模式）
 
@@ -365,6 +415,64 @@ Vue懒加载路由未注册时，直接URL导航会被路由守卫回退到主�
 
 **核心经验**：HUI组件框架的隐藏input和Vue响应式更新机制与Playwright fill不兼容，这是系统性问题而非偶发问题。遇到HUI组件应直接切换Chrome DevTools，无需反复尝试Playwright。切换规则配置：`config/tool-switch-rules.json`（触发条件与推荐模式映射，零硬编码）。
 
+Chrome DevTools MCP 仍无法处理（问题位于操作系统对话框或桌面应用层）时，进入下节 L3 桌面兜底。
+
+## L3 桌面兜底（computer-use，懒加载）
+
+> **平台无关**：执行手册内置于本技能 `references/computer-use-guide.md`，不依赖任何平台的 computer-use 技能。移植到 WorkBuddy 等平台时只需修改 `config/computer-use.json` 的 `mcp` 节点（服务名/调用方式/工具名映射），手册无需变更。
+> **懒加载**：未判定命中 L3 前不读取上述文档；命中后先看手册文首索引，只读命中章节。
+
+### 三级工具链
+
+| 层级 | 工具 | 作用域 | 典型适用 |
+|:---|:---|:---|:---|
+| L1 主力 | Playwright MCP | 页面 DOM | 标准组件、导航、批量回归、API 断言 |
+| L2 兜底 | Chrome DevTools MCP（`bemp-chrome-devtools-test`） | DOM + JS 运行时 | HUI 隐藏 input、Vue 响应式、复杂弹窗、DataGrid 选中 |
+| L3 桌面兜底 | computer-use（平台 MCP） | 操作系统 / 桌面应用 | 系统级对话框、外设交互、跨应用核验、真实指针轨迹 |
+
+### 触发条件（满足任一，且已确认 L1/L2 不可行）
+
+| 场景 | 具体表现 |
+|:---|:---|
+| 系统文件对话框 | 上传组件拉起 Windows 文件选择器，`playwright_upload_file` 无法关联 |
+| 原生下载/另存为 | 导出时弹出系统"另存为/下载确认"，非 DOM 元素 |
+| 打印预览对话框 | 页面 `window.print()` 拉起系统打印预览 |
+| 浏览器原生弹窗 | 客户端证书选择、摄像头/麦克风/通知授权等浏览器级 UI |
+| 硬件与外设 | UKey 证书、高拍仪/扫描仪、读卡器等票据外设交互 |
+| 跨应用核验 | 需用桌面 Excel/PDF 阅读器核对导出文件数据或版式 |
+| 真实指针轨迹 | Canvas 签章、手写签名等对鼠标轨迹敏感的控件 |
+
+**不触发 L3**：DOM 内可定位元素、断言失败（属测试失败诊断）、环境/数据问题、HUI 组件问题（L2 已覆盖）。禁止用 L3 替代 DOM 断言或批量回归。
+
+### 懒加载读取顺序
+
+| 步骤 | 读取内容 | 取参方式 |
+|:---|:---|:---|
+| 1 | `references/computer-use-guide.md` 文首索引 → 命中章节 | 按章节标题定位 |
+| 2 | `config/computer-use.json` → `mcp.server_name` / `mcp.invoke` / `mcp.tool_names` | `load_config.py --file config/computer-use.json --get mcp.server_name`（禁止用占位符字面量） |
+| 3 | 手册第 3/5 章（观察循环与异常决策） | 执行中按需回查 |
+
+### 执行要点（细则见手册）
+
+1. **能力探测**：先 `list_apps`（或平台等价工具）验证 L3 可用；不可用 → BLOCKED，不虚构结果。
+2. **观察**：默认 `disableScreenshot: true` 取语义树；需要坐标或视觉证据时单次改 `false` 重新观察，禁止复用旧坐标。
+3. **动作**：串行执行，禁止 `Promise.all`；优先 `element_id`，坐标操作必须来自最新截图 + 窗口根 element_id。
+4. **验证**：每个动作后重新观察并验证后置条件；尝试动作不等于完成，未验证不得标记 PASS。
+5. **归档**：截图落 `screenshot.dir`，报告标注 `tool=computer-use`。
+6. **回填**：L3 仅补操作通道，结果须由 Playwright/数据库/API 二次证实后再回填用例状态。
+
+### 与 Playwright 会话协同
+
+- computer-use 操作同一台桌面上的真实浏览器窗口，不新建浏览器会话；先用 Playwright 导航目标页面并保持窗口前台，再切换。
+- 切换前记录当前 URL 与关键页面状态；L3 操作结束后由 Playwright 重新取页面状态，避免焦点切换造成误判。
+- 窗口最小化或被遮挡时，先观察确认窗口状态再决定是否恢复，禁止盲目点击。
+
+### 安全与边界
+
+- 仅在测试环境执行（`safety.environment=test_only`）；生产地址禁止 L3 操作。
+- 删除数据、安装软件、填写验证码、支付、权限变更、敏感数据传输按 `safety.confirm_required` 先向用户确认（详见手册第 7 章）。
+- L3 失败不重复盲试：记录阻塞原因与已尝试动作，用例回填 BLOCKED。
+
 ## 参考文件
 
 | 文件 | 说明 |
@@ -377,6 +485,7 @@ Vue懒加载路由未注册时，直接URL导航会被路由守卫回退到主�
 | `references/bemp-component-guide.md` | BEMP 组件交互参考（h-msg-box/h-datagrid 等，文首有快速定位索引） |
 | `references/error-catalog.md` | 常见错误分类：ChunkLoadError 等排查（文首有快速定位索引） |
 | `references/playwright-mcp-guide.md` | Playwright MCP 工具调用工作流指南（文首有快速定位索引） |
+| `references/computer-use-guide.md` | L3 桌面兜底执行手册：平台适配/工具契约/观察循环/异常决策/场景配方（文首有快速定位索引，懒加载） |
 | `scripts/health_check.py` | 健康检查 + `--validate-only` 配置校验 |
 | `scripts/login_manager.py` | 统一登录管理器（storage_state 持久化） |
 | `scripts/run_test.py` | 通用测试运行器（配置驱动，--bank/--role） |
@@ -387,6 +496,7 @@ Vue懒加载路由未注册时，直接URL导航会被路由守卫回退到主�
 | `config/menu-navigation.json` | Vue懒加载路由导航配置（菜单路径/导航策略/回退检测/银行覆盖） |
 | `config/dialog-handlers.json` | 弹窗自动检测与处理配置（强制登录/会话过期/通用确认） |
 | `config/ignorable-errors.json` | 控制台错误分类配置（业务/环境/网络三分类规则） |
+| `config/computer-use.json` | L3 桌面兜底平台适配配置（MCP 服务名/调用方式/工具名映射/截图与安全策略） |
 | `test-data/test-accounts.json` | 测试账号配置（按银行和角色） |
 | `eval-cases.md` | 技能迭代评测用例集（回归基线，技能维护用，非运行时参考） |
 
@@ -395,3 +505,17 @@ Vue懒加载路由未注册时，直接URL导航会被路由守卫回退到主�
 > 完整用例索引（含脚本覆盖/缺失标注、用例数、覆盖范围）详见 `bemp-test-common/test-index.json`。
 > 用例文件位于 `bemp-test-common/test-cases/` 目录下，按子系统（common/sm/bm/be/ce）组织。
 > 用例合计约 288 条，25 条目。详细条目以 test-index.json 为准，不在本文件重复列举。
+
+## 适用与不适用场景
+
+**适用**：
+- 用例集来自 `bemp-testcase-generator` 且需要 Web 端执行验证
+- 服务（SpringBoot/Frontend/Redis/ZK）可等待就绪或由启动门禁通道管理
+- 涉及多账号权限/数据隔离对比、参数开关往返、DB 基线比对类验证
+- 需要证据留档（截图/报文原文/DB 结果原文）的回归测试
+
+**不适用**：
+- precheck_gate 任一核查项 FAIL 且修复建议未落实时（禁止带病执行）
+- 纯代码审查类验证（走 `bemp-testcase-generator` 的 code_review 方式，无需浏览器）
+- 生产环境（仅测试环境执行）
+- 桌面级系统对话框/外设场景（由本技能判定后走 L3 桌面兜底移交，主通道不直接处理）

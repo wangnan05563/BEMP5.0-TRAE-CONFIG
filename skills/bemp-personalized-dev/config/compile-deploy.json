@@ -10,6 +10,11 @@
     "outputDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-as/target/classes",
     "classpathFile": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}biz-as/.classpath"
   },
+  "jdk": {
+    "jdk_home": "${ENV:JAVA_HOME}",
+    "requirement": "编译与启动必须使用本节 jdk_home 指定的 JDK（经配置解析链取值），禁止直接调用系统默认 java/javac（版本不受控）",
+    "mismatch_symptom": "默认 JDK 版本高于工程编译目标版本时，部分依赖库反射调用在运行期抛异常（典型如 IllegalAccessError / IncompatibleClassChangeError），表现为编译通过但启动或运行异常（F2 教训）——遇到该特征先核对实际使用的 JDK 是否为 jdk_home 指定版本"
+  },
   "deploy": {
     "warClassesDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/classes",
     "warLibDir": "banks/ext-${ENV:BANK_PROJECT_DIR}/${ENV:BANK_MODULE_PREFIX}served-deploy/target/bemp-served/WEB-INF/lib",

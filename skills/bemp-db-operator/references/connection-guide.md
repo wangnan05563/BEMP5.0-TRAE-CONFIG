@@ -13,7 +13,7 @@
 | `mcp_oracle-mcp_describe_table` | 查看表结构 | 只读 |
 | `mcp_oracle-mcp_execute_query` | 执行查询 | 只读 |
 
-> **重要**：Oracle MCP 仅支持 SELECT 查询。DML/DDL 操作需通过 `scripts/execute-oracle-sql.ps1` 调用 SQL*Plus 执行。
+> **重要**：Oracle MCP 仅支持 SELECT 查询。DML/DDL 操作走 `scripts/run-oracle-jdbc.ps1` JDBC 通道执行；本地 sqlplus 已禁用（forbid_sqlplus=true，低版本客户端与高版本服务端 ORA-28040 认证协议不兼容）。
 
 **Oracle 连接参数**：
 
@@ -56,11 +56,9 @@
 | 执行DML | 不支持 | `execute_sql(query)` |
 | 执行DDL | 不支持 | `execute_sql(query)` |
 
-### 1.4 SQL*Plus 连接（Oracle 备用）
+### 1.4 sqlplus 连接（已禁用）
 
-```bash
-sqlplus bemp_hnnx/123456@10.20.18.177:1521/orcl
-```
+> **禁止**使用本地 sqlplus 直连（forbid_sqlplus=true）：低版本客户端 vs 高版本服务端 ORA-28040 认证协议不兼容。Oracle 一律走 MCP/JDBC 双通道之一，DML/DDL 用 `scripts/run-oracle-jdbc.ps1`。
 
 ### 1.5 MySQL CLI 连接（MySQL 备用）
 
@@ -251,13 +249,12 @@ SELECT VALUE FROM NLS_SESSION_PARAMETERS WHERE PARAMETER = 'NLS_DATE_FORMAT';
 
 ### 4.7 命令行执行工具（DML/DDL）
 
-**Oracle SQL*Plus 执行**（DML/DDL必须通过命令行）：
+**Oracle JDBC 通道执行**（DML/DDL走JDBC通道，sqlplus禁用）：
 
 ```powershell
-# 使用封装脚本执行
-.\scripts\execute-oracle-sql.ps1 -SqlFile "D:\scripts\menu.dml.sql" `
-    -Host "10.20.18.177" -ServiceName "orcl" `
-    -Username "bemp_hnnx" -Password "123456" -Schema "BEMP_HNNX"
+# 使用封装脚本执行（参数实际从db-config.json解析）
+.\scripts\run-oracle-jdbc.ps1 -SqlFile "D:\scripts\menu.dml.sql" `
+    -Schema <app_schema配置值>
 ```
 
 **MySQL CLI 执行**（MCP的备选方案）：
@@ -274,9 +271,9 @@ SELECT VALUE FROM NLS_SESSION_PARAMETERS WHERE PARAMETER = 'NLS_DATE_FORMAT';
 | 场景 | Oracle | MySQL |
 |------|--------|-------|
 | SELECT查询 | Oracle MCP | MySQL MCP |
-| DML操作 | SQL*Plus（execute-oracle-sql.ps1） | MySQL MCP（安全模式） |
-| DDL操作 | SQL*Plus（execute-oracle-sql.ps1） | MySQL MCP |
-| 大数据量脚本 | SQL*Plus | MySQL CLI（execute-mysql-sql.ps1） |
+| DML操作 | JDBC通道（run-oracle-jdbc.ps1，sqlplus禁用） | MySQL MCP（安全模式） |
+| DDL操作 | JDBC通道（run-oracle-jdbc.ps1，sqlplus禁用） | MySQL MCP |
+| 大数据量脚本 | JDBC通道 | MySQL CLI（execute-mysql-sql.ps1） |
 
 ---
 

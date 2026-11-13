@@ -260,6 +260,63 @@
     "select_one_requirement": "请选中一条数据",
     "note": "实际提示文本与需求文档存在措辞差异"
   },
+  "precheck_gate": {
+    "_comment": "前置就绪核查门禁（F8 沉淀）：执行任何用例前的强制第 0 步，任一项 FAIL 停止执行并输出修复建议；核查项与探测表全部配置驱动，禁止硬编码",
+    "enabled": true,
+    "position": "before_precheck_triple",
+    "on_fail": "stop_and_report",
+    "items": {
+      "login": {
+        "enabled": true,
+        "verify": "登录成功且账号对应菜单树可见",
+        "account_key_source": "banks.{bank_id}.login.{account_key} 或 test-data/test-accounts.json {bank_id}.accounts[].role",
+        "fail_action": "停止执行，输出账号/密码/权限配置检查项修复建议"
+      },
+      "backend_connectivity": {
+        "enabled": true,
+        "verify": "services.backend_api.health_url 可达（404 即存活，同启动门禁健康检查口径）",
+        "fail_action": "走 bemp-automation-startserver 门禁通道恢复服务后重检，停止执行"
+      },
+      "db_channel": {
+        "enabled": true,
+        "verify": "DB 通道可查：对 precheck_gate.probe_tables 逐表执行探测 COUNT",
+        "fail_action": "按 data-readiness-check.json db-connection-schema-check 修复通道后重检，停止执行"
+      },
+      "menu_reachability": {
+        "enabled": true,
+        "verify": "本轮用例涉及页面逐项菜单可达（导航后 page_ready_indicator 出现）",
+        "on_unreachable": "按 menu_check.fallback_account_keys 顺序换账号重试一轮",
+        "fail_action": "仍不可达则记 BLOCKED 并上报权限特征（menu_check.blocked_report_fields），禁止静默跳过"
+      }
+    },
+    "probe_tables": [],
+    "_comment_probe_tables": "DB 通道探测表清单；默认空=由模块/银行覆盖填充或取用例集声明数据依赖表，禁止硬编码银行真实表名",
+    "menu_check": {
+      "fallback_account_keys": ["admin", "branch_admin"],
+      "blocked_report_fields": ["account_key", "target_page", "menu_path", "visible_menu_scope"]
+    }
+  },
+  "data_baseline": {
+    "_comment": "数据基线与清理（F8 沉淀）：执行前记录基线 COUNT → 执行 → 清理 → 基线比对还原；JDBC 直插仅限 UI 不可达状态且必须记录主键+按主键清理",
+    "enabled": true,
+    "baseline_tables": [],
+    "_comment_baseline_tables": "基线比对表清单；默认空=由本次测试模块配置或用例文件前置声明填充（键名 baseline_tables 固定），禁止硬编码银行真实表名",
+    "compare_on_finish": true,
+    "mismatch_action": "报告中列差异表并标注未还原项，禁止静默放过",
+    "jdbc_direct_insert": {
+      "allowed_when": "UI 不可达状态构造",
+      "must_record": "主键值",
+      "cleanup_rule": "按主键精确清理并回读 COUNT=0"
+    }
+  },
+  "param_switch": {
+    "_comment": "参数开关类用例约定（F8 沉淀）：switch/restore SQL 成对，restore 强制执行并回读；参数缓存失效等待时长走 cache_ttl_minutes",
+    "switch_restore_paired": true,
+    "restore_mandatory": true,
+    "restore_verify": "回读参数值确认还原",
+    "cache_ttl_minutes": "${ENV:PARAM_CACHE_TTL_MINUTES:25}",
+    "_comment_cache_ttl": "实测参数缓存失效时长大于20分钟，执行等待/复测时间取大于该观测值（默认25），可按银行覆盖"
+  },
   "test_data": {
     "accounts_file": "test-data/test-accounts.json"
   },

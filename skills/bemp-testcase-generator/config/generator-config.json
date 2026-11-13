@@ -44,6 +44,31 @@
       "url_prefix": "/huisbank/"
     }
   },
+  "sample_verify": {
+    "_comment": "F6 沉淀：用例前置引用任何数据文件（xlsx/csv/脚本等）时必须先读文件核实并写入用例前置描述，不得凭文件名推断内容",
+    "enabled": "on",
+    "check_items": ["row_count", "key_values", "encoding"],
+    "record_to": "case_precondition",
+    "off_behavior": "enabled=off 时跳过实测，但用例前置描述必须标注'样例未实测'风险"
+  },
+  "caliber_change": {
+    "_comment": "F7a 沉淀：缺陷修复改变既有用例预期时强制生成口径变更清单并逐条修订，未同步即提交评审视为 FAIL",
+    "enabled": true,
+    "dimensions": ["dict_row_count", "mapping_code", "column_order", "upper_limit"],
+    "list_columns": ["affected_case", "original_expectation", "new_expectation", "basis"],
+    "revise_rule": "逐条修订受影响条目后再提交评审",
+    "gate": "清单缺失或未修订即提交评审 → 评审判定 FAIL"
+  },
+  "assertion_rules": {
+    "_comment": "F7b 沉淀：断言精确化规则，禁止宽否定断言、宽泛文案与互斥'或'预期",
+    "forbid_broad_negation": true,
+    "broad_negation_pattern": "不包含X类宽否定（如'页面不包含错误'）",
+    "replace_with": "精确段断言（如'机构类型段=[{期望值}]'）",
+    "message_assert": "verbatim",
+    "db_assert_required_fields": ["field_name", "expected_value", "sql_anchor"],
+    "forbid_or_expectation": true,
+    "_comment_or": "预期结果不得用'或'连接互斥行为，互斥分支拆为独立用例"
+  },
   "case_id_prefixes": {
     "COMMON": "通用/登录",
     "BRANCH": "机构管理",

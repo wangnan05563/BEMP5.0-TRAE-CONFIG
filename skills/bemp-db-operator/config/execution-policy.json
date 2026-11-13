@@ -116,15 +116,16 @@
         }
     },
     "cliExecution": {
-        "description": "命令行执行策略 - Oracle DML/DDL通过sqlplus执行，MySQL CLI作为备选",
+        "description": "命令行执行策略 - Oracle DML/DDL走JDBC通道（sqlplus禁用），MySQL CLI作为备选",
         "oracle": {
             "enabled": true,
-            "tool": "sqlplus",
-            "script": "scripts/execute-oracle-sql.ps1",
+            "tool": "jdbc",
+            "script": "scripts/run-oracle-jdbc.ps1",
+            "forbid_sqlplus": true,
             "autoSetNlsLang": true,
             "silenceMode": true,
             "errorPatterns": ["ORA-\\d{5}", "SP2-\\d{4}"],
-            "note": "Oracle MCP仅支持SELECT，DML/DDL必须通过sqlplus命令行执行"
+            "note": "Oracle MCP仅支持SELECT，DML/DDL走JDBC通道；低版本sqlplus客户端与高版本服务端存在ORA-28040认证协议不兼容，禁止本地sqlplus直连（forbid_sqlplus=true），Oracle一律走MCP/JDBC双通道之一"
         },
         "mysql": {
             "enabled": true,
@@ -189,6 +190,34 @@
             "preferRollbackOverScript": true,
             "rollbackPriorityDescription": "安全执行模式下优先使用ROLLBACK回滚事务，仅普通模式使用回退SQL脚本"
         }
+    },
+    "snapshot": {
+        "description": "执行前数据快照降级链 - 步骤4快照策略，备份能力不足时按degradeChain顺序降级",
+        "degradeChain": ["ctas_backup_table", "csv_full_snapshot"],
+        "ctas": {
+            "description": "优先方式：CREATE TABLE AS 备份表",
+            "template": "CREATE TABLE {backup_table} AS SELECT * FROM {table} WHERE {scope}",
+            "backupTableNaming": "{原表名}_BKP_{yyyyMMdd}_{序号}",
+            "requiresDdlPrivilege": true
+        },
+        "csvFallback": {
+            "description": "降级方式：无CREATE TABLE（DDL）权限时导出CSV全量快照",
+            "snapshot_dir": "logs/db-operator/snapshots",
+            "snapshot_format": "csv"
+        },
+        "rollbackPairRequired": true,
+        "rollbackTemplate": "-- ROLLBACK: 按 PK 还原",
+        "note": "两种快照方式都必须附带按主键的回滚SQL对（注释按rollbackTemplate），快照落盘后验证可读，回滚SQL与快照同目录存放"
+    },
+    "paramSwitch": {
+        "description": "参数切换/恢复脚本对约定 - 开关/标志类参数变更必须成对生成（步骤5E）",
+        "pairRequired": true,
+        "switchFileSuffix": ".switch.sql",
+        "restoreFileSuffix": ".restore.sql",
+        "postExecuteReadback": true,
+        "cacheTypeCheck": true,
+        "cache_ttl_minutes": 5,
+        "note": "switch.sql与restore.sql一一对应；执行后立即回读确认；缓存类参数（字典/配置缓存）switch后需等待cache_ttl_minutes再复验，立即复验会读到旧缓存误判失败"
     },
     "logging": {
         "level": "INFO",

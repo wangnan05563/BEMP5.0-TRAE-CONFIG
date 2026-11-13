@@ -1,4 +1,4 @@
-﻿param(
+﻿﻿param(
     # 默认值保留原脚本口径，实际调用以传参为准（禁止在命令里写死其他项目 key）
     [string]$ProjectKey = 'bemp-ext-hnnxbank-org-management',
     [string]$Severities = '',

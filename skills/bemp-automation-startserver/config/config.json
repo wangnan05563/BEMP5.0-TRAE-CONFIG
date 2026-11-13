@@ -9,7 +9,11 @@
     "nodePath": "${ENV:NODE_PATH}",
     "mavenHome": "${ENV:MAVEN_HOME}",
     "mavenLocalRepo": "${ENV:MAVEN_LOCAL_REPO}",
-    "logDir": "${ENV:BEMP_LOG_DIR}"
+    "logDir": "${ENV:BEMP_LOG_DIR}",
+    "java_home_override": {
+      "_doc": "组件级 JAVA_HOME 覆盖（F2）：key=服务名，值必须为 ${ENV:VAR} 占位符（真值统一在 _shared/env-config.json），用于某组件仅兼容特定 JDK 版本而系统默认不符的场景（实证：高版本 JDK 启动组件引发 dubbo InaccessibleObjectException，见 docs/troubleshooting.md §10.7）。PreCheck 校验组件级 JAVA_HOME 与本配置一致；未列出的组件沿用 global.javaHome。默认空对象=不覆盖任何组件，行为不变",
+      "_example_placeholder": "${ENV:JAVA_HOME_FOR_COMPONENT}"
+    }
   },
   "profiles": {
     "hnnxbank": {
@@ -92,6 +96,10 @@
   },
   "launch": {
     "method": "wmi-detached",
+    "launch_mode": "detached",
+    "double_check_intervals_sec": [3, 10],
+    "detached_log_dir": "${ENV:BEMP_LOG_DIR}",
+    "freshness_check": "on",
     "readinessPollSec": 1,
     "healthCheckTimeoutSec": 300,
     "healthCheckRetries": 3,

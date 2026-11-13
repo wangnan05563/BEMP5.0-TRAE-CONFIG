@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "文档生成模板降级链配置",
+  "description": "无版式模板时的两级降级：模板驱动 -> 结构化生成。模板缺失/不匹配时以数据表为主完成交付，不阻塞。教训来源：技能仅持有 JSON 结构模板而无 docx 版式模板时，实测降级 python-docx 结构化生成成功交付。",
+  "version": "1.0.0",
+  "createdAt": "2026-11-13",
+  "_comment": "本文件为文档模板降级链的唯一配置源。降级链结构与各级行为全部配置化，禁止在流程或脚本中硬编码降级逻辑。",
+
+  "configInheritance": {
+    "_comment": "配置继承机制：技能级配置（默认）→ 项目级配置（覆盖）→ 银行级配置（覆盖）",
+    "levels": [
+      {
+        "level": "skill",
+        "description": "技能级默认配置（本文件）",
+        "path": "config/template-fallback.json",
+        "priority": 1
+      },
+      {
+        "level": "project",
+        "description": "项目级覆盖配置（可选）",
+        "path": "config/template-fallback.override.json",
+        "priority": 2
+      },
+      {
+        "level": "bank",
+        "description": "银行级覆盖配置（通过 bank config 的 templateFallback 字段）",
+        "path": "config/banks/<银行代码>.json -> templateFallback",
+        "priority": 3
+      }
+    ],
+    "mergeStrategy": "deep-merge，子级覆盖父级同名字段，数组整体替换不合并"
+  },
+
+  "fallback_chain": {
+    "_comment": "两级降级链：模板驱动 -> 结构化生成。逐级尝试，成功即停。",
+    "default": ["template-driven", "structured-generation"],
+    "stopOnSuccess": true,
+    "levels": {
+      "template-driven": {
+        "condition": "项目 .docx 模板可用，且其版式结构与目标文档类型匹配（章节/表格可定位）",
+        "action": "模板驱动填充（既有管线：模板预处理 -> 章节填充 -> 后处理 -> 校验）",
+        "registration": null,
+        "registrationNote": "未降级无需登记"
+      },
+      "structured-generation": {
+        "condition": "模板缺失、损坏，或模板版式与目标文档类型不匹配（章节定位失败/表格结构不符）",
+        "action": "结构化生成：docx 用 python-docx 从零构建，Excel 走 excel-custom 管线；正文以数据表为主",
+        "registration": "mandatory",
+        "registrationNote": "必须在交付 README 登记降级信息，登记字段见 delivery_readme_registration_fields"
+      }
+    }
+  },
+
+  "existenceCheck": {
+    "_comment": "模板存在性按命令级核验（Test-Path 等价命令），索引命中不作为存在依据；章节定位试运行失败即视为版式不匹配",
+    "retriesBeforeFallback": 1,
+    "retriesNote": "模板路径定位失败仅重试 1 次即进入下一级，禁止反复重试模板路径"
+  },
+
+  "chart_missing_policy": {
+    "_comment": "图表缺失不阻塞文档交付：全部图表引擎失败时以数据表呈现对应信息",
+    "allow_blocking": false,
+    "fallback_presentation": "data-table"
+  },
+
+  "delivery_readme_registration_fields": [
+    "fallback_triggered",
+    "fallback_reason",
+    "generation_method",
+    "layout_diff_summary"
+  ],
+  "delivery_readme_registration_note": "fallback_reason 须附证据（模板路径核验结果/章节定位失败输出）；layout_diff_summary 描述与模板版式的差异点"
+}

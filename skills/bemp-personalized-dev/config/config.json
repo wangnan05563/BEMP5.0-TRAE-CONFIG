@@ -219,6 +219,42 @@
         "judgeFieldValues",
         "judgeConclusion"
       ]
+    },
+    "fixClosure": {
+      "note": "P10 缺陷修复闭环（P-C+F3 教训）：定位→最小修复→编译/语法自检→提交→生效核验→回归复验，六步顺序完整执行，缺一步不算闭环",
+      "enabled": true,
+      "steps": ["locate", "minFix", "buildCheck", "commit", "effectiveCheck", "regressionReverify"],
+      "build_cmd": "由 config/compile-deploy.json 的 compile 节组装：{javacPath} -encoding {encoding} -cp {classpathFile} -d {outputDir} {sourceFile}；前端为项目构建/语法检查命令；禁止在流程中硬编码具体命令",
+      "commit_template": "【${ENV:BANK_NAME}】个性化开发【{requirement}】",
+      "commit_template_note": "{requirement} 为运行时填充的需求/缺陷名占位符（非环境变量）；BANK_NAME 走配置解析链",
+      "effectiveCheck": {
+        "backend": ["jar_mtime >= source_mtime", "process_start >= jar_mtime"],
+        "backendNote": "jar_mtime=部署产物(war/jar)修改时间，source_mtime=源文件修改时间，process_start=服务进程启动时间；三点读取与比较规则参照 config/compile-deploy.json 的 checks，禁止跳过核验直接宣称已生效",
+        "frontend": ["hot_reload_confirmed", "rebuild_output_confirmed"],
+        "frontendNote": "确认热更新生效或重建产物完成，二者满足其一即视为生效"
+      },
+      "minFixOnly": true,
+      "minFixOnlyNote": "最小修复：只改缺陷直接原因代码，禁止顺手重构/优化无关代码；注释写为什么这么改（原因与依据），不写做了什么",
+      "regressionReverify": true,
+      "regressionReverifyNote": "修复 ≠ 验证：回归复验由测试侧执行，修复者不得自验关闭；P0/P1 修复后必须回归验证"
+    },
+    "caliberConflictDiagnosis": {
+      "note": "P11 口径冲突定性（P-D 教训）：UI 行为与需求口径冲突时先溯源再定性，禁止跳过溯源直接按需求改代码",
+      "enabled": true,
+      "trigger": "页面/UI 实际行为与需求（PRD/口头澄清）描述冲突，且无法立即判定归属",
+      "steps": ["blame_source", "db_evidence", "classify", "conclusion"],
+      "blame_cmd_template": "git blame -L {start_line},{end_line} -- {file_path}",
+      "sourceLocations": {
+        "product_baseline": "产品化基线代码（非本期需求引入）",
+        "current_iteration": "本期需求新增代码"
+      },
+      "dbEvidenceNote": "查询开发库业务表中该口径的实际取值分布，佐证当前规则的真实表现",
+      "classifyRules": {
+        "code_defect": "本期实现与需求不符 → 产出最小修复方案，走 fixClosure 六步闭环",
+        "product_baseline_rule": "产品化既有规则与需求口径冲突 → 不改代码，登记已知限制并建议业务方修订 PRD"
+      },
+      "conclusionRequiredFields": ["rule_source", "classification", "next_action"],
+      "conclusionNote": "结论三要素缺一不可：规则来源（产品化基线/本期新增）+ 定性（代码缺陷/产品化既有规则）+ 下一步（修复/登记限制/修订 PRD）；缺任一项即为无效结论"
     }
   }
 }

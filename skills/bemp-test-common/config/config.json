@@ -60,6 +60,40 @@
     "testIndex": "test-index.json"
   },
 
+  "indexConsistency": {
+    "_comment": "索引自洽三处核对（本轮复盘沉淀）：三处统计不一致视为发布阻塞",
+    "three_way_check": [
+      "用例文件头统计",
+      "文件分组合计",
+      "test-index.json case_count"
+    ],
+    "on_mismatch": "publish_blocked",
+    "checklist": [
+      "文件头'用例合计'数字 = 文件内各分组小计之和",
+      "文件分组合计 = test-index.json 对应条目 case_count（case_count=null 的条目按 1 计并与文件核对）",
+      "新增/删除用例后同步更新文件头统计与 test-index.json，更新后重跑三处核对"
+    ],
+    "note": "核对要点可脚本化，但不新增必须运行的脚本；人工核对或临时脚本核对均可，证据留档"
+  },
+  "namingConvention": {
+    "_comment": "用例文件命名与版本规范（本轮复盘沉淀）；新增用例按此格式，存量三段式编号（testCaseStandards.idFormat）保留兼容，读侧兼容两种格式",
+    "file_pattern": "{domain}-{topic}-{purpose}-{date}.md",
+    "file_pattern_fields": "domain=域缩写, topic=需求主题, purpose=full-functional/increment/defect-recheck 等用途, date=YYYYMMDD",
+    "case_id_pattern": "TC-{module}-{series}-{seq}",
+    "case_id_pattern_fields": "module=模块大写缩写(取 generator-config.json case_id_prefixes), series=需求/系列标识, seq=三位序号",
+    "series_conflict_check": [
+      "新系列前先扫描 test-index.json 已有 series 标识，禁止复用含义不同的同名系列",
+      "同一需求迭代衍生（recheck/increment）沿用原 series，以文件名 purpose/date 区分",
+      "编号分配沿用 bemp-testcase-generator/config/testcase-prefix-coordination.json 的 max+1 规则，同 series 跨文件连续编号"
+    ]
+  },
+  "caliberAnchor": {
+    "_comment": "口径基线锚点用法（本轮实证沉淀）：用例预期值以字典/参数实查值为锚点，文件头登记锚点快照",
+    "anchor_snapshot": "on",
+    "register_location": "用例文件头",
+    "snapshot_fields": ["anchor_source", "query_sql_or_config_key", "queried_value", "query_date"],
+    "usage": "用例预期值（字典行数/参数值/码值）不直接写死数值，先实查锚点并在文件头登记快照；口径变更时以快照差异定位受影响用例（配合 bemp-testcase-generator 的 caliber_change 清单逐条修订）"
+  },
   "qualityGates": {
     "caseReview": {
       "passCondition": "严重=0 且 主要=0",

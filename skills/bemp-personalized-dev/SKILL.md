@@ -475,6 +475,7 @@ bemp-personalized-dev/
     - **重启检查**：比较class文件更新时间和SpringBoot启动时间
       - class文件更新于启动之后 → 需要重启
       - 重启命令：`.\start-bemp-env.ps1 -Service springboot -QuickStart -ForceRestart`
+    - **JDK 版本错配特征（F2，编译命令说明）**：默认 JDK 版本高于工程编译目标版本时，部分依赖库反射调用在运行期抛异常（典型如 IllegalAccessError / IncompatibleClassChangeError），表现为"编译通过但启动/运行异常"。因此编译与启动必须使用 [compile-deploy.json](config/compile-deploy.json) `jdk.jdk_home` 指定的 JDK（经配置解析链取值），禁止直接调用系统默认 java/javac；遇到上述特征先核对实际使用的 JDK 是否为配置指定版本，再排查代码
     - **常见遗漏**：
       - 只编译未复制class → 旧代码仍在运行
       - 只复制class未重启 → JVM仍加载旧class
@@ -547,3 +548,54 @@ bemp-personalized-dev/
    - 交付称"已完成"但未附编译/测试证据 → 视为未闭环
    - 新增业务字面量散落在 if 判断或 mapper 里 → 违反 constantManagement
 5. **提交纯净性甄别【强制】**：按 [workspace-baseline-policy.json](config/workspace-baseline-policy.json) 的 `commitPolicy` 执行——每任务独立 commit、仅 add 甄别为 taskChange 的文件；提交后按 `postCommitVerify` 用 `git show --stat HEAD` 核对文件清单与甄别结果完全一致（提交说明风格从 `git log` 最近提交提取，不硬编码）；工作区保留其他任务未提交改动属常态（`allowUntrackedInWorkspace`），不得为"干净"而回滚他人工作
+
+### 修复闭环检查单【条件强制：缺陷修复类任务】
+
+**配置文件**：[config.json](config/config.json) 的 `developmentWorkflow.fixClosure`（P10）；编译/部署/重启参数复用 [compile-deploy.json](config/compile-deploy.json)，禁止硬编码命令与路径
+
+按以下六步顺序完整执行，缺一步不算修复闭环：
+
+| 步骤 | 要求 | 交付证据 |
+|------|------|---------|
+| 1 定位（locate） | 给出缺陷证据（日志/截图/复现路径）+ 具体文件与行号，禁止凭经验直接猜改 | 证据原文关键行 |
+| 2 最小修复（minFix） | 只改缺陷直接原因代码，不顺手重构/优化无关代码；注释写"为什么这么改"（原因与依据），不写做了什么 | 最小 diff |
+| 3 编译/语法自检（buildCheck） | 后端按 `fixClosure.build_cmd`（组装自 compile-deploy.json compile 节）编译通过；前端按配置构建/语法检查无错 | 编译输出关键行 |
+| 4 提交（commit） | 提交说明按 `fixClosure.commit_template` 生成；提交前按 workspace-baseline-policy 甄别纯净性 | commit 记录 |
+| 5 生效核验（effectiveCheck） | 后端：`jar_mtime >= source_mtime` 且 `process_start >= jar_mtime`（三点读取与比较见 `fixClosure.effectiveCheck.backend`）；前端：确认热更新生效或重建产物完成（`effectiveCheck.frontend` 两条件满足其一） | 时间点核对结果 / 构建产物时间 |
+| 6 回归复验（regressionReverify） | 修复 ≠ 验证：回归复验由测试侧执行，修复者不得自验关闭；P0/P1 修复后必须回归验证 | 复验用例结果 |
+
+**常见遗漏**：
+- 只编译未部署/只部署未重启 → 生效核验第 5 步的两个时间点比较会直接暴露，禁止跳过核验直接宣称已生效
+- 修复时顺手调整无关代码 → 违反最小修复，回归范围失控
+- 修复者自己点一遍页面就关闭缺陷 → 角色不分离，必须由验证侧复验
+
+### 口径冲突定性流程【条件强制：UI 行为与需求口径冲突】
+
+**配置文件**：[config.json](config/config.json) 的 `developmentWorkflow.caliberConflictDiagnosis`（P11）
+
+**触发条件**：页面/UI 实际行为与需求（PRD/口头澄清）描述冲突，且无法立即判定归属。
+
+1. **溯源规则来源**（blame_source）：按 `blame_cmd_template` 对冲突规则代码执行 git blame，判定规则来自产品化基线还是本期新增（`sourceLocations` 两分类）；禁止跳过溯源直接按需求改代码
+2. **开发库数据佐证**（db_evidence）：查询开发库业务表中该口径的实际取值分布，佐证当前规则的真实表现
+3. **定性分流**（classifyRules）：
+   - `code_defect`：本期实现与需求不符 → 产出最小修复方案，走"修复闭环检查单"六步
+   - `product_baseline_rule`：产品化既有规则与需求口径冲突 → **不改代码**，登记已知限制，并建议业务方修订 PRD
+4. **结论三要素**（conclusionRequiredFields）：任何定性结论必须同时包含——规则来源（产品化基线/本期新增）+ 定性（代码缺陷/产品化既有规则）+ 下一步（修复/登记限制/修订 PRD）；三要素缺一即为无效结论，禁止输出
+
+**常见遗漏**：
+- 需求方说"应该是这样"就直接改 → 若是产品化既有规则，改动将影响其他复用方，必须先溯源
+- 结论只写"已修复"不写规则来源与定性 → 下轮复盘无法追溯决策依据
+
+## 适用与不适用场景
+
+**适用**（满足任一即进入本技能）：
+- 任务要求在个性化目录内新增功能、修改既有行为或修复缺陷
+- 需求涉及前端页面/后端服务/数据库脚本/外部接口适配的增量改造
+- 缺陷需要"定位→修复→编译部署→生效核验→回归复验"的完整闭环
+- UI 行为与需求口径冲突，需要溯源定性后再决定改不改代码
+
+**不适用**（命中任一则改用其他方式）：
+- 任务是纯代码审查（无编码动作） → 转代码评审通道
+- 任务是批量测试执行与用例管理 → 转测试执行通道
+- 变更目标不属于个性化范围（产品化代码改造需另行评估影响面与授权）
+- 需求仅为答疑或数据查询，无代码与脚本产出 → 直接答复，不进入开发流程

@@ -1,6 +1,6 @@
 ---
 name: "bemp-testcase-generator"
-version: "2.1.0"
+version: "2.2.0"
 description: "BEMP 票据系统测试用例生成技能。基于五步方法论（功能地图→优先级矩阵→P0用例设计→案例集扩展→测试数据准备），融合11种测试类型与10种组件测试设计，通过 Playwright MCP 自动探索网站、Oracle/MySQL MCP 准备数据，生成高质量测试用例。支持代码审查类用例生成（注解值/错误文案/逻辑验证/配置验证4种模板）与测试方式自动选择判断（代码审查/Playwright/数据库查询/运行时测试）。"
 whenToUse: "需要编写/设计/生成测试用例、制作功能地图、构建优先级矩阵、准备测试数据、审查测试用例、生成代码审查类用例、判断测试方式时调用"
 triggers:
@@ -248,6 +248,9 @@ bemp-testcase-generator/
 | `excel_output` | Excel 输出配置（enabled/doc_type/auto_generate/output_dir/filename_pattern/cli_command） |
 | `banks` | 多银行配置（active_bank + 各银行 url_prefix） |
 | `case_id_prefixes` | 24 个模块缩写与编号规则 |
+| `sample_verify` | 引用数据文件实测开关（on|off）与核实项（行数/键值/编码） |
+| `caliber_change` | 口径变更清单机制（触发维度/四列清单/评审门禁） |
+| `assertion_rules` | 断言精确化规则（禁宽否定/文案逐字/DB断言三要素/禁互斥'或'） |
 
 > ⚠️ **银行环境同步**：`generator-config.json` 与 `bemp-webapp-testing/config/test_config.json` 各自维护 `active_bank` 字段。编写用例前应读取 `test_config.json` 确认当前测试环境的 `active_bank`，确保生成的用例与执行环境一致。切换银行时两个配置需同步更新。
 
@@ -274,6 +277,40 @@ bemp-testcase-generator/
 | `selection_workflow` | 选择判断流程（5 步） |
 | `self_check_rules` | 测试方式标注自校验规则（3 项检查） |
 | `config_inheritance` | 三级配置继承机制（skill → project → bank） |
+
+## 复盘沉淀规则（F6/F7a/F7b）
+
+> 来源：本轮"审批&指导利率改造"实测复盘。以下规则参数均走 `config/generator-config.json`，文档只引用配置键。
+
+### 引用数据文件实测（F6）
+
+用例前置引用任何数据文件（xlsx/csv/脚本等）时，**必须先读文件核实**（行数/键值/编码，核实项走 `sample_verify.check_items`）并将实测结果写入用例前置描述（`sample_verify.record_to`）；**不得凭文件名推断内容**。
+
+- 开关：`sample_verify.enabled`（on|off）；off 时跳过实测，但前置描述必须标注"样例未实测"风险（`sample_verify.off_behavior`）
+
+### 口径变更清单（caliber-change，F7a）
+
+当缺陷修复改变既有用例预期（触发维度走 `caliber_change.dimensions`：字典行数/映射码值/列序/上限值）时，**强制生成四列口径变更清单**（列定义走 `caliber_change.list_columns`）：
+
+| 既有用例 | 原预期 | 新预期 | 依据 |
+|----------|--------|--------|------|
+
+并逐条修订受影响条目后再提交评审。
+
+- 门禁：**未同步（清单缺失或未修订）即提交评审 → 评审判定 FAIL**（`caliber_change.gate`）
+
+### 断言精确化（F7b）
+
+按 `assertion_rules` 配置逐条执行：
+
+1. **禁止宽否定断言**（`forbid_broad_negation`）：不得写"不包含X"类宽否定，改为精确段断言（如"机构类型段=[普通]"，模式见 `replace_with`）
+2. **文案断言逐字**（`message_assert=verbatim`）：与规格/代码锚点逐字比对（锚点背书见 `references/assertion-anchoring.md`）
+3. **DB 断言三要素**（`db_assert_required_fields`）：字段名 + 期望值 + 查询SQL锚点，缺一不可
+4. **禁止互斥"或"预期**（`forbid_or_expectation`）：预期结果不得用"或"连接互斥行为，互斥分支拆为独立用例
+
+### 评审必修项闭环
+
+评审 FAIL（严重/主要>0）→ 编制方逐条修正 → 复评核验闭环 → PASS 才进执行；**不回退重编，就地修**。修正与复评可多轮，直至复评通过。
 
 ## 智能体操作指南
 
@@ -435,3 +472,16 @@ node scripts/cli.js \
 |:---|:---|:---|
 | 测试用例 Excel | `bemp-test-common/test-cases/excel/{module}-SIT测试用例-{date}.xlsx` | xlsx |
 | Excel 内 Sheet | 测试用例明细 + 测试用例汇总 | 双 Sheet |
+
+## 适用与不适用场景
+
+**适用**：
+- 需要编写/设计/生成/修订 BEMP 测试用例（含缺陷修复后的既有用例预期同步）
+- 用例前置引用数据文件（xlsx/csv/脚本），需实测核实后编制
+- 缺陷修复改变既有用例预期口径（字典行数/映射码值/列序/上限值），需生成口径变更清单
+- 评审 FAIL 后的必修项就地修正与复评闭环
+
+**不适用**：
+- 用例执行（走 `bemp-webapp-testing` / `bemp-chrome-devtools-test`）
+- 共享资源（功能地图/优先级矩阵/索引）的维护仲裁（走 `bemp-test-common`）
+- 数据库 SQL 落库执行（走 `bemp-implementation-engineer` + DB MCP 通道）

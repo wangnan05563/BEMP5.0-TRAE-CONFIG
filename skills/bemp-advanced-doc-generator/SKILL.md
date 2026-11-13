@@ -96,6 +96,27 @@ Output:
 
 仅适用于 testreport 类型。版本号 `v{major}.{minor}`，7步迭代工作流，最多迭代10次。
 
+## 模板降级链
+
+> 配置源：[config/template-fallback.json](config/template-fallback.json) 的 `fallback_chain`（默认值即两级：模板驱动/结构化生成）。逐级尝试，成功即停。
+
+| 级别 | 进入条件 | 行为 | 交付登记 |
+|------|---------|------|---------|
+| 1 模板驱动 | 项目 .docx 模板可用，且版式结构与目标文档类型匹配（章节/表格可定位） | 走既有模板填充管线（阶段2-6） | 无需登记 |
+| 2 结构化生成 | 模板缺失/损坏，或版式与目标文档类型不匹配（章节定位失败/表格结构不符） | docx 用 python-docx 从零构建、Excel 走 excel-custom 管线；正文以数据表为主 | 必须在交付 README 登记降级原因（附核验证据）、生成方式、版式差异点（字段见 `delivery_readme_registration_fields`） |
+
+**降级判定流程**（existenceCheck）：模板存在性按命令级核验（索引命中不算存在）→ 章节定位试运行；定位失败仅重试 1 次即进入第 2 级，禁止反复重试模板路径。
+
+**图表缺失不阻塞**（`chart_missing_policy.allow_blocking=false`）：图表全部引擎失败时以数据表呈现对应信息，不中断交付。
+
+## 数据一致性红线
+
+> 配置源：[config/quality-checklist.json](config/quality-checklist.json) `checks.data-consistency-check`（QC008）。阻断级（blocking），不通过不得交付。
+
+1. **统计逐项一致**（`statisticsConsistency`）：文档中的统计值（用例数/通过率/缺陷数与缺陷 commit 引用）必须与数据源文件逐项比对一致，禁止手改数字
+2. **禁止美化**（`noBeautification`）：BLOCKED/未执行/已知限制必须如实写入文档，不得转为通过或静默省略
+3. **生成后自检清单**（`postGenerationSelfCheck.checklist`，全部通过才交付）：文件可打开 / 章节齐全 / 表格行数=数据源记录数 / 文件大小 >0
+
 ## 三级配置继承体系（v13.0）
 
 所有配置文件支持三级继承：技能级（默认）→ 项目级（覆盖）→ 银行级（覆盖）。
@@ -107,7 +128,8 @@ Output:
 | 配置文件 | 用途 |
 |---------|------|
 | `config/chart-tools.json` | 图表工具混合方案（12种图表 + 5级降级链） |
-| `config/quality-checklist.json` | 交付文档质量审核清单（7类审核项） |
+| `config/quality-checklist.json` | 交付文档质量审核清单（8类审核项，含 QC008 数据一致性） |
+| `config/template-fallback.json` | 文档模板降级链（模板驱动 → 结构化生成两级，降级登记与图表缺省策略） |
 | `config/report-versioning.json` | 测试报告版本迭代管理 |
 | `config/excel-doc-types.json` | Excel从零生成文档类型定义 |
 | `config/banks/<银行代码>.json` | 银行级个性化配置 |
@@ -196,3 +218,16 @@ node scripts/cli.js -t excel-custom --excel-doc-type test-case-custom --md-files
 |------|------|---------|
 | [DETAILS.md](./DETAILS.md) | 图表混合方案、质量审核、版本迭代、章节填充策略、文档内容管理、蓝色文本清理、xlsx模板填充、银行级配置、Excel从零生成 | 需要了解详细操作逻辑、配置参数、管线细节时 |
 | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | 失败处理矩阵、复盘经验、适用/不适用场景、通用化设计原则 | 遇到失败场景需要排查、了解历史问题和对策时 |
+
+## 适用与不适用场景
+
+**适用**（满足任一即进入本技能）：
+- 任务要求产出结构化交付文档（设计类/报告类/用例类），且存在可解析的数据源（需求文本/代码扫描结果/测试结果文件）
+- 已有版式模板且需按模板填充内容
+- 模板缺失但接受以结构化方式生成，并在交付说明中登记差异
+
+**不适用**（命中任一则改用其他方式）：
+- 任务是编写或修改业务代码 → 转开发通道
+- 仅有文档阅读/摘录需求，无新文档产出 → 直接阅读，不进入生成管线
+- 数据源文件缺失或为空 → 先补齐数据源；禁止虚构内容填充文档
+- 输出物是交互式问答或演示说明，非正式交付文档 → 不进入本管线

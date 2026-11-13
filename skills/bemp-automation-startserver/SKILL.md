@@ -76,7 +76,7 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 - **依赖就绪等待**：应用层启动前 `Wait-Port` 等 Redis+ZK 端口就绪，避免 dubbo 注册失败。
 - **健康探活**：端口 `Listen` + HTTP 探活（**`/` 返回 404 即视为存活**，BEMP API 无根路由，`expectedStatus=[200,404]`）+ 致命日志关键字扫描（`ClassNotFoundException`/`APPLICATION FAILED TO START`/`javax.servlet.Filter` 等）。
 - **进程新鲜度核验（P17）**：本轮存在代码变更（编译/修复）时，重启完成后必须在启动报告中报告"新进程启动时间 vs 本次编译/产物时间"——进程启动时间早于产物时间=加载旧代码（健康检查全绿也无法发现），由测试侧 runtime-code-version-check 复核；详见 docs/troubleshooting.md §10.6。
-- **WMI 脱离式启动**：`Win32_Process.Create` 使服务进程脱离启动会话存活（规避 PS5.1 `Start-Process` 的 `Path/PATH` 环境块冲突与回合结束被杀）；用 `.cmd` wrapper 内部 `>> log 2>&1` 重定向绕开 cmd 引号坑。
+- **WMI 脱离式启动**：`Win32_Process.Create` 使服务进程脱离启动会话存活（规避 PS5.1 `Start-Process` 的 `Path/PATH` 环境块冲突与回合结束被杀）；用 `.cmd` wrapper 内部 `>> log 2>&1` 重定向绕开 cmd 引号坑。脱离存活判定与日志目录约定见下文《脱离式启动（detached）》。
 
 ## 命令模板
 
@@ -132,10 +132,52 @@ node    "..\_shared\load-config.js"  --file "<本技能配置路径>"  --get <a.
 4. **Frontend**：`npm run dev` + `NODE_OPTIONS=--max_old_space_size=8192` + 注入 Node 14 到 PATH。
 5. **PS5.1 坑规避**：脚本 ASCII 注释（防 GBK 解码乱码）；`Get-Content -Encoding UTF8`（防中文 JSON 乱码）；`$ProgressPreference='SilentlyContinue'`（消 `Invoke-WebRequest` 进度噪声）；`Get-ByPath` 兼容 hashtable 与 PSCustomObject；HTTP 探活对 4xx/5xx 从 `Exception.Response.StatusCode` 取码。
 
-## 适用 / 不适用
+## 脱离式启动（detached）
 
-- ✅ 适用：BEMP 多银行切换、服务需脱离启动进程存活、Windows PS5.1（无可靠 `Start-Process` 环境块）、外置/内嵌 Tomcat 的 `java -cp` 启动、开发环境可复现拉起。
-- ❌ 不适用：容器化/k8s（用 Docker Compose/Deployment）、需崩溃自拉起看门狗（用 supervisor/RestartPolicy）、非 Windows 无 WMI（用 systemd/nohup）、强一致跨服务事务、超大规模编排、需 stdin 交互的服务。
+长驻服务必须与发起启动的 shell 会话解耦，否则父会话结束（回合结束/终端关闭/会话中断）会连带杀死全部子服务。行为约定（模式由 `config.json` → `launch.launch_mode` 控制，`detached` 为默认值）：
+
+- **父进程判据**：脱离式启动成功后，服务进程的父进程必须为 `WmiPrvSE`（WMI 提供程序宿主），与发起 shell 无父子关系；可用 `Get-CimInstance Win32_Process` 比对 `ParentProcessId` 验证。
+- **存活双复验**：启动后按 `launch.double_check_intervals_sec` 配置的间隔序列执行两次**独立**端口复验，两次全通才判 detached 存活——仅第一次通过可能是端口释放竞态，不作数。间隔值一律读配置，不得写死。
+- **禁止前台直跑**：禁止在会话内前台 RunCommand 直跑长驻进程——该方式进程随会话存亡，会话中断即服务全掉；仅 `launch_mode=attached`（临时诊断模式，会话结束进程退出）例外。
+- **日志重定向**：启动输出重定向到 `launch.detached_log_dir` 指定目录下的按服务命名日志文件（目录真值走配置解析，默认引用 `logDir` 同源环境变量），诊断以日志文件为准，不依赖控制台回显。
+- **PreCheck 失败处理（既有规则保持不变）**：PreCheck 失败 → 列失败项 + 修复建议，不跳过启动。
+
+## 组件级 JAVA_HOME 覆盖（PreCheck）
+
+系统默认 JDK 与某组件要求的 JDK 版本不一致时（实证：高版本 JDK 启动组件引发 dubbo `InaccessibleObjectException`，特征与解法登记于 docs/troubleshooting.md §10.7），按 `config.json` → `global.java_home_override` 做组件级覆盖：
+
+- 配置结构：key=服务名，值=`${ENV:VAR}` 占位符（真值在 `_shared/env-config.json`）；未列出的组件沿用 `global.javaHome`。
+- **PreCheck 新增校验项**：组件级 JAVA_HOME 与配置一致——实际解析出的 JAVA_HOME 与 `global.java_home_override.<服务名>`（未配置时为 `global.javaHome`）比对，不一致即 PreCheck FAIL，列失败项 + 修复建议，不跳过启动。
+- 换机器/升级系统 JDK 后必须重跑 PreCheck，不得直接启动。
+
+## 代码新鲜度三点核验（freshness_check）
+
+`launch.freshness_check=on`（默认）时，每次启动/重启完成后执行三点核验，防止"健康检查全绿但跑的是旧代码"（与 P17 进程新鲜度核验同链，见 docs/troubleshooting.md §10.6）：
+
+```
+artifact_mtime < process_start_time   （产物先于进程启动 → 进程加载的是该产物）
+artifact_mtime ≥ source_mtime         （产物不旧于源码 → 产物含最新修复）
+```
+
+- 任一不等式不成立 → 判定旧代码风险 → 走门禁通道重启目标服务 → 重启后复验。
+- **跨提交等价性验证（可选）**：产物与源码分属不同提交时 mtime 比对可能失真，可改用 patch-id 等价性验证（对产物对应提交与最新源码提交做补丁等价比对，等价即视为新鲜）。
+- **重启拓扑连带行为**：`-ForceRestart` 重启某服务时会按 `dependencies` 拓扑**连带重启其依赖**（实证：对应用层服务执行 -ForceRestart 连带重启了 redis/zookeeper）。规避：①依赖已健康且无需变更时，先 `-Status` 确认再决策，避免误连带；②确需连带重启时，依赖就绪等待与复验机制自动兜底，接受额外等待；③连带重启完成后必须重跑三点核验。
+
+## 适用与不适用场景
+
+✅ 适用：
+- 需要在长会话工具链中拉起多个相互依赖的长驻服务，且服务必须脱离发起会话存活（会话中断不拖垮服务）
+- 运行环境为 Windows PowerShell 5.x，缺乏可靠的 `Start-Process` 环境块隔离
+- 服务可用 `java -cp`（外置/内嵌容器）或 npm dev 命令直接拉起，参数可完全配置化表达
+- 同一套编排需在多套业务 profile / 多台机器间切换，要求路径与端口零脚本硬编码
+- 组件间 JDK 版本要求不一致，需按组件覆盖运行时（`java_home_override`）
+
+❌ 不适用：
+- 容器化/k8s 编排（应使用 Compose/Deployment 及其探针体系）
+- 需要崩溃后自动拉起的看门狗语义（应使用 supervisor/RestartPolicy 类机制）
+- 非 Windows 且无 WMI 的环境（应使用 systemd/nohup 等会话脱离原语）
+- 需 stdin 交互的服务、强一致跨服务分布式事务、超大规模服务编排
+- 要求"启动后零等待即刻可用"的场景——本技能的存活判定含双间隔复验与新鲜度核验，调用方需接受复验等待
 
 ## 详细文档（渐进式披露）
 

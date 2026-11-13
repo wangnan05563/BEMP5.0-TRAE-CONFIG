@@ -48,6 +48,34 @@
     "quality": "fullPage"
   },
 
+  "evidence": {
+    "_comment": "证据落盘降级链（F10）：MCP 截图受文件根限制可能静默失败（png 未生成），png 失败必须降级为文本证据落盘；报告必须标注每条结论的证据形态，禁止把内联会话截图当作已落盘证据",
+    "evidence_dir": "aotutests-devtools\\evidence",
+    "text_naming_pattern": "step{number}_{operation}_evidence.txt",
+    "text_evidence_sources": ["snapshot_key_nodes", "network_response_raw", "console_messages_raw"],
+    "record_evidence_form": true
+  },
+
+  "ui_framework": {
+    "_comment": "数据网格交互模式（F9）配置：组件选中状态键名。下列默认值仅为常见组件库的示例占位，禁止当作确定值直接使用——首次使用前必须先探测目标页面组件实例的真实键名（遍历组件实例 data 中选中相关键），并将真实键名回填到项目级/银行级覆盖配置",
+    "grid_state_keys": {
+      "selected_data_list": "${ENV:GRID_KEY_SELECTED_LIST:currentSelectList}",
+      "selected_ids": "${ENV:GRID_KEY_SELECTED_IDS:selectIds}",
+      "selected_rows": "${ENV:GRID_KEY_SELECTED_ROWS:selects}",
+      "single_selected": "${ENV:GRID_KEY_SINGLE_SELECTED:currentSelect}"
+    }
+  },
+
+  "verification_discipline": {
+    "_comment": "验证类任务纪律：本技能执行验证任务时的行为边界",
+    "no_code_change": true,
+    "no_code_change_note": "只做验证与必要浏览器交互（导航/点击/填表/截图/读取），不修改前端/后端/SQL 代码；发现缺陷只记录并分类，不在本技能内修复",
+    "modification_rollback_required": true,
+    "modification_rollback_note": "验证必需的修改类操作（测试数据修复 SQL/配置临时变更）必须先产出可回滚方案（还原 SQL 或还原步骤）再执行，验证完成后执行还原",
+    "blocked_continue_next": true,
+    "blocked_continue_next_note": "单条用例 BLOCKED 时记录原因后继续执行不依赖它的下一条，禁止整体停摆；仅当阻塞影响全部后续步骤（服务不可达/登录失败）才终止并输出报告"
+  },
+
   "reports": {
     "output_dir": "aotutests-devtools\\reports",
     "template": "assets\\verification-report-template.md",

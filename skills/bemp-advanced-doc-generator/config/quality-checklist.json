@@ -299,6 +299,36 @@
           "testreport": ["测试用例结果表", "缺陷统计表", "测试结论表"]
         }
       }
+    },
+
+    "data-consistency-check": {
+      "id": "QC008",
+      "label": "数据一致性检查",
+      "description": "交付文档中的统计数据必须与数据源文件逐项一致，禁止美化（数据一致性红线）",
+      "severity": "blocking",
+      "enabled": true,
+      "rules": {
+        "statisticsConsistency": {
+          "description": "文档中的统计值（用例数/通过率/缺陷数与缺陷 commit 引用等）必须与数据源文件逐项比对一致，禁止手改数字",
+          "checkMethod": "对文档每个统计值回溯其数据源文件（用例清单/测试结果/缺陷台账），逐项比对",
+          "action": "发现不一致则报告并修正为数据源真实值"
+        },
+        "noBeautification": {
+          "description": "禁止美化统计结果：BLOCKED/未执行/已知限制必须如实写入，不得转为通过或静默省略",
+          "checkMethod": "数据源中 BLOCKED/失败/跳过状态在文档中必须以原状态出现",
+          "action": "发现状态被美化（BLOCKED 计为通过/已知限制被删除）则报告"
+        },
+        "postGenerationSelfCheck": {
+          "description": "生成后自检清单，全部通过才可交付",
+          "checklist": [
+            "file_openable: 文件可正常打开（docx/xlsx 解析无异常）",
+            "chapters_complete: 章节齐全（对照 chapter-structure-check 的 requiredChapters）",
+            "row_count_match: 表格行数与数据源记录数一致",
+            "size_above_zero: 文件大小 > 0"
+          ],
+          "action": "任一项不通过则阻断交付并修复后重检"
+        }
+      }
     }
   },
 

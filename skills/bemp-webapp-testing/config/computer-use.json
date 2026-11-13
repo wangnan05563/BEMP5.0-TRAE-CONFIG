@@ -1,0 +1,53 @@
+{
+  "_comment": "L3 桌面兜底（Computer Use）平台适配配置。移植到其他平台时只改本文件的 mcp 节点，references/computer-use-guide.md 无需变更。",
+  "version": "1.0.0",
+  "enabled": true,
+
+  "mcp": {
+    "server_name": "${ENV:CU_MCP_SERVER_NAME:ide_mcp.config.ext.computer-use}",
+    "_server_name_comment": "computer-use MCP 服务名。Trae 默认值保持不变；WorkBuddy 等平台改为其实际服务名，或用环境变量 CU_MCP_SERVER_NAME 覆盖。",
+    "invoke": "exec_run_mcp",
+    "_invoke_comment": "exec_run_mcp=经 Exec 以 tools.run_mcp 调用（Trae）；native_tools=直接调用平台原生 computer-use 工具（无 Exec 的平台）。",
+    "tool_names": {
+      "_comment": "标准工具名 → 平台实际工具名。与标准名一致时保持原值；平台命名不同则改右侧值。",
+      "list_apps": "list_apps",
+      "get_app_state": "get_app_state",
+      "launch_app": "launch_app",
+      "click": "click",
+      "type_text": "type_text",
+      "press_key": "press_key",
+      "scroll": "scroll",
+      "drag": "drag",
+      "perform_action": "perform_action",
+      "set_value": "set_value",
+      "select_text": "select_text"
+    }
+  },
+
+  "defaults": {
+    "disable_screenshot": true,
+    "_disable_screenshot_comment": "true=仅取 UI Automation 语义树；需要视觉证据或坐标操作时单次改为 false 重新观察。",
+    "disable_diff": false,
+    "wait_ms": 500,
+    "max_observe_retries": 3,
+    "max_actions_per_batch": 20
+  },
+
+  "screenshot": {
+    "dir": "aotutests-playwright/screenshots/{bank_id}/{yyyy-MM}",
+    "filename": "{bank_id}_{case_id}_l3_{step}_{timestamp}.png"
+  },
+
+  "verification": {
+    "secondary_sources": ["playwright_snapshot", "playwright_evaluate", "database", "api"],
+    "require_secondary_before_pass": true,
+    "_comment": "L3 动作成功不等于用例通过，必须由任一二次来源证实业务结果后才可回填 PASS。"
+  },
+
+  "safety": {
+    "environment": "test_only",
+    "_environment_comment": "仅测试环境允许 L3 操作，生产地址直接拒绝。",
+    "confirm_required": ["delete_data", "install_software", "captcha", "payment", "permission_change", "sensitive_data_transfer"],
+    "auto_allowed": ["download_file", "read_only_observe"]
+  }
+}
